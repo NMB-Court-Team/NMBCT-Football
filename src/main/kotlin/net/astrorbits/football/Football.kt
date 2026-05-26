@@ -48,6 +48,27 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     override fun tick() {
         super.tick()
 
+        if (level().isClientSide) {
+            clientTick()
+            return
+        }
+
+        serverTick()
+    }
+
+    private fun clientTick() {
+        if (tickCount == 1) {
+            loadPhysicsFromEntityData()
+        } else {
+            applySyncedPhysicsFromEntityData()
+        }
+
+        previousOrientation.set(physicsState.orientation)
+        FootballPhysicsSimulator.integrateOrientation(physicsState)
+        deltaMovement = physicsState.linearVelocity
+    }
+
+    private fun serverTick() {
         if (tickCount == 1) {
             loadPhysicsFromEntityData()
         }
@@ -78,10 +99,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         FootballPhysicsSimulator.integrateOrientation(physicsState)
 
         deltaMovement = physicsState.linearVelocity
-
-        if (!level().isClientSide) {
-            syncPhysicsToEntityData()
-        }
+        syncPhysicsToEntityData()
     }
 
     fun kick(kickPoint: Vec3, direction: Vec3) {
@@ -89,7 +107,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return
         }
 
-        FootballPhysicsSimulator.applyKick(physicsState, kickPoint, direction, position())
+        val center = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
+        FootballPhysicsSimulator.applyKick(physicsState, kickPoint, direction, center)
+        previousOrientation.set(physicsState.orientation)
         deltaMovement = physicsState.linearVelocity
         syncPhysicsToEntityData()
         syncPacketPositionCodec(x, y, z)
@@ -167,21 +187,32 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         entityData.set(DATA_ON_GROUND, physicsState.onGround)
     }
 
-    private fun correctClientStateIfNeeded() {
+    private fun applySyncedPhysicsFromEntityData() {
         val syncedLinear = entityData.get(DATA_LINEAR_VEL).toVec3()
         val syncedAngular = entityData.get(DATA_ANGULAR_VEL).toVec3()
         val syncedOnGround = entityData.get(DATA_ON_GROUND)
 
-        if (physicsState.linearVelocity.distanceTo(syncedLinear) > FootballPhysicsConfig.CLIENT_CORRECTION_THRESHOLD) {
-            physicsState.linearVelocity = syncedLinear
+        val linearDelta = physicsState.linearVelocity.distanceTo(syncedLinear)
+        val angularDelta = physicsState.angularVelocity.distanceTo(syncedAngular)
+
+        if (linearDelta > FootballPhysicsConfig.ORIENTATION_RESET_VELOCITY_DELTA ||
+            angularDelta > FootballPhysicsConfig.ORIENTATION_RESET_OMEGA_DELTA
+        ) {
+            FootballPhysicsSimulator.resetRollingOrientation(physicsState)
+            previousOrientation.set(physicsState.orientation)
+        }
+
+        physicsState.linearVelocity = syncedLinear
+        physicsState.angularVelocity = syncedAngular
+        physicsState.onGround = syncedOnGround
+
+        if (linearDelta > FootballPhysicsConfig.CLIENT_CORRECTION_THRESHOLD) {
             lerpMotion(syncedLinear)
         }
+    }
 
-        if (physicsState.angularVelocity.distanceTo(syncedAngular) > FootballPhysicsConfig.CLIENT_CORRECTION_THRESHOLD) {
-            physicsState.angularVelocity = syncedAngular
-        }
-
-        physicsState.onGround = syncedOnGround
+    private fun correctClientStateIfNeeded() {
+        applySyncedPhysicsFromEntityData()
     }
 
     override fun setPos(x: Double, y: Double, z: Double) {

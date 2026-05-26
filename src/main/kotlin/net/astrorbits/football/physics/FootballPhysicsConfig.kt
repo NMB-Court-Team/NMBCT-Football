@@ -36,6 +36,12 @@ object FootballPhysicsConfig {
     /** 低于该水平速度（blocks/tick）² 时视为静止，清零水平线速度与水平自转。 */
     const val STOP_SPEED_SQR = 1.0e-6
 
+    /**
+     * 接地时绕竖直轴（偏航）自转的额外衰减（每 tick 乘数）。
+     * 地面滚动球不应长期绕 Y 轴空转；与 [GROUND_SPIN_FRICTION] 叠乘。
+     */
+    const val GROUND_YAW_SPIN_FRICTION = 0.65
+
     /** 空气阻力系数（每 tick 乘数，0~1）。空中时每 tick 线速度整体乘以该值。 */
     const val AIR_DRAG = 0.99
 
@@ -64,8 +70,26 @@ object FootballPhysicsConfig {
     const val EPSILON = 1.0e-4
 
     /**
-     * 客户端预测校正阈值（blocks/tick）。
-     * 当本地线速度与同步速度之差超过该值时，强制对齐服务端状态并调用 lerpMotion。
+     * 踢球冲量缩放系数。
+     * 命令参数 `force` 与视线方向相乘后再乘本系数得到冲量；`force=1` 时约 0.4 blocks/tick 线速增量。
      */
-    const val CLIENT_CORRECTION_THRESHOLD = 0.5
+    const val KICK_FORCE_SCALE = 0.18
+
+    /**
+     * 对运动中足球再踢时，保留的旧速度「侧向分量」比例（0~1）。
+     * 越小越容易随新踢球方向转向；1 为纯矢量叠加。
+     */
+    const val KICK_MOVING_LATERAL_DAMP = 0.15
+
+    /** 线速度/角速度变化超过该值时重置渲染朝向（blocks/tick 或 rad/tick）。 */
+    const val ORIENTATION_RESET_VELOCITY_DELTA = 0.06
+
+    /** 角速度变化超过该值时重置渲染朝向（rad/tick）。 */
+    const val ORIENTATION_RESET_OMEGA_DELTA = 0.06
+
+    /**
+     * 客户端预测校正阈值（blocks/tick）。
+     * 当本地线速度与同步速度之差超过该值时，调用 lerpMotion 平滑位置。
+     */
+    const val CLIENT_CORRECTION_THRESHOLD = 0.25
 }

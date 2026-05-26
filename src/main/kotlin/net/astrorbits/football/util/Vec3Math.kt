@@ -10,6 +10,16 @@ object Vec3Math {
         return if (lengthSqr < 1.0e-8) fallback else vector.scale(1.0 / Math.sqrt(lengthSqr))
     }
 
+    /**
+     * 无滑滚动的角速度：水平速度 v 对应自转轴为水平方向（垂直于 v）。
+     * 沿 +Z 前进时 ω 沿 +X，符合右手法则。
+     */
+    fun rollingAngularVelocity(horizontalVelocity: Vec3, radius: Double): Vec3 = Vec3(
+        horizontalVelocity.z / radius,
+        0.0,
+        -horizontalVelocity.x / radius
+    )
+
     fun cross(left: Vec3, right: Vec3): Vec3 = left.cross(right)
 
     fun projectOnPlane(vector: Vec3, planeNormal: Vec3): Vec3 {

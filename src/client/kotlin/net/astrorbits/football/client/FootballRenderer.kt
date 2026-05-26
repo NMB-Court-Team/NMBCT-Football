@@ -20,7 +20,7 @@ class FootballRenderer(context: EntityRendererProvider.Context) :
     private val footballStack by lazy { ItemStack(Items.FOOTBALL) }
 
     init {
-        shadowRadius = MODEL_Y_OFFSET
+        shadowRadius = SHADOW_RADIUS
     }
 
     override fun createRenderState(): FootballRenderState = FootballRenderState()
@@ -44,7 +44,8 @@ class FootballRenderer(context: EntityRendererProvider.Context) :
     ) {
         if (!state.item.isEmpty) {
             poseStack.use {
-                translate(0.0f, MODEL_Y_OFFSET, 0.0f)
+                translate(0f, MODEL_Y_OFFSET, 0f)
+                scale(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE)
                 mulPose(state.orientation)
                 state.item.submit(
                     poseStack,
@@ -59,10 +60,12 @@ class FootballRenderer(context: EntityRendererProvider.Context) :
         super.submit(state, poseStack, collector, cameraState)
     }
 
-    override fun getShadowRadius(state: FootballRenderState): Float = MODEL_Y_OFFSET
+    override fun getShadowRadius(state: FootballRenderState): Float = SHADOW_RADIUS
 
     companion object {
-        private val DISPLAY_CONTEXT = ItemDisplayContext.GROUND
-        private val MODEL_Y_OFFSET = FootballPhysicsConfig.RADIUS.toFloat()
+        private val DISPLAY_CONTEXT = ItemDisplayContext.NONE
+        private const val SHADOW_RADIUS = FootballPhysicsConfig.RADIUS.toFloat()
+        private const val MODEL_Y_OFFSET = 0.375f
+        private const val MODEL_SCALE = 0.6f
     }
 }

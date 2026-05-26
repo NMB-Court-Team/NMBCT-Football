@@ -92,9 +92,10 @@ object CollisionUtil {
         val targetOmegaZ = -newVx / radius
         val newOmegaX = state.angularVelocity.x + (targetOmegaX - state.angularVelocity.x) * coupling
         val newOmegaZ = state.angularVelocity.z + (targetOmegaZ - state.angularVelocity.z) * coupling
+        val newOmegaY = state.angularVelocity.y * FootballPhysicsConfig.GROUND_YAW_SPIN_FRICTION
 
         state.linearVelocity = Vec3(newVx, state.linearVelocity.y, newVz)
-        state.angularVelocity = Vec3(newOmegaX, state.angularVelocity.y, newOmegaZ)
+        state.angularVelocity = Vec3(newOmegaX, newOmegaY, newOmegaZ)
     }
 
     private fun applyStopThreshold(state: FootballPhysicsState) {
@@ -108,7 +109,7 @@ object CollisionUtil {
         }
 
         state.linearVelocity = Vec3(0.0, state.linearVelocity.y, 0.0)
-        state.angularVelocity = Vec3(0.0, state.angularVelocity.y, 0.0)
+        state.angularVelocity = Vec3.ZERO
 
         if (abs(state.linearVelocity.y) < FootballPhysicsConfig.EPSILON) {
             state.linearVelocity = Vec3.ZERO

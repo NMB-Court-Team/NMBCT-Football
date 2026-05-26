@@ -8,7 +8,7 @@
 - **完整方块碰撞**：位移通过 `Entity.move(MoverType.SELF, …)` 完成，复用 Minecraft 的 AABB 与方块碰撞检测。
 - **可踢、可弹、可滚**：支持偏心踢球（产生扭矩）、地面弹性、摩擦与滚动耦合。
 - **球门网（蜘蛛网）**：球进入蜘蛛网区域时显著减速，可用于两端球门。
-- **多人同步**：服务端权威；客户端用相同算法预测，并在偏差过大时校正。
+- **多人同步**：服务端权威；客户端读取同步速度并积分朝向，不再本地重复位移模拟。
 
 ## 架构概览
 
@@ -56,7 +56,7 @@ flowchart TB
 
 ## 状态变量
 
-`FootballPhysicsState` 在服务端与客户端各有一份本地副本（客户端用于预测）。
+`FootballPhysicsState` 在服务端与客户端各有一份本地副本（客户端仅用于渲染朝向积分）。
 
 | 字段                | 含义                       | 是否同步到客户端              |
 |-------------------|--------------------------|-----------------------|
@@ -70,7 +70,7 @@ flowchart TB
 
 ## 每 tick 计算流程
 
-以下顺序在 `Football.tick()` 中执行（服务端与客户端逻辑相同，仅同步写入在服务端进行）。
+以下顺序在 **服务端** `Football.serverTick()` 中执行；客户端每 tick 从 `SynchedEntityData` 读取线速度/角速度，仅积分 `orientation`。
 
 ### 1. 空气力与重力（`applyAirForces`）
 
@@ -135,12 +135,15 @@ v_z ≈  r · ω_x
 仅在**服务端**调用；客户端通过同步数据看到结果。
 
 ```text
-冲量 F = direction          // 模长 = direction.length()，方向 = direction 归一化方向
+冲量 F = direction × KICK_FORCE_SCALE   // direction 模长 = 命令 force；默认 scale=0.18
 Δv = F / MASS
 Δω = (kickPoint - 球心) × F / INERTIA
 ```
 
-- `kickPoint`：力的作用点（世界坐标）。作用点偏离球心时，叉积产生扭矩，足球获得自转。
+`force=1` 时线速增量约 **0.4 blocks/tick**（原先约 2.2）；`force=3` 约 1.2，适合中等射门力度。
+
+- `kickPoint`：力的作用点（世界坐标）；水平方向在球心后方偏移一个半径。命令 `height` 为相对球心的竖直偏移（格，0=赤道）；偏高/偏低会在水平踢球时产生额外滚动扭矩（仍抑制绕 Y 轴偏航）。
+- 踢球后根据水平线速度设置 **滚动自转** `ω_x = v_z/r`、`ω_z = -v_x/r`，`ω_y = 0`。
 - `direction`：冲量向量，其长度即“力”的大小。
 
 踢球后立即同步 `SynchedEntityData` 并调用 `syncPacketPositionCodec`。
@@ -174,7 +177,7 @@ sequenceDiagram
 | 侧       | 行为                                                                                                    |
 |---------|-------------------------------------------------------------------------------------------------------|
 | **服务端** | 权威模拟；`kick` 仅在此执行；每 tick 写入 `SynchedEntityData`                                                       |
-| **客户端** | 每 tick 运行相同物理代码做**预测**；`onSyncedDataUpdated` 时若线速度与服务端相差超过 `0.5` blocks/tick，则硬同步并 `lerpMotion` 减轻瞬移感 |
+| **客户端** | 每 tick 应用同步的 `linearVelocity` / `angularVelocity`；**不**本地 `move`；速度突变（含运动中再踢）时重置 `orientation` |
 
 `orientation` 不同步：两端各自用相同 `angularVelocity` 积分，在一般情况下与预测一致。
 
@@ -208,7 +211,8 @@ sequenceDiagram
 ## 相关命令与物品（便于测试）
 
 - `/football summon`：在命令来源处生成足球
-- `/football kick <force>`：朝视线方向踢附近足球
+- `/football kick <force>`：朝视线水平方向踢附近足球（`height` 省略时为球心高度）
+- `/football kick <force> <height>`：`height` 为踢击点相对球心的竖直偏移（格，约 -0.5~1.0）
 - 足球物品右键：在瞄准方块表面放置足球实体
 
 ## 客户端渲染
