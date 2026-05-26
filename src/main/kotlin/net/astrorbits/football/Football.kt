@@ -2,6 +2,7 @@ package net.astrorbits.football
 
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
+import net.astrorbits.football.util.CobwebUtil
 import net.astrorbits.football.util.FootballPhysicsSimulator
 import net.astrorbits.football.util.QuaternionMath
 import net.minecraft.core.registries.BuiltInRegistries
@@ -60,6 +61,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             verticalCollisionBelow,
             onGround()
         )
+
+        physicsState.inCobweb = false
+        if (CobwebUtil.isIntersectingCobweb(level(), boundingBox)) {
+            CobwebUtil.applyCobwebDrag(physicsState)
+        }
+
         previousOrientation.set(physicsState.orientation)
         FootballPhysicsSimulator.integrateOrientation(physicsState)
 

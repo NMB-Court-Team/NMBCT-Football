@@ -7,5 +7,6 @@ data class FootballPhysicsState(
     var linearVelocity: Vec3 = Vec3.ZERO,
     var angularVelocity: Vec3 = Vec3.ZERO,
     var onGround: Boolean = false,
+    var inCobweb: Boolean = false,
     var orientation: Quaternionf = Quaternionf()
 )
