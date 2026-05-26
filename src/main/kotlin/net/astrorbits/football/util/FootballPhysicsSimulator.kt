@@ -28,9 +28,18 @@ object FootballPhysicsSimulator {
         state: FootballPhysicsState,
         horizontalCollision: Boolean,
         verticalCollisionBelow: Boolean,
-        onGround: Boolean
+        onGround: Boolean,
+        intendedMotion: Vec3,
+        actualMotion: Vec3
     ) {
-        CollisionUtil.resolveCollisions(state, horizontalCollision, verticalCollisionBelow, onGround)
+        CollisionUtil.resolveCollisions(
+            state,
+            horizontalCollision,
+            verticalCollisionBelow,
+            onGround,
+            intendedMotion,
+            actualMotion
+        )
     }
 
     fun integrateOrientation(state: FootballPhysicsState) {

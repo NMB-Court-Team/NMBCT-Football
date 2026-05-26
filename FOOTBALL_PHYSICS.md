@@ -96,17 +96,18 @@ move(MoverType.SELF, linearVelocity)
 | 条件                    | 处理                                                   |
 |-----------------------|------------------------------------------------------|
 | 接地且 `v_y < 0`         | 竖直反弹：`v_y ← -v_y × RESTITUTION`                      |
-| 接地                    | 水平摩擦：`v_x, v_z ← v_x, v_z × GROUND_FRICTION`；并执行滚动耦合 |
-| `horizontalCollision` | 水平分量衰减：`v_x, v_z ← v_x, v_z × WALL_RESTITUTION`      |
+| 接地                    | 水平摩擦：`v_x, v_z × GROUND_FRICTION`；角速度 `ω × GROUND_SPIN_FRICTION`；双向滚动耦合 |
+| `horizontalCollision` | 对比本 tick **意图位移**与**实际位移**：被挡轴的速度分量清零，其余轴 `× WALL_RESTITUTION` |
+| 贴墙几乎不动              | 跳过滚动耦合，并对 `ω` 施加 `STUCK_SPIN_DRAG`，避免从自转持续泵入线速度 |
 
-**滚动耦合**（仅接地）：无滑滚动近似下，水平线速度与角速度应满足：
+**滚动耦合**（接地且未贴墙卡住时）：无滑滚动近似下，水平线速度与角速度应满足：
 
 ```text
 v_x ≈ -r · ω_z
 v_z ≈  r · ω_x
 ```
 
-其中 `r` 为 `RADIUS`（`0.25`）。每 tick 将当前 `(v_x, v_z)` 向目标值拉近，拉近比例为 `ROLL_COUPLING`（默认 `0.15`）。
+其中 `r` 为 `RADIUS`（`0.25`）。每 tick **双向**拉近线速度与水平自转（`ROLL_COUPLING`，默认 `0.15`），避免只把 `ω` 灌进 `v` 导致越滚越快。水平速度低于 `STOP_SPEED_SQR` 时清零水平 `v` 与水平 `ω`。
 
 ### 4. 蜘蛛网阻力（`CobwebUtil`）
 
@@ -209,6 +210,17 @@ sequenceDiagram
 - `/football summon`：在命令来源处生成足球
 - `/football kick <force>`：朝视线方向踢附近足球
 - 足球物品右键：在瞄准方块表面放置足球实体
+
+## 客户端渲染
+
+足球实体使用 **物品模型 + 物理四元数** 绘制，不在渲染器内重复积分角速度。
+
+- **资源**：`assets/nmbct-football/models/item/football.json` 等，经 `ItemModelResolver.updateForNonLiving(..., ItemDisplayContext.GROUND, entity)` 解析为 `ItemStackRenderState`。
+- **朝向**：每帧 `Football.getOrientation(partialTick)`（`previousOrientation` 与当前 `orientation` 的 `slerp`），在 `FootballRenderer.submit` 中 `mulPose(orientation)`。
+- **矩阵栈**：`PoseStack.use { }`（`client/PoseStackExtensions.kt`）包裹平移与旋转，避免遗漏 `popPose`。
+- **管线（MC 26.1+）**：实体渲染走 `submit` + `SubmitNodeCollector`，物品层调用 `ItemStackRenderState.submit`；Y 偏移为碰撞半径 `RADIUS`（0.25），与 AABB 中心对齐。
+
+若模型偏移或大小不对，优先调 `FootballRenderer` 内 `translate` 或 `ItemDisplayContext`；若旋转与运动不一致，应检查 `Football.tick` 中的 `integrateOrientation` 与同步，而非渲染器。
 
 ---
 

@@ -24,6 +24,18 @@ object FootballPhysicsConfig {
     /** 地面切向摩擦系数（每 tick 乘数，0~1）。接地时水平速度每 tick 乘以该值，越小减速越快。 */
     const val GROUND_FRICTION = 0.92
 
+    /** 地面自转摩擦系数（每 tick 乘数，0~1）。接地时角速度每 tick 乘以该值，防止撞墙后空转加速。 */
+    const val GROUND_SPIN_FRICTION = 0.92
+
+    /**
+     * 贴墙/几乎静止时的自转衰减（每 tick 乘数）。
+     * 水平被挡且线速度很小时额外施加，避免原地越转越快。
+     */
+    const val STUCK_SPIN_DRAG = 0.65
+
+    /** 低于该水平速度（blocks/tick）² 时视为静止，清零水平线速度与水平自转。 */
+    const val STOP_SPEED_SQR = 1.0e-6
+
     /** 空气阻力系数（每 tick 乘数，0~1）。空中时每 tick 线速度整体乘以该值。 */
     const val AIR_DRAG = 0.99
 

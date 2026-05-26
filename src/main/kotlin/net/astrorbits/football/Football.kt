@@ -29,11 +29,14 @@ import org.joml.Vector3fc
 class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     private val physicsState = FootballPhysicsState()
     private val previousOrientation = Quaternionf()
+    /** [Entity] 构造过程中会调用 [setPos]，此时尚未执行属性初始化器。 */
+    private var fieldsInitialized = false
 
     init {
         isNoGravity = true
         requiresPrecisePosition = true
         blocksBuilding = false
+        fieldsInitialized = true
     }
 
     override fun defineSynchedData(entityData: SynchedEntityData.Builder) {
@@ -53,13 +56,17 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
         val movement = physicsState.linearVelocity
         deltaMovement = movement
+        val beforeMove = position()
         move(MoverType.SELF, movement)
+        val actualMotion = position().subtract(beforeMove)
 
         FootballPhysicsSimulator.resolveCollisions(
             physicsState,
             horizontalCollision,
             verticalCollisionBelow,
-            onGround()
+            onGround(),
+            movement,
+            actualMotion
         )
 
         physicsState.inCobweb = false
@@ -179,9 +186,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     override fun setPos(x: Double, y: Double, z: Double) {
         super.setPos(x, y, z)
-        if (level().isClientSide) {
-            previousOrientation.set(physicsState.orientation)
+        if (!fieldsInitialized || !level().isClientSide) {
+            return
         }
+        previousOrientation.set(physicsState.orientation)
     }
 
     companion object {
