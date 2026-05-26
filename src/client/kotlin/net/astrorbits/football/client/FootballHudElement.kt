@@ -10,72 +10,61 @@ class FootballHudElement : HudElement {
 
 	override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
 		val font = Minecraft.getInstance().font
-		val timerText = MatchState.formatTime()
+		val timer = MatchState.formatTime()
 		val teamA = MatchState.teamAName
 		val teamB = MatchState.teamBName
-		val scoreA = MatchState.teamAScore.toString()
-		val scoreB = MatchState.teamBScore.toString()
+		val sa = MatchState.teamAScore.toString()
+		val sb = MatchState.teamBScore.toString()
 
-		val timerW = font.width(timerText)
-		val teamAW = font.width(teamA)
-		val teamBW = font.width(teamB)
-		val scoreAW = font.width(scoreA)
-		val scoreBW = font.width(scoreB)
-		val sepW = font.width(SEP)
+		val panelW = PAD + T_W + GAP + NAME_W + GAP + S_W + GAP + D_W + GAP + S_W + GAP + NAME_W + PAD
+		val cy = Y + H / 2 - font.lineHeight / 2
 
-		val rowW = timerW + GAP_L + teamAW + GAP_S + scoreAW + GAP_S + sepW + GAP_S + scoreBW + GAP_L + teamBW
-		val panelW = rowW + PAD * 2 + BAR_W
-		val panelH = font.lineHeight + PAD * 2
+		extra.fill(X, Y, X + panelW, Y + H, BAR)
 
-		// Background
-		extra.fill(BAR_X, BAR_Y, BAR_X + panelW, BAR_Y + panelH, BG)
-		// Accent bar
-		extra.fill(BAR_X, BAR_Y, BAR_X + BAR_W, BAR_Y + panelH, ACCENT)
+		var cx = X + PAD
 
-		val y = BAR_Y + PAD
-		var x = BAR_X + BAR_W + PAD
+		extra.text(font, timer, cx, cy, TIMER, true)
+		cx += T_W + GAP
 
-		// Timer
-		extra.text(font, timerText, x, y, TIMER, false)
-		x += timerW + GAP_L
+		cx += drawName(extra, font, teamA, cx, cy, RED, true)
+		cx += GAP
+		cx += drawScore(extra, font, sa, cx, cy)
+		cx += GAP
+		extra.text(font, SEP, cx + D_W / 2 - font.width(SEP) / 2, cy, DIM, true)
+		cx += D_W + GAP
+		cx += drawScore(extra, font, sb, cx, cy)
+		cx += GAP
+		drawName(extra, font, teamB, cx, cy, CYAN, false)
+	}
 
-		// Team A
-		extra.text(font, teamA, x, y, TEAM_A, false)
-		x += teamAW + GAP_S
+	private fun drawName(extra: GuiGraphicsExtractor, font: net.minecraft.client.gui.Font, text: String, x: Int, y: Int, color: Int, rightAlign: Boolean): Int {
+		val w = font.width(text)
+		val tx = if (rightAlign) x + NAME_W - w else x
+		extra.text(font, text, tx, y, color, true)
+		return NAME_W
+	}
 
-		// Score A
-		extra.text(font, scoreA, x, y, WHITE, false)
-		x += scoreAW + GAP_S
-
-		// Separator
-		extra.text(font, SEP, x, y, GRAY, false)
-		x += sepW + GAP_S
-
-		// Score B
-		extra.text(font, scoreB, x, y, WHITE, false)
-		x += scoreBW + GAP_L
-
-		// Team B
-		extra.text(font, teamB, x, y, TEAM_B, false)
+	private fun drawScore(extra: GuiGraphicsExtractor, font: net.minecraft.client.gui.Font, text: String, x: Int, y: Int): Int {
+		extra.fill(x, Y + 3, x + S_W, Y + H - 3, SCORE_BOX)
+		extra.text(font, text, x + S_W / 2 - font.width(text) / 2, y, WHITE, true)
+		return S_W
 	}
 
 	companion object {
-		private const val BAR_X = 10
-		private const val BAR_Y = 10
-		private const val BAR_W = 2
-		private const val PAD = 10
-
-		private const val GAP_L = 14
-		private const val GAP_S = 8
-
 		private const val SEP = "-"
 
-		private val BG = 0xCC0A0A14.toInt()
-		private val ACCENT = 0xFFFFD700.toInt()
-		private val TIMER = 0xFFCCCCCC.toInt()
-		private val TEAM_A = 0xFFFF6B6B.toInt()
-		private val TEAM_B = 0xFF4ECDC4.toInt()
+		private const val X = 8; private const val Y = 8; private const val H = 22
+		private const val PAD = 10
+		private const val T_W = 42; private const val NAME_W = 48
+		private const val S_W = 26; private const val D_W = 14
+		private const val GAP = 6
+
+		private val BAR = 0xDD111122.toInt()
+		private val SCORE_BOX = 0x22FFFFFF
+		private val TIMER = 0xFFFFD700.toInt()
+		private val RED = 0xFFFF4444.toInt()
+		private val CYAN = 0xFF44CCFF.toInt()
 		private val WHITE = 0xFFFFFFFF.toInt()
-		private val GRAY = 0xFF666666.toInt()
+		private val DIM = 0xFF777777.toInt()
 	}
 }
