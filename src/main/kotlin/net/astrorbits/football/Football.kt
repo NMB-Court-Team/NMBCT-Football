@@ -30,8 +30,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     private val previousOrientation = Quaternionf()
 
     init {
-        setNoGravity(true)
-        setRequiresPrecisePosition(true)
+        isNoGravity = true
+        requiresPrecisePosition = true
         blocksBuilding = false
     }
 
@@ -51,7 +51,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         FootballPhysicsSimulator.applyAirForces(physicsState)
 
         val movement = physicsState.linearVelocity
-        setDeltaMovement(movement)
+        deltaMovement = movement
         move(MoverType.SELF, movement)
 
         FootballPhysicsSimulator.resolveCollisions(
@@ -63,7 +63,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         previousOrientation.set(physicsState.orientation)
         FootballPhysicsSimulator.integrateOrientation(physicsState)
 
-        setDeltaMovement(physicsState.linearVelocity)
+        deltaMovement = physicsState.linearVelocity
 
         if (!level().isClientSide) {
             syncPhysicsToEntityData()
@@ -76,7 +76,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
 
         FootballPhysicsSimulator.applyKick(physicsState, kickPoint, direction, position())
-        setDeltaMovement(physicsState.linearVelocity)
+        deltaMovement = physicsState.linearVelocity
         syncPhysicsToEntityData()
         syncPacketPositionCodec(x, y, z)
     }
@@ -178,6 +178,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     companion object {
+        fun init() {
+            // static init
+        }
+
         private val DATA_LINEAR_VEL: EntityDataAccessor<Vector3fc> = SynchedEntityData.defineId(
             Football::class.java,
             EntityDataSerializers.VECTOR3

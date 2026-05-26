@@ -1,6 +1,7 @@
 package net.astrorbits.football
 
 import net.fabricmc.api.ModInitializer
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.minecraft.resources.Identifier
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -13,9 +14,12 @@ object NMBCTFootball : ModInitializer {
 	fun id(path: String): Identifier = Identifier.fromNamespaceAndPath(MOD_ID, path)
 
 	override fun onInitialize() {
-		@Suppress("UNUSED_EXPRESSION")
-		Football.ENTITY_TYPE
-		FootballCommands.register()
+		Football.init()
+
+		CommandRegistrationCallback.EVENT.register { dispatcher, _, _ ->
+			FootballCommand.register(dispatcher)
+		}
+
 		LOGGER.info("NMBCT Football initialized")
 	}
 }
