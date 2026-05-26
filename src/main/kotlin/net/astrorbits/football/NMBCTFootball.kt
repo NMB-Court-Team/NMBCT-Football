@@ -1,5 +1,6 @@
 package net.astrorbits.football
 
+import net.astrorbits.football.item.Items
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.minecraft.resources.Identifier
@@ -14,6 +15,7 @@ object NMBCTFootball : ModInitializer {
 	fun id(path: String): Identifier = Identifier.fromNamespaceAndPath(MOD_ID, path)
 
 	override fun onInitialize() {
+		Items.init()
 		Football.init()
 
 		CommandRegistrationCallback.EVENT.register { dispatcher, _, _ ->

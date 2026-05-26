@@ -1,6 +1,6 @@
 {
     "model": {
         "type": "minecraft:model",
-        "model": "nmbct-football:item/soccer"
+        "model": "nmbct-football:item/football"
     }
 }

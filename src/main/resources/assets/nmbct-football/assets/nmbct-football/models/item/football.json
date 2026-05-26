@@ -3,8 +3,8 @@
 	"credit": "Made with Blockbench",
 	"texture_size": [64, 64],
 	"textures": {
-		"0": "nmbct-football:item/soccer",
-		"particle": "nmbct-football:item/soccer"
+		"0": "nmbct-football:item/football",
+		"particle": "nmbct-football:item/football"
 	},
 	"elements": [
 		{
