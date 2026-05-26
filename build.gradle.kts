@@ -26,6 +26,12 @@ loom {
 			sourceSet(sourceSets.getByName("client"))
 		}
 	}
+
+	runs {
+		named("client") {
+			getVmArgs().removeAll { it.startsWith("--sun-misc-unsafe-memory-access") }
+		}
+	}
 }
 
 dependencies {
