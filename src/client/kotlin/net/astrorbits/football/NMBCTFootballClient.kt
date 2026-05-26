@@ -1,4 +1,4 @@
-package net.astrorbits.football.client
+package net.astrorbits.football
 
 import net.fabricmc.api.ClientModInitializer
 
