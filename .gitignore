@@ -41,4 +41,5 @@ replay_*.log
 
 .github/
 .git/
+/.claude/
 .kotlin/
