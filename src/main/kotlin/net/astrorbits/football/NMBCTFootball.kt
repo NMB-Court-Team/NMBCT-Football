@@ -13,6 +13,9 @@ object NMBCTFootball : ModInitializer {
 	fun id(path: String): Identifier = Identifier.fromNamespaceAndPath(MOD_ID, path)
 
 	override fun onInitialize() {
-
+		@Suppress("UNUSED_EXPRESSION")
+		Football.ENTITY_TYPE
+		FootballCommands.register()
+		LOGGER.info("NMBCT Football initialized")
 	}
 }

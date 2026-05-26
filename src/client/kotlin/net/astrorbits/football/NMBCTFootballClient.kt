@@ -1,9 +1,11 @@
 package net.astrorbits.football
 
+import net.astrorbits.football.client.FootballRenderer
 import net.fabricmc.api.ClientModInitializer
+import net.minecraft.client.renderer.entity.EntityRenderers
 
 object NMBCTFootballClient : ClientModInitializer {
 	override fun onInitializeClient() {
-		// This entrypoint is suitable for setting up client-specific logic, such as rendering.
+		EntityRenderers.register(Football.ENTITY_TYPE, ::FootballRenderer)
 	}
 }
