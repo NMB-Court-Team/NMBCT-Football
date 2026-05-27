@@ -35,10 +35,10 @@ object FootballInputConfig {
     const val CHIP_FORCE = 1.4
 
     /** 挑球时相对水平面的基础仰角（度）；正值为向上。 */
-    const val CHIP_ANGLE_DEG = 42.0
+    const val CHIP_ANGLE_DEG = 50
 
     /** 挑球仰角随玩家视线微调的额外上限（度），叠加在 [CHIP_ANGLE_DEG] 之上。 */
-    const val CHIP_ANGLE_EXTRA_MAX = 13.0
+    const val CHIP_ANGLE_EXTRA_MAX = 20
 
     /**
      * 挑球触球点相对球心的竖直偏移（格）。
@@ -46,11 +46,38 @@ object FootballInputConfig {
      */
     const val CHIP_HEIGHT_OFFSET = -0.15
 
-    /** 带球时每次轻推的力度。 */
-    const val DRIBBLE_FORCE = 0.4
+    /** 运球目标点：玩家脚前方水平距离（格）。 */
+    const val DRIBBLE_TARGET_DISTANCE = 0.9
 
-    /** 按住带球键时，两次轻推之间的间隔（tick）。 */
-    const val DRIBBLE_INTERVAL_TICKS = 4
+    /** 运球 session 最大控制距离（格）；超出则结束 session。 */
+    const val DRIBBLE_MAX_CONTROL_RANGE = 2.5
+
+    /** 未收到 DRIBBLE_HOLD 心跳超过该 tick 数则自动结束 session。 */
+    const val DRIBBLE_SESSION_TIMEOUT_TICKS = 6
+
+    /** 客户端 DRIBBLE_HOLD 发包间隔（tick）。 */
+    const val DRIBBLE_HOLD_PACKET_INTERVAL = 2
+
+    /** 位置误差 → 速度修正（PD 控制器 P 项）。 */
+    const val DRIBBLE_POSITION_GAIN = 0.35
+
+    /** 速度误差 → 速度修正（PD 控制器 D 项）。 */
+    const val DRIBBLE_VELOCITY_GAIN = 0.55
+
+    /** 每 tick 最大速度修正量（blocks/tick）。 */
+    const val DRIBBLE_MAX_CORRECTION = 0.12
+
+    /** 球速跟随玩家水平速度的比例（0~1）。 */
+    const val DRIBBLE_SPEED_MATCH = 0.85
+
+    /** 侧向偏移拉回力度（0~1）；越小侧向跟得越紧。 */
+    const val DRIBBLE_LATERAL_GAIN = 0.5
+
+    /** session 开始时可选轻触球力度；0 表示关闭。 */
+    const val DRIBBLE_TOUCH_FORCE = 0.08
+
+    /** 球在空中时位置拉回增益缩放（减弱吸地感）。 */
+    const val DRIBBLE_AIR_POSITION_SCALE = 0.25
 
     /** 踢球键按下时长低于该值（毫秒）视为短按，触发传球。 */
     const val TAP_MAX_MS = 250L

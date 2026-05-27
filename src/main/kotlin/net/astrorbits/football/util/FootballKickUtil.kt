@@ -68,7 +68,7 @@ object FootballKickUtil {
     fun resolveChipParams(player: Player): KickParams {
         val look = player.lookAngle
         val pitchUp = look.y.coerceAtLeast(0.0)
-        val extraAngle = (pitchUp * 40.0).coerceAtMost(FootballInputConfig.CHIP_ANGLE_EXTRA_MAX)
+        val extraAngle = (pitchUp * 40.0).coerceAtMost(FootballInputConfig.CHIP_ANGLE_EXTRA_MAX.toDouble())
         return KickParams(
             force = FootballInputConfig.CHIP_FORCE,
             angleDegrees = FootballInputConfig.CHIP_ANGLE_DEG + extraAngle,
@@ -93,13 +93,13 @@ object FootballKickUtil {
         football.kick(kickPoint, direction)
     }
 
-    fun applyDribbleToFootball(player: Player, football: Football) {
+    fun applyDribbleTouch(player: Player, football: Football) {
         val direction = resolveDribbleDirection(player)
         if (direction.lengthSqr() < 1.0e-8) {
             return
         }
         val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         val kickPoint = buildKickPoint(ballCenter, direction, 0.0)
-        football.kick(kickPoint, direction.scale(FootballInputConfig.DRIBBLE_FORCE))
+        football.kick(kickPoint, direction.scale(FootballInputConfig.DRIBBLE_TOUCH_FORCE))
     }
 }

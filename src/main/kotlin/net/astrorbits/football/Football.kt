@@ -146,6 +146,22 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         syncPhysicsToEntityData()
     }
 
+    fun applyDribbleAssist(horizontalVelocity: Vec3) {
+        if (level().isClientSide) {
+            return
+        }
+
+        physicsState.linearVelocity = Vec3(
+            horizontalVelocity.x,
+            physicsState.linearVelocity.y,
+            horizontalVelocity.z
+        )
+        val rolling = Vec3Math.rollingAngularVelocity(horizontalVelocity, FootballPhysicsConfig.RADIUS)
+        physicsState.angularVelocity = Vec3(rolling.x, 0.0, rolling.z)
+        deltaMovement = physicsState.linearVelocity
+        syncPhysicsToEntityData()
+    }
+
     fun getRollingDirection(): Vec3 = FootballPhysicsSimulator.getRollingDirection(physicsState)
 
     fun getPhysicsState(): FootballPhysicsState = physicsState

@@ -3,7 +3,8 @@ package net.astrorbits.football.network
 enum class FootballActionType {
     PASS,
     SHOOT,
-    DRIBBLE,
+    DRIBBLE_HOLD,
     TRAP,
-    CHIP
+    CHIP,
+    DRIBBLE_END,
 }

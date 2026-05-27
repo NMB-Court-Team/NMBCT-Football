@@ -28,7 +28,7 @@ object FootballInputHandler {
             val player = client.player
             val level = client.level
             if (player == null || level == null) {
-                resetTransientState()
+                resetTransientState(notifyDribbleEnd = false)
                 return@reg
             }
 
@@ -113,6 +113,9 @@ object FootballInputHandler {
 
     private fun handleDribbleHold(player: LocalPlayer) {
         if (!FootballKeyBindings.DRIBBLE.isDown) {
+            if (dribblePrevTickPressed) {
+                sendAction(FootballActionType.DRIBBLE_END, 0f, 0)
+            }
             dribbleTickCounter = 0
             return
         }
@@ -122,15 +125,15 @@ object FootballInputHandler {
         }
 
         if (getDribbleLongPressState() == LongPressState.STARTED) {
-            dribbleTickCounter = FootballInputConfig.DRIBBLE_INTERVAL_TICKS
+            dribbleTickCounter = FootballInputConfig.DRIBBLE_HOLD_PACKET_INTERVAL
         }
 
         dribbleTickCounter++
-        if (dribbleTickCounter < FootballInputConfig.DRIBBLE_INTERVAL_TICKS) {
+        if (dribbleTickCounter < FootballInputConfig.DRIBBLE_HOLD_PACKET_INTERVAL) {
             return
         }
         dribbleTickCounter = 0
-        sendAction(FootballActionType.DRIBBLE, 0f, buildFlags(player))
+        sendAction(FootballActionType.DRIBBLE_HOLD, 0f, buildFlags(player))
     }
 
     private fun getKickLongPressState(): LongPressState {
@@ -174,7 +177,10 @@ object FootballInputHandler {
         )
     }
 
-    private fun resetTransientState() {
+    private fun resetTransientState(notifyDribbleEnd: Boolean = true) {
+        if (notifyDribbleEnd && (dribblePrevTickPressed || FootballKeyBindings.DRIBBLE.isDown)) {
+            sendAction(FootballActionType.DRIBBLE_END, 0f, 0)
+        }
         kickPressStartMs = null
         resetKickChargeDisplay()
         dribbleTickCounter = 0

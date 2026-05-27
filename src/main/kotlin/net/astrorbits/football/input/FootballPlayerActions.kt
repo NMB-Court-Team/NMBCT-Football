@@ -13,6 +13,45 @@ object FootballPlayerActions {
     private val lastActionTick = ConcurrentHashMap<UUID, Long>()
 
     fun handle(player: ServerPlayer, payload: FootballActionC2SPayload) {
+        when (payload.action) {
+            FootballActionType.DRIBBLE_HOLD -> handleDribbleHold(player)
+            FootballActionType.DRIBBLE_END -> FootballDribbleSessions.end(player)
+            else -> handleKickAction(player, payload)
+        }
+    }
+
+    private fun handleDribbleHold(player: ServerPlayer) {
+        if (!canAct(player)) {
+            FootballDribbleSessions.end(player)
+            return
+        }
+
+        val football = FootballKickUtil.findNearestFootball(player, FootballInputConfig.PLAYER_KICK_RANGE)
+        if (football == null) {
+            FootballDribbleSessions.end(player)
+            return
+        }
+
+        if (player.distanceToSqr(football) > FootballInputConfig.PLAYER_KICK_RANGE * FootballInputConfig.PLAYER_KICK_RANGE) {
+            FootballDribbleSessions.end(player)
+            return
+        }
+
+        if (!FootballMovementInputUtil.hasMovementInput(player)) {
+            FootballDribbleSessions.end(player)
+            return
+        }
+
+        val now = player.level().gameTime
+        val isNewSession = FootballDribbleSessions.beginOrRefresh(player, football, now)
+        if (isNewSession) {
+            FootballSounds.playDribble(player)
+        }
+    }
+
+    private fun handleKickAction(player: ServerPlayer, payload: FootballActionC2SPayload) {
+        FootballDribbleSessions.end(player)
+
         if (!canAct(player)) {
             return
         }
@@ -46,14 +85,6 @@ object FootballPlayerActions {
                 FootballSounds.playKick(player)
                 lastActionTick[player.uuid] = now
             }
-            FootballActionType.DRIBBLE -> {
-                if (!FootballMovementInputUtil.hasMovementInput(player)) {
-                    return
-                }
-                FootballKickUtil.applyDribbleToFootball(player, football)
-                FootballSounds.playDribble(player)
-                lastActionTick[player.uuid] = now
-            }
             FootballActionType.TRAP -> {
                 football.trap()
                 FootballSounds.playTrap(player)
@@ -68,6 +99,7 @@ object FootballPlayerActions {
                 FootballSounds.playKick(player)
                 lastActionTick[player.uuid] = now
             }
+            FootballActionType.DRIBBLE_HOLD, FootballActionType.DRIBBLE_END -> Unit
         }
     }
 
