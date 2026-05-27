@@ -1,6 +1,7 @@
 package net.astrorbits.football.util
 
 import net.minecraft.world.phys.Vec3
+import net.astrorbits.football.physics.CollisionBounceResult
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
 import org.joml.Quaternionf
@@ -73,16 +74,14 @@ object FootballPhysicsSimulator {
         onGround: Boolean,
         intendedMotion: Vec3,
         actualMotion: Vec3
-    ) {
-        CollisionUtil.resolveCollisions(
-            state,
-            horizontalCollision,
-            verticalCollisionBelow,
-            onGround,
-            intendedMotion,
-            actualMotion
-        )
-    }
+    ): CollisionBounceResult = CollisionUtil.resolveCollisions(
+        state,
+        horizontalCollision,
+        verticalCollisionBelow,
+        onGround,
+        intendedMotion,
+        actualMotion
+    )
 
     fun integrateOrientation(state: FootballPhysicsState) {
         state.orientation = QuaternionMath.integrate(state.orientation, state.angularVelocity)

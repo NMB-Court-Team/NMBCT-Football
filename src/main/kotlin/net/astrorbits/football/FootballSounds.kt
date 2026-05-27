@@ -7,6 +7,8 @@ import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import net.minecraft.world.level.Level
+import net.astrorbits.football.physics.CollisionBounceResult
+import net.astrorbits.football.physics.FootballPhysicsConfig
 
 /**
  * 本 mod 用到的全部游戏音效。
@@ -24,6 +26,12 @@ import net.minecraft.world.level.Level
  * | [DRIBBLE] | 带球轻推 | 黏液块脚步 |
  * | [TRAP] | 停球 | 羊毛脚步 |
  * | [FOOTBALL_PLACE] | 放置足球物品 | 黏液块放置 |
+ * | [BOUNCE_GROUND] | 球落地反弹 | 黏液块击中 |
+ * | [BOUNCE_WALL] | 球撞墙反弹 | 石头击中 |
+ * | [GK_CATCH] | 守门员接球 / 鱼跃接住 / 脚下放球 | 羊毛脚步 |
+ * | [GK_DIVE] | 守门员鱼跃扑救 | 横扫攻击 |
+ * | [GK_PUNCH] | 守门员拳击解围 / 鱼跃挡出 | 击退攻击 |
+ * | [GK_THROW] | 守门员手抛球（短抛 / 长抛） | 强力攻击 |
  */
 object FootballSounds {
     /**
@@ -103,6 +111,34 @@ object FootballSounds {
         basePitch = 1.0f,
     )
 
+    /**
+     * **落地反弹**：球以足够速度砸向地面并弹起（[playGroundBounce] / [playCollisionBounces]）。
+     *
+     * 期望听感：短促、略闷的触地声，音量与音高随下落速度在 [playScaledImpact] 中缩放。
+     * 替换建议：皮革球触地、短促弹跳或软质方块击中声。
+     */
+    val BOUNCE_GROUND: SoundSpec = SoundSpec(
+        event = SoundEvents.SLIME_BLOCK_HIT,
+        source = SoundSource.BLOCKS,
+        volume = 0.45f,
+        basePitch = 0.85f,
+        pitchSpread = 0.08f,
+    )
+
+    /**
+     * **撞墙反弹**：球以足够速度击中竖直墙面并弹开（[playWallBounce] / [playCollisionBounces]）。
+     *
+     * 期望听感：更硬、更短，与 [BOUNCE_GROUND] 区分；音量与音高随撞墙速度缩放。
+     * 替换建议：墙体撞击、短促回弹或略尖锐的击中声。
+     */
+    val BOUNCE_WALL: SoundSpec = SoundSpec(
+        event = SoundEvents.STONE_HIT,
+        source = SoundSource.BLOCKS,
+        volume = 0.35f,
+        basePitch = 1.05f,
+        pitchSpread = 0.12f,
+    )
+
     fun play(level: Level, pos: BlockPos, spec: SoundSpec, random: RandomSource) {
         level.playSound(
             null,
@@ -126,6 +162,12 @@ object FootballSounds {
         play(player.level(), player.blockPosition(), TRAP, player.random)
     }
 
+    /**
+     * **守门员接球**：站立按 X 接住来球、鱼跃过程中成功摘球、按 X 将球放到脚下（[playGkCatch]）。
+     *
+     * 期望听感：柔和、稳定，像双手/身体把球「兜住」，与场员 [TRAP] 相近但略实。
+     * 替换建议：手套触球、软垫接球或短促布料吸收声。
+     */
     val GK_CATCH: SoundSpec = SoundSpec(
         event = SoundEvents.WOOL_STEP,
         source = SoundSource.PLAYERS,
@@ -133,6 +175,12 @@ object FootballSounds {
         basePitch = 0.95f,
     )
 
+    /**
+     * **守门员鱼跃**：按 R 短按触发扑救位移（[playGkDive]）。
+     *
+     * 期望听感：带风声的扑出动作，短而有动势，不盖过后续触球声。
+     * 替换建议：扑地、滑行或短促挥臂/扫击类动作音效。
+     */
     val GK_DIVE: SoundSpec = SoundSpec(
         event = SoundEvents.PLAYER_ATTACK_SWEEP,
         source = SoundSource.PLAYERS,
@@ -141,6 +189,12 @@ object FootballSounds {
         pitchSpread = 0.08f,
     )
 
+    /**
+     * **守门员拳击解围**：按 V 将球击飞；鱼跃时对过快来球挡出（[playGkPunch]）。
+     *
+     * 期望听感：短、脆、有力，像单拳/单掌把球打离危险区域。
+     * 替换建议：拳击手套击球、快速拍击或硬物短击声。
+     */
     val GK_PUNCH: SoundSpec = SoundSpec(
         event = SoundEvents.PLAYER_ATTACK_KNOCKBACK,
         source = SoundSource.PLAYERS,
@@ -148,6 +202,12 @@ object FootballSounds {
         basePitch = 0.85f,
     )
 
+    /**
+     * **守门员手抛球**：持球时 R 短按短抛、R 蓄力长抛（[playGkThrow]）。
+     *
+     * 期望听感：比 [KICK] 略轻、略低，像手抛而非脚射，与脚法踢球区分。
+     * 替换建议：上手抛球、短距离传球或略闷的出手声。
+     */
     val GK_THROW: SoundSpec = SoundSpec(
         event = SoundEvents.PLAYER_ATTACK_STRONG,
         source = SoundSource.PLAYERS,
@@ -173,5 +233,44 @@ object FootballSounds {
 
     fun playFootballPlace(level: Level, pos: BlockPos, random: RandomSource) {
         play(level, pos, FOOTBALL_PLACE, random)
+    }
+
+    fun playCollisionBounces(level: Level, pos: BlockPos, bounce: CollisionBounceResult, random: RandomSource) {
+        if (bounce.hasGroundBounce) {
+            playGroundBounce(level, pos, bounce.groundImpactSpeed, random)
+        }
+        if (bounce.hasWallBounce) {
+            playWallBounce(level, pos, bounce.wallImpactSpeed, random)
+        }
+    }
+
+    fun playGroundBounce(level: Level, pos: BlockPos, impactSpeed: Double, random: RandomSource) {
+        if (impactSpeed < FootballPhysicsConfig.BOUNCE_SOUND_MIN_GROUND_VY) {
+            return
+        }
+        playScaledImpact(level, pos, BOUNCE_GROUND, impactSpeed, FootballPhysicsConfig.BOUNCE_SOUND_MIN_GROUND_VY, 0.45, random)
+    }
+
+    fun playWallBounce(level: Level, pos: BlockPos, impactSpeed: Double, random: RandomSource) {
+        if (impactSpeed < FootballPhysicsConfig.BOUNCE_SOUND_MIN_WALL_SPEED) {
+            return
+        }
+        playScaledImpact(level, pos, BOUNCE_WALL, impactSpeed, FootballPhysicsConfig.BOUNCE_SOUND_MIN_WALL_SPEED, 0.35, random)
+    }
+
+    /** 按冲击速度缩放音量与音高，避免轻触也大声播放。 */
+    private fun playScaledImpact(
+        level: Level,
+        pos: BlockPos,
+        spec: SoundSpec,
+        impactSpeed: Double,
+        minSpeed: Double,
+        referenceSpeed: Double,
+        random: RandomSource,
+    ) {
+        val t = ((impactSpeed - minSpeed) / referenceSpeed).coerceIn(0.0, 1.0)
+        val volume = spec.volume * (0.45f + 0.55f * t.toFloat())
+        val pitch = spec.resolvePitch(random) * (0.92f + 0.18f * t.toFloat())
+        level.playSound(null, pos, spec.event, spec.source, volume, pitch)
     }
 }

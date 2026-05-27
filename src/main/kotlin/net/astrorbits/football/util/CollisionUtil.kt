@@ -4,6 +4,7 @@ import kotlin.math.abs
 import net.minecraft.world.phys.Vec3
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
+import net.astrorbits.football.physics.CollisionBounceResult
 
 object CollisionUtil {
     fun resolveCollisions(
@@ -13,15 +14,19 @@ object CollisionUtil {
         onGround: Boolean,
         intendedMotion: Vec3,
         actualMotion: Vec3
-    ) {
+    ): CollisionBounceResult {
         state.onGround = onGround || (verticalCollisionBelow && state.linearVelocity.y <= 0.0)
 
         if (state.wallBounceCooldown > 0) {
             state.wallBounceCooldown--
         }
 
+        var groundImpactSpeed = 0.0
         if (state.onGround && state.linearVelocity.y < 0.0) {
             val vy = state.linearVelocity.y
+            if (abs(vy) >= FootballPhysicsConfig.GROUND_SETTLE_VY) {
+                groundImpactSpeed = -vy
+            }
             val settledVy = if (abs(vy) < FootballPhysicsConfig.GROUND_SETTLE_VY) {
                 0.0
             } else {
@@ -34,9 +39,12 @@ object CollisionUtil {
             )
         }
 
+        var wallImpactSpeed = 0.0
         var wallBounced = false
         if (horizontalCollision) {
-            wallBounced = resolveHorizontalWall(state, intendedMotion, actualMotion)
+            val wallResult = resolveHorizontalWall(state, intendedMotion, actualMotion)
+            wallBounced = wallResult.first
+            wallImpactSpeed = wallResult.second
             if (wallBounced) {
                 state.wallBounceCooldown = FootballPhysicsConfig.WALL_BOUNCE_COOLDOWN_TICKS
             }
@@ -69,6 +77,10 @@ object CollisionUtil {
         }
 
         applyStopThreshold(state)
+        return CollisionBounceResult(
+            groundImpactSpeed = groundImpactSpeed,
+            wallImpactSpeed = wallImpactSpeed,
+        )
     }
 
     /**
@@ -79,7 +91,7 @@ object CollisionUtil {
         state: FootballPhysicsState,
         intended: Vec3,
         actual: Vec3
-    ): Boolean {
+    ): Pair<Boolean, Double> {
         val blocked = Vec3Math.horizontal(intended.subtract(actual))
         if (blocked.lengthSqr() < FootballPhysicsConfig.EPSILON * FootballPhysicsConfig.EPSILON) {
             return resolveHorizontalWallByAxis(state, intended, actual)
@@ -89,14 +101,14 @@ object CollisionUtil {
         val horizontalVelocity = Vec3Math.horizontal(state.linearVelocity)
         val approachSpeed = horizontalVelocity.dot(normal)
         if (approachSpeed <= FootballPhysicsConfig.EPSILON) {
-            return false
+            return false to 0.0
         }
 
         val reflected = horizontalVelocity.subtract(
             normal.scale(approachSpeed * (1.0 + FootballPhysicsConfig.WALL_RESTITUTION))
         )
         state.linearVelocity = Vec3(reflected.x, state.linearVelocity.y, reflected.z)
-        return true
+        return true to approachSpeed
     }
 
     /** 向量法线不可靠时的逐轴兜底（使用位移完成比例而非 actual ≈ 0）。 */
@@ -104,16 +116,18 @@ object CollisionUtil {
         state: FootballPhysicsState,
         intended: Vec3,
         actual: Vec3
-    ): Boolean {
+    ): Pair<Boolean, Double> {
         var vx = state.linearVelocity.x
         var vz = state.linearVelocity.z
         val eps = FootballPhysicsConfig.EPSILON
         val ratioLimit = FootballPhysicsConfig.WALL_BLOCK_RATIO
         var bounced = false
+        var impactSpeed = 0.0
 
         if (abs(intended.x) > eps) {
             val completion = abs(actual.x / intended.x)
             if (completion < ratioLimit && vx * intended.x > 0.0) {
+                impactSpeed = maxOf(impactSpeed, abs(vx))
                 vx = -vx * FootballPhysicsConfig.WALL_RESTITUTION
                 bounced = true
             }
@@ -122,17 +136,18 @@ object CollisionUtil {
         if (abs(intended.z) > eps) {
             val completion = abs(actual.z / intended.z)
             if (completion < ratioLimit && vz * intended.z > 0.0) {
+                impactSpeed = maxOf(impactSpeed, abs(vz))
                 vz = -vz * FootballPhysicsConfig.WALL_RESTITUTION
                 bounced = true
             }
         }
 
         if (!bounced) {
-            return false
+            return false to 0.0
         }
 
         state.linearVelocity = Vec3(vx, state.linearVelocity.y, vz)
-        return true
+        return true to impactSpeed
     }
 
     /**

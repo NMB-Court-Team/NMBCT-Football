@@ -6,6 +6,7 @@ import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.Font
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.KeyMapping
 import net.minecraft.client.player.LocalPlayer
@@ -35,7 +36,12 @@ class FootballKeybindHintHudElement : HudElement {
         val font = client.font
         val screenW = client.window.guiScaledWidth
         val rows = buildHintRows().map { (key, labelKey) ->
-            HintRow(key.translatedKeyMessage.string, Component.translatable(labelKey).string)
+            val keyLabel = key.translatedKeyMessage.string
+            HintRow(
+                keyLabel = keyLabel,
+                label = Component.translatable(labelKey).string,
+                keyBoxW = keyBoxWidth(font, keyLabel),
+            )
         }
 
         val titleKey = if (GoalkeeperStateClient.isGoalkeeper) {
@@ -45,7 +51,7 @@ class FootballKeybindHintHudElement : HudElement {
         }
         val title = Component.translatable(titleKey).string
         val titleW = font.width(title)
-        val rowContentW = rows.maxOf { font.width(it.label) + KEY_BOX_W + KEY_LABEL_GAP }
+        val rowContentW = rows.maxOf { font.width(it.label) + it.keyBoxW + KEY_LABEL_GAP }
         val panelW = PAD * 2 + maxOf(titleW, rowContentW)
         val panelH = PAD + font.lineHeight + ROW_GAP + rows.size * (font.lineHeight + ROW_GAP) + PAD
         val panelX = screenW - MARGIN - panelW
@@ -60,9 +66,9 @@ class FootballKeybindHintHudElement : HudElement {
             val labelX = rowRight - font.width(row.label)
             extra.text(font, row.label, labelX, y, LABEL_COLOR, true)
 
-            val keyBoxX = labelX - KEY_LABEL_GAP - KEY_BOX_W
-            extra.fill(keyBoxX, y - 1, keyBoxX + KEY_BOX_W, y + font.lineHeight + 1, KEY_BOX_BG)
-            val keyX = keyBoxX + KEY_BOX_W / 2 - font.width(row.keyLabel) / 2
+            val keyBoxX = labelX - KEY_LABEL_GAP - row.keyBoxW
+            extra.fill(keyBoxX, y - 1, keyBoxX + row.keyBoxW, y + font.lineHeight + 1, KEY_BOX_BG)
+            val keyX = keyBoxX + row.keyBoxW / 2 - font.width(row.keyLabel) / 2
             extra.text(font, row.keyLabel, keyX, y, KEY_COLOR, true)
             y += font.lineHeight + ROW_GAP
         }
@@ -111,7 +117,10 @@ class FootballKeybindHintHudElement : HudElement {
         return hintVisible
     }
 
-    private data class HintRow(val keyLabel: String, val label: String)
+    private fun keyBoxWidth(font: Font, keyLabel: String): Int =
+        maxOf(KEY_BOX_MIN_W, font.width(keyLabel) + KEY_BOX_PAD_H * 2)
+
+    private data class HintRow(val keyLabel: String, val label: String, val keyBoxW: Int)
 
     companion object {
         private const val TITLE_KEY = "hud.nmbct-football.hint.title"
@@ -119,7 +128,9 @@ class FootballKeybindHintHudElement : HudElement {
         private const val MARGIN = 8
         private const val PAD = 8
         private const val ROW_GAP = 4
-        private const val KEY_BOX_W = 28
+        private const val KEY_BOX_MIN_W = 28
+        /** 按键方框左右内边距（各一侧）。 */
+        private const val KEY_BOX_PAD_H = 4
         private const val KEY_LABEL_GAP = 6
 
         private const val PANEL_BG = 0xCC111122.toInt()

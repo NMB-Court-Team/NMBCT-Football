@@ -92,6 +92,12 @@ object FootballPhysicsConfig {
     /** 蜘蛛网内自转角速度衰减（每 tick 乘数）。 */
     const val COBWEB_SPIN_DRAG = 0.5
 
+    /** 低于该值的撞墙接近速度不播放音效（blocks/tick）。 */
+    const val BOUNCE_SOUND_MIN_WALL_SPEED = 0.08
+
+    /** 低于该值的落地竖直接近速度不播放音效（blocks/tick）。 */
+    const val BOUNCE_SOUND_MIN_GROUND_VY = 0.12
+
     /** 数值计算用的极小量阈值，用于判断速度/方向是否近似为零。 */
     const val EPSILON = 1.0e-4
 

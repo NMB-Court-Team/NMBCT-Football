@@ -112,7 +112,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         move(MoverType.SELF, movement)
         val actualMotion = position().subtract(beforeMove)
 
-        FootballPhysicsSimulator.resolveCollisions(
+        val bounce = FootballPhysicsSimulator.resolveCollisions(
             physicsState,
             horizontalCollision,
             verticalCollisionBelow,
@@ -120,6 +120,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             movement,
             actualMotion
         )
+        FootballSounds.playCollisionBounces(level(), blockPosition(), bounce, level().random)
 
         physicsState.inCobweb = false
         if (CobwebUtil.isIntersectingCobweb(level(), boundingBox)) {
