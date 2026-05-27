@@ -10,6 +10,12 @@ object FootballInputConfig {
     /** 玩家按键操作时，可选取并踢动的最近足球水平距离（格）。 */
     const val PLAYER_KICK_RANGE = 2.5
 
+    /**
+     * 按键提示 HUD 的隐藏滞后距离（格），叠加在 [PLAYER_KICK_RANGE] 之上。
+     * 进入提示用 kick 范围；离开需超出 kick 范围 + 本值，避免临界距离闪烁。
+     */
+    const val HINT_HIDE_EXTRA_RANGE = 0.4
+
     /** `/football kick` 命令选取足球的水平距离（格），略大于玩家操作范围。 */
     const val COMMAND_KICK_RANGE = 3.0
 

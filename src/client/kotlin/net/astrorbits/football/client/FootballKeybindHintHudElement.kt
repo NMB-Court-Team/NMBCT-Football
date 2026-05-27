@@ -7,20 +7,29 @@ import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.KeyMapping
+import net.minecraft.client.player.LocalPlayer
 import net.minecraft.network.chat.Component
+import net.minecraft.world.level.Level
 
 class FootballKeybindHintHudElement : HudElement {
+    /** 滞后状态：在临界距离附近保持上一帧显示/隐藏，避免闪烁。 */
+    private var hintVisible = false
+
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
         val client = Minecraft.getInstance()
-        if (client.screen != null || client.isPaused) return
+        if (client.screen != null || client.isPaused) {
+            hintVisible = false
+            return
+        }
         val level = client.level ?: return
         val player = client.player ?: return
-        if (!player.mainHandItem.isEmpty) return
-        val footballs = level.getEntitiesOfClass(
-            Football::class.java,
-            player.boundingBox.inflate(FootballInputConfig.PLAYER_KICK_RANGE),
-        )
-        if (footballs.isEmpty()) return
+        if (!player.mainHandItem.isEmpty) {
+            hintVisible = false
+            return
+        }
+        if (!updateHintVisibility(player, level)) {
+            return
+        }
 
         val font = client.font
         val screenW = client.window.guiScaledWidth
@@ -51,6 +60,28 @@ class FootballKeybindHintHudElement : HudElement {
             extra.text(font, row.keyLabel, keyX, y, KEY_COLOR, true)
             y += font.lineHeight + ROW_GAP
         }
+    }
+
+    private fun updateHintVisibility(player: LocalPlayer, level: Level): Boolean {
+        val hideRange = FootballInputConfig.PLAYER_KICK_RANGE + FootballInputConfig.HINT_HIDE_EXTRA_RANGE
+        val nearestDistSq = level.getEntitiesOfClass(
+            Football::class.java,
+            player.boundingBox.inflate(hideRange),
+        ).minOfOrNull { it.distanceToSqr(player) }
+
+        if (nearestDistSq == null) {
+            hintVisible = false
+            return false
+        }
+
+        val showRangeSq = FootballInputConfig.PLAYER_KICK_RANGE * FootballInputConfig.PLAYER_KICK_RANGE
+        val hideRangeSq = hideRange * hideRange
+        hintVisible = when {
+            nearestDistSq <= showRangeSq -> true
+            nearestDistSq > hideRangeSq -> false
+            else -> hintVisible
+        }
+        return hintVisible
     }
 
     private data class HintRow(val keyLabel: String, val label: String)
