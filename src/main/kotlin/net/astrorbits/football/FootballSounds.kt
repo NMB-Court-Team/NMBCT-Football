@@ -126,6 +126,51 @@ object FootballSounds {
         play(player.level(), player.blockPosition(), TRAP, player.random)
     }
 
+    val GK_CATCH: SoundSpec = SoundSpec(
+        event = SoundEvents.WOOL_STEP,
+        source = SoundSource.PLAYERS,
+        volume = 0.55f,
+        basePitch = 0.95f,
+    )
+
+    val GK_DIVE: SoundSpec = SoundSpec(
+        event = SoundEvents.PLAYER_ATTACK_SWEEP,
+        source = SoundSource.PLAYERS,
+        volume = 0.5f,
+        basePitch = 0.9f,
+        pitchSpread = 0.08f,
+    )
+
+    val GK_PUNCH: SoundSpec = SoundSpec(
+        event = SoundEvents.PLAYER_ATTACK_KNOCKBACK,
+        source = SoundSource.PLAYERS,
+        volume = 0.6f,
+        basePitch = 0.85f,
+    )
+
+    val GK_THROW: SoundSpec = SoundSpec(
+        event = SoundEvents.PLAYER_ATTACK_STRONG,
+        source = SoundSource.PLAYERS,
+        volume = 0.5f,
+        basePitch = 0.95f,
+    )
+
+    fun playGkCatch(player: ServerPlayer) {
+        play(player.level(), player.blockPosition(), GK_CATCH, player.random)
+    }
+
+    fun playGkDive(player: ServerPlayer) {
+        play(player.level(), player.blockPosition(), GK_DIVE, player.random)
+    }
+
+    fun playGkPunch(player: ServerPlayer) {
+        play(player.level(), player.blockPosition(), GK_PUNCH, player.random)
+    }
+
+    fun playGkThrow(player: ServerPlayer) {
+        play(player.level(), player.blockPosition(), GK_THROW, player.random)
+    }
+
     fun playFootballPlace(level: Level, pos: BlockPos, random: RandomSource) {
         play(level, pos, FOOTBALL_PLACE, random)
     }

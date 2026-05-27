@@ -2,6 +2,7 @@ package net.astrorbits.football.client
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.input.FootballInputConfig
+import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
@@ -33,11 +34,16 @@ class FootballKeybindHintHudElement : HudElement {
 
         val font = client.font
         val screenW = client.window.guiScaledWidth
-        val rows = HINT_ROWS.map { (key, labelKey) ->
+        val rows = buildHintRows().map { (key, labelKey) ->
             HintRow(key.translatedKeyMessage.string, Component.translatable(labelKey).string)
         }
 
-        val title = Component.translatable(TITLE_KEY).string
+        val titleKey = if (GoalkeeperStateClient.isGoalkeeper) {
+            TITLE_KEY_GK
+        } else {
+            TITLE_KEY
+        }
+        val title = Component.translatable(titleKey).string
         val titleW = font.width(title)
         val rowContentW = rows.maxOf { font.width(it.label) + KEY_BOX_W + KEY_LABEL_GAP }
         val panelW = PAD * 2 + maxOf(titleW, rowContentW)
@@ -62,19 +68,40 @@ class FootballKeybindHintHudElement : HudElement {
         }
     }
 
+    private fun buildHintRows(): List<Pair<KeyMapping, String>> {
+        if (!GoalkeeperStateClient.isGoalkeeper) {
+            return OUTFIELD_HINT_ROWS
+        }
+        return if (GoalkeeperStateClient.isHoldingBall) {
+            GK_HOLDING_HINT_ROWS
+        } else {
+            GK_FREE_HINT_ROWS
+        }
+    }
+
     private fun updateHintVisibility(player: LocalPlayer, level: Level): Boolean {
-        val hideRange = FootballInputConfig.PLAYER_KICK_RANGE + FootballInputConfig.HINT_HIDE_EXTRA_RANGE
+        val range = if (GoalkeeperStateClient.isGoalkeeper) {
+            GoalkeeperInputConfig.GK_CATCH_RANGE + GoalkeeperInputConfig.GK_CROUCH_RANGE_BONUS
+        } else {
+            FootballInputConfig.PLAYER_KICK_RANGE
+        }
+        val hideRange = range + FootballInputConfig.HINT_HIDE_EXTRA_RANGE
         val nearestDistSq = level.getEntitiesOfClass(
             Football::class.java,
             player.boundingBox.inflate(hideRange),
         ).minOfOrNull { it.distanceToSqr(player) }
+
+        if (GoalkeeperStateClient.isGoalkeeper && GoalkeeperStateClient.isHoldingBall) {
+            hintVisible = true
+            return true
+        }
 
         if (nearestDistSq == null) {
             hintVisible = false
             return false
         }
 
-        val showRangeSq = FootballInputConfig.PLAYER_KICK_RANGE * FootballInputConfig.PLAYER_KICK_RANGE
+        val showRangeSq = range * range
         val hideRangeSq = hideRange * hideRange
         hintVisible = when {
             nearestDistSq <= showRangeSq -> true
@@ -88,6 +115,7 @@ class FootballKeybindHintHudElement : HudElement {
 
     companion object {
         private const val TITLE_KEY = "hud.nmbct-football.hint.title"
+        private const val TITLE_KEY_GK = "hud.nmbct-football.hint.title_gk"
         private const val MARGIN = 8
         private const val PAD = 8
         private const val ROW_GAP = 4
@@ -100,11 +128,22 @@ class FootballKeybindHintHudElement : HudElement {
         private const val KEY_COLOR = 0xFFFFFFFF.toInt()
         private const val LABEL_COLOR = 0xFFCCCCCC.toInt()
 
-        private val HINT_ROWS: List<Pair<KeyMapping, String>> = listOf(
+        private val OUTFIELD_HINT_ROWS: List<Pair<KeyMapping, String>> = listOf(
             FootballKeyBindings.KICK to "hud.nmbct-football.hint.pass_shoot",
             FootballKeyBindings.DRIBBLE to "hud.nmbct-football.hint.dribble",
             FootballKeyBindings.TRAP to "hud.nmbct-football.hint.trap",
-            FootballKeyBindings.CHIP to "hud.nmbct-football.hint.chip"
+            FootballKeyBindings.CHIP to "hud.nmbct-football.hint.chip",
+        )
+
+        private val GK_FREE_HINT_ROWS: List<Pair<KeyMapping, String>> = listOf(
+            FootballKeyBindings.KICK to "hud.nmbct-football.hint.gk_dive",
+            FootballKeyBindings.TRAP to "hud.nmbct-football.hint.gk_catch",
+            FootballKeyBindings.CHIP to "hud.nmbct-football.hint.gk_punch",
+        )
+
+        private val GK_HOLDING_HINT_ROWS: List<Pair<KeyMapping, String>> = listOf(
+            FootballKeyBindings.KICK to "hud.nmbct-football.hint.gk_throw",
+            FootballKeyBindings.TRAP to "hud.nmbct-football.hint.gk_drop",
         )
     }
 }

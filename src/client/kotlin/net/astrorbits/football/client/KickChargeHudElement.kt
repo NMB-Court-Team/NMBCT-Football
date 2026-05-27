@@ -7,14 +7,22 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 
 class KickChargeHudElement : HudElement {
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
-        if (!FootballInputHandler.isChargingShoot) {
+        val charging = when {
+            FootballInputHandler.isChargingThrow -> true
+            FootballInputHandler.isChargingShoot -> true
+            else -> false
+        }
+        if (!charging) {
             return
         }
 
         val client = Minecraft.getInstance()
         val width = client.window.guiScaledWidth
         val height = client.window.guiScaledHeight
-        val ratio = FootballInputHandler.shootChargeRatio.coerceIn(0f, 1f)
+        val ratio = when {
+            FootballInputHandler.isChargingThrow -> FootballInputHandler.throwChargeRatio
+            else -> FootballInputHandler.shootChargeRatio
+        }.coerceIn(0f, 1f)
 
         val barW = 120
         val barH = 8

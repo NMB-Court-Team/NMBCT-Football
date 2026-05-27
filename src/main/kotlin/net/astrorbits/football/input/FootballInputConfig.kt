@@ -105,4 +105,7 @@ object FootballInputConfig {
 
     /** 客户端上报 flags 中的「冲刺」位；服务端据此判断是否应用 [SHOOT_SPRINT_BONUS]。 */
     const val FLAG_SPRINT = 1
+
+    /** 鱼跃扑救方向：仅使用视线水平方向（无移动输入时客户端也会设置该位）。 */
+    const val FLAG_DIVE_USE_LOOK = 2
 }

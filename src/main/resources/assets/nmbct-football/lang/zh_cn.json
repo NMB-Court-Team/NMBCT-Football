@@ -7,8 +7,14 @@
     "key.nmbct-football.chip": "挑球",
     "key.nmbct-football.dribble": "带球",
     "hud.nmbct-football.hint.title": "足球操作",
+    "hud.nmbct-football.hint.title_gk": "守门员操作",
     "hud.nmbct-football.hint.pass_shoot": "短按传球 / 长按射门",
     "hud.nmbct-football.hint.dribble": "按住 + 移动",
     "hud.nmbct-football.hint.trap": "停球",
-    "hud.nmbct-football.hint.chip": "挑球"
+    "hud.nmbct-football.hint.chip": "挑球",
+    "hud.nmbct-football.hint.gk_dive": "短按鱼跃扑救",
+    "hud.nmbct-football.hint.gk_catch": "接球",
+    "hud.nmbct-football.hint.gk_punch": "击出",
+    "hud.nmbct-football.hint.gk_throw": "短抛 / 长按开球",
+    "hud.nmbct-football.hint.gk_drop": "放下"
 }

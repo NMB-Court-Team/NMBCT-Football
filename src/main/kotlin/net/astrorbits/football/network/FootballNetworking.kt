@@ -1,9 +1,13 @@
 package net.astrorbits.football.network
 
 import net.astrorbits.football.input.FootballPlayerActions
+import net.astrorbits.football.match.PlayerRoleState
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.network.RegistryFriendlyByteBuf
+import net.minecraft.server.MinecraftServer
+import net.minecraft.server.level.ServerPlayer
+import java.util.UUID
 
 object FootballNetworking {
     fun registerPayloadType() {
@@ -16,7 +20,7 @@ object FootballNetworking {
     }
 
     private fun registerS2CPayloadType(registry: PayloadTypeRegistry<RegistryFriendlyByteBuf>) {
-        // No S2C payloads for now
+        registry.register(GoalkeeperRoleS2CPayload.TYPE, GoalkeeperRoleS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -25,5 +29,14 @@ object FootballNetworking {
                 FootballPlayerActions.handle(context.player(), payload)
             }
         }
+    }
+
+    fun sendGoalkeeperRole(player: ServerPlayer, isGoalkeeper: Boolean) {
+        ServerPlayNetworking.send(player, GoalkeeperRoleS2CPayload(isGoalkeeper))
+    }
+
+    fun syncGoalkeeperRole(uuid: UUID, server: MinecraftServer?) {
+        val player = server?.playerList?.getPlayer(uuid) ?: return
+        PlayerRoleState.syncRoleToPlayer(player)
     }
 }

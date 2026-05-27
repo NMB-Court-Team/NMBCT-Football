@@ -1,6 +1,7 @@
 package net.astrorbits.football.input
 
 import net.astrorbits.football.Football
+import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.util.FootballKickUtil
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.server.MinecraftServer
@@ -25,6 +26,10 @@ object FootballDribbleSessions {
      * @return true 表示新建 session（可播运球音效）
      */
     fun beginOrRefresh(player: ServerPlayer, football: Football, now: Long): Boolean {
+        if (PlayerRoleState.isGoalkeeper(player)) {
+            return false
+        }
+
         val existing = sessions[player.uuid]
         if (existing == null || existing.footballId != football.id) {
             sessions[player.uuid] = DribbleSession(

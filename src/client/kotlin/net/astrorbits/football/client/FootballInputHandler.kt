@@ -21,6 +21,11 @@ object FootballInputHandler {
     var isChargingShoot: Boolean = false
         private set
 
+    var throwChargeRatio: Float = 0f
+        private set
+    var isChargingThrow: Boolean = false
+        private set
+
     private var dribbleTickCounter = 0
 
     fun registerTickEvent() {
@@ -33,49 +38,67 @@ object FootballInputHandler {
             }
 
             if (client.screen != null || client.isPaused) {
-                resetTransientState()
+                resetTransientState(player)
                 updatePrevTickPressed()
                 return@reg
             }
 
             if (!player.mainHandItem.isEmpty) {
-                resetTransientState()
+                resetTransientState(player)
                 updatePrevTickPressed()
                 return@reg
             }
 
             try {
-                handleKickLongPress(player)
-                handleTrapPress()
-                handleChipPress(player)
-                handleDribbleHold(player)
+                if (GoalkeeperStateClient.isGoalkeeper) {
+                    handleGoalkeeperInput(player)
+                } else {
+                    handleOutfieldInput(player)
+                }
             } finally {
                 updatePrevTickPressed()
             }
         }
     }
 
-    private fun handleKickLongPress(player: LocalPlayer) {
+    private fun handleOutfieldInput(player: LocalPlayer) {
+        handleKickLongPress(player, holdingBall = false)
+        handleTrapPress(player, FootballActionType.TRAP)
+        handleChipPress(player)
+        handleDribbleHold(player)
+    }
+
+    private fun handleGoalkeeperInput(player: LocalPlayer) {
+        val holdingBall = GoalkeeperStateClient.isHoldingBall
+        if (holdingBall) {
+            handleKickLongPress(player, holdingBall = true)
+            handleTrapPress(player, FootballActionType.GK_DROP)
+        } else {
+            handleKickLongPress(player, holdingBall = false)
+            handleTrapPress(player, FootballActionType.GK_CATCH)
+            handleChipPressGoalkeeper(player)
+        }
+    }
+
+    private fun handleKickLongPress(player: LocalPlayer, holdingBall: Boolean) {
         when (getKickLongPressState()) {
             LongPressState.STARTED -> {
                 kickPressStartMs = System.currentTimeMillis()
-                isChargingShoot = false
-                shootChargeRatio = 0f
+                if (holdingBall) {
+                    isChargingThrow = false
+                    throwChargeRatio = 0f
+                } else {
+                    isChargingShoot = false
+                    shootChargeRatio = 0f
+                }
             }
             LongPressState.BEING_PRESSED -> {
                 val start = kickPressStartMs ?: return
                 val heldMs = System.currentTimeMillis() - start
-                if (heldMs >= FootballInputConfig.CHARGE_MIN_MS) {
-                    isChargingShoot = true
-                    val chargeMs = (heldMs - FootballInputConfig.CHARGE_MIN_MS)
-                        .coerceAtMost(FootballInputConfig.CHARGE_MAX_MS - FootballInputConfig.CHARGE_MIN_MS)
-                    shootChargeRatio = (
-                        chargeMs.toFloat() /
-                            (FootballInputConfig.CHARGE_MAX_MS - FootballInputConfig.CHARGE_MIN_MS).toFloat()
-                        ).coerceIn(0f, 1f)
-                } else {
-                    isChargingShoot = false
-                    shootChargeRatio = 0f
+                if (holdingBall) {
+                    updateThrowCharge(heldMs)
+                } else if (!GoalkeeperStateClient.isGoalkeeper) {
+                    updateShootCharge(heldMs)
                 }
             }
             LongPressState.FINISHED -> {
@@ -84,37 +107,53 @@ object FootballInputHandler {
                     val heldMs = System.currentTimeMillis() - start
                     val flags = buildFlags(player)
                     when {
+                        holdingBall && heldMs < FootballInputConfig.TAP_MAX_MS ->
+                            sendAction(player, FootballActionType.GK_THROW_SHORT, 0f, flags)
+                        holdingBall && heldMs >= FootballInputConfig.CHARGE_MIN_MS ->
+                            sendAction(player, FootballActionType.GK_THROW_LONG, throwChargeRatio, flags)
+                        holdingBall ->
+                            sendAction(player, FootballActionType.GK_THROW_SHORT, 0f, flags)
+                        GoalkeeperStateClient.isGoalkeeper && heldMs < FootballInputConfig.TAP_MAX_MS ->
+                            sendAction(player, FootballActionType.GK_DIVE, 0f, buildDiveFlags(player))
+                        GoalkeeperStateClient.isGoalkeeper ->
+                            Unit
                         heldMs < FootballInputConfig.TAP_MAX_MS ->
-                            sendAction(FootballActionType.PASS, 0f, flags)
+                            sendAction(player, FootballActionType.PASS, 0f, flags)
                         heldMs >= FootballInputConfig.CHARGE_MIN_MS ->
-                            sendAction(FootballActionType.SHOOT, shootChargeRatio, flags)
+                            sendAction(player, FootballActionType.SHOOT, shootChargeRatio, flags)
                         else ->
-                            sendAction(FootballActionType.PASS, 0f, flags)
+                            sendAction(player, FootballActionType.PASS, 0f, flags)
                     }
                 }
                 kickPressStartMs = null
-                resetKickChargeDisplay()
+                resetChargeDisplay()
             }
             LongPressState.NONE -> Unit
         }
     }
 
-    private fun handleTrapPress() {
+    private fun handleTrapPress(player: LocalPlayer, action: FootballActionType) {
         if (FootballKeyBindings.TRAP.isDown && !trapPrevTickPressed) {
-            sendAction(FootballActionType.TRAP, 0f, 0)
+            sendAction(player, action, 0f, 0)
         }
     }
 
     private fun handleChipPress(player: LocalPlayer) {
         if (FootballKeyBindings.CHIP.isDown && !chipPrevTickPressed) {
-            sendAction(FootballActionType.CHIP, 0f, buildFlags(player))
+            sendAction(player, FootballActionType.CHIP, 0f, buildFlags(player))
+        }
+    }
+
+    private fun handleChipPressGoalkeeper(player: LocalPlayer) {
+        if (FootballKeyBindings.CHIP.isDown && !chipPrevTickPressed) {
+            sendAction(player, FootballActionType.GK_PUNCH, 0f, 0)
         }
     }
 
     private fun handleDribbleHold(player: LocalPlayer) {
         if (!FootballKeyBindings.DRIBBLE.isDown) {
             if (dribblePrevTickPressed) {
-                sendAction(FootballActionType.DRIBBLE_END, 0f, 0)
+                sendAction(player, FootballActionType.DRIBBLE_END, 0f, 0)
             }
             dribbleTickCounter = 0
             return
@@ -133,7 +172,37 @@ object FootballInputHandler {
             return
         }
         dribbleTickCounter = 0
-        sendAction(FootballActionType.DRIBBLE_HOLD, 0f, buildFlags(player))
+        sendAction(player, FootballActionType.DRIBBLE_HOLD, 0f, buildFlags(player))
+    }
+
+    private fun updateShootCharge(heldMs: Long) {
+        if (heldMs >= FootballInputConfig.CHARGE_MIN_MS) {
+            isChargingShoot = true
+            val chargeMs = (heldMs - FootballInputConfig.CHARGE_MIN_MS)
+                .coerceAtMost(FootballInputConfig.CHARGE_MAX_MS - FootballInputConfig.CHARGE_MIN_MS)
+            shootChargeRatio = (
+                chargeMs.toFloat() /
+                    (FootballInputConfig.CHARGE_MAX_MS - FootballInputConfig.CHARGE_MIN_MS).toFloat()
+                ).coerceIn(0f, 1f)
+        } else {
+            isChargingShoot = false
+            shootChargeRatio = 0f
+        }
+    }
+
+    private fun updateThrowCharge(heldMs: Long) {
+        if (heldMs >= FootballInputConfig.CHARGE_MIN_MS) {
+            isChargingThrow = true
+            val chargeMs = (heldMs - FootballInputConfig.CHARGE_MIN_MS)
+                .coerceAtMost(FootballInputConfig.CHARGE_MAX_MS - FootballInputConfig.CHARGE_MIN_MS)
+            throwChargeRatio = (
+                chargeMs.toFloat() /
+                    (FootballInputConfig.CHARGE_MAX_MS - FootballInputConfig.CHARGE_MIN_MS).toFloat()
+                ).coerceIn(0f, 1f)
+        } else {
+            isChargingThrow = false
+            throwChargeRatio = 0f
+        }
     }
 
     private fun getKickLongPressState(): LongPressState {
@@ -167,28 +236,42 @@ object FootballInputHandler {
         return flags
     }
 
-    private fun sendAction(action: FootballActionType, chargeRatio: Float, flags: Int) {
+    private fun buildDiveFlags(player: LocalPlayer): Int {
+        var flags = 0
+        if (!FootballMovementInputUtil.hasMovementInput(player)) {
+            flags = flags or FootballInputConfig.FLAG_DIVE_USE_LOOK
+        }
+        return flags
+    }
+
+    private fun sendAction(player: LocalPlayer, action: FootballActionType, chargeRatio: Float, flags: Int) {
         ClientPlayNetworking.send(
             FootballActionC2SPayload(
                 action = action,
                 chargeRatio = chargeRatio,
-                flags = flags
+                flags = flags,
+                lookYaw = player.yHeadRot,
+                lookPitch = player.xRot,
             )
         )
     }
 
-    private fun resetTransientState(notifyDribbleEnd: Boolean = true) {
-        if (notifyDribbleEnd && (dribblePrevTickPressed || FootballKeyBindings.DRIBBLE.isDown)) {
-            sendAction(FootballActionType.DRIBBLE_END, 0f, 0)
+    private fun resetTransientState(player: LocalPlayer? = null, notifyDribbleEnd: Boolean = true) {
+        if (notifyDribbleEnd && player != null && !GoalkeeperStateClient.isGoalkeeper &&
+            (dribblePrevTickPressed || FootballKeyBindings.DRIBBLE.isDown)
+        ) {
+            sendAction(player, FootballActionType.DRIBBLE_END, 0f, 0)
         }
         kickPressStartMs = null
-        resetKickChargeDisplay()
+        resetChargeDisplay()
         dribbleTickCounter = 0
     }
 
-    private fun resetKickChargeDisplay() {
+    private fun resetChargeDisplay() {
         isChargingShoot = false
         shootChargeRatio = 0f
+        isChargingThrow = false
+        throwChargeRatio = 0f
     }
 
     private enum class LongPressState {

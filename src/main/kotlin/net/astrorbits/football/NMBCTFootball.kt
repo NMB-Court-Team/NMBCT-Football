@@ -1,11 +1,14 @@
 package net.astrorbits.football
 
 import net.astrorbits.football.input.FootballDribbleSessions
+import net.astrorbits.football.input.GoalkeeperDiveSessions
 import net.astrorbits.football.item.Items
 import net.astrorbits.football.match.MatchCommand
+import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.network.FootballNetworking
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
 import net.minecraft.resources.Identifier
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -29,6 +32,11 @@ object NMBCTFootball : ModInitializer {
 		FootballNetworking.registerPayloadType()
 		FootballNetworking.registerServerReceiver()
 		FootballDribbleSessions.registerEvents()
+		GoalkeeperDiveSessions.registerEvents()
+
+		ServerPlayConnectionEvents.JOIN.register { handler, _, _ ->
+			PlayerRoleState.syncRoleToPlayer(handler.player)
+		}
 
 		LOGGER.info("NMBCT Football initialized")
 	}

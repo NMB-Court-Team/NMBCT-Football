@@ -85,11 +85,39 @@ object FootballKickUtil {
     }
 
     fun applyKickToFootball(player: Player, football: Football, params: KickParams) {
-        val look = player.lookAngle
+        applyKickToFootballWithLook(football, params, player.yRot, player.xRot)
+    }
+
+    fun applyKickToFootballWithLook(
+        football: Football,
+        params: KickParams,
+        lookYaw: Float,
+        lookPitch: Float,
+    ) {
+        val look = lookDirection(lookYaw, lookPitch)
         val horizontalLook = Vec3Math.horizontal(look)
+        applyKickWithHorizontalDirection(football, horizontalLook, look, params)
+    }
+
+    fun lookDirection(lookYaw: Float, lookPitch: Float): Vec3 {
+        val pitchRad = Math.toRadians(lookPitch.toDouble())
+        val yawRad = Math.toRadians(-lookYaw.toDouble())
+        val cosPitch = cos(pitchRad)
+        val sinPitch = sin(pitchRad)
+        val cosYaw = cos(yawRad)
+        val sinYaw = sin(yawRad)
+        return Vec3(sinYaw * cosPitch, -sinPitch, cosYaw * cosPitch)
+    }
+
+    fun applyKickWithHorizontalDirection(
+        football: Football,
+        horizontalLook: Vec3,
+        verticalReference: Vec3,
+        params: KickParams,
+    ) {
         val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         val kickPoint = buildKickPoint(ballCenter, horizontalLook, params.heightOffset)
-        val direction = buildKickDirection(horizontalLook, look, params.force, params.angleDegrees)
+        val direction = buildKickDirection(horizontalLook, verticalReference, params.force, params.angleDegrees)
         football.kick(kickPoint, direction)
     }
 

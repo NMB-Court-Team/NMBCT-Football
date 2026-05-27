@@ -1,5 +1,6 @@
 package net.astrorbits.football.input
 
+import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.network.FootballActionC2SPayload
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.FootballSounds
@@ -13,6 +14,11 @@ object FootballPlayerActions {
     private val lastActionTick = ConcurrentHashMap<UUID, Long>()
 
     fun handle(player: ServerPlayer, payload: FootballActionC2SPayload) {
+        if (PlayerRoleState.isGoalkeeper(player)) {
+            GoalkeeperActions.handle(player, payload)
+            return
+        }
+
         when (payload.action) {
             FootballActionType.DRIBBLE_HOLD -> handleDribbleHold(player)
             FootballActionType.DRIBBLE_END -> FootballDribbleSessions.end(player)
@@ -21,6 +27,11 @@ object FootballPlayerActions {
     }
 
     private fun handleDribbleHold(player: ServerPlayer) {
+        if (PlayerRoleState.isGoalkeeper(player)) {
+            FootballDribbleSessions.end(player)
+            return
+        }
+
         if (!canAct(player)) {
             FootballDribbleSessions.end(player)
             return
@@ -57,6 +68,10 @@ object FootballPlayerActions {
         }
 
         val football = FootballKickUtil.findNearestFootball(player, FootballInputConfig.PLAYER_KICK_RANGE) ?: return
+
+        if (football.isHeld()) {
+            return
+        }
 
         if (player.distanceToSqr(football) > FootballInputConfig.PLAYER_KICK_RANGE * FootballInputConfig.PLAYER_KICK_RANGE) {
             return
@@ -99,7 +114,10 @@ object FootballPlayerActions {
                 FootballSounds.playKick(player)
                 lastActionTick[player.uuid] = now
             }
-            FootballActionType.DRIBBLE_HOLD, FootballActionType.DRIBBLE_END -> Unit
+            FootballActionType.DRIBBLE_HOLD, FootballActionType.DRIBBLE_END,
+            FootballActionType.GK_CATCH, FootballActionType.GK_DIVE, FootballActionType.GK_PUNCH,
+            FootballActionType.GK_THROW_SHORT, FootballActionType.GK_THROW_LONG, FootballActionType.GK_DROP,
+            -> Unit
         }
     }
 

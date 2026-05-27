@@ -1,10 +1,12 @@
 package net.astrorbits.football
 
+import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
 import net.astrorbits.football.util.CobwebUtil
 import net.astrorbits.football.util.FootballPhysicsSimulator
 import net.astrorbits.football.util.QuaternionMath
+import net.astrorbits.football.util.GoalkeeperHoldPoseUtil
 import net.astrorbits.football.util.Vec3Math
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
@@ -14,6 +16,7 @@ import net.minecraft.network.syncher.SynchedEntityData
 import net.minecraft.resources.ResourceKey
 import net.minecraft.core.Registry
 import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.damagesource.DamageSource
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
@@ -35,6 +38,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     private var renderAngularVelocity = Vec3.ZERO
     /** [Entity] 构造过程中会调用 [setPos]，此时尚未执行属性初始化器。 */
     private var fieldsInitialized = false
+    private var holderEntityId: Int = -1
+    private var holdStartTick: Long = 0L
 
     init {
         isNoGravity = true
@@ -47,6 +52,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         entityData.define(DATA_LINEAR_VEL, Vector3f())
         entityData.define(DATA_ANGULAR_VEL, Vector3f())
         entityData.define(DATA_ON_GROUND, false)
+        entityData.define(DATA_HOLDER_ID, -1)
     }
 
     override fun tick() {
@@ -93,6 +99,11 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             loadPhysicsFromEntityData()
         }
 
+        if (holderEntityId >= 0) {
+            tickHeld()
+            return
+        }
+
         FootballPhysicsSimulator.applyAirForces(physicsState)
 
         val movement = physicsState.linearVelocity
@@ -127,6 +138,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return
         }
 
+        releaseHold()
         val center = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         FootballPhysicsSimulator.applyKick(physicsState, kickPoint, direction, center)
         previousOrientation.set(physicsState.orientation)
@@ -139,6 +151,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (level().isClientSide) {
             return
         }
+        releaseHold()
         physicsState.linearVelocity = Vec3.ZERO
         physicsState.angularVelocity = Vec3.ZERO
         deltaMovement = Vec3.ZERO
@@ -163,6 +176,111 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     fun getRollingDirection(): Vec3 = FootballPhysicsSimulator.getRollingDirection(physicsState)
+
+    fun getHolderEntityId(): Int = entityData.get(DATA_HOLDER_ID)
+
+    fun isHeld(): Boolean = getHolderEntityId() >= 0
+
+    fun isHeldBy(player: ServerPlayer): Boolean = getHolderEntityId() == player.id
+
+    fun enterHold(player: ServerPlayer) {
+        if (level().isClientSide) {
+            return
+        }
+        holderEntityId = player.id
+        holdStartTick = level().gameTime
+        physicsState.linearVelocity = Vec3.ZERO
+        physicsState.angularVelocity = Vec3.ZERO
+        physicsState.onGround = false
+        deltaMovement = Vec3.ZERO
+        syncHolderToEntityData()
+        GoalkeeperHoldPoseUtil.alignBodyToHead(player)
+        updateHeldPosition(player)
+        updateHeldOrientation(player)
+        syncPhysicsToEntityData()
+        syncPacketPositionCodec(x, y, z)
+    }
+
+    fun releaseHold() {
+        if (level().isClientSide || holderEntityId < 0) {
+            return
+        }
+        holderEntityId = -1
+        holdStartTick = 0L
+        syncHolderToEntityData()
+    }
+
+    fun dropAt(player: ServerPlayer) {
+        if (level().isClientSide) {
+            return
+        }
+        val look = Vec3Math.normalizeSafe(Vec3Math.horizontal(player.lookAngle))
+        val dropPos = player.position().add(look.scale(GoalkeeperInputConfig.GK_DROP_DISTANCE))
+        releaseHold()
+        setPos(dropPos.x, dropPos.y, dropPos.z)
+        physicsState.linearVelocity = Vec3.ZERO
+        physicsState.angularVelocity = Vec3.ZERO
+        deltaMovement = Vec3.ZERO
+        syncPhysicsToEntityData()
+        syncPacketPositionCodec(x, y, z)
+    }
+
+    private fun tickHeld() {
+        if (holderEntityId < 0) {
+            return
+        }
+        val holder = level().getEntity(holderEntityId)
+        if (holder !is ServerPlayer || !holder.isAlive) {
+            releaseHold()
+            return
+        }
+
+        if (level().gameTime - holdStartTick > GoalkeeperInputConfig.GK_HOLD_MAX_TICKS) {
+            dropAt(holder)
+            return
+        }
+
+        updateHeldPosition(holder)
+        updateHeldOrientation(holder)
+        physicsState.linearVelocity = Vec3.ZERO
+        physicsState.angularVelocity = Vec3.ZERO
+        deltaMovement = Vec3.ZERO
+        syncPhysicsToEntityData()
+        syncPacketPositionCodec(x, y, z)
+    }
+
+    fun syncHeldPose(player: ServerPlayer, lookYaw: Float? = null, lookPitch: Float? = null) {
+        if (level().isClientSide || !isHeldBy(player)) {
+            return
+        }
+        updateHeldPosition(player, lookYaw, lookPitch)
+        updateHeldOrientation(player, lookYaw, lookPitch)
+        syncPhysicsToEntityData()
+        syncPacketPositionCodec(x, y, z)
+    }
+
+    private fun updateHeldPosition(player: ServerPlayer, lookYaw: Float? = null, lookPitch: Float? = null) {
+        val pos = if (lookYaw != null && lookPitch != null) {
+            GoalkeeperHoldPoseUtil.computeThrowReleaseEntityPos(player, lookYaw, lookPitch)
+        } else {
+            GoalkeeperHoldPoseUtil.computeBallEntityPos(player)
+        }
+        setPos(pos.x, pos.y, pos.z)
+    }
+
+    private fun updateHeldOrientation(player: ServerPlayer, lookYaw: Float? = null, lookPitch: Float? = null) {
+        val orientation = if (lookYaw != null && lookPitch != null) {
+            GoalkeeperHoldPoseUtil.computeHeldOrientationFromLook(lookYaw, lookPitch)
+        } else {
+            GoalkeeperHoldPoseUtil.computeHeldOrientation(player, 1.0f)
+        }
+        physicsState.orientation.set(orientation)
+        previousOrientation.set(orientation)
+    }
+
+    private fun syncHolderToEntityData() {
+        entityData.set(DATA_HOLDER_ID, holderEntityId)
+    }
 
     fun getPhysicsState(): FootballPhysicsState = physicsState
 
@@ -300,6 +418,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         private val DATA_ON_GROUND: EntityDataAccessor<Boolean> = SynchedEntityData.defineId(
             Football::class.java,
             EntityDataSerializers.BOOLEAN
+        )
+        private val DATA_HOLDER_ID: EntityDataAccessor<Int> = SynchedEntityData.defineId(
+            Football::class.java,
+            EntityDataSerializers.INT
         )
 
         private val ENTITY_ID = NMBCTFootball.id("football")

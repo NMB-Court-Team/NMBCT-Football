@@ -13,6 +13,7 @@ object MatchState {
 		isRunning = true
 		teamAScore = 0
 		teamBScore = 0
+		PlayerRoleState.reset()
 	}
 
 	fun togglePause() {

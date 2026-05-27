@@ -4,6 +4,8 @@ import com.mojang.blaze3d.vertex.PoseStack
 import net.astrorbits.football.Football
 import net.astrorbits.football.item.Items
 import net.astrorbits.football.physics.FootballPhysicsConfig
+import net.astrorbits.football.util.GoalkeeperHoldPoseUtil
+import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.SubmitNodeCollector
 import net.minecraft.client.renderer.entity.EntityRenderer
 import net.minecraft.client.renderer.entity.EntityRendererProvider
@@ -12,6 +14,7 @@ import net.minecraft.client.renderer.state.level.CameraRenderState
 import net.minecraft.client.renderer.texture.OverlayTexture
 import net.minecraft.world.item.ItemDisplayContext
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.phys.Vec3
 
 class FootballRenderer(context: EntityRendererProvider.Context) :
     EntityRenderer<Football, FootballRenderState>(context) {
@@ -27,11 +30,42 @@ class FootballRenderer(context: EntityRendererProvider.Context) :
 
     override fun extractRenderState(entity: Football, state: FootballRenderState, partialTick: Float) {
         super.extractRenderState(entity, state, partialTick)
-        val renderPos = entity.getRenderPosition(partialTick)
+        val holderEntityId = entity.getHolderEntityId()
+        var firstPersonHold = false
+        val renderPos = if (holderEntityId >= 0) {
+            val level = entity.level()
+            val holder = level.getEntity(holderEntityId)
+            if (holder != null) {
+                val camera = Minecraft.getInstance().cameraEntity
+                firstPersonHold = camera != null &&
+                    camera.id == holderEntityId &&
+                    Minecraft.getInstance().options.cameraType.isFirstPerson
+                if (firstPersonHold) {
+                    GoalkeeperHoldPoseUtil.computeFirstPersonHoldPos(holder, partialTick)
+                } else {
+                    GoalkeeperHoldPoseUtil.computeBallEntityPosInterpolated(holder, partialTick)
+                }
+            } else {
+                entity.getRenderPosition(partialTick)
+            }
+        } else {
+            entity.getRenderPosition(partialTick)
+        }
         state.x = renderPos.x
         state.y = renderPos.y
         state.z = renderPos.z
-        state.orientation.set(entity.getOrientation(partialTick))
+        state.orientation.set(
+            if (holderEntityId >= 0) {
+                val holder = entity.level().getEntity(holderEntityId)
+                if (holder != null) {
+                    GoalkeeperHoldPoseUtil.computeHeldOrientation(holder, partialTick, firstPersonHold)
+                } else {
+                    entity.getOrientation(partialTick)
+                }
+            } else {
+                entity.getOrientation(partialTick)
+            }
+        )
         itemModelResolver.updateForNonLiving(
             state.item,
             footballStack,
