@@ -1,0 +1,33 @@
+{
+  "entity.football.kick": {
+    "sounds": [
+      "nmbct-football:kick_1",
+      "nmbct-football:kick_2",
+      "nmbct-football:kick_3",
+      "nmbct-football:kick_4",
+      "nmbct-football:kick_5"
+    ]
+  },
+  "entity.football.smash_kick": {
+    "sounds": [
+      "nmbct-football:smash_kick_1",
+      "nmbct-football:smash_kick_2",
+      "nmbct-football:smash_kick_3",
+      "nmbct-football:smash_kick_4"
+    ]
+  },
+  "entity.football.perfect_kick": {
+    "sounds": [
+      "nmbct-football:smash_kick_0"
+    ]
+  },
+  "entity.football.palm": {
+    "sounds": [
+      "nmbct-football:palm_1",
+      "nmbct-football:palm_2",
+      "nmbct-football:palm_3",
+      "nmbct-football:palm_4",
+      "nmbct-football:palm_5"
+    ]
+  }
+}

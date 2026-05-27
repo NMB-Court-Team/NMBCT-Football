@@ -87,17 +87,19 @@ object FootballPlayerActions {
 
         when (payload.action) {
             FootballActionType.PASS -> {
-                FootballKickUtil.applyKickToFootball(player, football, FootballKickUtil.resolvePassParams())
-                FootballSounds.playKick(player)
+                val params = FootballKickUtil.resolvePassParams()
+                FootballKickUtil.applyKickToFootball(player, football, params)
+                FootballSounds.playKick(player, params.force)
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.SHOOT -> {
+                val params = FootballKickUtil.resolveShootParams(payload.chargeRatio, sprinting)
                 FootballKickUtil.applyKickToFootball(
                     player,
                     football,
-                    FootballKickUtil.resolveShootParams(payload.chargeRatio, sprinting)
+                    params
                 )
-                FootballSounds.playKick(player)
+                FootballSounds.playKick(player, params.force)
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.TRAP -> {
@@ -106,12 +108,13 @@ object FootballPlayerActions {
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.CHIP -> {
+                val params = FootballKickUtil.resolveChipParams(player)
                 FootballKickUtil.applyKickToFootball(
                     player,
                     football,
-                    FootballKickUtil.resolveChipParams(player)
+                    params
                 )
-                FootballSounds.playKick(player)
+                FootballSounds.playKick(player, params.force)
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.DRIBBLE_HOLD, FootballActionType.DRIBBLE_END,

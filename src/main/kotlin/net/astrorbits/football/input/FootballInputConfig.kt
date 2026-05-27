@@ -64,6 +64,12 @@ object FootballInputConfig {
     /** 客户端 DRIBBLE_HOLD 发包间隔（tick）。 */
     const val DRIBBLE_HOLD_PACKET_INTERVAL = 2
 
+    /** 带球时连续触球音效的基础间隔（tick）。 */
+    const val DRIBBLE_SOUND_INTERVAL_BASE_TICKS = 6
+
+    /** 带球触球音效间隔随机抖动（±tick）。 */
+    const val DRIBBLE_SOUND_INTERVAL_JITTER_TICKS = 2
+
     /** 位置误差 → 速度修正（PD 控制器 P 项）。 */
     const val DRIBBLE_POSITION_GAIN = 0.35
 

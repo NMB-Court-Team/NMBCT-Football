@@ -23,6 +23,7 @@ object NMBCTFootball : ModInitializer {
 	override fun onInitialize() {
 		Items.init()
 		Football.init()
+		FootballSounds.init()
 
 		CommandRegistrationCallback.EVENT.register { dispatcher, _, _ ->
 			FootballCommand.register(dispatcher)

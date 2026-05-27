@@ -1,14 +1,18 @@
 package net.astrorbits.football
 
+import net.astrorbits.football.NMBCTFootball.id
+import net.astrorbits.football.input.FootballInputConfig
 import net.minecraft.core.BlockPos
+import net.minecraft.core.Registry
+import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.sounds.SoundEvent
-import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
 import net.minecraft.util.RandomSource
 import net.minecraft.world.level.Level
 import net.astrorbits.football.physics.CollisionBounceResult
 import net.astrorbits.football.physics.FootballPhysicsConfig
+import net.minecraft.sounds.SoundEvents
 
 /**
  * 本 mod 用到的全部游戏音效。
@@ -34,6 +38,14 @@ import net.astrorbits.football.physics.FootballPhysicsConfig
  * | [GK_THROW] | 守门员手抛球（短抛 / 长抛） | 强力攻击 |
  */
 object FootballSounds {
+    private const val MAX_PITCH = 2.0f
+    private const val KICK_PITCH_MIN_SCALE = 0.95f
+    private const val KICK_PITCH_MAX_SCALE = 1.08f
+
+    private val FOOTBALL_KICK_EVENT = register("entity.football.kick")
+    private val FOOTBALL_SMASH_KICK_EVENT = register("entity.football.smash_kick")
+    private val FOOTBALL_PALM_EVENT = register("entity.football.palm")
+
     /**
      * 单次播放的音量与音高配置。
      *
@@ -65,10 +77,10 @@ object FootballSounds {
      * 替换建议：短促的踢球、击球或皮革球被踢中的音效。
      */
     val KICK: SoundSpec = SoundSpec(
-        event = SoundEvents.PLAYER_ATTACK_STRONG,
-        source = SoundSource.PLAYERS,
-        volume = 0.55f,
-        basePitch = 1.05f,
+        event = FOOTBALL_SMASH_KICK_EVENT,
+        source = SoundSource.NEUTRAL,
+        volume = 1.2f,
+        basePitch = 1.35f,
         pitchSpread = 0.1f,
     )
 
@@ -79,9 +91,9 @@ object FootballSounds {
      * 替换建议：软质球滚动、轻微触球或短脚步声。
      */
     val DRIBBLE: SoundSpec = SoundSpec(
-        event = SoundEvents.SLIME_BLOCK_STEP,
-        source = SoundSource.PLAYERS,
-        volume = 0.35f,
+        event = FOOTBALL_KICK_EVENT,
+        source = SoundSource.NEUTRAL,
+        volume = 1.0f,
         basePitch = 1.15f,
     )
 
@@ -92,9 +104,9 @@ object FootballSounds {
      * 替换建议：布料/软垫吸收、轻触停球。
      */
     val TRAP: SoundSpec = SoundSpec(
-        event = SoundEvents.WOOL_STEP,
-        source = SoundSource.PLAYERS,
-        volume = 0.45f,
+        event = FOOTBALL_PALM_EVENT,
+        source = SoundSource.NEUTRAL,
+        volume = 1.0f,
         basePitch = 0.85f,
     )
 
@@ -105,8 +117,8 @@ object FootballSounds {
      * 替换建议：球落地、软质物品放置。
      */
     val FOOTBALL_PLACE: SoundSpec = SoundSpec(
-        event = SoundEvents.SLIME_BLOCK_PLACE,
-        source = SoundSource.BLOCKS,
+        event = FOOTBALL_PALM_EVENT,
+        source = SoundSource.NEUTRAL,
         volume = 0.8f,
         basePitch = 1.0f,
     )
@@ -118,7 +130,7 @@ object FootballSounds {
      * 替换建议：皮革球触地、短促弹跳或软质方块击中声。
      */
     val BOUNCE_GROUND: SoundSpec = SoundSpec(
-        event = SoundEvents.SLIME_BLOCK_HIT,
+        event = FOOTBALL_KICK_EVENT,
         source = SoundSource.BLOCKS,
         volume = 0.45f,
         basePitch = 0.85f,
@@ -132,26 +144,43 @@ object FootballSounds {
      * 替换建议：墙体撞击、短促回弹或略尖锐的击中声。
      */
     val BOUNCE_WALL: SoundSpec = SoundSpec(
-        event = SoundEvents.WOOL_PLACE,
+        event = FOOTBALL_PALM_EVENT,
         source = SoundSource.BLOCKS,
         volume = 1.0f,
         basePitch = 1.05f,
         pitchSpread = 0.12f,
     )
 
-    fun play(level: Level, pos: BlockPos, spec: SoundSpec, random: RandomSource) {
+    fun init() {
+        // static init
+    }
+
+    fun play(level: Level, pos: BlockPos, spec: SoundSpec, random: RandomSource, volumeScale: Float = 1f) {
+        val resolvedVolume = (spec.volume * volumeScale).coerceAtLeast(0f)
+        val resolvedPitch = spec.resolvePitch(random).coerceAtMost(MAX_PITCH)
         level.playSound(
             null,
             pos,
             spec.event,
             spec.source,
-            spec.volume,
-            spec.resolvePitch(random),
+            resolvedVolume,
+            resolvedPitch,
         )
     }
 
-    fun playKick(player: ServerPlayer) {
-        play(player.level(), player.blockPosition(), KICK, player.random)
+    fun playKick(player: ServerPlayer, force: Double) {
+        val normalizedForce = normalizeKickForce(force)
+        val pitchScale = KICK_PITCH_MIN_SCALE +
+            (KICK_PITCH_MAX_SCALE - KICK_PITCH_MIN_SCALE) * normalizedForce
+        val pitch = (KICK.resolvePitch(player.random) * pitchScale).coerceAtMost(MAX_PITCH)
+        player.level().playSound(
+            null,
+            player.blockPosition(),
+            KICK.event,
+            KICK.source,
+            KICK.volume,
+            pitch,
+        )
     }
 
     fun playDribble(player: ServerPlayer) {
@@ -270,7 +299,24 @@ object FootballSounds {
     ) {
         val t = ((impactSpeed - minSpeed) / referenceSpeed).coerceIn(0.0, 1.0)
         val volume = spec.volume * (0.45f + 0.55f * t.toFloat())
-        val pitch = spec.resolvePitch(random) * (0.92f + 0.18f * t.toFloat())
+        val pitch = (spec.resolvePitch(random) * (0.92f + 0.18f * t.toFloat())).coerceAtMost(MAX_PITCH)
         level.playSound(null, pos, spec.event, spec.source, volume, pitch)
     }
+
+    private fun register(path: String): SoundEvent {
+        val soundId = id(path)
+        return Registry.register(
+            BuiltInRegistries.SOUND_EVENT,
+            soundId,
+            SoundEvent.createVariableRangeEvent(soundId),
+        )
+    }
+
+    private fun normalizeKickForce(force: Double): Float {
+        val min = FootballInputConfig.CHIP_FORCE
+        val max = FootballInputConfig.SHOOT_FORCE_MAX * FootballInputConfig.SHOOT_SPRINT_BONUS
+        if (max <= min) return 1f
+        return ((force - min) / (max - min)).toFloat().coerceIn(0f, 1f)
+    }
+
 }
