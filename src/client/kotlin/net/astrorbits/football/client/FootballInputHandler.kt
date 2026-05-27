@@ -1,7 +1,8 @@
 package net.astrorbits.football.client
 
 import net.astrorbits.football.input.FootballInputConfig
-import net.astrorbits.football.network.FootballActionPayload
+import net.astrorbits.football.input.FootballMovementInputUtil
+import net.astrorbits.football.network.FootballActionC2SPayload
 import net.astrorbits.football.network.FootballActionType
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
@@ -116,7 +117,7 @@ object FootballInputHandler {
             return
         }
 
-        if (!hasMovementInput(player)) {
+        if (!FootballMovementInputUtil.hasMovementInput(player)) {
             return
         }
 
@@ -155,12 +156,6 @@ object FootballInputHandler {
         dribblePrevTickPressed = FootballKeyBindings.DRIBBLE.isDown
     }
 
-    private fun hasMovementInput(player: LocalPlayer): Boolean {
-        val moveX = player.xxa.toDouble()
-        val moveZ = player.zza.toDouble()
-        return moveX * moveX + moveZ * moveZ > 1.0e-4
-    }
-
     private fun buildFlags(player: LocalPlayer): Int {
         var flags = 0
         if (player.isSprinting) {
@@ -170,11 +165,8 @@ object FootballInputHandler {
     }
 
     private fun sendAction(action: FootballActionType, chargeRatio: Float, flags: Int) {
-        if (!ClientPlayNetworking.canSend(FootballActionPayload.TYPE)) {
-            return
-        }
         ClientPlayNetworking.send(
-            FootballActionPayload(
+            FootballActionC2SPayload(
                 action = action,
                 chargeRatio = chargeRatio,
                 flags = flags

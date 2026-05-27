@@ -59,12 +59,12 @@ class FootballHudElement : HudElement {
 		private const val S_W = 26; private const val D_W = 14
 		private const val GAP = 6
 
-		private val BAR = 0xDD111122.toInt()
-		private val SCORE_BOX = 0x22FFFFFF
-		private val TIMER = 0xFFFFD700.toInt()
-		private val RED = 0xFFFF4444.toInt()
-		private val CYAN = 0xFF44CCFF.toInt()
-		private val WHITE = 0xFFFFFFFF.toInt()
-		private val DIM = 0xFF777777.toInt()
+		private const val BAR = 0xDD111122.toInt()
+		private const val SCORE_BOX = 0x22FFFFFF
+		private const val TIMER = 0xFFFFD700.toInt()
+		private const val RED = 0xFFFF4444.toInt()
+		private const val CYAN = 0xFF44CCFF.toInt()
+		private const val WHITE = 0xFFFFFFFF.toInt()
+		private const val DIM = 0xFF777777.toInt()
 	}
 }

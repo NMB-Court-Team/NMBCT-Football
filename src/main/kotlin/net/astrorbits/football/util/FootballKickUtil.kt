@@ -4,6 +4,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 import net.astrorbits.football.Football
 import net.astrorbits.football.input.FootballInputConfig
+import net.astrorbits.football.input.FootballMovementInputUtil
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.phys.Vec3
@@ -19,21 +20,6 @@ object FootballKickUtil {
         val box = player.boundingBox.inflate(range)
         return player.level().getEntitiesOfClass(Football::class.java, box)
             .minByOrNull { it.distanceToSqr(player) }
-    }
-
-    fun isBallInFront(player: Player, football: Football): Boolean {
-        val toBall = football.position()
-            .add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
-            .subtract(player.eyePosition)
-        val horizontalToBall = Vec3Math.horizontal(toBall)
-        if (horizontalToBall.lengthSqr() < 1.0e-8) {
-            return true
-        }
-        val horizontalLook = Vec3Math.horizontal(player.lookAngle)
-        if (horizontalLook.lengthSqr() < 1.0e-8) {
-            return true
-        }
-        return horizontalLook.normalize().dot(horizontalToBall.normalize()) > 0.0
     }
 
     fun buildKickDirection(
@@ -91,17 +77,9 @@ object FootballKickUtil {
     }
 
     fun resolveDribbleDirection(player: Player): Vec3 {
-        val moveX = player.xxa.toDouble()
-        val moveZ = player.zza.toDouble()
-        if (moveX * moveX + moveZ * moveZ > 1.0e-4) {
-            val yawRad = Math.toRadians(player.yRot.toDouble())
-            val forwardX = -sin(yawRad)
-            val forwardZ = cos(yawRad)
-            val rightX = -forwardZ
-            val rightZ = forwardX
-            val worldX = forwardX * moveZ + rightX * moveX
-            val worldZ = forwardZ * moveZ + rightZ * moveX
-            return Vec3Math.normalizeSafe(Vec3(worldX, 0.0, worldZ))
+        val movement = FootballMovementInputUtil.movementInputVector(player)
+        if (movement.lengthSqr() > 1.0e-4) {
+            return Vec3Math.normalizeSafe(movement)
         }
         return Vec3Math.normalizeSafe(Vec3Math.horizontal(player.lookAngle))
     }

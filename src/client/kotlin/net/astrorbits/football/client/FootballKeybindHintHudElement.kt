@@ -1,5 +1,7 @@
 package net.astrorbits.football.client
 
+import net.astrorbits.football.Football
+import net.astrorbits.football.input.FootballInputConfig
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
@@ -8,17 +10,22 @@ import net.minecraft.client.KeyMapping
 import net.minecraft.network.chat.Component
 
 class FootballKeybindHintHudElement : HudElement {
-
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
         val client = Minecraft.getInstance()
-        val player = client.player ?: return
         if (client.screen != null || client.isPaused) return
+        val level = client.level ?: return
+        val player = client.player ?: return
         if (!player.mainHandItem.isEmpty) return
+        val footballs = level.getEntitiesOfClass(
+            Football::class.java,
+            player.boundingBox.inflate(FootballInputConfig.PLAYER_KICK_RANGE),
+        )
+        if (footballs.isEmpty()) return
 
         val font = client.font
         val screenW = client.window.guiScaledWidth
         val rows = HINT_ROWS.map { (key, labelKey) ->
-            HintRow(key.getTranslatedKeyMessage().string, Component.translatable(labelKey).string)
+            HintRow(key.translatedKeyMessage.string, Component.translatable(labelKey).string)
         }
 
         val title = Component.translatable(TITLE_KEY).string
@@ -56,11 +63,11 @@ class FootballKeybindHintHudElement : HudElement {
         private const val KEY_BOX_W = 28
         private const val KEY_LABEL_GAP = 6
 
-        private val PANEL_BG = 0xCC111122.toInt()
-        private val KEY_BOX_BG = 0x55FFFFFF
-        private val TITLE_COLOR = 0xFFFFD700.toInt()
-        private val KEY_COLOR = 0xFFFFFFFF.toInt()
-        private val LABEL_COLOR = 0xFFCCCCCC.toInt()
+        private const val PANEL_BG = 0xCC111122.toInt()
+        private const val KEY_BOX_BG = 0x55FFFFFF
+        private const val TITLE_COLOR = 0xFFFFD700.toInt()
+        private const val KEY_COLOR = 0xFFFFFFFF.toInt()
+        private const val LABEL_COLOR = 0xFFCCCCCC.toInt()
 
         private val HINT_ROWS: List<Pair<KeyMapping, String>> = listOf(
             FootballKeyBindings.KICK to "hud.nmbct-football.hint.pass_shoot",

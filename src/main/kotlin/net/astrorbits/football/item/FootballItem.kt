@@ -2,9 +2,8 @@ package net.astrorbits.football.item
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.physics.FootballPhysicsConfig
+import net.astrorbits.football.FootballSounds
 import net.minecraft.core.BlockPos
-import net.minecraft.sounds.SoundEvents
-import net.minecraft.sounds.SoundSource
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.player.Player
@@ -65,14 +64,7 @@ class FootballItem(properties: Properties) : Item(properties) {
             stack.shrink(1)
         }
 
-        level.playSound(
-            null,
-            football.blockPosition(),
-            SoundEvents.SLIME_BLOCK_PLACE,
-            SoundSource.BLOCKS,
-            0.8f,
-            1.0f
-        )
+        FootballSounds.playFootballPlace(level, football.blockPosition(), player.random)
 
         return InteractionResult.SUCCESS_SERVER
     }
