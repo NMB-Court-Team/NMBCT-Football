@@ -132,9 +132,9 @@ object FootballSounds {
      * 替换建议：墙体撞击、短促回弹或略尖锐的击中声。
      */
     val BOUNCE_WALL: SoundSpec = SoundSpec(
-        event = SoundEvents.STONE_HIT,
+        event = SoundEvents.WOOL_PLACE,
         source = SoundSource.BLOCKS,
-        volume = 0.35f,
+        volume = 1.0f,
         basePitch = 1.05f,
         pitchSpread = 0.12f,
     )

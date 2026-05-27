@@ -7,8 +7,14 @@
     "key.nmbct-football.chip": "Chip Ball",
     "key.nmbct-football.dribble": "Dribble",
     "hud.nmbct-football.hint.title": "Football Controls",
+    "hud.nmbct-football.hint.title_gk": "Goalkeeper Controls",
     "hud.nmbct-football.hint.pass_shoot": "Tap pass / Hold shoot",
-    "hud.nmbct-football.hint.dribble": "Hold + move",
+    "hud.nmbct-football.hint.dribble": "(Hold & move) Dribble",
     "hud.nmbct-football.hint.trap": "Trap",
-    "hud.nmbct-football.hint.chip": "Chip"
+    "hud.nmbct-football.hint.chip": "Chip",
+    "hud.nmbct-football.hint.gk_dive": "Tap dive save",
+    "hud.nmbct-football.hint.gk_catch": "Catch",
+    "hud.nmbct-football.hint.gk_punch": "Punch",
+    "hud.nmbct-football.hint.gk_throw": "Tap throw / Hold long throw",
+    "hud.nmbct-football.hint.gk_drop": "Drop"
 }
