@@ -37,6 +37,17 @@ object FootballPhysicsConfig {
     const val STOP_SPEED_SQR = 1.0e-6
 
     /**
+     * 接地时低于该值的向下竖直速度（blocks/tick）视为贴地 settling，直接清零而不反弹。
+     * 避免静止球因每 tick 重力 + 弹性反弹产生 Y 轴微振荡。
+     */
+    const val GROUND_SETTLE_VY = 0.08
+
+    /**
+     * 客户端渲染：低于该速度² 时改用原版 `getPosition` 插值，不用速度外推（静止时避免上下抖动）。
+     */
+    const val RENDER_STATIONARY_SPEED_SQR = 1.0e-4
+
+    /**
      * 接地时绕竖直轴（偏航）自转的额外衰减（每 tick 乘数）。
      * 地面滚动球不应长期绕 Y 轴空转；与 [GROUND_SPIN_FRICTION] 叠乘。
      */

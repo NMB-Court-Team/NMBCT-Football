@@ -27,6 +27,10 @@ class FootballRenderer(context: EntityRendererProvider.Context) :
 
     override fun extractRenderState(entity: Football, state: FootballRenderState, partialTick: Float) {
         super.extractRenderState(entity, state, partialTick)
+        val renderPos = entity.getRenderPosition(partialTick)
+        state.x = renderPos.x
+        state.y = renderPos.y
+        state.z = renderPos.z
         state.orientation.set(entity.getOrientation(partialTick))
         itemModelResolver.updateForNonLiving(
             state.item,
@@ -64,8 +68,8 @@ class FootballRenderer(context: EntityRendererProvider.Context) :
 
     companion object {
         private val DISPLAY_CONTEXT = ItemDisplayContext.NONE
-        private const val SHADOW_RADIUS = FootballPhysicsConfig.RADIUS.toFloat()
+        private const val SHADOW_RADIUS = 0.35f
         private const val MODEL_Y_OFFSET = 0.375f
-        private const val MODEL_SCALE = 0.6f
+        private const val MODEL_SCALE = 0.7f
     }
 }

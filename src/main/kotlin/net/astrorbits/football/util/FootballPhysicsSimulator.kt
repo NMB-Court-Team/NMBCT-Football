@@ -59,7 +59,9 @@ object FootballPhysicsSimulator {
     }
 
     fun applyAirForces(state: FootballPhysicsState) {
-        state.linearVelocity = state.linearVelocity.add(0.0, -FootballPhysicsConfig.GRAVITY, 0.0)
+        if (!state.onGround || state.linearVelocity.y > 0.0) {
+            state.linearVelocity = state.linearVelocity.add(0.0, -FootballPhysicsConfig.GRAVITY, 0.0)
+        }
         state.linearVelocity = state.linearVelocity.scale(FootballPhysicsConfig.AIR_DRAG)
         state.angularVelocity = state.angularVelocity.scale(FootballPhysicsConfig.SPIN_DRAG)
     }

@@ -17,9 +17,15 @@ object CollisionUtil {
         state.onGround = onGround || (verticalCollisionBelow && state.linearVelocity.y <= 0.0)
 
         if (state.onGround && state.linearVelocity.y < 0.0) {
+            val vy = state.linearVelocity.y
+            val settledVy = if (abs(vy) < FootballPhysicsConfig.GROUND_SETTLE_VY) {
+                0.0
+            } else {
+                -vy * FootballPhysicsConfig.RESTITUTION
+            }
             state.linearVelocity = Vec3(
                 state.linearVelocity.x,
-                -state.linearVelocity.y * FootballPhysicsConfig.RESTITUTION,
+                settledVy,
                 state.linearVelocity.z
             )
         }
@@ -108,11 +114,7 @@ object CollisionUtil {
             return
         }
 
-        state.linearVelocity = Vec3(0.0, state.linearVelocity.y, 0.0)
+        state.linearVelocity = Vec3.ZERO
         state.angularVelocity = Vec3.ZERO
-
-        if (abs(state.linearVelocity.y) < FootballPhysicsConfig.EPSILON) {
-            state.linearVelocity = Vec3.ZERO
-        }
     }
 }

@@ -177,7 +177,7 @@ sequenceDiagram
 | 侧       | 行为                                                                                                    |
 |---------|-------------------------------------------------------------------------------------------------------|
 | **服务端** | 权威模拟；`kick` 仅在此执行；每 tick 写入 `SynchedEntityData`                                                       |
-| **客户端** | 每 tick 应用同步的 `linearVelocity` / `angularVelocity`；**不**本地 `move`；速度突变（含运动中再踢）时重置 `orientation` |
+| **客户端** | 每 tick 读取同步速度；渲染位置用 `xOld + v·partialTick` 外推；朝向用 `ω·partialTick` 积分；不在帧内重复同步 |
 
 `orientation` 不同步：两端各自用相同 `angularVelocity` 积分，在一般情况下与预测一致。
 
@@ -211,8 +211,9 @@ sequenceDiagram
 ## 相关命令与物品（便于测试）
 
 - `/football summon`：在命令来源处生成足球
-- `/football kick <force>`：朝视线水平方向踢附近足球（`height` 省略时为球心高度）
-- `/football kick <force> <height>`：`height` 为踢击点相对球心的竖直偏移（格，约 -0.5~1.0）
+- `/football kick <force>`：水平踢球（`height=0`，`angle=0°`）
+- `/football kick <force> <height>`：指定踢击点相对球心的竖直偏移（格）
+- `/football kick <force> <height> <angle>`：`angle` 为相对水平面的仰角（度，0° 水平，正值上挑，负值下压，约 -90~90）
 - 足球物品右键：在瞄准方块表面放置足球实体
 
 ## 客户端渲染
@@ -220,7 +221,8 @@ sequenceDiagram
 足球实体使用 **物品模型 + 物理四元数** 绘制，不在渲染器内重复积分角速度。
 
 - **资源**：`assets/nmbct-football/models/item/football.json` 等，经 `ItemModelResolver.updateForNonLiving(..., ItemDisplayContext.GROUND, entity)` 解析为 `ItemStackRenderState`。
-- **朝向**：每帧 `Football.getOrientation(partialTick)`（`previousOrientation` 与当前 `orientation` 的 `slerp`），在 `FootballRenderer.submit` 中 `mulPose(orientation)`。
+- **位置**：静止时（|v|² < `RENDER_STATIONARY_SPEED_SQR`）用原版 `getPosition` 插值；运动时用 `xOld + v·partialTick` 外推。
+- **朝向**：`getOrientation(partialTick)` 从 `previousOrientation` 按 `ω·partialTick` 积分。
 - **矩阵栈**：`PoseStack.use { }`（`client/PoseStackExtensions.kt`）包裹平移与旋转，避免遗漏 `popPose`。
 - **管线（MC 26.1+）**：实体渲染走 `submit` + `SubmitNodeCollector`，物品层调用 `ItemStackRenderState.submit`；Y 偏移为碰撞半径 `RADIUS`（0.25），与 AABB 中心对齐。
 

@@ -2,8 +2,9 @@ package net.astrorbits.football
 
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
-import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
+import kotlin.math.cos
+import kotlin.math.sin
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.Vec3Math
 import net.minecraft.commands.CommandSourceStack
@@ -27,25 +28,32 @@ object FootballCommand {
             }
         ).then(Commands.literal("kick")
             .then(Commands.argument("force", DoubleArgumentType.doubleArg(0.0, 10.0))
+                .executes { context -> executeKick(context, heightOffset = 0.0, angleDegrees = 0.0) }
                 .then(Commands.argument("height", DoubleArgumentType.doubleArg(-0.5, 1.0))
-                    .executes { context -> executeKick(context, DoubleArgumentType.getDouble(context, "height")) }
+                    .executes { context ->
+                        executeKick(context, DoubleArgumentType.getDouble(context, "height"), angleDegrees = 0.0)
+                    }
+                    .then(Commands.argument("angle", DoubleArgumentType.doubleArg(-90.0, 90.0))
+                        .executes { context ->
+                            executeKick(
+                                context,
+                                DoubleArgumentType.getDouble(context, "height"),
+                                DoubleArgumentType.getDouble(context, "angle")
+                            )
+                        }
+                    )
                 )
-                .executes { context -> executeKick(context, 0.0) }
             )
         )
 
         dispatcher.register(command)
-
-//        val constructFieldCommand = Commands.literal("football").requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
-//        constructFieldCommand.then(Commands.literal("field")
-//            .then(Commands.argument("length", )
-//            )
-//        )
-//
-//        dispatcher.register(constructFieldCommand)
     }
 
-    private fun executeKick(context: CommandContext<CommandSourceStack>, heightOffset: Double): Int {
+    private fun executeKick(
+        context: CommandContext<CommandSourceStack>,
+        heightOffset: Double,
+        angleDegrees: Double
+    ): Int {
         val source = context.source
         val player = source.player
         if (player == null) {
@@ -56,11 +64,7 @@ object FootballCommand {
         val force = DoubleArgumentType.getDouble(context, "force")
         val look = player.lookAngle
         val horizontalLook = Vec3Math.horizontal(look)
-        val direction = if (horizontalLook.lengthSqr() > 1.0e-8) {
-            Vec3Math.normalizeSafe(horizontalLook).scale(force)
-        } else {
-            look.scale(force)
-        }
+        val direction = buildKickDirection(horizontalLook, look, force, angleDegrees)
 
         val football = player.level().getEntitiesOfClass(
             Football::class.java,
@@ -77,9 +81,28 @@ object FootballCommand {
 
         football.kick(kickPoint, direction)
         source.sendSuccess({
-            Component.literal("Kicked football (force=$force, height=$heightOffset)")
+            Component.literal("Kicked football (force=$force, height=$heightOffset, angle=${angleDegrees}°)")
         }, true)
         return 1
+    }
+
+    /**
+     * @param angleDegrees 相对水平面的仰角（度）；0° 为水平，正值为上挑，负值为下压。
+     */
+    private fun buildKickDirection(
+        horizontalLook: Vec3,
+        look: Vec3,
+        force: Double,
+        angleDegrees: Double
+    ): Vec3 {
+        if (horizontalLook.lengthSqr() < 1.0e-8) {
+            return look.scale(force)
+        }
+
+        val horizontalUnit = Vec3Math.normalizeSafe(horizontalLook)
+        val pitchRad = Math.toRadians(angleDegrees)
+        val unitDirection = horizontalUnit.scale(cos(pitchRad)).add(0.0, sin(pitchRad), 0.0)
+        return unitDirection.scale(force)
     }
 
     /**

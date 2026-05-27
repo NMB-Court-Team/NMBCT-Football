@@ -5,6 +5,7 @@ import net.astrorbits.football.physics.FootballPhysicsState
 import net.astrorbits.football.util.CobwebUtil
 import net.astrorbits.football.util.FootballPhysicsSimulator
 import net.astrorbits.football.util.QuaternionMath
+import net.astrorbits.football.util.Vec3Math
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
 import net.minecraft.network.syncher.EntityDataAccessor
@@ -29,6 +30,9 @@ import org.joml.Vector3fc
 class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     private val physicsState = FootballPhysicsState()
     private val previousOrientation = Quaternionf()
+    /** 本 tick 渲染用的速度快照，避免帧内同步改动导致位置/朝向抖动。 */
+    private var renderLinearVelocity = Vec3.ZERO
+    private var renderAngularVelocity = Vec3.ZERO
     /** [Entity] 构造过程中会调用 [setPos]，此时尚未执行属性初始化器。 */
     private var fieldsInitialized = false
 
@@ -63,9 +67,25 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             applySyncedPhysicsFromEntityData()
         }
 
+        renderLinearVelocity = physicsState.linearVelocity
+        renderAngularVelocity = physicsState.angularVelocity
+        if (isRenderStationaryOnGround()) {
+            renderLinearVelocity = Vec3.ZERO
+            renderAngularVelocity = Vec3.ZERO
+        } else {
+            if (renderLinearVelocity.lengthSqr() < FootballPhysicsConfig.RENDER_STATIONARY_SPEED_SQR) {
+                renderLinearVelocity = Vec3.ZERO
+            }
+            if (renderAngularVelocity.lengthSqr() < FootballPhysicsConfig.RENDER_STATIONARY_SPEED_SQR) {
+                renderAngularVelocity = Vec3.ZERO
+            }
+        }
+
         previousOrientation.set(physicsState.orientation)
-        FootballPhysicsSimulator.integrateOrientation(physicsState)
-        deltaMovement = physicsState.linearVelocity
+        if (renderAngularVelocity.lengthSqr() > 0.0) {
+            FootballPhysicsSimulator.integrateOrientation(physicsState)
+        }
+        deltaMovement = renderLinearVelocity
     }
 
     private fun serverTick() {
@@ -128,19 +148,47 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (partialTick >= 1.0f) {
             return getOrientation()
         }
-        return QuaternionMath.slerp(previousOrientation, physicsState.orientation, partialTick)
+        val omega = if (level().isClientSide) renderAngularVelocity else physicsState.angularVelocity
+        if (omega.lengthSqr() < FootballPhysicsConfig.RENDER_STATIONARY_SPEED_SQR) {
+            return Quaternionf(previousOrientation)
+        }
+        return QuaternionMath.integrate(previousOrientation, omega.scale(partialTick.toDouble()))
     }
 
-    override fun onSyncedDataUpdated(data: EntityDataAccessor<*>) {
-        super.onSyncedDataUpdated(data)
-
+    /**
+     * 客户端渲染位置：运动时用 [xOld] + v·partialTick 外推；静止时回退原版插值，避免微速度导致上下抖。
+     */
+    fun getRenderPosition(partialTick: Float): Vec3 {
         if (!level().isClientSide) {
-            return
+            return getPosition(partialTick)
         }
+        if (isRenderStationaryOnGround()) {
+            val t = partialTick.toDouble()
+            return Vec3(
+                xOld + (x - xOld) * t,
+                y,
+                zOld + (z - zOld) * t
+            )
+        }
+        if (renderLinearVelocity.lengthSqr() < FootballPhysicsConfig.RENDER_STATIONARY_SPEED_SQR) {
+            return getPosition(partialTick)
+        }
+        val t = partialTick.toDouble()
+        val velocity = renderLinearVelocity
+        return Vec3(
+            xOld + velocity.x * t,
+            yOld + velocity.y * t,
+            zOld + velocity.z * t
+        )
+    }
 
-        when (data) {
-            DATA_LINEAR_VEL, DATA_ANGULAR_VEL, DATA_ON_GROUND -> correctClientStateIfNeeded()
+    /** 接地且水平方向已静止：渲染时不应再对 Y 做插值/外推，否则微弹跳会在帧间表现为上下抖。 */
+    private fun isRenderStationaryOnGround(): Boolean {
+        if (!level().isClientSide || !physicsState.onGround) {
+            return false
         }
+        return Vec3Math.horizontal(physicsState.linearVelocity).lengthSqr() <
+            FootballPhysicsConfig.RENDER_STATIONARY_SPEED_SQR
     }
 
     override fun hurtServer(
@@ -178,6 +226,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         physicsState.linearVelocity = entityData.get(DATA_LINEAR_VEL).toVec3()
         physicsState.angularVelocity = entityData.get(DATA_ANGULAR_VEL).toVec3()
         physicsState.onGround = entityData.get(DATA_ON_GROUND)
+        renderLinearVelocity = physicsState.linearVelocity
+        renderAngularVelocity = physicsState.angularVelocity
         previousOrientation.set(physicsState.orientation)
     }
 
@@ -205,22 +255,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         physicsState.linearVelocity = syncedLinear
         physicsState.angularVelocity = syncedAngular
         physicsState.onGround = syncedOnGround
-
-        if (linearDelta > FootballPhysicsConfig.CLIENT_CORRECTION_THRESHOLD) {
-            lerpMotion(syncedLinear)
-        }
-    }
-
-    private fun correctClientStateIfNeeded() {
-        applySyncedPhysicsFromEntityData()
-    }
-
-    override fun setPos(x: Double, y: Double, z: Double) {
-        super.setPos(x, y, z)
-        if (!fieldsInitialized || !level().isClientSide) {
-            return
-        }
-        previousOrientation.set(physicsState.orientation)
     }
 
     companion object {
