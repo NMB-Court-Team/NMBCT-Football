@@ -12,7 +12,7 @@ import net.minecraft.resources.Identifier
 
 object NMBCTFootballClient : ClientModInitializer {
 	override fun onInitializeClient() {
-		EntityRenderers.register(Football.Companion.ENTITY_TYPE, ::FootballRenderer)
+		EntityRenderers.register(Football.ENTITY_TYPE, ::FootballRenderer)
 
 		FootballKeyBindings.init()
 
@@ -23,6 +23,10 @@ object NMBCTFootballClient : ClientModInitializer {
 		HudElementRegistry.addLast(
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "kick_charge_hud"),
 			KickChargeHudElement()
+		)
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "keybind_hint_hud"),
+			FootballKeybindHintHudElement()
 		)
 
 		FootballInputHandler.registerTickEvent()
