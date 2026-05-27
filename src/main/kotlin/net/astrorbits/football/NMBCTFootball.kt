@@ -2,6 +2,7 @@ package net.astrorbits.football
 
 import net.astrorbits.football.item.Items
 import net.astrorbits.football.match.MatchCommand
+import net.astrorbits.football.network.FootballNetworking
 import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.minecraft.resources.Identifier
@@ -23,6 +24,9 @@ object NMBCTFootball : ModInitializer {
 			FootballCommand.register(dispatcher)
 			MatchCommand.register(dispatcher)
 		}
+
+		FootballNetworking.registerPayloadType()
+		FootballNetworking.registerServerReceiver()
 
 		LOGGER.info("NMBCT Football initialized")
 	}

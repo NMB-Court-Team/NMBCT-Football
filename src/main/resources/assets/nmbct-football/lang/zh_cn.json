@@ -1,4 +1,14 @@
 {
     "item.nmbct-football.football": "足球",
-    "entity.nmbct-football.football": "足球"
+    "entity.nmbct-football.football": "足球",
+    "key.category.nmbct-football.football": "柠檬杯风驰足球",
+    "key.nmbct-football.kick": "踢球（传球/射门）",
+    "key.nmbct-football.trap": "停球",
+    "key.nmbct-football.chip": "挑球",
+    "key.nmbct-football.dribble": "带球",
+    "hud.nmbct-football.hint.title": "足球操作",
+    "hud.nmbct-football.hint.pass_shoot": "短按传球 / 长按射门",
+    "hud.nmbct-football.hint.dribble": "按住 + 移动",
+    "hud.nmbct-football.hint.trap": "停球",
+    "hud.nmbct-football.hint.chip": "挑球"
 }

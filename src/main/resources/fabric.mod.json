@@ -23,7 +23,7 @@
 		],
 		"client": [
 			{
-				"value": "net.astrorbits.football.NMBCTFootballClient",
+				"value": "net.astrorbits.football.client.NMBCTFootballClient",
 				"adapter": "kotlin"
 			}
 		]

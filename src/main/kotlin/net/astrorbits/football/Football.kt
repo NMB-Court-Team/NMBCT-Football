@@ -135,6 +135,17 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         syncPacketPositionCodec(x, y, z)
     }
 
+    fun trap() {
+        if (level().isClientSide) {
+            return
+        }
+        physicsState.linearVelocity = Vec3.ZERO
+        physicsState.angularVelocity = Vec3.ZERO
+        deltaMovement = Vec3.ZERO
+        previousOrientation.set(physicsState.orientation)
+        syncPhysicsToEntityData()
+    }
+
     fun getRollingDirection(): Vec3 = FootballPhysicsSimulator.getRollingDirection(physicsState)
 
     fun getPhysicsState(): FootballPhysicsState = physicsState

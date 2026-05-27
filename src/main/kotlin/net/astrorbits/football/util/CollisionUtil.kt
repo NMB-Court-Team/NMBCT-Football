@@ -16,6 +16,10 @@ object CollisionUtil {
     ) {
         state.onGround = onGround || (verticalCollisionBelow && state.linearVelocity.y <= 0.0)
 
+        if (state.wallBounceCooldown > 0) {
+            state.wallBounceCooldown--
+        }
+
         if (state.onGround && state.linearVelocity.y < 0.0) {
             val vy = state.linearVelocity.y
             val settledVy = if (abs(vy) < FootballPhysicsConfig.GROUND_SETTLE_VY) {
@@ -30,8 +34,12 @@ object CollisionUtil {
             )
         }
 
+        var wallBounced = false
         if (horizontalCollision) {
-            resolveHorizontalWall(state, intendedMotion, actualMotion)
+            wallBounced = resolveHorizontalWall(state, intendedMotion, actualMotion)
+            if (wallBounced) {
+                state.wallBounceCooldown = FootballPhysicsConfig.WALL_BOUNCE_COOLDOWN_TICKS
+            }
         }
 
         if (state.onGround) {
@@ -48,38 +56,99 @@ object CollisionUtil {
 
             val stuckAgainstWall = horizontalCollision &&
                 Vec3Math.horizontal(actualMotion).lengthSqr() < FootballPhysicsConfig.STOP_SPEED_SQR
-            if (!stuckAgainstWall) {
-                applyRollingCoupling(state)
-            } else {
-                state.angularVelocity = state.angularVelocity.scale(FootballPhysicsConfig.STUCK_SPIN_DRAG)
+            when {
+                wallBounced -> applyWallBounceSpin(state)
+                state.wallBounceCooldown > 0 -> Unit
+                !stuckAgainstWall -> applyRollingCoupling(state)
+                else -> state.angularVelocity = state.angularVelocity.scale(
+                    FootballPhysicsConfig.STUCK_SPIN_DRAG
+                )
             }
+        } else if (wallBounced) {
+            applyWallBounceSpin(state)
         }
 
         applyStopThreshold(state)
     }
 
+    /**
+     * 根据「意图位移 − 实际位移」估计墙法线并反射水平速度。
+     * 比逐轴判断 actual ≈ 0 更可靠，高速撞墙时 MC 的 actual 位移往往并非精确为零。
+     */
     private fun resolveHorizontalWall(
         state: FootballPhysicsState,
         intended: Vec3,
         actual: Vec3
-    ) {
+    ): Boolean {
+        val blocked = Vec3Math.horizontal(intended.subtract(actual))
+        if (blocked.lengthSqr() < FootballPhysicsConfig.EPSILON * FootballPhysicsConfig.EPSILON) {
+            return resolveHorizontalWallByAxis(state, intended, actual)
+        }
+
+        val normal = Vec3Math.normalizeSafe(blocked)
+        val horizontalVelocity = Vec3Math.horizontal(state.linearVelocity)
+        val approachSpeed = horizontalVelocity.dot(normal)
+        if (approachSpeed <= FootballPhysicsConfig.EPSILON) {
+            return false
+        }
+
+        val reflected = horizontalVelocity.subtract(
+            normal.scale(approachSpeed * (1.0 + FootballPhysicsConfig.WALL_RESTITUTION))
+        )
+        state.linearVelocity = Vec3(reflected.x, state.linearVelocity.y, reflected.z)
+        return true
+    }
+
+    /** 向量法线不可靠时的逐轴兜底（使用位移完成比例而非 actual ≈ 0）。 */
+    private fun resolveHorizontalWallByAxis(
+        state: FootballPhysicsState,
+        intended: Vec3,
+        actual: Vec3
+    ): Boolean {
         var vx = state.linearVelocity.x
         var vz = state.linearVelocity.z
         val eps = FootballPhysicsConfig.EPSILON
+        val ratioLimit = FootballPhysicsConfig.WALL_BLOCK_RATIO
+        var bounced = false
 
-        if (abs(intended.x) > eps && abs(actual.x) < eps) {
-            vx = 0.0
-        } else if (abs(intended.x) > eps) {
-            vx *= FootballPhysicsConfig.WALL_RESTITUTION
+        if (abs(intended.x) > eps) {
+            val completion = abs(actual.x / intended.x)
+            if (completion < ratioLimit && vx * intended.x > 0.0) {
+                vx = -vx * FootballPhysicsConfig.WALL_RESTITUTION
+                bounced = true
+            }
         }
 
-        if (abs(intended.z) > eps && abs(actual.z) < eps) {
-            vz = 0.0
-        } else if (abs(intended.z) > eps) {
-            vz *= FootballPhysicsConfig.WALL_RESTITUTION
+        if (abs(intended.z) > eps) {
+            val completion = abs(actual.z / intended.z)
+            if (completion < ratioLimit && vz * intended.z > 0.0) {
+                vz = -vz * FootballPhysicsConfig.WALL_RESTITUTION
+                bounced = true
+            }
+        }
+
+        if (!bounced) {
+            return false
         }
 
         state.linearVelocity = Vec3(vx, state.linearVelocity.y, vz)
+        return true
+    }
+
+    /**
+     * 撞墙后仅保留少量与新线速度同向的自转，避免无滑滚动关系把球立刻拉回墙面。
+     */
+    private fun applyWallBounceSpin(state: FootballPhysicsState) {
+        val rolling = Vec3Math.rollingAngularVelocity(
+            Vec3Math.horizontal(state.linearVelocity),
+            FootballPhysicsConfig.RADIUS
+        )
+        val spinRetention = FootballPhysicsConfig.WALL_SPIN_RETENTION
+        state.angularVelocity = Vec3(
+            rolling.x * spinRetention,
+            state.angularVelocity.y * FootballPhysicsConfig.WALL_YAW_SPIN_DAMP,
+            rolling.z * spinRetention
+        )
     }
 
     /**
@@ -116,5 +185,6 @@ object CollisionUtil {
 
         state.linearVelocity = Vec3.ZERO
         state.angularVelocity = Vec3.ZERO
+        state.wallBounceCooldown = 0
     }
 }

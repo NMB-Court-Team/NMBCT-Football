@@ -18,8 +18,23 @@ object FootballPhysicsConfig {
     /** 地面法向恢复系数（0~1）。落地时竖直速度反向并乘以该值，越大弹跳越高。 */
     const val RESTITUTION = 0.68
 
-    /** 墙体/水平碰撞恢复系数（0~1）。撞墙后水平速度分量乘以该值，通常略低于地面弹性。 */
-    const val WALL_RESTITUTION = 0.55
+    /** 墙体/水平碰撞恢复系数（0~1）。撞墙后沿法向速度反向并乘以该值。 */
+    const val WALL_RESTITUTION = 0.68
+
+    /**
+     * 撞墙后保留的自转比例（0~1）。
+     * 真实碰撞中大量旋转能会转化为形变/热；保留过高会导致「弹开却仍朝墙滚」的反直觉感。
+     */
+    const val WALL_SPIN_RETENTION = 0.3
+
+    /** 撞墙后跳过滚动耦合的 tick 数，让线速度反弹方向优先于自转。 */
+    const val WALL_BOUNCE_COOLDOWN_TICKS = 5
+
+    /** 撞墙判定：被挡位移低于意图位移该比例时视为撞墙（MC 的 actual 位移很少精确为 0）。 */
+    const val WALL_BLOCK_RATIO = 0.35
+
+    /** 撞墙时绕竖直轴自转的额外衰减（0~1）。 */
+    const val WALL_YAW_SPIN_DAMP = 0.35
 
     /** 地面切向摩擦系数（每 tick 乘数，0~1）。接地时水平速度每 tick 乘以该值，越小减速越快。 */
     const val GROUND_FRICTION = 0.92

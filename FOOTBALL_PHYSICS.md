@@ -97,7 +97,7 @@ move(MoverType.SELF, linearVelocity)
 |-----------------------|------------------------------------------------------|
 | 接地且 `v_y < 0`         | 竖直反弹：`v_y ← -v_y × RESTITUTION`                      |
 | 接地                    | 水平摩擦：`v_x, v_z × GROUND_FRICTION`；角速度 `ω × GROUND_SPIN_FRICTION`；双向滚动耦合 |
-| `horizontalCollision` | 对比本 tick **意图位移**与**实际位移**：被挡轴的速度分量清零，其余轴 `× WALL_RESTITUTION` |
+| `horizontalCollision` | 对比本 tick **意图位移**与**实际位移**：被挡轴的速度分量沿墙法向反射（`v ← -v × WALL_RESTITUTION`），擦墙轴仅衰减 |
 | 贴墙几乎不动              | 跳过滚动耦合，并对 `ω` 施加 `STUCK_SPIN_DRAG`，避免从自转持续泵入线速度 |
 
 **滚动耦合**（接地且未贴墙卡住时）：无滑滚动近似下，水平线速度与角速度应满足：

@@ -1,4 +1,14 @@
 {
     "item.nmbct-football.football": "Football",
-    "entity.nmbct-football.football": "Football"
+    "entity.nmbct-football.football": "Football",
+    "key.category.nmbct-football.football": "NMBCT Football",
+    "key.nmbct-football.kick": "Kick (Pass/Shoot)",
+    "key.nmbct-football.trap": "Trap Ball",
+    "key.nmbct-football.chip": "Chip Ball",
+    "key.nmbct-football.dribble": "Dribble",
+    "hud.nmbct-football.hint.title": "Football Controls",
+    "hud.nmbct-football.hint.pass_shoot": "Tap pass / Hold shoot",
+    "hud.nmbct-football.hint.dribble": "Hold + move",
+    "hud.nmbct-football.hint.trap": "Trap",
+    "hud.nmbct-football.hint.chip": "Chip"
 }
