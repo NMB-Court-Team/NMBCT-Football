@@ -2,6 +2,7 @@ package net.astrorbits.football
 
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
+import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.Vec3Math
@@ -34,6 +35,14 @@ object FootballCommand {
         )
 
         dispatcher.register(command)
+
+//        val constructFieldCommand = Commands.literal("football").requires(Commands.hasPermission(Commands.LEVEL_ADMINS))
+//        constructFieldCommand.then(Commands.literal("field")
+//            .then(Commands.argument("length", )
+//            )
+//        )
+//
+//        dispatcher.register(constructFieldCommand)
     }
 
     private fun executeKick(context: CommandContext<CommandSourceStack>, heightOffset: Double): Int {
