@@ -4,16 +4,21 @@ import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.FootballInputConfig.SHOOT_FORCE_MAX
 import net.astrorbits.football.physics.CollisionBounceResult
 import net.astrorbits.football.physics.FootballPhysicsConfig
+import net.astrorbits.football.util.Vec3Math
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.BlockParticleOption
 import net.minecraft.core.particles.ParticleOptions
 import net.minecraft.core.particles.ParticleTypes
+import net.minecraft.core.particles.TrailParticleOption
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.util.RandomSource
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
 import net.minecraft.core.particles.DustParticleOptions
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * 本 mod 足球相关的全部粒子效果播放入口。
@@ -26,12 +31,13 @@ import net.minecraft.core.particles.DustParticleOptions
  * ## 粒子一览
  * | 方法 | 触发场景 | 默认粒子 |
  * |------|----------|----------|
- * | [playKick] | 传球 / 射门 / 挑球 | 横扫 + 暴击 + 烟尘 |
+ * | [playKick] | 传球 / 射门 / 挑球 | 双层云环 + 暴击 + 烟尘 |
  * | [playDribble] | 带球周期性触球 | 轻微烟尘 |
  * | [playTrap] | 停球 | 云雾吸收感 |
  * | [playFootballPlace] | 放置足球物品 | 放置烟尘 |
  * | [playGroundBounce] | 球落地反弹 | 脚下方块碎屑 + 尘土 |
  * | [playWallBounce] | 球撞墙反弹 | 暴击 + 白烟 |
+ * | [playHighSpeedDrag] | 足球高速运动 | 随速度方向裹挟的彩色粉末 |
  * | [playGkCatch] | 守门员接球 / 放球 | 云雾 |
  * | [playGkDive] | 守门员鱼跃 | 云 + 白烟拖尾 |
  * | [playGkPunch] | 守门员拳击 / 挡出 | 暴击 |
@@ -65,10 +71,13 @@ object FootballParticles {
     fun centerOfFootball(football: Football): Vec3 =
         football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
 
-    fun playKick(level: Level, center: Vec3, force: Double) {
+    fun playKick(level: Level, center: Vec3, force: Double, kickDirection: Vec3 = Vec3(0.0, 0.0, 1.0)) {
         val scale = kickForceScale(force)
         val countBoost = (FootballParticleConfig.KICK_COUNT_FORCE_EXTRA * scale).toInt()
-        emitBurst(level, center, sweepKickBurst(FootballParticleConfig.KICK_COUNT_BASE + countBoost))
+        val cloudRingCount = FootballParticleConfig.KICK_CLOUD_RING_BASE_COUNT +
+            (FootballParticleConfig.KICK_CLOUD_RING_FORCE_EXTRA * scale).toInt()
+        emitCloudRing(level, center, kickDirection, FootballParticleConfig.KICK_CLOUD_RING_INNER_RADIUS, cloudRingCount)
+        emitCloudRing(level, center, kickDirection, FootballParticleConfig.KICK_CLOUD_RING_OUTER_RADIUS, cloudRingCount)
         emitBurst(level, center, critBurst((FootballParticleConfig.KICK_COUNT_BASE / 2) + countBoost / 2))
         emitBurst(level, center, poofBurst(2 + countBoost / 3, FootballParticleConfig.KICK_PARTICLE_SPEED))
         if (force >= SHOOT_FORCE_MAX)
@@ -76,7 +85,24 @@ object FootballParticles {
     }
 
     fun playKick(player: ServerPlayer, football: Football, force: Double) {
-        playKick(player.level(), centerOfFootball(football), force)
+        val velocity = football.getPhysicsState().linearVelocity
+        val kickDirection = Vec3Math.normalizeSafe(
+            velocity,
+            Vec3Math.normalizeSafe(player.lookAngle, Vec3(0.0, 0.0, 1.0)),
+        )
+        playKick(player.level(), centerOfFootball(football), force, kickDirection)
+        emitBurst(
+            player.level(),
+            kickSweepCenter(player),
+            ParticleBurst(
+                options = ParticleTypes.SWEEP_ATTACK,
+                count = 1,
+                spreadX = 0.0,
+                spreadY = 0.0,
+                spreadZ = 0.0,
+                speed = 0.0,
+            ),
+        )
     }
 
     fun playDribble(level: Level, center: Vec3) {
@@ -153,6 +179,63 @@ object FootballParticles {
         emitBurst(level, center, whiteSmokeBurst((3 + 5 * t).toInt(), FootballParticleConfig.BOUNCE_PARTICLE_SPEED))
     }
 
+    /**
+     * 足球高速移动时，在球周围产生沿速度方向被“裹挟”的彩色粉末粒子。
+     * 该效果是连续触发型：每 tick 依据当前速度决定是否播放与数量。
+     */
+    fun playHighSpeedDrag(level: Level, center: Vec3, linearVelocity: Vec3) {
+        val server = level as? ServerLevel ?: return
+        val speed = linearVelocity.length()
+        if (speed < FootballParticleConfig.HIGH_SPEED_DRAG_MIN_SPEED) {
+            return
+        }
+
+        val t = impactScale(
+            speed,
+            FootballParticleConfig.HIGH_SPEED_DRAG_MIN_SPEED,
+            FootballParticleConfig.HIGH_SPEED_DRAG_REFERENCE_SPEED,
+        )
+        val dir = linearVelocity.scale(1.0 / speed)
+        val (axisU, axisV) = orthonormalBasis(dir)
+        val baseCenter = center.add(0.0, FootballParticleConfig.HIGH_SPEED_DRAG_VERTICAL_OFFSET, 0.0)
+        val count = FootballParticleConfig.HIGH_SPEED_DRAG_COUNT_BASE +
+            (FootballParticleConfig.HIGH_SPEED_DRAG_COUNT_EXTRA * t).toInt()
+        val trailEnd = baseCenter.add(dir.scale(FootballParticleConfig.HIGH_SPEED_DRAG_TRAIL_FORWARD_DISTANCE))
+        val redStart = FootballParticleConfig.HIGH_SPEED_DRAG_COLOR_RED_START.coerceIn(0f, 0.95f)
+        val colorT = ((t - redStart) / (1f - redStart)).coerceIn(0f, 1f)
+        val trailColor = lerpRgb(
+            FootballParticleConfig.HIGH_SPEED_DRAG_TRAIL_COLOR_LOW_RGB,
+            FootballParticleConfig.HIGH_SPEED_DRAG_TRAIL_COLOR_HIGH_RGB,
+            colorT,
+        )
+        val random = server.random
+        val radius = FootballParticleConfig.HIGH_SPEED_DRAG_RING_RADIUS
+        repeat(count) {
+            val angle = 2.0 * PI * (it.toDouble() / count.toDouble()) + (random.nextDouble() - 0.5) * 0.18
+            val radial = axisU.scale(cos(angle)).add(axisV.scale(sin(angle)))
+            val spawnPos = baseCenter.add(
+                radial.scale(radius * (0.92 + random.nextDouble() * 0.16)),
+            )
+            val trail = TrailParticleOption(
+                trailEnd,
+                trailColor,
+                FootballParticleConfig.HIGH_SPEED_DRAG_TRAIL_DURATION_TICKS,
+            )
+            emitBurst(
+                server,
+                spawnPos,
+                ParticleBurst(
+                    options = trail,
+                    count = 1,
+                    spreadX = 0.0,
+                    spreadY = 0.0,
+                    spreadZ = 0.0,
+                    speed = 0.0,
+                ),
+            )
+        }
+    }
+
     fun playGkCatch(level: Level, center: Vec3) {
         emitBurst(level, center, cloudBurst(FootballParticleConfig.GK_CATCH_COUNT, 0.02))
         emitBurst(level, center, poofBurst(3, 0.015))
@@ -206,6 +289,20 @@ object FootballParticles {
         )
     }
 
+    private fun emitDirectedParticle(server: ServerLevel, options: ParticleOptions, pos: Vec3, velocity: Vec3) {
+        server.sendParticles(
+            options,
+            pos.x,
+            pos.y,
+            pos.z,
+            0,
+            velocity.x,
+            velocity.y,
+            velocity.z,
+            1.0,
+        )
+    }
+
     private fun sweepKickBurst(count: Int): ParticleBurst =
         ParticleBurst(ParticleTypes.SWEEP_ATTACK, count, spreadX = 0.35, spreadY = 0.2, spreadZ = 0.35)
 
@@ -235,6 +332,58 @@ object FootballParticles {
             spreadZ = 0.2,
             speed = 0.02,
         )
+    }
+
+    private fun emitCloudRing(level: Level, center: Vec3, normal: Vec3, radius: Double, count: Int) {
+        val server = level as? ServerLevel ?: return
+        if (count <= 0) {
+            return
+        }
+        val unitNormal = Vec3Math.normalizeSafe(normal, Vec3(0.0, 0.0, 1.0))
+        val (axisU, axisV) = orthonormalBasis(unitNormal)
+        repeat(count) { i ->
+            val angle = 2.0 * PI * (i.toDouble() / count.toDouble())
+            val radial = axisU.scale(cos(angle)).add(axisV.scale(sin(angle)))
+            val pos = center.add(radial.scale(radius))
+            val velocity = radial.scale(FootballParticleConfig.KICK_CLOUD_RING_RADIAL_SPEED)
+            emitDirectedParticle(server, ParticleTypes.CLOUD, pos, velocity)
+        }
+    }
+
+    private fun orthonormalBasis(direction: Vec3): Pair<Vec3, Vec3> {
+        val helper = if (kotlin.math.abs(direction.y) < 0.95) Vec3(0.0, 1.0, 0.0) else Vec3(1.0, 0.0, 0.0)
+        val u = direction.cross(helper).normalize()
+        val v = direction.cross(u).normalize()
+        return u to v
+    }
+
+    private fun kickSweepCenter(player: ServerPlayer): Vec3 {
+        val horizontal = Vec3Math.horizontal(player.lookAngle)
+        val forward = Vec3Math.normalizeSafe(
+            horizontal,
+            Vec3(
+                -sin(player.yRot * (PI / 180.0)),
+                0.0,
+                cos(player.yRot * (PI / 180.0)),
+            ),
+        )
+        return player.position().add(
+            forward.scale(FootballParticleConfig.KICK_SWEEP_FOOT_FORWARD),
+        ).add(0.0, FootballParticleConfig.KICK_SWEEP_FOOT_HEIGHT, 0.0)
+    }
+
+    private fun lerpRgb(from: Int, to: Int, t: Float): Int {
+        val a = t.coerceIn(0f, 1f)
+        val fr = (from shr 16) and 0xFF
+        val fg = (from shr 8) and 0xFF
+        val fb = from and 0xFF
+        val tr = (to shr 16) and 0xFF
+        val tg = (to shr 8) and 0xFF
+        val tb = to and 0xFF
+        val r = (fr + ((tr - fr) * a)).toInt().coerceIn(0, 255)
+        val g = (fg + ((tg - fg) * a)).toInt().coerceIn(0, 255)
+        val b = (fb + ((tb - fb) * a)).toInt().coerceIn(0, 255)
+        return (r shl 16) or (g shl 8) or b
     }
 
     private fun impactScale(impactSpeed: Double, minSpeed: Double, referenceSpeed: Double): Float =

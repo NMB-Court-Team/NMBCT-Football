@@ -128,6 +128,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             CobwebUtil.applyCobwebDrag(physicsState)
         }
 
+        FootballParticles.playHighSpeedDrag(
+            level(),
+            FootballParticles.centerOfFootball(this),
+            physicsState.linearVelocity
+        )
+
         previousOrientation.set(physicsState.orientation)
         FootballPhysicsSimulator.integrateOrientation(physicsState)
 
