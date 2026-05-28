@@ -1,6 +1,7 @@
 package net.astrorbits.football
 
 import net.astrorbits.football.input.FootballInputConfig
+import net.astrorbits.football.input.FootballInputConfig.SHOOT_FORCE_MAX
 import net.astrorbits.football.physics.CollisionBounceResult
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.minecraft.core.BlockPos
@@ -70,6 +71,8 @@ object FootballParticles {
         emitBurst(level, center, sweepKickBurst(FootballParticleConfig.KICK_COUNT_BASE + countBoost))
         emitBurst(level, center, critBurst((FootballParticleConfig.KICK_COUNT_BASE / 2) + countBoost / 2))
         emitBurst(level, center, poofBurst(2 + countBoost / 3, FootballParticleConfig.KICK_PARTICLE_SPEED))
+        if (force >= SHOOT_FORCE_MAX)
+            emitBurst(level, center, crimsonBurst((FootballParticleConfig.KICK_COUNT_BASE * 100) + countBoost / 2))
     }
 
     fun playKick(player: ServerPlayer, football: Football, force: Double) {
@@ -217,6 +220,9 @@ object FootballParticles {
 
     private fun whiteSmokeBurst(count: Int, speed: Double = 0.0): ParticleBurst =
         ParticleBurst(ParticleTypes.WHITE_SMOKE, count, spreadX = 0.25, spreadY = 0.15, spreadZ = 0.25, speed = speed)
+
+    private fun crimsonBurst(count: Int, speed: Double = 0.0): ParticleBurst =
+        ParticleBurst(ParticleTypes.CRIMSON_SPORE, count, spreadX = 1.0, spreadY = 1.0, spreadZ = 1.0, speed = speed)
 
     private fun dustPuffBurst(count: Int): ParticleBurst {
         // 棕褐色尘土（RGB 0x8C6B47）

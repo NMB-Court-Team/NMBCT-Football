@@ -2,6 +2,7 @@ package net.astrorbits.football
 
 import net.astrorbits.football.NMBCTFootball.id
 import net.astrorbits.football.input.FootballInputConfig
+import net.astrorbits.football.input.FootballInputConfig.SHOOT_FORCE_MAX
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Registry
 import net.minecraft.core.registries.BuiltInRegistries
@@ -45,6 +46,7 @@ object FootballSounds {
     private val FOOTBALL_KICK_EVENT = register("entity.football.kick")
     private val FOOTBALL_SMASH_KICK_EVENT = register("entity.football.smash_kick")
     private val FOOTBALL_PALM_EVENT = register("entity.football.palm")
+    private val FOOTBALL_PERFECT_KICK_EVENT = register("entity.football.perfect_kick")
 
     /**
      * 单次播放的音量与音高配置。
@@ -78,6 +80,14 @@ object FootballSounds {
      */
     val KICK: SoundSpec = SoundSpec(
         event = FOOTBALL_SMASH_KICK_EVENT,
+        source = SoundSource.NEUTRAL,
+        volume = 1.2f,
+        basePitch = 1.35f,
+        pitchSpread = 0.1f,
+    )
+
+    val PERFECT_KICK: SoundSpec = SoundSpec(
+        event = FOOTBALL_PERFECT_KICK_EVENT,
         source = SoundSource.NEUTRAL,
         volume = 1.2f,
         basePitch = 1.35f,
@@ -173,14 +183,26 @@ object FootballSounds {
         val pitchScale = KICK_PITCH_MIN_SCALE +
             (KICK_PITCH_MAX_SCALE - KICK_PITCH_MIN_SCALE) * normalizedForce
         val pitch = (KICK.resolvePitch(player.random) * pitchScale).coerceAtMost(MAX_PITCH)
-        player.level().playSound(
-            null,
-            player.blockPosition(),
-            KICK.event,
-            KICK.source,
-            KICK.volume,
-            pitch,
-        )
+        if (force < SHOOT_FORCE_MAX) {
+            player.level().playSound(
+                null,
+                player.blockPosition(),
+                KICK.event,
+                KICK.source,
+                KICK.volume,
+                pitch,
+            )
+        } else {
+            player.level().playSound(
+                null,
+                player.blockPosition(),
+                PERFECT_KICK.event,
+                PERFECT_KICK.source,
+                PERFECT_KICK.volume,
+                pitch,
+            )
+        }
+
     }
 
     fun playDribble(player: ServerPlayer) {
