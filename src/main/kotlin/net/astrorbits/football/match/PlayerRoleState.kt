@@ -1,6 +1,7 @@
 package net.astrorbits.football.match
 
 import net.astrorbits.football.network.FootballNetworking
+import net.astrorbits.football.util.GoalkeeperUtil
 import net.minecraft.server.level.ServerPlayer
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -56,7 +57,16 @@ object PlayerRoleState {
     }
 
     fun syncRoleToPlayer(player: ServerPlayer) {
-        FootballNetworking.sendGoalkeeperRole(player, isGoalkeeper(player))
+        val isGk = isGoalkeeper(player)
+        FootballNetworking.sendGoalkeeperRole(player, isGk)
+        if (!isGk) {
+            releaseHeldFootballOnRoleExit(player)
+        }
+    }
+
+    /** 退出守门员身份时放下手中足球，避免球仍粘在实体上却无法操作。 */
+    private fun releaseHeldFootballOnRoleExit(player: ServerPlayer) {
+        GoalkeeperUtil.findHeldFootball(player)?.dropAt(player)
     }
 
     fun reset() {

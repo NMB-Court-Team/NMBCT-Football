@@ -13,7 +13,7 @@ class GoalkeeperHoldLockHudElement : HudElement {
         if (client.screen != null || client.isPaused) {
             return
         }
-        if (!GoalkeeperStateClient.isHoldingBall) {
+        if (!GoalkeeperStateClient.isGoalkeeper) {
             return
         }
 

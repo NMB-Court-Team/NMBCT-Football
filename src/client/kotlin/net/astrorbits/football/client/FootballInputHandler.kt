@@ -68,6 +68,11 @@ object FootballInputHandler {
         handleDribbleHold(player)
     }
 
+    fun onGoalkeeperBeganHoldingBall() {
+        kickPressStartMs = null
+        resetChargeDisplay()
+    }
+
     private fun handleGoalkeeperInput(player: LocalPlayer) {
         val holdingBall = GoalkeeperStateClient.isHoldingBall
         val releaseLocked = holdingBall && GoalkeeperStateClient.isHoldReleaseLocked()
@@ -124,6 +129,7 @@ object FootballInputHandler {
                     val heldMs = System.currentTimeMillis() - start
                     val flags = buildFlags(player)
                     when {
+                        holdingBall && GoalkeeperStateClient.isHoldReleaseLocked() -> Unit
                         holdingBall && heldMs < FootballInputConfig.TAP_MAX_MS ->
                             sendAction(player, FootballActionType.GK_THROW_SHORT, 0f, flags)
                         holdingBall && heldMs >= FootballInputConfig.CHARGE_MIN_MS ->

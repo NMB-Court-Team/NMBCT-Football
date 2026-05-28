@@ -34,9 +34,9 @@ object NMBCTFootballClient : ClientModInitializer {
 			GoalkeeperHoldLockHudElement()
 		)
 
-		FootballInputHandler.registerTickEvent()
-		MatchStateClient.registerTickEvent()
 		GoalkeeperStateClient.register()
 		GoalkeeperHoldPoseClient.register()
+		FootballInputHandler.registerTickEvent()
+		MatchStateClient.registerTickEvent()
 	}
 }
