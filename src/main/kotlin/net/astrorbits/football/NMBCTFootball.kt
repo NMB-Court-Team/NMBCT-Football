@@ -38,6 +38,7 @@ object NMBCTFootball : ModInitializer {
 
 		FootballNetworking.registerPayloadType()
 		FootballNetworking.registerServerReceiver()
+		FootballEntityInteractions.register()
 		FootballDribbleSessions.registerEvents()
 		GoalkeeperDiveSessions.registerEvents()
 

@@ -2,6 +2,7 @@ package net.astrorbits.football
 
 import net.astrorbits.football.input.GoalkeeperHoldLock
 import net.astrorbits.football.input.GoalkeeperInputConfig
+import net.astrorbits.football.item.Items
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
 import net.astrorbits.football.util.CobwebUtil
@@ -18,8 +19,15 @@ import net.minecraft.resources.ResourceKey
 import net.minecraft.core.Registry
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.InteractionResult
 import net.minecraft.world.damagesource.DamageSource
 import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
+import net.minecraft.world.level.GameType
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.MobCategory
 import net.minecraft.world.entity.MoverType
@@ -352,6 +360,56 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
         return Vec3Math.horizontal(physicsState.linearVelocity).lengthSqr() <
             FootballPhysicsConfig.RENDER_STATIONARY_SPEED_SQR
+    }
+
+    override fun isPickable(): Boolean = true
+
+    override fun interact(player: Player, hand: InteractionHand, location: Vec3): InteractionResult {
+        return handlePlayerInteract(player)
+    }
+
+    fun handlePlayerInteract(player: Player): InteractionResult {
+        if (level().isClientSide) {
+            return InteractionResult.SUCCESS
+        }
+        if (player !is ServerPlayer) {
+            return InteractionResult.PASS
+        }
+        return tryPickUpAsItem(player)
+    }
+
+    /**
+     * 创造模式 OP：潜行（Shift）+ 右键将足球收回物品栏。
+     */
+    private fun tryPickUpAsItem(player: ServerPlayer): InteractionResult {
+        if (!player.isShiftKeyDown) {
+            return InteractionResult.PASS
+        }
+        if (player.gameMode.gameModeForPlayer != GameType.CREATIVE) {
+            return InteractionResult.PASS
+        }
+        val server = player.level().server ?: return InteractionResult.PASS
+        if (!server.playerList.isOp(player.nameAndId())) {
+            return InteractionResult.PASS
+        }
+
+        releaseHold()
+        val stack = ItemStack(Items.FOOTBALL)
+        if (!player.addItem(stack)) {
+            player.drop(stack, false)
+        }
+        val level = player.level()
+        val pitch = 1.0f + (level.random.nextFloat() - level.random.nextFloat()) * 0.4f
+        level.playSound(
+            null,
+            blockPosition(),
+            SoundEvents.ITEM_PICKUP,
+            SoundSource.PLAYERS,
+            0.2f,
+            pitch,
+        )
+        discard()
+        return InteractionResult.SUCCESS
     }
 
     override fun hurtServer(
