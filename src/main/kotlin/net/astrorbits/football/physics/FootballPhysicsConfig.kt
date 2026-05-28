@@ -5,7 +5,7 @@ import net.astrorbits.football.config.FootballConfigs
 /**
  * @deprecated 请使用 [net.astrorbits.football.config.FootballConfigs.server.physics]。
  */
-@Deprecated("Use FootballConfigs.server.physics", ReplaceWith("FootballConfigs.server.physics"))
+//@Deprecated("Use FootballConfigs.server.physics", ReplaceWith("FootballConfigs.server.physics"))
 object FootballPhysicsConfig {
     val RADIUS get() = FootballConfigs.server.physics.radius
     val MASS get() = FootballConfigs.server.physics.mass

@@ -201,18 +201,15 @@ object GoalkeeperActions {
     }
 
     private fun applyLookFromPayload(player: ServerPlayer, payload: FootballActionC2SPayload) {
-        player.setYRot(payload.lookYaw)
-        player.setXRot(payload.lookPitch)
+        player.yRot = payload.lookYaw
+        player.xRot = payload.lookPitch
         player.yHeadRot = payload.lookYaw
         player.yBodyRot = payload.lookYaw
     }
 
     private fun tryConsumeCooldown(player: ServerPlayer, now: Long): Boolean {
         val last = lastActionTick[player.uuid] ?: -1
-        if (now - last < GoalkeeperInputConfig.GK_ACTION_COOLDOWN_TICKS) {
-            return false
-        }
-        return true
+        return now - last >= GoalkeeperInputConfig.GK_ACTION_COOLDOWN_TICKS
     }
 
     private fun canAct(player: Player): Boolean = player.mainHandItem.isEmpty

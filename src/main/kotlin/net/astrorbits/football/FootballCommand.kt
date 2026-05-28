@@ -10,7 +10,6 @@ import net.astrorbits.football.util.FootballKickUtil
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.network.chat.Component
-import net.minecraft.world.phys.Vec3
 
 object FootballCommand {
     fun register(dispatcher: CommandDispatcher<CommandSourceStack>) {

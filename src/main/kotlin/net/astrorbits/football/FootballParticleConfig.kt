@@ -5,7 +5,7 @@ import net.astrorbits.football.config.FootballConfigs
 /**
  * @deprecated 请使用 [net.astrorbits.football.config.FootballConfigs.server.particles]。
  */
-@Deprecated("Use FootballConfigs.server.particles", ReplaceWith("FootballConfigs.server.particles"))
+//@Deprecated("Use FootballConfigs.server.particles", ReplaceWith("FootballConfigs.server.particles"))
 object FootballParticleConfig {
     val BOUNCE_PARTICLE_MIN_GROUND_VY get() = FootballConfigs.server.particles.bounceParticleMinGroundVy
     val BOUNCE_PARTICLE_MIN_WALL_SPEED get() = FootballConfigs.server.particles.bounceParticleMinWallSpeed

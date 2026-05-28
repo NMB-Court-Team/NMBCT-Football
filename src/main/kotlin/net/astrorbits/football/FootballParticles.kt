@@ -1,21 +1,27 @@
 package net.astrorbits.football
 
+import net.astrorbits.football.FootballParticles.playDribble
+import net.astrorbits.football.FootballParticles.playFootballPlace
+import net.astrorbits.football.FootballParticles.playGkCatch
+import net.astrorbits.football.FootballParticles.playGkDive
+import net.astrorbits.football.FootballParticles.playGkPunch
+import net.astrorbits.football.FootballParticles.playGkThrow
+import net.astrorbits.football.FootballParticles.playGroundBounce
+import net.astrorbits.football.FootballParticles.playHighSpeedDrag
+import net.astrorbits.football.FootballParticles.playKick
+import net.astrorbits.football.FootballParticles.playTrap
+import net.astrorbits.football.FootballParticles.playWallBounce
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.FootballInputConfig.SHOOT_FORCE_MAX
 import net.astrorbits.football.physics.CollisionBounceResult
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.Vec3Math
 import net.minecraft.core.BlockPos
-import net.minecraft.core.particles.BlockParticleOption
-import net.minecraft.core.particles.ParticleOptions
-import net.minecraft.core.particles.ParticleTypes
-import net.minecraft.core.particles.TrailParticleOption
+import net.minecraft.core.particles.*
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.util.RandomSource
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
-import net.minecraft.core.particles.DustParticleOptions
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -24,7 +30,7 @@ import kotlin.math.sin
  * 本 mod 足球相关的全部粒子效果播放入口。
  *
  * ## 如何调整
- * 1. 在下方找到对应场景的 [ParticleBurst] 或 [playXxx] 方法，修改粒子类型、数量、散布与速度。
+ * 1. 在下方找到对应场景的 [ParticleBurst] 或 `playXxx` 方法，修改粒子类型、数量、散布与速度。
  * 2. 触发阈值与力度缩放见 [FootballParticleConfig]。
  * 3. 将 [ParticleBurst.options] 换为任意 [net.minecraft.core.particles.ParticleOptions]（含 [BlockParticleOption]、[net.minecraft.core.particles.DustParticleOptions] 等）。
  *
@@ -391,8 +397,7 @@ object FootballParticles {
 
     private fun kickForceScale(force: Double): Float {
         val min = FootballInputConfig.CHIP_FORCE
-        val max = FootballInputConfig.SHOOT_FORCE_MAX * FootballInputConfig.SHOOT_SPRINT_BONUS
-        @Suppress("KotlinConstantConditions")
+        val max = SHOOT_FORCE_MAX * FootballInputConfig.SHOOT_SPRINT_BONUS
         if (max <= min) {
             return 1f
         }

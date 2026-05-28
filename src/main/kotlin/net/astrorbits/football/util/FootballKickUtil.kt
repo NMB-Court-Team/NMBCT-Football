@@ -68,7 +68,7 @@ object FootballKickUtil {
     fun resolveChipParams(player: Player): KickParams {
         val look = player.lookAngle
         val pitchUp = look.y.coerceAtLeast(0.0)
-        val extraAngle = (pitchUp * 40.0).coerceAtMost(FootballInputConfig.CHIP_ANGLE_EXTRA_MAX.toDouble())
+        val extraAngle = (pitchUp * 40.0).coerceAtMost(FootballInputConfig.CHIP_ANGLE_EXTRA_MAX)
         return KickParams(
             force = FootballInputConfig.CHIP_FORCE,
             angleDegrees = FootballInputConfig.CHIP_ANGLE_DEG + extraAngle,

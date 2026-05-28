@@ -372,7 +372,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             input.getDoubleOr("av_z", 0.0)
         )
         physicsState.onGround = input.getBooleanOr("on_ground", false)
-        setDeltaMovement(physicsState.linearVelocity)
+        deltaMovement = physicsState.linearVelocity
     }
 
     override fun addAdditionalSaveData(output: ValueOutput) {

@@ -1,13 +1,14 @@
 package net.astrorbits.football.util
 
 import net.minecraft.world.phys.Vec3
+import kotlin.math.sqrt
 
 object Vec3Math {
     fun horizontal(vector: Vec3): Vec3 = Vec3(vector.x, 0.0, vector.z)
 
     fun normalizeSafe(vector: Vec3, fallback: Vec3 = Vec3.ZERO): Vec3 {
         val lengthSqr = vector.lengthSqr()
-        return if (lengthSqr < 1.0e-8) fallback else vector.scale(1.0 / Math.sqrt(lengthSqr))
+        return if (lengthSqr < 1.0e-8) fallback else vector.scale(1.0 / sqrt(lengthSqr))
     }
 
     /**
