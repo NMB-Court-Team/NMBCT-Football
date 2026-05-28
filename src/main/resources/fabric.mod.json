@@ -3,15 +3,15 @@
 	"id": "nmbct-football",
 	"version": "${version}",
 	"name": "NMBCT Football",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "A football mod! You can play football game in Minecraft!",
 	"authors": [
-		"Me!"
+		"Astrorbits NMB Court Team"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://github.com/NMB-Court-Team",
+		"sources": "https://github.com/NMB-Court-Team/NMBCT-Football"
 	},
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/nmbct-football/icon.png",
 	"environment": "*",
 	"entrypoints": {
