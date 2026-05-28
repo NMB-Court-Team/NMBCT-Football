@@ -2,6 +2,7 @@ package net.astrorbits.football.client
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.NMBCTFootball
+import net.astrorbits.football.config.FootballConfigNetworking
 import net.astrorbits.football.client.match.MatchStateClient
 import net.astrorbits.football.match.MatchState
 import net.fabricmc.api.ClientModInitializer
@@ -13,6 +14,8 @@ import net.minecraft.resources.Identifier
 object NMBCTFootballClient : ClientModInitializer {
 	override fun onInitializeClient() {
 		EntityRenderers.register(Football.ENTITY_TYPE, ::FootballRenderer)
+
+		FootballConfigNetworking.register()
 
 		FootballKeyBindings.init()
 

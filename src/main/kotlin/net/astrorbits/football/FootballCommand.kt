@@ -3,7 +3,9 @@ package net.astrorbits.football
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.DoubleArgumentType
 import com.mojang.brigadier.context.CommandContext
-import net.astrorbits.football.input.FootballInputConfig
+import net.astrorbits.football.config.FootballConfigs
+import net.astrorbits.football.config.server.FootballServerConfigHolder
+import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.util.FootballKickUtil
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
@@ -22,6 +24,21 @@ object FootballCommand {
                 football.setPos(pos.x, pos.y, pos.z)
                 level.addFreshEntity(football)
                 source.sendSuccess({ Component.literal("Summoned football") }, true)
+                1
+            }
+        ).then(Commands.literal("config")
+            .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+            .executes { context ->
+                val player = context.source.player
+                if (player == null) {
+                    context.source.sendFailure(Component.translatable("command.nmbct-football.config.player_only"))
+                    return@executes 0
+                }
+                FootballNetworking.sendServerConfigSync(player, FootballServerConfigHolder.current)
+                context.source.sendSuccess(
+                    { Component.translatable("command.nmbct-football.config.opened") },
+                    true,
+                )
                 1
             }
         ).then(Commands.literal("kick")
@@ -60,7 +77,7 @@ object FootballCommand {
         }
 
         val force = DoubleArgumentType.getDouble(context, "force")
-        val football = FootballKickUtil.findNearestFootball(player, FootballInputConfig.COMMAND_KICK_RANGE)
+        val football = FootballKickUtil.findNearestFootball(player, FootballConfigs.server.playerInput.commandKickRange)
         if (football == null) {
             source.sendFailure(Component.literal("No football nearby"))
             return 0

@@ -13,6 +13,9 @@ repositories {
 	maven("https://maven.isxander.dev/releases") {
 		name = "Xander Maven"
 	}
+	maven("https://maven.terraformersmc.com/") {
+		name = "Terraformers"
+	}
 }
 
 loom {
@@ -42,7 +45,8 @@ dependencies {
 	implementation("net.fabricmc.fabric-api:fabric-api:${providers.gradleProperty("fabric_api_version").get()}")
 	implementation("net.fabricmc:fabric-language-kotlin:${providers.gradleProperty("fabric_kotlin_version").get()}")
 
-	compileOnly("dev.isxander:yet-another-config-lib:${providers.gradleProperty("yacl_version").get()}")
+	implementation("dev.isxander:yet-another-config-lib:${providers.gradleProperty("yacl_version").get()}")
+	implementation("com.terraformersmc:modmenu:${providers.gradleProperty("modmenu_version").get()}")
 }
 
 tasks.processResources {

@@ -1,5 +1,7 @@
 package net.astrorbits.football
 
+import net.astrorbits.football.config.client.FootballClientConfigHolder
+import net.astrorbits.football.config.server.FootballServerConfigHolder
 import net.astrorbits.football.input.FootballDribbleSessions
 import net.astrorbits.football.input.GoalkeeperDiveSessions
 import net.astrorbits.football.item.Items
@@ -21,6 +23,9 @@ object NMBCTFootball : ModInitializer {
 	fun id(path: String): Identifier = Identifier.fromNamespaceAndPath(MOD_ID, path)
 
 	override fun onInitialize() {
+		FootballServerConfigHolder.init()
+		FootballClientConfigHolder.init()
+
 		Items.init()
 		Football.init()
 		FootballSounds.init()

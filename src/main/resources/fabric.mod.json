@@ -26,6 +26,9 @@
 				"value": "net.astrorbits.football.client.NMBCTFootballClient",
 				"adapter": "kotlin"
 			}
+		],
+		"modmenu": [
+			"net.astrorbits.football.config.ModMenuIntegration"
 		]
 	},
 	"mixins": [

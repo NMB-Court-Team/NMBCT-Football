@@ -1,0 +1,98 @@
+package net.astrorbits.football.config.yacl
+
+import dev.isxander.yacl3.api.Option
+import dev.isxander.yacl3.api.OptionDescription
+import dev.isxander.yacl3.api.OptionGroup
+import dev.isxander.yacl3.api.controller.DoubleSliderControllerBuilder
+import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder
+import dev.isxander.yacl3.api.controller.LongSliderControllerBuilder
+import net.minecraft.network.chat.Component
+
+object YaclOptionUtil {
+    fun OptionGroup.Builder.addDouble(
+        nameKey: String,
+        descKey: String,
+        getter: () -> Double,
+        setter: (Double) -> Unit,
+        range: ClosedFloatingPointRange<Double>,
+        step: Double = (range.endInclusive - range.start) / 100.0,
+    ) {
+        option(
+            Option.createBuilder<Double>()
+                .name(Component.translatable(nameKey))
+                .description(OptionDescription.of(Component.translatable(descKey)))
+                .binding(range.start, getter, setter)
+                .controller { opt ->
+                    DoubleSliderControllerBuilder.create(opt)
+                        .range(range.start, range.endInclusive)
+                        .step(step)
+                }
+                .build(),
+        )
+    }
+
+    fun OptionGroup.Builder.addInt(
+        nameKey: String,
+        descKey: String,
+        getter: () -> Int,
+        setter: (Int) -> Unit,
+        range: IntRange,
+    ) {
+        option(
+            Option.createBuilder<Int>()
+                .name(Component.translatable(nameKey))
+                .description(OptionDescription.of(Component.translatable(descKey)))
+                .binding(range.first, getter, setter)
+                .controller { opt ->
+                    IntegerSliderControllerBuilder.create(opt)
+                        .range(range.first, range.last)
+                        .step(1)
+                }
+                .build(),
+        )
+    }
+
+    fun OptionGroup.Builder.addLong(
+        nameKey: String,
+        descKey: String,
+        getter: () -> Long,
+        setter: (Long) -> Unit,
+        range: LongRange,
+        step: Long = 10L,
+    ) {
+        option(
+            Option.createBuilder<Long>()
+                .name(Component.translatable(nameKey))
+                .description(OptionDescription.of(Component.translatable(descKey)))
+                .binding(range.first, getter, setter)
+                .controller { opt ->
+                    LongSliderControllerBuilder.create(opt)
+                        .range(range.first, range.last)
+                        .step(step)
+                }
+                .build(),
+        )
+    }
+
+    fun OptionGroup.Builder.addFloat(
+        nameKey: String,
+        descKey: String,
+        getter: () -> Float,
+        setter: (Float) -> Unit,
+        range: ClosedFloatingPointRange<Float>,
+        step: Float = (range.endInclusive - range.start) / 100f,
+    ) {
+        option(
+            Option.createBuilder<Float>()
+                .name(Component.translatable(nameKey))
+                .description(OptionDescription.of(Component.translatable(descKey)))
+                .binding(range.start, getter, setter)
+                .controller { opt ->
+                    dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder.create(opt)
+                        .range(range.start, range.endInclusive)
+                        .step(step)
+                }
+                .build(),
+        )
+    }
+}
