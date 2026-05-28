@@ -21,6 +21,7 @@ object FootballNetworking {
 
     private fun registerS2CPayloadType(registry: PayloadTypeRegistry<RegistryFriendlyByteBuf>) {
         registry.register(GoalkeeperRoleS2CPayload.TYPE, GoalkeeperRoleS2CPayload.CODEC)
+        registry.register(GoalkeeperHoldLockS2CPayload.TYPE, GoalkeeperHoldLockS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -33,6 +34,10 @@ object FootballNetworking {
 
     fun sendGoalkeeperRole(player: ServerPlayer, isGoalkeeper: Boolean) {
         ServerPlayNetworking.send(player, GoalkeeperRoleS2CPayload(isGoalkeeper))
+    }
+
+    fun sendHoldReleaseLock(player: ServerPlayer, lockTicksRemaining: Int) {
+        ServerPlayNetworking.send(player, GoalkeeperHoldLockS2CPayload(lockTicksRemaining))
     }
 
     fun syncGoalkeeperRole(uuid: UUID, server: MinecraftServer?) {

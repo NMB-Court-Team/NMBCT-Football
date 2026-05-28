@@ -45,6 +45,19 @@ object GoalkeeperActions {
 
     private fun handleWhileHolding(player: ServerPlayer, football: Football, payload: FootballActionC2SPayload) {
         val now = player.level().gameTime
+
+        when (payload.action) {
+            FootballActionType.GK_THROW_SHORT,
+            FootballActionType.GK_THROW_LONG,
+            FootballActionType.GK_DROP,
+            -> {
+                if (GoalkeeperHoldLock.isReleaseBlocked(player, now)) {
+                    return
+                }
+            }
+            else -> Unit
+        }
+
         if (!tryConsumeCooldown(player, now)) {
             return
         }

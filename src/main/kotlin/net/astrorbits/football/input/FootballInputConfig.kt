@@ -112,6 +112,18 @@ object FootballInputConfig {
     /** 射门蓄力满格时的仰角（度）。 */
     const val SHOOT_ANGLE_MAX_DEG = 18.0
 
+    /**
+     * 视角 pitch 对踢球仰角的贡献系数（0~1）。
+     * 0.35 表示视角上/下偏 10° 时，踢球仰角约额外变化 ±3.5°。
+     */
+    const val KICK_LOOK_PITCH_INFLUENCE = 0.35
+
+    /** 视角 pitch 带来的仰角偏移下限（度，负值=更易贴地）。 */
+    const val KICK_LOOK_PITCH_ANGLE_MIN = -10.0
+
+    /** 视角 pitch 带来的仰角偏移上限（度，正值=更易抬高）。 */
+    const val KICK_LOOK_PITCH_ANGLE_MAX = 15.0
+
     /** 客户端上报 flags 中的「冲刺」位；服务端据此判断是否应用 [SHOOT_SPRINT_BONUS]。 */
     const val FLAG_SPRINT = 1
 

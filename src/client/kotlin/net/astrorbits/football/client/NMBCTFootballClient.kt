@@ -29,6 +29,11 @@ object NMBCTFootballClient : ClientModInitializer {
 			FootballKeybindHintHudElement()
 		)
 
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "gk_hold_lock_hud"),
+			GoalkeeperHoldLockHudElement()
+		)
+
 		FootballInputHandler.registerTickEvent()
 		MatchStateClient.registerTickEvent()
 		GoalkeeperStateClient.register()

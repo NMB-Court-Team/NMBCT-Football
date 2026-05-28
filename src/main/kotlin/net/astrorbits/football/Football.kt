@@ -1,5 +1,6 @@
 package net.astrorbits.football
 
+import net.astrorbits.football.input.GoalkeeperHoldLock
 import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
@@ -207,12 +208,14 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         updateHeldOrientation(player)
         syncPhysicsToEntityData()
         syncPacketPositionCodec(x, y, z)
+        GoalkeeperHoldLock.beginLock(player, level().gameTime)
     }
 
     fun releaseHold() {
         if (level().isClientSide || holderEntityId < 0) {
             return
         }
+        notifyHoldEnded(holderEntityId)
         holderEntityId = -1
         holdStartTick = 0L
         syncHolderToEntityData()
@@ -231,6 +234,13 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         deltaMovement = Vec3.ZERO
         syncPhysicsToEntityData()
         syncPacketPositionCodec(x, y, z)
+    }
+
+    private fun notifyHoldEnded(holderId: Int) {
+        val holder = level().getEntity(holderId)
+        if (holder is ServerPlayer) {
+            GoalkeeperHoldLock.onHoldEnded(holder)
+        }
     }
 
     private fun tickHeld() {

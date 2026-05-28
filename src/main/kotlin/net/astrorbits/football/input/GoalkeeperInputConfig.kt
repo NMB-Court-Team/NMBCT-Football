@@ -84,4 +84,10 @@ object GoalkeeperInputConfig {
 
     /** 同一门将两次操作的最短间隔（tick）。 */
     const val GK_ACTION_COOLDOWN_TICKS = 3
+
+    /**
+     * 守门员接球/摘球后禁止手抛、开球与放下的时长（tick）。
+     * 防止快速连按误操作；设为 0 可关闭。
+     */
+    const val GK_HOLD_RELEASE_LOCK_TICKS = 25
 }

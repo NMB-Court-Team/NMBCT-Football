@@ -16,5 +16,6 @@
     "hud.nmbct-football.hint.gk_catch": "接球",
     "hud.nmbct-football.hint.gk_punch": "击出",
     "hud.nmbct-football.hint.gk_throw": "短抛 / 长按开球",
-    "hud.nmbct-football.hint.gk_drop": "放下"
+    "hud.nmbct-football.hint.gk_drop": "放下",
+    "hud.nmbct-football.gk_hold_lock": "持球保护"
 }

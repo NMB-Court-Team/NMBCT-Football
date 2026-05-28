@@ -70,13 +70,30 @@ object FootballInputHandler {
 
     private fun handleGoalkeeperInput(player: LocalPlayer) {
         val holdingBall = GoalkeeperStateClient.isHoldingBall
+        val releaseLocked = holdingBall && GoalkeeperStateClient.isHoldReleaseLocked()
         if (holdingBall) {
-            handleKickLongPress(player, holdingBall = true)
-            handleTrapPress(player, FootballActionType.GK_DROP)
+            if (!releaseLocked) {
+                handleKickLongPress(player, holdingBall = true)
+                handleTrapPress(player, FootballActionType.GK_DROP)
+            } else {
+                handleKickLongPressBlocked()
+            }
         } else {
             handleKickLongPress(player, holdingBall = false)
             handleTrapPress(player, FootballActionType.GK_CATCH)
             handleChipPressGoalkeeper(player)
+        }
+    }
+
+    /** 持球保护期间忽略开球/放下输入，并清除蓄力显示。 */
+    private fun handleKickLongPressBlocked() {
+        when (getKickLongPressState()) {
+            LongPressState.FINISHED -> {
+                kickPressStartMs = null
+                resetChargeDisplay()
+            }
+            LongPressState.NONE -> Unit
+            else -> Unit
         }
     }
 

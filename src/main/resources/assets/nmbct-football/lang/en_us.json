@@ -16,5 +16,6 @@
     "hud.nmbct-football.hint.gk_catch": "Catch",
     "hud.nmbct-football.hint.gk_punch": "Punch",
     "hud.nmbct-football.hint.gk_throw": "Tap throw / Hold long throw",
-    "hud.nmbct-football.hint.gk_drop": "Drop"
+    "hud.nmbct-football.hint.gk_drop": "Drop",
+    "hud.nmbct-football.gk_hold_lock": "Ball secured"
 }

@@ -1,0 +1,47 @@
+package net.astrorbits.football.input
+
+import net.astrorbits.football.network.FootballNetworking
+import net.minecraft.server.level.ServerPlayer
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * 守门员持球后的释放锁定：接球/鱼跃摘球后短时间内禁止手抛、开球与放下。
+ */
+object GoalkeeperHoldLock {
+    private val releaseLockUntilTick = ConcurrentHashMap<UUID, Long>()
+
+    fun beginLock(player: ServerPlayer, now: Long) {
+        if (GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS <= 0) {
+            return
+        }
+        val until = now + GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS
+        releaseLockUntilTick[player.uuid] = until
+        syncToPlayer(player, now)
+    }
+
+    fun onHoldEnded(player: ServerPlayer) {
+        if (releaseLockUntilTick.remove(player.uuid) != null) {
+            FootballNetworking.sendHoldReleaseLock(player, 0)
+        }
+    }
+
+    fun isReleaseBlocked(player: ServerPlayer, now: Long): Boolean {
+        val until = releaseLockUntilTick[player.uuid] ?: return false
+        if (now >= until) {
+            releaseLockUntilTick.remove(player.uuid)
+            FootballNetworking.sendHoldReleaseLock(player, 0)
+            return false
+        }
+        return true
+    }
+
+    fun remainingTicks(player: ServerPlayer, now: Long): Int {
+        val until = releaseLockUntilTick[player.uuid] ?: return 0
+        return (until - now).toInt().coerceAtLeast(0)
+    }
+
+    private fun syncToPlayer(player: ServerPlayer, now: Long) {
+        FootballNetworking.sendHoldReleaseLock(player, remainingTicks(player, now))
+    }
+}

@@ -96,7 +96,21 @@ object FootballKickUtil {
     ) {
         val look = lookDirection(lookYaw, lookPitch)
         val horizontalLook = Vec3Math.horizontal(look)
-        applyKickWithHorizontalDirection(football, horizontalLook, look, params)
+        val pitchOffset = lookPitchAngleOffset(lookPitch)
+        val adjustedParams = params.copy(angleDegrees = params.angleDegrees + pitchOffset)
+        applyKickWithHorizontalDirection(football, horizontalLook, look, adjustedParams)
+    }
+
+    /**
+     * 将玩家视角 pitch 转为踢球仰角偏移。
+     * MC 中 pitch 向上为负、向下为正；仰角偏移与之相反（看上→球抬高）。
+     */
+    fun lookPitchAngleOffset(lookPitch: Float): Double {
+        val raw = -lookPitch.toDouble() * FootballInputConfig.KICK_LOOK_PITCH_INFLUENCE
+        return raw.coerceIn(
+            FootballInputConfig.KICK_LOOK_PITCH_ANGLE_MIN,
+            FootballInputConfig.KICK_LOOK_PITCH_ANGLE_MAX,
+        )
     }
 
     fun lookDirection(lookYaw: Float, lookPitch: Float): Vec3 {
