@@ -24,6 +24,7 @@ object NMBCTFootball : ModInitializer {
 		Items.init()
 		Football.init()
 		FootballSounds.init()
+		FootballParticles.init()
 
 		CommandRegistrationCallback.EVENT.register { dispatcher, _, _ ->
 			FootballCommand.register(dispatcher)

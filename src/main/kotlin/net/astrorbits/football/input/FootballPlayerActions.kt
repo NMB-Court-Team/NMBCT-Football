@@ -4,6 +4,7 @@ import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.network.FootballActionC2SPayload
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.FootballSounds
+import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.util.FootballKickUtil
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.player.Player
@@ -54,10 +55,7 @@ object FootballPlayerActions {
         }
 
         val now = player.level().gameTime
-        val isNewSession = FootballDribbleSessions.beginOrRefresh(player, football, now)
-        if (isNewSession) {
-            FootballSounds.playDribble(player)
-        }
+        FootballDribbleSessions.beginOrRefresh(player, football, now)
     }
 
     private fun handleKickAction(player: ServerPlayer, payload: FootballActionC2SPayload) {
@@ -90,6 +88,7 @@ object FootballPlayerActions {
                 val params = FootballKickUtil.resolvePassParams()
                 FootballKickUtil.applyKickToFootball(player, football, params)
                 FootballSounds.playKick(player, params.force)
+                FootballParticles.playKick(player, football, params.force)
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.SHOOT -> {
@@ -100,11 +99,13 @@ object FootballPlayerActions {
                     params
                 )
                 FootballSounds.playKick(player, params.force)
+                FootballParticles.playKick(player, football, params.force)
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.TRAP -> {
                 football.trap()
                 FootballSounds.playTrap(player)
+                FootballParticles.playTrap(player, football)
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.CHIP -> {
@@ -115,6 +116,7 @@ object FootballPlayerActions {
                     params
                 )
                 FootballSounds.playKick(player, params.force)
+                FootballParticles.playKick(player, football, params.force)
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.DRIBBLE_HOLD, FootballActionType.DRIBBLE_END,

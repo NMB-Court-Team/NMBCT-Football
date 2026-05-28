@@ -121,6 +121,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             actualMotion
         )
         FootballSounds.playCollisionBounces(level(), blockPosition(), bounce, level().random)
+        FootballParticles.playCollisionBounces(level(), blockPosition(), bounce)
 
         physicsState.inCobweb = false
         if (CobwebUtil.isIntersectingCobweb(level(), boundingBox)) {

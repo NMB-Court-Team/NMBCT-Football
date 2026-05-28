@@ -2,6 +2,7 @@ package net.astrorbits.football.input
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.FootballSounds
+import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.network.FootballActionC2SPayload
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.util.FootballKickUtil
@@ -53,6 +54,7 @@ object GoalkeeperActions {
 
         when (payload.action) {
             FootballActionType.GK_THROW_SHORT -> {
+                FootballParticles.playGkThrow(player, football)
                 football.releaseHold()
                 FootballKickUtil.applyKickToFootballWithLook(
                     football,
@@ -65,6 +67,7 @@ object GoalkeeperActions {
             }
             FootballActionType.GK_THROW_LONG -> {
                 val sprinting = payload.flags and FootballInputConfig.FLAG_SPRINT != 0
+                FootballParticles.playGkThrow(player, football)
                 football.releaseHold()
                 FootballKickUtil.applyKickToFootballWithLook(
                     football,
@@ -76,6 +79,7 @@ object GoalkeeperActions {
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.GK_DROP -> {
+                FootballParticles.playGkCatch(player, football)
                 football.dropAt(player)
                 FootballSounds.playGkCatch(player)
                 lastActionTick[player.uuid] = now
@@ -109,6 +113,7 @@ object GoalkeeperActions {
 
         football.enterHold(player)
         FootballSounds.playGkCatch(player)
+        FootballParticles.playGkCatch(player, football)
         lastActionTick[player.uuid] = now
     }
 
@@ -129,6 +134,7 @@ object GoalkeeperActions {
 
         FootballKickUtil.applyKickToFootball(player, football, GoalkeeperUtil.resolvePunchParams())
         FootballSounds.playGkPunch(player)
+        FootballParticles.playGkPunch(player, football)
         lastActionTick[player.uuid] = now
     }
 
@@ -147,6 +153,7 @@ object GoalkeeperActions {
 
         GoalkeeperDiveSessions.begin(player, direction, now)
         FootballSounds.playGkDive(player)
+        FootballParticles.playGkDive(player)
         diveCooldownUntil[player.uuid] = now + GoalkeeperInputConfig.GK_DIVE_COOLDOWN_TICKS
     }
 
@@ -155,6 +162,7 @@ object GoalkeeperActions {
         if (speed <= GoalkeeperInputConfig.GK_DIVE_CATCH_MAX_SPEED) {
             football.enterHold(player)
             FootballSounds.playGkCatch(player)
+            FootballParticles.playGkCatch(player, football)
             return true
         }
 
@@ -167,6 +175,7 @@ object GoalkeeperActions {
             net.astrorbits.football.util.KickParams(force = force, angleDegrees = 8.0, heightOffset = 0.0),
         )
         FootballSounds.playGkPunch(player)
+        FootballParticles.playGkPunch(player, football)
         return true
     }
 

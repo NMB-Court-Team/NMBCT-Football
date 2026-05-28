@@ -3,6 +3,7 @@ package net.astrorbits.football.item
 import net.astrorbits.football.Football
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.FootballSounds
+import net.astrorbits.football.FootballParticles
 import net.minecraft.core.BlockPos
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
@@ -65,6 +66,7 @@ class FootballItem(properties: Properties) : Item(properties) {
         }
 
         FootballSounds.playFootballPlace(level, football.blockPosition(), player.random)
+        FootballParticles.playFootballPlace(level, football.blockPosition())
 
         return InteractionResult.SUCCESS_SERVER
     }

@@ -85,7 +85,7 @@ object FootballSounds {
     )
 
     /**
-     * **带球**：按住 Space 且移动时，周期性轻推足球。
+     * **带球**：按住 Space 且移动时，按 [net.astrorbits.football.input.FootballInputConfig.DRIBBLE_SOUND_INTERVAL_TICKS] 周期性播放轻推触球声。
      *
      * 期望听感：短、轻、贴地，像脚与球频繁小触，不盖过踢球声。
      * 替换建议：软质球滚动、轻微触球或短脚步声。
