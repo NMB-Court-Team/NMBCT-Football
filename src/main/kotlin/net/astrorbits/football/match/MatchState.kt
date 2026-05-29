@@ -6,19 +6,22 @@ import net.minecraft.server.MinecraftServer
 import java.util.UUID
 
 object MatchState {
+	private val DEFAULT_TEAM_A_NAME = Component.translatable("team_name.nmbct-football.teamA")
+	private val DEFAULT_TEAM_B_NAME = Component.translatable("team_name.nmbct-football.teamB")
+
+	private const val SCOREBOARD_TEAM_A = "football_A"
+	private const val SCOREBOARD_TEAM_B = "football_B"
+
 	var timerTicks = 0
 	var isRunning = true
-	var teamAName = "红队"
-	var teamBName = "蓝队"
+	var teamAName: Component = DEFAULT_TEAM_A_NAME
+	var teamBName: Component = DEFAULT_TEAM_B_NAME
 	var teamAScore = 0
 	var teamBScore = 0
 	val teamAPlayers: MutableSet<UUID> = mutableSetOf()
 	val teamBPlayers: MutableSet<UUID> = mutableSetOf()
 
-	private val scoreboardTeamA = "football_A"
-	private val scoreboardTeamB = "football_B"
-
-	fun getTeamName(team: TeamSide): String = when (team) {
+	fun getTeamName(team: TeamSide): Component = when (team) {
 		TeamSide.A -> teamAName
 		TeamSide.B -> teamBName
 	}
@@ -46,13 +49,13 @@ object MatchState {
 		val scoreboard = server.scoreboard
 
 		// 从所有足球队伍中移除
-		scoreboard.getPlayerTeam(scoreboardTeamA)?.let { scoreboard.removePlayerFromTeam(playerName, it) }
-		scoreboard.getPlayerTeam(scoreboardTeamB)?.let { scoreboard.removePlayerFromTeam(playerName, it) }
+		scoreboard.getPlayerTeam(SCOREBOARD_TEAM_A)?.let { scoreboard.removePlayerFromTeam(playerName, it) }
+		scoreboard.getPlayerTeam(SCOREBOARD_TEAM_B)?.let { scoreboard.removePlayerFromTeam(playerName, it) }
 
 		if (team != null) {
 			val teamKey = when (team) {
-				TeamSide.A -> scoreboardTeamA
-				TeamSide.B -> scoreboardTeamB
+				TeamSide.A -> SCOREBOARD_TEAM_A
+				TeamSide.B -> SCOREBOARD_TEAM_B
 			}
 			val color = when (team) {
 				TeamSide.A -> ChatFormatting.RED
@@ -61,7 +64,7 @@ object MatchState {
 			val sbTeam = scoreboard.getPlayerTeam(teamKey) ?: run {
 				val t = scoreboard.addPlayerTeam(teamKey)
 				t.setColor(color)
-				t.setDisplayName(Component.literal(getTeamName(team)))
+                t.displayName = getTeamName(team)
 				t
 			}
 			scoreboard.addPlayerToTeam(playerName, sbTeam)
@@ -70,7 +73,7 @@ object MatchState {
 
 	fun clearScoreboardTeams(server: MinecraftServer) {
 		val scoreboard = server.scoreboard
-		for (teamKey in listOf(scoreboardTeamA, scoreboardTeamB)) {
+		for (teamKey in listOf(SCOREBOARD_TEAM_A, SCOREBOARD_TEAM_B)) {
 			scoreboard.getPlayerTeam(teamKey)?.let { team ->
 				val players = team.players.toList()
 				for (playerName in players) {

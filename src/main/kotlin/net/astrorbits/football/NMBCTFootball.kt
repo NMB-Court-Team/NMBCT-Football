@@ -31,9 +31,9 @@ object NMBCTFootball : ModInitializer {
 		FootballSounds.init()
 		FootballParticles.init()
 
-		CommandRegistrationCallback.EVENT.register { dispatcher, _, _ ->
+		CommandRegistrationCallback.EVENT.register { dispatcher, context, _ ->
 			FootballCommand.register(dispatcher)
-			MatchCommand.register(dispatcher)
+			MatchCommand.register(dispatcher, context)
 		}
 
 		FootballNetworking.registerPayloadType()

@@ -1,32 +1,35 @@
 package net.astrorbits.football.match
 
+import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.IntegerArgumentType
-import com.mojang.brigadier.arguments.StringArgumentType
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
+import net.minecraft.commands.CommandBuildContext
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
+import net.minecraft.commands.arguments.ComponentArgument
 import net.minecraft.commands.arguments.EntityArgument
 import net.minecraft.network.chat.Component
 
 object MatchCommand {
-	fun register(dispatcher: com.mojang.brigadier.CommandDispatcher<CommandSourceStack>) {
+	fun register(dispatcher: CommandDispatcher<CommandSourceStack>, context: CommandBuildContext) {
 		val root = Commands.literal("match")
 
 		root.then(Commands.literal("start").executes {
 			MatchState.isRunning = true
-			it.source.sendSuccess({ Component.literal("计时已开始") }, true)
+			it.source.sendSuccess({ Component.translatable("command.nmbct-football.match.timer_started") }, true)
 			1
 		})
 
 		root.then(Commands.literal("pause").executes {
 			MatchState.isRunning = false
-			it.source.sendSuccess({ Component.literal("计时已暂停") }, true)
+			it.source.sendSuccess({ Component.translatable("command.nmbct-football.match.timer_paused") }, true)
 			1
 		})
 
 		root.then(Commands.literal("reset").executes {
 			MatchState.clearScoreboardTeams(it.source.server)
 			MatchState.reset()
-			it.source.sendSuccess({ Component.literal("比赛已重置") }, true)
+			it.source.sendSuccess({ Component.translatable("command.nmbct-football.match.reset") }, true)
 			1
 		})
 
@@ -34,7 +37,9 @@ object MatchCommand {
 			Commands.argument("value", IntegerArgumentType.integer(0))
 				.executes {
 					MatchState.teamAScore = IntegerArgumentType.getInteger(it, "value")
-					it.source.sendSuccess({ Component.literal("队伍A得分: ${MatchState.teamAScore}") }, true)
+					it.source.sendSuccess({
+						Component.translatable("command.nmbct-football.match.score_a", MatchState.teamAScore)
+					}, true)
 					1
 				}
 		))
@@ -43,25 +48,31 @@ object MatchCommand {
 			Commands.argument("value", IntegerArgumentType.integer(0))
 				.executes {
 					MatchState.teamBScore = IntegerArgumentType.getInteger(it, "value")
-					it.source.sendSuccess({ Component.literal("队伍B得分: ${MatchState.teamBScore}") }, true)
+					it.source.sendSuccess({
+						Component.translatable("command.nmbct-football.match.score_b", MatchState.teamBScore)
+					}, true)
 					1
 				}
 		))
 
 		root.then(Commands.literal("nameA").then(
-			Commands.argument("name", StringArgumentType.string())
+			Commands.argument("name", ComponentArgument.textComponent(context))
 				.executes {
-					MatchState.teamAName = StringArgumentType.getString(it, "name")
-					it.source.sendSuccess({ Component.literal("队伍A名称: ${MatchState.teamAName}") }, true)
+					MatchState.teamAName = ComponentArgument.getResolvedComponent(it, "name")
+					it.source.sendSuccess({
+						Component.translatable("command.nmbct-football.match.name_a", MatchState.teamAName)
+					}, true)
 					1
 				}
 		))
 
 		root.then(Commands.literal("nameB").then(
-			Commands.argument("name", StringArgumentType.string())
+			Commands.argument("name", ComponentArgument.textComponent(context))
 				.executes {
-					MatchState.teamBName = StringArgumentType.getString(it, "name")
-					it.source.sendSuccess({ Component.literal("队伍B名称: ${MatchState.teamBName}") }, true)
+					MatchState.teamBName = ComponentArgument.getResolvedComponent(it, "name")
+					it.source.sendSuccess({
+						Component.translatable("command.nmbct-football.match.name_b", MatchState.teamBName)
+					}, true)
 					1
 				}
 		))
@@ -72,7 +83,7 @@ object MatchCommand {
 		dispatcher.register(root)
 	}
 
-	private fun registerTeamCommands(root: com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack>) {
+	private fun registerTeamCommands(root: LiteralArgumentBuilder<CommandSourceStack>) {
 		val joinCmd = Commands.literal("join")
 		for (team in TeamSide.entries) {
 			joinCmd.then(
@@ -81,9 +92,9 @@ object MatchCommand {
 					MatchState.removePlayer(player.uuid)
 					MatchState.addPlayer(team, player.uuid)
 					MatchState.syncPlayerScoreboard(player.uuid, team, ctx.source.server)
-					ctx.source.sendSuccess(
-						{ Component.literal("你已加入${MatchState.getTeamName(team)}") }, true
-					)
+					ctx.source.sendSuccess({
+						Component.translatable("command.nmbct-football.match.join", MatchState.getTeamName(team))
+					}, true)
 					1
 				}
 			)
@@ -94,9 +105,9 @@ object MatchCommand {
 			val player = ctx.source.playerOrException
 			if (MatchState.removePlayer(player.uuid)) {
 				MatchState.syncPlayerScoreboard(player.uuid, null, ctx.source.server)
-				ctx.source.sendSuccess({ Component.literal("你已退出队伍") }, true)
+				ctx.source.sendSuccess({ Component.translatable("command.nmbct-football.match.leave") }, true)
 			} else {
-				ctx.source.sendSuccess({ Component.literal("你当前不在任何队伍中") }, true)
+				ctx.source.sendSuccess({ Component.translatable("command.nmbct-football.match.leave_not_in_team") }, true)
 			}
 			1
 		})
@@ -106,7 +117,7 @@ object MatchCommand {
 				MatchState.clearScoreboardTeams(ctx.source.server)
 				MatchState.teamAPlayers.clear()
 				MatchState.teamBPlayers.clear()
-				ctx.source.sendSuccess({ Component.literal("已清空所有队伍") }, true)
+				ctx.source.sendSuccess({ Component.translatable("command.nmbct-football.match.clear_all") }, true)
 				1
 			}
 		for (team in TeamSide.entries) {
@@ -123,9 +134,9 @@ object MatchCommand {
 						TeamSide.A -> MatchState.teamAPlayers.clear()
 						TeamSide.B -> MatchState.teamBPlayers.clear()
 					}
-					ctx.source.sendSuccess(
-						{ Component.literal("已清空${MatchState.getTeamName(team)}") }, true
-					)
+					ctx.source.sendSuccess({
+						Component.translatable("command.nmbct-football.match.clear_team", MatchState.getTeamName(team))
+					}, true)
 					1
 				}
 			)
@@ -133,7 +144,7 @@ object MatchCommand {
 		root.then(clearCmd)
 	}
 
-	private fun registerGoalkeeperCommands(root: com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack>) {
+	private fun registerGoalkeeperCommands(root: LiteralArgumentBuilder<CommandSourceStack>) {
 		val setGk = Commands.literal("setGk")
 		for (team in TeamSide.entries) {
 			val teamLabel = team.name
@@ -144,7 +155,11 @@ object MatchCommand {
 							val player = EntityArgument.getPlayer(ctx, "player")
 							PlayerRoleState.setOfficialGk(team, player)
 							ctx.source.sendSuccess({
-								Component.literal("已将 ${player.gameProfile.name} 设为${teamLabel}队守门员")
+								Component.translatable(
+									"command.nmbct-football.match.set_gk",
+									player.gameProfile.name,
+									MatchState.getTeamName(team),
+								)
 							}, true)
 							1
 						}
@@ -159,7 +174,9 @@ object MatchCommand {
 			clearGk.then(
 				Commands.literal(teamLabel).executes { ctx ->
 					PlayerRoleState.clearOfficialGk(team, ctx.source.server)
-					ctx.source.sendSuccess({ Component.literal("已清除${teamLabel}队守门员") }, true)
+					ctx.source.sendSuccess({
+						Component.translatable("command.nmbct-football.match.clear_gk", MatchState.getTeamName(team))
+					}, true)
 					1
 				}
 			)
@@ -171,14 +188,14 @@ object MatchCommand {
 				Commands.literal("on").executes { ctx ->
 					val player = ctx.source.playerOrException
 					PlayerRoleState.setVoluntaryGk(player, true)
-					ctx.source.sendSuccess({ Component.literal("已开启守门员模式") }, true)
+					ctx.source.sendSuccess({ Component.translatable("command.nmbct-football.match.gk_on") }, true)
 					1
 				}
 			).then(
 				Commands.literal("off").executes { ctx ->
 					val player = ctx.source.playerOrException
 					PlayerRoleState.setVoluntaryGk(player, false)
-					ctx.source.sendSuccess({ Component.literal("已关闭守门员模式") }, true)
+					ctx.source.sendSuccess({ Component.translatable("command.nmbct-football.match.gk_off") }, true)
 					1
 				}
 			)

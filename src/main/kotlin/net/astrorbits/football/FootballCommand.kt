@@ -22,7 +22,7 @@ object FootballCommand {
                 val football = Football(Football.ENTITY_TYPE, level)
                 football.setPos(pos.x, pos.y, pos.z)
                 level.addFreshEntity(football)
-                source.sendSuccess({ Component.literal("Summoned football") }, true)
+                source.sendSuccess({ Component.translatable("command.nmbct-football.summon") }, true)
                 1
             }
         ).then(Commands.literal("config")
@@ -71,14 +71,14 @@ object FootballCommand {
         val source = context.source
         val player = source.player
         if (player == null) {
-            source.sendFailure(Component.literal("Only players can kick footballs"))
+            source.sendFailure(Component.translatable("command.nmbct-football.kick.player_only"))
             return 0
         }
 
         val force = DoubleArgumentType.getDouble(context, "force")
         val football = FootballKickUtil.findNearestFootball(player, FootballConfigs.server.playerInput.commandKickRange)
         if (football == null) {
-            source.sendFailure(Component.literal("No football nearby"))
+            source.sendFailure(Component.translatable("command.nmbct-football.kick.no_football_nearby"))
             return 0
         }
 
@@ -89,7 +89,12 @@ object FootballCommand {
         )
         FootballKickUtil.applyKickToFootball(player, football, params)
         source.sendSuccess({
-            Component.literal("Kicked football (force=$force, height=$heightOffset, angle=${angleDegrees}°)")
+            Component.translatable(
+                "command.nmbct-football.kick.success",
+                force,
+                heightOffset,
+                angleDegrees,
+            )
         }, true)
         return 1
     }

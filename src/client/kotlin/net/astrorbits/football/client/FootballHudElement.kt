@@ -4,17 +4,20 @@ import net.astrorbits.football.match.MatchState
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.Font
 import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.network.chat.Component
+import net.minecraft.util.FormattedCharSequence
 
 class FootballHudElement : HudElement {
 
 	override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
 		val font = Minecraft.getInstance().font
 		val timer = MatchState.formatTime()
-		val teamA = MatchState.teamAName
-		val teamB = MatchState.teamBName
-		val sa = MatchState.teamAScore.toString()
-		val sb = MatchState.teamBScore.toString()
+		val teamA = MatchState.teamAName.visualOrderText
+		val teamB = MatchState.teamBName.visualOrderText
+		val scoreA = Component.literal(MatchState.teamAScore.toString()).visualOrderText
+		val scoreB = Component.literal(MatchState.teamBScore.toString()).visualOrderText
 
 		val panelW = PAD + T_W + GAP + NAME_W + GAP + S_W + GAP + D_W + GAP + S_W + GAP + NAME_W + PAD
 		val cy = Y + H / 2 - font.lineHeight / 2
@@ -28,23 +31,23 @@ class FootballHudElement : HudElement {
 
 		cx += drawName(extra, font, teamA, cx, cy, RED, true)
 		cx += GAP
-		cx += drawScore(extra, font, sa, cx, cy)
+		cx += drawScore(extra, font, scoreA, cx, cy)
 		cx += GAP
 		extra.text(font, SEP, cx + D_W / 2 - font.width(SEP) / 2, cy, DIM, true)
 		cx += D_W + GAP
-		cx += drawScore(extra, font, sb, cx, cy)
+		cx += drawScore(extra, font, scoreB, cx, cy)
 		cx += GAP
 		drawName(extra, font, teamB, cx, cy, CYAN, false)
 	}
 
-	private fun drawName(extra: GuiGraphicsExtractor, font: net.minecraft.client.gui.Font, text: String, x: Int, y: Int, color: Int, rightAlign: Boolean): Int {
+	private fun drawName(extra: GuiGraphicsExtractor, font: Font, text: FormattedCharSequence, x: Int, y: Int, color: Int, rightAlign: Boolean): Int {
 		val w = font.width(text)
 		val tx = if (rightAlign) x + NAME_W - w else x
 		extra.text(font, text, tx, y, color, true)
 		return NAME_W
 	}
 
-	private fun drawScore(extra: GuiGraphicsExtractor, font: net.minecraft.client.gui.Font, text: String, x: Int, y: Int): Int {
+	private fun drawScore(extra: GuiGraphicsExtractor, font: Font, text: FormattedCharSequence, x: Int, y: Int): Int {
 		extra.fill(x, Y + 3, x + S_W, Y + H - 3, SCORE_BOX)
 		extra.text(font, text, x + S_W / 2 - font.width(text) / 2, y, WHITE, true)
 		return S_W
