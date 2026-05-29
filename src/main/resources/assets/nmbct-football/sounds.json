@@ -18,7 +18,7 @@
   },
   "entity.football.perfect_kick": {
     "sounds": [
-      "nmbct-football:smash_kick_0"
+      "nmbct-football:perfect_kick_0"
     ]
   },
   "entity.football.palm": {
