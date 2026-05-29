@@ -92,9 +92,9 @@ object GoalkeeperActions {
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.GK_DROP -> {
-                FootballParticles.playGkCatch(player, football)
+                FootballParticles.playGkCatch(player, football, 0.0)
                 football.dropAt(player)
-                FootballSounds.playGkCatch(player)
+                FootballSounds.playGkCatch(player, 0.0)
                 lastActionTick[player.uuid] = now
             }
             else -> Unit
@@ -125,8 +125,8 @@ object GoalkeeperActions {
         }
 
         football.enterHold(player)
-        FootballSounds.playGkCatch(player)
-        FootballParticles.playGkCatch(player, football)
+        FootballSounds.playGkCatch(player, speed)
+        FootballParticles.playGkCatch(player, football, speed)
         lastActionTick[player.uuid] = now
     }
 
@@ -174,8 +174,8 @@ object GoalkeeperActions {
         val speed = GoalkeeperUtil.ballSpeed(football)
         if (speed <= GoalkeeperInputConfig.GK_DIVE_CATCH_MAX_SPEED) {
             football.enterHold(player)
-            FootballSounds.playGkCatch(player)
-            FootballParticles.playGkCatch(player, football)
+            FootballSounds.playGkCatch(player, speed)
+            FootballParticles.playGkCatch(player, football, speed)
             return true
         }
 

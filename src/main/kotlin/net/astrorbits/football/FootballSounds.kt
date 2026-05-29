@@ -3,6 +3,7 @@ package net.astrorbits.football
 import net.astrorbits.football.NMBCTFootball.id
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.FootballInputConfig.SHOOT_FORCE_MAX
+import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Registry
 import net.minecraft.core.registries.BuiltInRegistries
@@ -220,10 +221,11 @@ object FootballSounds {
      * 替换建议：手套触球、软垫接球或短促布料吸收声。
      */
     val GK_CATCH: SoundSpec = SoundSpec(
-        event = SoundEvents.WOOL_STEP,
+        event = FOOTBALL_PALM_EVENT,
         source = SoundSource.PLAYERS,
-        volume = 0.55f,
-        basePitch = 0.95f,
+        volume = 0.70f,
+        basePitch = 0.90f,
+        pitchSpread = 0.06f,
     )
 
     /**
@@ -233,11 +235,11 @@ object FootballSounds {
      * 替换建议：扑地、滑行或短促挥臂/扫击类动作音效。
      */
     val GK_DIVE: SoundSpec = SoundSpec(
-        event = SoundEvents.PLAYER_ATTACK_SWEEP,
+        event = SoundEvents.BAT_TAKEOFF,
         source = SoundSource.PLAYERS,
-        volume = 0.5f,
-        basePitch = 0.9f,
-        pitchSpread = 0.08f,
+        volume = 0.62f,
+        basePitch = 0.94f,
+        pitchSpread = 0.05f,
     )
 
     /**
@@ -266,8 +268,20 @@ object FootballSounds {
         basePitch = 0.95f,
     )
 
-    fun playGkCatch(player: ServerPlayer) {
-        play(player.level(), player.blockPosition(), GK_CATCH, player.random)
+    fun playGkCatch(player: ServerPlayer, incomingSpeed: Double = 0.0) {
+        val reference = kotlin.math.max(GoalkeeperInputConfig.GK_CATCH_MAX_SPEED, GoalkeeperInputConfig.GK_DIVE_CATCH_MAX_SPEED)
+            .coerceAtLeast(0.1)
+        val t = (incomingSpeed / reference).toFloat().coerceIn(0f, 1f)
+        val volumeScale = 0.80f + 0.65f * t
+        val pitch = (GK_CATCH.resolvePitch(player.random) * (0.90f + 0.24f * t)).coerceAtMost(MAX_PITCH)
+        player.level().playSound(
+            null,
+            player.blockPosition(),
+            GK_CATCH.event,
+            GK_CATCH.source,
+            (GK_CATCH.volume * volumeScale).coerceAtLeast(0f),
+            pitch,
+        )
     }
 
     fun playGkDive(player: ServerPlayer) {

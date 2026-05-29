@@ -68,7 +68,7 @@ data class ParticleHighSpeedDragSettings(
     val highSpeedDragReferenceSpeed: Double = 0.85,
     val highSpeedDragRingRadius: Double = 0.34,
     val highSpeedDragTrailForwardDistance: Double = 0.50,
-    val highSpeedDragVerticalOffset: Double = 0.25,
+    val highSpeedDragVerticalOffset: Double = 0.2,
     val highSpeedDragTrailDurationTicks: Int = 10,
     val highSpeedDragTrailColorLowRgb: Int = 0x6FB8FF,
     val highSpeedDragTrailColorHighRgb: Int = 0xFF4E4E,

@@ -28,4 +28,6 @@ enum class FootballActionType {
     GK_THROW_LONG,
     /** 守门员将手中球放到脚下。 */
     GK_DROP,
+    /** 主手持足球物品时，左键沿视线轻踢抛出。 */
+    ITEM_THROW,
 }

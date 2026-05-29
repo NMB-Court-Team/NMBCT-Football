@@ -61,6 +61,10 @@ object FootballInputHandler {
         }
     }
 
+    fun sendItemThrow(player: LocalPlayer) {
+        sendAction(player, FootballActionType.ITEM_THROW, 0f, 0)
+    }
+
     private fun handleOutfieldInput(player: LocalPlayer) {
         handleKickLongPress(player, holdingBall = false)
         handleTrapPress(player, FootballActionType.TRAP)

@@ -5,6 +5,7 @@ import net.astrorbits.football.network.FootballActionC2SPayload
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.FootballParticles
+import net.astrorbits.football.item.FootballItem
 import net.astrorbits.football.util.FootballKickUtil
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.player.Player
@@ -15,6 +16,10 @@ object FootballPlayerActions {
     private val lastActionTick = ConcurrentHashMap<UUID, Long>()
 
     fun handle(player: ServerPlayer, payload: FootballActionC2SPayload) {
+        if (payload.action == FootballActionType.ITEM_THROW) {
+            FootballItem.tryThrowFromMainHand(player)
+            return
+        }
         if (PlayerRoleState.isGoalkeeper(player)) {
             GoalkeeperActions.handle(player, payload)
             return
@@ -122,6 +127,7 @@ object FootballPlayerActions {
             FootballActionType.DRIBBLE_HOLD, FootballActionType.DRIBBLE_END,
             FootballActionType.GK_CATCH, FootballActionType.GK_DIVE, FootballActionType.GK_PUNCH,
             FootballActionType.GK_THROW_SHORT, FootballActionType.GK_THROW_LONG, FootballActionType.GK_DROP,
+            FootballActionType.ITEM_THROW,
             -> Unit
         }
     }

@@ -1,5 +1,9 @@
 {
     "item.nmbct-football.football": "Football",
+    "item.nmbct-football.whistle": "Whistle",
+    "item.nmbct-football.red_card": "Red Card",
+    "item.nmbct-football.yellow_card": "Yellow Card",
+    "itemGroup.nmbct-football.main": "NMBCT Football",
     "entity.nmbct-football.football": "Football",
     "key.category.nmbct-football.football": "NMBCT Football",
     "key.nmbct-football.kick": "Kick (Pass/Shoot)",

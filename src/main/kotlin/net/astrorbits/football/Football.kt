@@ -27,7 +27,6 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.sounds.SoundEvents
 import net.minecraft.sounds.SoundSource
-import net.minecraft.world.level.GameType
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.MobCategory
 import net.minecraft.world.entity.MoverType
@@ -378,18 +377,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         return tryPickUpAsItem(player)
     }
 
-    /**
-     * 创造模式 OP：潜行（Shift）+ 右键将足球收回物品栏。
-     */
+    /** 潜行（Shift）+ 右键将足球收回物品栏。 */
     private fun tryPickUpAsItem(player: ServerPlayer): InteractionResult {
         if (!player.isShiftKeyDown) {
-            return InteractionResult.PASS
-        }
-        if (player.gameMode.gameModeForPlayer != GameType.CREATIVE) {
-            return InteractionResult.PASS
-        }
-        val server = player.level().server ?: return InteractionResult.PASS
-        if (!server.playerList.isOp(player.nameAndId())) {
             return InteractionResult.PASS
         }
 

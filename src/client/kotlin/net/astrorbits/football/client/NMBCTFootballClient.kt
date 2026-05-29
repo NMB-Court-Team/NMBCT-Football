@@ -37,6 +37,7 @@ object NMBCTFootballClient : ClientModInitializer {
 
 		GoalkeeperStateClient.register()
 		GoalkeeperHoldPoseClient.register()
+		FootballClientAttackInteractions.register()
 		FootballInputHandler.registerTickEvent()
 		MatchStateClient.registerTickEvent()
 	}

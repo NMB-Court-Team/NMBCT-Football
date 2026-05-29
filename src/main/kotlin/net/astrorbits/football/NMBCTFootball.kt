@@ -4,7 +4,9 @@ import net.astrorbits.football.config.client.FootballClientConfigHolder
 import net.astrorbits.football.config.server.FootballServerConfigHolder
 import net.astrorbits.football.input.FootballDribbleSessions
 import net.astrorbits.football.input.GoalkeeperDiveSessions
+import net.astrorbits.football.item.FootballItemGroups
 import net.astrorbits.football.item.Items
+import net.astrorbits.football.item.FootballItemUseGuards
 import net.astrorbits.football.match.MatchCommand
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.network.FootballNetworking
@@ -27,6 +29,7 @@ object NMBCTFootball : ModInitializer {
 		FootballClientConfigHolder.init()
 
 		Items.init()
+		FootballItemGroups.init()
 		Football.init()
 		FootballSounds.init()
 		FootballParticles.init()
@@ -39,6 +42,7 @@ object NMBCTFootball : ModInitializer {
 		FootballNetworking.registerPayloadType()
 		FootballNetworking.registerServerReceiver()
 		FootballEntityInteractions.register()
+		FootballItemUseGuards.register()
 		FootballDribbleSessions.registerEvents()
 		GoalkeeperDiveSessions.registerEvents()
 

@@ -1,5 +1,9 @@
 {
     "item.nmbct-football.football": "足球",
+    "item.nmbct-football.whistle": "哨子",
+    "item.nmbct-football.red_card": "红牌",
+    "item.nmbct-football.yellow_card": "黄牌",
+    "itemGroup.nmbct-football.main": "柠檬杯风驰足球",
     "entity.nmbct-football.football": "足球",
     "key.category.nmbct-football.football": "柠檬杯风驰足球",
     "key.nmbct-football.kick": "踢球（传球/射门）",
