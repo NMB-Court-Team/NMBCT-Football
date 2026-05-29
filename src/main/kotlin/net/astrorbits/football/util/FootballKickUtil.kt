@@ -7,6 +7,8 @@ import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.FootballMovementInputUtil
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.minecraft.world.entity.player.Player
+import net.minecraft.world.level.Level
+import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 
 data class KickParams(
@@ -20,6 +22,13 @@ object FootballKickUtil {
         val box = player.boundingBox.inflate(range)
         return player.level().getEntitiesOfClass(Football::class.java, box)
             .minByOrNull { it.distanceToSqr(player) }
+    }
+
+    fun findNearestFootball(level: Level, center: Vec3, range: Double): Football? {
+        val box = AABB.ofSize(center, range * 2.0, range * 2.0, range * 2.0)
+        return level.getEntitiesOfClass(Football::class.java, box)
+            .filter { it.distanceToSqr(center) <= range * range }
+            .minByOrNull { it.distanceToSqr(center) }
     }
 
     fun buildKickDirection(
@@ -99,6 +108,51 @@ object FootballKickUtil {
         val pitchOffset = lookPitchAngleOffset(lookPitch)
         val adjustedParams = params.copy(angleDegrees = params.angleDegrees + pitchOffset)
         applyKickWithHorizontalDirection(football, horizontalLook, look, adjustedParams)
+    }
+
+    /** 命令简单踢球：力度 + 仰角，方向由执行朝向水平分量与 elevation 决定。 */
+    fun applySimpleCommandKick(
+        football: Football,
+        power: Double,
+        elevation: Double,
+        lookYaw: Float,
+        lookPitch: Float,
+    ) {
+        val params = KickParams(force = power, angleDegrees = elevation, heightOffset = 0.0)
+        applyCommandKick(football, params, lookYaw, lookPitch)
+    }
+
+    /**
+     * 由踢球点与目标点计算冲量方向；模长为 [power]。
+     * 目标点 [towardPoint] 与 [kickPoint] 重合时返回 null。
+     */
+    fun buildPreciseKickDirection(
+        kickPoint: Vec3,
+        towardPoint: Vec3,
+        power: Double,
+    ): Vec3? {
+        val delta = towardPoint.subtract(kickPoint)
+        if (delta.lengthSqr() < 1.0e-8) {
+            return null
+        }
+        return Vec3Math.normalizeSafe(delta).scale(power)
+    }
+
+    /** 命令精确踢球：直接指定世界坐标踢球点与冲量向量。 */
+    fun applyPreciseCommandKick(football: Football, kickPoint: Vec3, direction: Vec3) {
+        football.kick(kickPoint, direction)
+    }
+
+    /** 命令踢球：使用显式 angle 参数，不叠加视角 pitch 偏移。 */
+    fun applyCommandKick(
+        football: Football,
+        params: KickParams,
+        lookYaw: Float,
+        lookPitch: Float,
+    ) {
+        val look = lookDirection(lookYaw, lookPitch)
+        val horizontalLook = Vec3Math.horizontal(look)
+        applyKickWithHorizontalDirection(football, horizontalLook, look, params)
     }
 
     /**

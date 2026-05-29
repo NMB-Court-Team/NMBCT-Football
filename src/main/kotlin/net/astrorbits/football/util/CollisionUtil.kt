@@ -198,8 +198,8 @@ object CollisionUtil {
             return
         }
 
-        state.linearVelocity = Vec3.ZERO
-        state.angularVelocity = Vec3.ZERO
+        state.linearVelocity = Vec3(0.0, state.linearVelocity.y, 0.0)
+        state.angularVelocity = Vec3(0.0, state.angularVelocity.y, 0.0)
         state.wallBounceCooldown = 0
     }
 }

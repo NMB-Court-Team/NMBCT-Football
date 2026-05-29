@@ -211,9 +211,11 @@ sequenceDiagram
 ## 相关命令与物品（便于测试）
 
 - `/football summon`：在命令来源处生成足球
-- `/football kick <force>`：水平踢球（`height=0`，`angle=0°`）
-- `/football kick <force> <height>`：指定踢击点相对球心的竖直偏移（格）
-- `/football kick <force> <height> <angle>`：`angle` 为相对水平面的仰角（度，0° 水平，正值上挑，负值下压，约 -90~90）
+- `/football kick help`：查看踢球命令帮助
+- `/football kick simple [power] [elevation]`：简单踢球（方向由执行朝向决定）
+- `/football kick entity <target> simple ...`：对指定足球简单踢球
+- `/football kick precise at <x> <y> <z> toward <x> <y> <z> power <p>`：精确踢球（踢球点 + 目标点定方向，power 定大小）
+- `/football kick entity <target> precise ...`：对指定足球精确踢球
 - 足球物品右键：在瞄准方块表面放置足球实体
 
 ## 客户端渲染
