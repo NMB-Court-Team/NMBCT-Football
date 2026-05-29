@@ -7,7 +7,6 @@ import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.config.client.FootballClientConfigHolder
 import net.astrorbits.football.config.yacl.YaclOptionUtil.addDouble
 import net.astrorbits.football.config.yacl.YaclOptionUtil.addInt
-import net.astrorbits.football.config.yacl.YaclOptionUtil.addLong
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 
@@ -60,27 +59,6 @@ object FootballClientConfigScreen {
                         OptionGroup.createBuilder()
                             .name(Component.translatable("yacl3.config.$MOD_ID.client.group.input"))
                             .apply {
-                                addLong(
-                                    "yacl3.config.$MOD_ID.client.tap_max_ms",
-                                    "yacl3.config.$MOD_ID.client.tap_max_ms.desc",
-                                    { draft.tapMaxMs },
-                                    { v -> draft = draft.copy(tapMaxMs = v) },
-                                    50L..800L,
-                                )
-                                addLong(
-                                    "yacl3.config.$MOD_ID.client.charge_min_ms",
-                                    "yacl3.config.$MOD_ID.client.charge_min_ms.desc",
-                                    { draft.chargeMinMs },
-                                    { v -> draft = draft.copy(chargeMinMs = v) },
-                                    100L..2000L,
-                                )
-                                addLong(
-                                    "yacl3.config.$MOD_ID.client.charge_max_ms",
-                                    "yacl3.config.$MOD_ID.client.charge_max_ms.desc",
-                                    { draft.chargeMaxMs },
-                                    { v -> draft = draft.copy(chargeMaxMs = v) },
-                                    500L..5000L,
-                                )
                                 addInt(
                                     "yacl3.config.$MOD_ID.client.dribble_hold_packet_interval",
                                     "yacl3.config.$MOD_ID.client.dribble_hold_packet_interval.desc",

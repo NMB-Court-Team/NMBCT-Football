@@ -2,6 +2,7 @@ package net.astrorbits.football.util
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.input.GoalkeeperInputConfig
+import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.Vec3
@@ -88,12 +89,15 @@ object GoalkeeperUtil {
         return Vec3Math.normalizeSafe(Vec3Math.horizontal(player.lookAngle))
     }
 
-    fun resolveThrowLongParams(chargeRatio: Float, sprinting: Boolean): KickParams {
+    fun resolveThrowLongParams(chargeRatio: Float, sprinting: Boolean, perfectCharge: Boolean = false): KickParams {
         val clamped = chargeRatio.coerceIn(0f, 1f)
         var force = GoalkeeperInputConfig.GK_THROW_LONG_FORCE_MIN +
             (GoalkeeperInputConfig.GK_THROW_LONG_FORCE_MAX - GoalkeeperInputConfig.GK_THROW_LONG_FORCE_MIN) * clamped
         if (sprinting) {
             force *= GoalkeeperInputConfig.GK_THROW_SPRINT_BONUS
+        }
+        if (perfectCharge) {
+            force *= FootballInputConfig.PERFECT_CHARGE_FORCE_BONUS
         }
         val angle = GoalkeeperInputConfig.GK_THROW_LONG_ANGLE_MIN_DEG +
             (GoalkeeperInputConfig.GK_THROW_LONG_ANGLE_MAX_DEG - GoalkeeperInputConfig.GK_THROW_LONG_ANGLE_MIN_DEG) * clamped

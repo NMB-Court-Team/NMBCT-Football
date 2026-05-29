@@ -7,6 +7,7 @@ import net.astrorbits.football.network.FootballActionC2SPayload
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.util.FootballKickUtil
 import net.astrorbits.football.util.GoalkeeperUtil
+import net.astrorbits.football.util.KickChargeUtil
 import net.astrorbits.football.util.Vec3Math
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.player.Player
@@ -67,26 +68,35 @@ object GoalkeeperActions {
 
         when (payload.action) {
             FootballActionType.GK_THROW_SHORT -> {
+                val params = GoalkeeperUtil.resolveThrowShortParams()
                 FootballParticles.playGkThrow(player, football)
                 football.releaseHold()
                 FootballKickUtil.applyKickToFootballWithLook(
                     football,
-                    GoalkeeperUtil.resolveThrowShortParams(),
+                    params,
                     payload.lookYaw,
                     payload.lookPitch,
+                    random = player.random,
+                    spreadInaccuracy = FootballInputConfig.KICK_SPREAD_INACCURACY,
                 )
                 FootballSounds.playGkThrow(player)
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.GK_THROW_LONG -> {
                 val sprinting = payload.flags and FootballInputConfig.FLAG_SPRINT != 0
+                val chargeSettings = FootballInputConfig.chargeSettings()
+                val perfect = KickChargeUtil.isPerfectCharge(payload.chargeHeldMs, chargeSettings)
+                val chargeRatio = KickChargeUtil.computeRatio(payload.chargeHeldMs, chargeSettings)
+                val params = GoalkeeperUtil.resolveThrowLongParams(chargeRatio, sprinting, perfect)
                 FootballParticles.playGkThrow(player, football)
                 football.releaseHold()
                 FootballKickUtil.applyKickToFootballWithLook(
                     football,
-                    GoalkeeperUtil.resolveThrowLongParams(payload.chargeRatio, sprinting),
+                    params,
                     payload.lookYaw,
                     payload.lookPitch,
+                    random = if (!perfect) player.random else null,
+                    spreadInaccuracy = if (!perfect) FootballInputConfig.KICK_SPREAD_INACCURACY else 0.0,
                 )
                 FootballSounds.playGkThrow(player)
                 lastActionTick[player.uuid] = now

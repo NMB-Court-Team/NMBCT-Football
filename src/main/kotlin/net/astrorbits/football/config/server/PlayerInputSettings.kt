@@ -108,6 +108,7 @@ data class PlayerDribbleSettings(
 data class PlayerInputSettings(
     val kick: PlayerKickSettings = PlayerKickSettings.DEFAULT,
     val dribble: PlayerDribbleSettings = PlayerDribbleSettings.DEFAULT,
+    val charge: KickChargeSettings = KickChargeSettings.DEFAULT,
 ) {
     val playerKickRange get() = kick.playerKickRange
     val commandKickRange get() = kick.commandKickRange
@@ -138,12 +139,21 @@ data class PlayerInputSettings(
     val dribbleLateralGain get() = dribble.dribbleLateralGain
     val dribbleTouchForce get() = dribble.dribbleTouchForce
     val dribbleAirPositionScale get() = dribble.dribbleAirPositionScale
+    val tapMaxMs get() = charge.tapMaxMs
+    val chargeMinMs get() = charge.chargeMinMs
+    val chargeRiseMs get() = charge.chargeRiseMs
+    val chargePerfectWindowMs get() = charge.chargePerfectWindowMs
+    val chargeDecayMs get() = charge.chargeDecayMs
+    val kickSpreadInaccuracy get() = charge.kickSpreadInaccuracy
+    val perfectChargeForceBonus get() = charge.perfectChargeForceBonus
 
     companion object {
         val CODEC: Codec<PlayerInputSettings> = RecordCodecBuilder.create { i ->
             i.group(
                 PlayerKickSettings.CODEC.fieldOf("kick").forGetter(PlayerInputSettings::kick),
                 PlayerDribbleSettings.CODEC.fieldOf("dribble").forGetter(PlayerInputSettings::dribble),
+                KickChargeSettings.CODEC.optionalFieldOf("charge", KickChargeSettings.DEFAULT)
+                    .forGetter(PlayerInputSettings::charge),
             ).apply(i, ::PlayerInputSettings)
         }
 

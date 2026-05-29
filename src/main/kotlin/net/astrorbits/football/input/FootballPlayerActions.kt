@@ -7,6 +7,7 @@ import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.item.FootballItem
 import net.astrorbits.football.util.FootballKickUtil
+import net.astrorbits.football.util.KickChargeUtil
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.player.Player
 import java.util.UUID
@@ -91,18 +92,17 @@ object FootballPlayerActions {
         when (payload.action) {
             FootballActionType.PASS -> {
                 val params = FootballKickUtil.resolvePassParams()
-                FootballKickUtil.applyKickToFootball(player, football, params)
+                FootballKickUtil.applyKickToFootball(player, football, params, applySpread = true)
                 FootballSounds.playKick(player, params.force)
                 FootballParticles.playKick(player, football, params.force)
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.SHOOT -> {
-                val params = FootballKickUtil.resolveShootParams(payload.chargeRatio, sprinting)
-                FootballKickUtil.applyKickToFootball(
-                    player,
-                    football,
-                    params
-                )
+                val chargeSettings = FootballInputConfig.chargeSettings()
+                val perfect = KickChargeUtil.isPerfectCharge(payload.chargeHeldMs, chargeSettings)
+                val chargeRatio = KickChargeUtil.computeRatio(payload.chargeHeldMs, chargeSettings)
+                val params = FootballKickUtil.resolveShootParams(chargeRatio, sprinting, perfect)
+                FootballKickUtil.applyKickToFootball(player, football, params, applySpread = !perfect)
                 FootballSounds.playKick(player, params.force)
                 FootballParticles.playKick(player, football, params.force)
                 lastActionTick[player.uuid] = now

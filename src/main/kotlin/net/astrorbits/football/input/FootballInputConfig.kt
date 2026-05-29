@@ -33,9 +33,15 @@ object FootballInputConfig {
     val DRIBBLE_LATERAL_GAIN get() = FootballConfigs.server.playerInput.dribbleLateralGain
     val DRIBBLE_TOUCH_FORCE get() = FootballConfigs.server.playerInput.dribbleTouchForce
     val DRIBBLE_AIR_POSITION_SCALE get() = FootballConfigs.server.playerInput.dribbleAirPositionScale
-    val TAP_MAX_MS get() = FootballConfigs.client.tapMaxMs
-    val CHARGE_MIN_MS get() = FootballConfigs.client.chargeMinMs
-    val CHARGE_MAX_MS get() = FootballConfigs.client.chargeMaxMs
+    val TAP_MAX_MS get() = FootballConfigs.server.playerInput.tapMaxMs
+    val CHARGE_MIN_MS get() = FootballConfigs.server.playerInput.chargeMinMs
+    val CHARGE_RISE_MS get() = FootballConfigs.server.playerInput.chargeRiseMs
+    val CHARGE_PERFECT_WINDOW_MS get() = FootballConfigs.server.playerInput.chargePerfectWindowMs
+    val CHARGE_DECAY_MS get() = FootballConfigs.server.playerInput.chargeDecayMs
+    val KICK_SPREAD_INACCURACY get() = FootballConfigs.server.playerInput.kickSpreadInaccuracy
+    val PERFECT_CHARGE_FORCE_BONUS get() = FootballConfigs.server.playerInput.perfectChargeForceBonus
+
+    fun chargeSettings() = FootballConfigs.server.playerInput.charge
     val ACTION_COOLDOWN_TICKS get() = FootballConfigs.server.playerInput.actionCooldownTicks
     val SHOOT_ANGLE_MIN_DEG get() = FootballConfigs.server.playerInput.shootAngleMinDeg
     val SHOOT_ANGLE_MAX_DEG get() = FootballConfigs.server.playerInput.shootAngleMaxDeg

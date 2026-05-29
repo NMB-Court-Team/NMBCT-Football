@@ -1,8 +1,5 @@
 package net.astrorbits.football.client
 
-import net.astrorbits.football.Football
-import net.astrorbits.football.input.FootballInputConfig
-import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
@@ -25,7 +22,7 @@ class FootballKeybindHintHudElement : HudElement {
             return
         }
 
-        val actionsActive = canOperateFootball(player, level)
+        val actionsActive = FootballOperabilityClient.canOperateFootball(player, level)
         val titleColor = if (actionsActive) TITLE_COLOR_ACTIVE else TITLE_COLOR_INACTIVE
         val labelColor = if (actionsActive) LABEL_COLOR_ACTIVE else LABEL_COLOR_INACTIVE
         val keyColor = if (actionsActive) KEY_COLOR_ACTIVE else KEY_COLOR_INACTIVE
@@ -81,30 +78,6 @@ class FootballKeybindHintHudElement : HudElement {
         } else {
             GK_FREE_HINT_ROWS
         }
-    }
-
-    /**
-     * 当前是否满足进行足球操作的基本条件（与 [FootballInputConfig.PLAYER_KICK_RANGE] / 守门员距离一致）。
-     */
-    private fun canOperateFootball(player: LocalPlayer, level: Level): Boolean {
-        if (GoalkeeperStateClient.isGoalkeeper) {
-            if (GoalkeeperStateClient.isHoldingBall) {
-                return !GoalkeeperStateClient.isHoldReleaseLocked()
-            }
-            val range = GoalkeeperInputConfig.GK_CATCH_RANGE + GoalkeeperInputConfig.GK_CROUCH_RANGE_BONUS
-            return nearestOperableFootball(player, level, range) != null
-        }
-
-        return nearestOperableFootball(player, level, FootballInputConfig.PLAYER_KICK_RANGE) != null
-    }
-
-    private fun nearestOperableFootball(player: LocalPlayer, level: Level, range: Double): Football? {
-        return level.getEntitiesOfClass(
-            Football::class.java,
-            player.boundingBox.inflate(range),
-        )
-            .filter { !it.isHeld() && player.distanceToSqr(it) <= range * range }
-            .minByOrNull { it.distanceToSqr(player) }
     }
 
     private fun keyBoxWidth(font: Font, keyLabel: String): Int =

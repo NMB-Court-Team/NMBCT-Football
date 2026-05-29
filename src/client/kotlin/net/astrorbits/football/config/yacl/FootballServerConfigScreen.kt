@@ -7,6 +7,7 @@ import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.config.server.*
 import net.astrorbits.football.config.yacl.YaclOptionUtil.addDouble
 import net.astrorbits.football.config.yacl.YaclOptionUtil.addInt
+import net.astrorbits.football.config.yacl.YaclOptionUtil.addLong
 import net.astrorbits.football.network.ServerConfigApplyC2SPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.gui.screens.Screen
@@ -131,6 +132,70 @@ object FootballServerConfigScreen {
                     addDouble("$PI.shoot_force_max", "$PI.shoot_force_max.desc", { kick().shootForceMax }, { v -> setKick { it.copy(shootForceMax = v) } }, 0.1..15.0)
                     addDouble("$PI.chip_force", "$PI.chip_force.desc", { kick().chipForce }, { v -> setKick { it.copy(chip = it.chip.copy(chipForce = v)) } }, 0.1..10.0)
                     addInt("$PI.action_cooldown", "$PI.action_cooldown.desc", { kick().actionCooldownTicks }, { v -> setKick { it.copy(actionCooldownTicks = v) } }, 0..40)
+                }
+                .build(),
+        )
+        .group(
+            OptionGroup.createBuilder()
+                .name(Component.translatable("yacl3.config.$MOD_ID.server.group.player_charge"))
+                .apply {
+                    fun charge(): KickChargeSettings = getter().playerInput.charge
+                    fun setCharge(t: (KickChargeSettings) -> KickChargeSettings) {
+                        val pi = getter().playerInput
+                        setter(getter().copy(playerInput = pi.copy(charge = t(charge()))))
+                    }
+
+                    addLong(
+                        "$PI.tap_max_ms",
+                        "$PI.tap_max_ms.desc",
+                        { charge().tapMaxMs },
+                        { v -> setCharge { it.copy(tapMaxMs = v) } },
+                        50L..800L,
+                    )
+                    addLong(
+                        "$PI.charge_min_ms",
+                        "$PI.charge_min_ms.desc",
+                        { charge().chargeMinMs },
+                        { v -> setCharge { it.copy(chargeMinMs = v) } },
+                        100L..2000L,
+                    )
+                    addLong(
+                        "$PI.charge_rise_ms",
+                        "$PI.charge_rise_ms.desc",
+                        { charge().chargeRiseMs },
+                        { v -> setCharge { it.copy(chargeRiseMs = v) } },
+                        200L..5000L,
+                    )
+                    addLong(
+                        "$PI.charge_perfect_window_ms",
+                        "$PI.charge_perfect_window_ms.desc",
+                        { charge().chargePerfectWindowMs },
+                        { v -> setCharge { it.copy(chargePerfectWindowMs = v) } },
+                        30L..800L,
+                    )
+                    addLong(
+                        "$PI.charge_decay_ms",
+                        "$PI.charge_decay_ms.desc",
+                        { charge().chargeDecayMs },
+                        { v -> setCharge { it.copy(chargeDecayMs = v) } },
+                        300L..5000L,
+                    )
+                    addDouble(
+                        "$PI.kick_spread_inaccuracy",
+                        "$PI.kick_spread_inaccuracy.desc",
+                        { charge().kickSpreadInaccuracy },
+                        { v -> setCharge { it.copy(kickSpreadInaccuracy = v) } },
+                        0.0..10.0,
+                        step = 0.1,
+                    )
+                    addDouble(
+                        "$PI.perfect_charge_force_bonus",
+                        "$PI.perfect_charge_force_bonus.desc",
+                        { charge().perfectChargeForceBonus },
+                        { v -> setCharge { it.copy(perfectChargeForceBonus = v) } },
+                        1.0..1.5,
+                        step = 0.01,
+                    )
                 }
                 .build(),
         )

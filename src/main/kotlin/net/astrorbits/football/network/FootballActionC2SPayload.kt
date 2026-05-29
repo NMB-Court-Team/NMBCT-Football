@@ -8,6 +8,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 data class FootballActionC2SPayload(
     val action: FootballActionType,
     val chargeRatio: Float,
+    val chargeHeldMs: Long,
     val flags: Int,
     /** 客户端动作瞬间的 yaw，用于服务端尚未同步的朝向（如守门员持球开球）。 */
     val lookYaw: Float,
@@ -23,6 +24,7 @@ data class FootballActionC2SPayload(
             { buf, payload ->
                 buf.writeByte(payload.action.ordinal)
                 buf.writeFloat(payload.chargeRatio)
+                buf.writeVarLong(payload.chargeHeldMs)
                 buf.writeVarInt(payload.flags)
                 buf.writeFloat(payload.lookYaw)
                 buf.writeFloat(payload.lookPitch)
@@ -32,6 +34,7 @@ data class FootballActionC2SPayload(
                 FootballActionC2SPayload(
                     action = action,
                     chargeRatio = buf.readFloat(),
+                    chargeHeldMs = buf.readVarLong(),
                     flags = buf.readVarInt(),
                     lookYaw = buf.readFloat(),
                     lookPitch = buf.readFloat(),

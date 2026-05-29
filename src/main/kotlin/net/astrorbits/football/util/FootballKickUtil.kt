@@ -6,6 +6,7 @@ import net.astrorbits.football.Football
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.FootballMovementInputUtil
 import net.astrorbits.football.physics.FootballPhysicsConfig
+import net.minecraft.util.RandomSource
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.AABB
@@ -62,12 +63,15 @@ object FootballKickUtil {
         heightOffset = 0.0
     )
 
-    fun resolveShootParams(chargeRatio: Float, sprinting: Boolean): KickParams {
+    fun resolveShootParams(chargeRatio: Float, sprinting: Boolean, perfectCharge: Boolean = false): KickParams {
         val clamped = chargeRatio.coerceIn(0f, 1f)
         var force = FootballInputConfig.SHOOT_FORCE_MIN +
             (FootballInputConfig.SHOOT_FORCE_MAX - FootballInputConfig.SHOOT_FORCE_MIN) * clamped
         if (sprinting && clamped >= FootballInputConfig.SHOOT_MIN_CHARGE_FOR_SPRINT) {
             force *= FootballInputConfig.SHOOT_SPRINT_BONUS
+        }
+        if (perfectCharge) {
+            force *= FootballInputConfig.PERFECT_CHARGE_FORCE_BONUS
         }
         val angle = FootballInputConfig.SHOOT_ANGLE_MIN_DEG +
             (FootballInputConfig.SHOOT_ANGLE_MAX_DEG - FootballInputConfig.SHOOT_ANGLE_MIN_DEG) * clamped
@@ -93,8 +97,15 @@ object FootballKickUtil {
         return Vec3Math.normalizeSafe(Vec3Math.horizontal(player.lookAngle))
     }
 
-    fun applyKickToFootball(player: Player, football: Football, params: KickParams) {
-        applyKickToFootballWithLook(football, params, player.yRot, player.xRot)
+    fun applyKickToFootball(player: Player, football: Football, params: KickParams, applySpread: Boolean = false) {
+        applyKickToFootballWithLook(
+            football = football,
+            params = params,
+            lookYaw = player.yRot,
+            lookPitch = player.xRot,
+            random = if (applySpread) player.random else null,
+            spreadInaccuracy = if (applySpread) FootballInputConfig.KICK_SPREAD_INACCURACY else 0.0,
+        )
     }
 
     fun applyKickToFootballWithLook(
@@ -102,12 +113,14 @@ object FootballKickUtil {
         params: KickParams,
         lookYaw: Float,
         lookPitch: Float,
+        random: RandomSource? = null,
+        spreadInaccuracy: Double = 0.0,
     ) {
         val look = lookDirection(lookYaw, lookPitch)
         val horizontalLook = Vec3Math.horizontal(look)
         val pitchOffset = lookPitchAngleOffset(lookPitch)
         val adjustedParams = params.copy(angleDegrees = params.angleDegrees + pitchOffset)
-        applyKickWithHorizontalDirection(football, horizontalLook, look, adjustedParams)
+        applyKickWithHorizontalDirection(football, horizontalLook, look, adjustedParams, random, spreadInaccuracy)
     }
 
     /** 命令简单踢球：力度 + 仰角，方向由执行朝向水平分量与 elevation 决定。 */
@@ -182,11 +195,33 @@ object FootballKickUtil {
         horizontalLook: Vec3,
         verticalReference: Vec3,
         params: KickParams,
+        random: RandomSource? = null,
+        spreadInaccuracy: Double = 0.0,
     ) {
         val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         val kickPoint = buildKickPoint(ballCenter, horizontalLook, params.heightOffset)
-        val direction = buildKickDirection(horizontalLook, verticalReference, params.force, params.angleDegrees)
+        var direction = buildKickDirection(horizontalLook, verticalReference, params.force, params.angleDegrees)
+        if (random != null && spreadInaccuracy > 0.0) {
+            direction = applyProjectileSpread(direction, random, spreadInaccuracy)
+        }
         football.kick(kickPoint, direction)
+    }
+
+    /**
+     * 与原版弹射物 `shoot(..., inaccuracy)` 相同的三轴三角形偏移，归一化后保持冲量模长。
+     */
+    fun applyProjectileSpread(direction: Vec3, random: RandomSource, inaccuracy: Double): Vec3 {
+        val force = direction.length()
+        if (force < 1.0e-12 || inaccuracy <= 0.0) {
+            return direction
+        }
+        val unit = direction.normalize()
+        val spread = Vec3(
+            unit.x + random.triangle(0.0, 0.0172275 * inaccuracy),
+            unit.y + random.triangle(0.0, 0.0172275 * inaccuracy),
+            unit.z + random.triangle(0.0, 0.0172275 * inaccuracy),
+        )
+        return Vec3Math.normalizeSafe(spread).scale(force)
     }
 
     fun applyDribbleTouch(player: Player, football: Football) {
