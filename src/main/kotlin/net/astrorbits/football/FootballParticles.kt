@@ -13,6 +13,7 @@ import net.astrorbits.football.FootballParticles.playTrap
 import net.astrorbits.football.FootballParticles.playWallBounce
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.FootballInputConfig.SHOOT_FORCE_MAX
+import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.astrorbits.football.physics.CollisionBounceResult
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.Vec3Math
@@ -242,15 +243,18 @@ object FootballParticles {
         }
     }
 
-    fun playGkCatch(level: Level, center: Vec3) {
+    fun playGkCatch(level: Level, center: Vec3, incomingSpeed: Double = 0.0) {
+        val t = goalkeeperCatchScale(incomingSpeed)
         emitBurst(level, center, cloudBurst(FootballParticleConfig.GK_CATCH_COUNT, 0.02))
         emitBurst(level, center, poofBurst(3, 0.015))
+        emitBurst(level, center, critBurst((4 + 8 * t).toInt(), 0.03 + 0.04 * t))
+        emitGoalkeeperCatchRedRing(level, center, t)
     }
 
-    fun playGkCatch(player: ServerPlayer, football: Football? = null) {
+    fun playGkCatch(player: ServerPlayer, football: Football? = null, incomingSpeed: Double = 0.0) {
         val center = football?.let { centerOfFootball(it) }
             ?: player.position().add(0.0, 1.0, 0.0)
-        playGkCatch(player.level(), center)
+        playGkCatch(player.level(), center, incomingSpeed)
     }
 
     fun playGkDive(player: ServerPlayer) {
@@ -325,7 +329,7 @@ object FootballParticles {
         ParticleBurst(ParticleTypes.WHITE_SMOKE, count, spreadX = 0.25, spreadY = 0.15, spreadZ = 0.25, speed = speed)
 
     private fun crimsonBurst(count: Int, speed: Double = 0.0): ParticleBurst =
-        ParticleBurst(ParticleTypes.CRIMSON_SPORE, count, spreadX = 1.0, spreadY = 1.0, spreadZ = 1.0, speed = speed)
+        ParticleBurst(ParticleTypes.CRIMSON_SPORE, count, spreadX = 0.5, spreadY = 0.5, spreadZ = 0.5, speed = speed)
 
     private fun dustPuffBurst(count: Int): ParticleBurst {
         // 棕褐色尘土（RGB 0x8C6B47）
@@ -353,6 +357,22 @@ object FootballParticles {
             val pos = center.add(radial.scale(radius))
             val velocity = radial.scale(FootballParticleConfig.KICK_CLOUD_RING_RADIAL_SPEED)
             emitDirectedParticle(server, ParticleTypes.CLOUD, pos, velocity)
+        }
+    }
+
+    private fun emitGoalkeeperCatchRedRing(level: Level, center: Vec3, speedScale: Float) {
+        val server = level as? ServerLevel ?: return
+        val t = speedScale.coerceIn(0f, 1f)
+        val count = 10 + (12 * t).toInt()
+        val radius = 0.18 + 0.28 * t
+        val radialSpeed = 0.04 + 0.05 * t
+        val redDust = DustParticleOptions(0xFFFF3B3B.toInt(), 0.85f + 0.35f * t)
+        repeat(count) { i ->
+            val angle = 2.0 * PI * (i.toDouble() / count.toDouble())
+            val radial = Vec3(cos(angle), 0.0, sin(angle))
+            val pos = center.add(radial.scale(radius))
+            val velocity = radial.scale(radialSpeed)
+            emitDirectedParticle(server, redDust, pos, velocity)
         }
     }
 
@@ -390,6 +410,12 @@ object FootballParticles {
         val g = (fg + ((tg - fg) * a)).toInt().coerceIn(0, 255)
         val b = (fb + ((tb - fb) * a)).toInt().coerceIn(0, 255)
         return (r shl 16) or (g shl 8) or b
+    }
+
+    private fun goalkeeperCatchScale(incomingSpeed: Double): Float {
+        val reference = kotlin.math.max(GoalkeeperInputConfig.GK_CATCH_MAX_SPEED, GoalkeeperInputConfig.GK_DIVE_CATCH_MAX_SPEED)
+            .coerceAtLeast(0.1)
+        return (incomingSpeed / reference).toFloat().coerceIn(0f, 1f)
     }
 
     private fun impactScale(impactSpeed: Double, minSpeed: Double, referenceSpeed: Double): Float =

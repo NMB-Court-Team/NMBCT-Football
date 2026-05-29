@@ -15,6 +15,21 @@ object Items {
             .rarity(Rarity.RARE),
         ::FootballItem
     )
+    val WHISTLE = register(
+        "whistle",
+        Item.Properties().stacksTo(1),
+        ::Item,
+    )
+    val RED_CARD = register(
+        "red_card",
+        Item.Properties(),
+        ::Item,
+    )
+    val YELLOW_CARD = register(
+        "yellow_card",
+        Item.Properties(),
+        ::Item,
+    )
 
     fun init() {
         // static init
