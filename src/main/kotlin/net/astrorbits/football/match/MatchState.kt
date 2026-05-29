@@ -1,5 +1,10 @@
 package net.astrorbits.football.match
 
+import net.minecraft.ChatFormatting
+import net.minecraft.network.chat.Component
+import net.minecraft.server.MinecraftServer
+import java.util.UUID
+
 object MatchState {
 	var timerTicks = 0
 	var isRunning = true
@@ -7,12 +12,81 @@ object MatchState {
 	var teamBName = "蓝队"
 	var teamAScore = 0
 	var teamBScore = 0
+	val teamAPlayers: MutableSet<UUID> = mutableSetOf()
+	val teamBPlayers: MutableSet<UUID> = mutableSetOf()
+
+	private val scoreboardTeamA = "football_A"
+	private val scoreboardTeamB = "football_B"
+
+	fun getTeamName(team: TeamSide): String = when (team) {
+		TeamSide.A -> teamAName
+		TeamSide.B -> teamBName
+	}
+
+	fun getPlayerTeam(uuid: UUID): TeamSide? = when {
+		teamAPlayers.contains(uuid) -> TeamSide.A
+		teamBPlayers.contains(uuid) -> TeamSide.B
+		else -> null
+	}
+
+	fun addPlayer(team: TeamSide, uuid: UUID) {
+		when (team) {
+			TeamSide.A -> teamAPlayers.add(uuid)
+			TeamSide.B -> teamBPlayers.add(uuid)
+		}
+	}
+
+	fun removePlayer(uuid: UUID): Boolean {
+		return teamAPlayers.remove(uuid) || teamBPlayers.remove(uuid)
+	}
+
+	fun syncPlayerScoreboard(uuid: UUID, team: TeamSide?, server: MinecraftServer) {
+		val player = server.playerList.getPlayer(uuid) ?: return
+		val playerName = player.gameProfile.name
+		val scoreboard = server.scoreboard
+
+		// 从所有足球队伍中移除
+		scoreboard.getPlayerTeam(scoreboardTeamA)?.let { scoreboard.removePlayerFromTeam(playerName, it) }
+		scoreboard.getPlayerTeam(scoreboardTeamB)?.let { scoreboard.removePlayerFromTeam(playerName, it) }
+
+		if (team != null) {
+			val teamKey = when (team) {
+				TeamSide.A -> scoreboardTeamA
+				TeamSide.B -> scoreboardTeamB
+			}
+			val color = when (team) {
+				TeamSide.A -> ChatFormatting.RED
+				TeamSide.B -> ChatFormatting.BLUE
+			}
+			val sbTeam = scoreboard.getPlayerTeam(teamKey) ?: run {
+				val t = scoreboard.addPlayerTeam(teamKey)
+				t.setColor(color)
+				t.setDisplayName(Component.literal(getTeamName(team)))
+				t
+			}
+			scoreboard.addPlayerToTeam(playerName, sbTeam)
+		}
+	}
+
+	fun clearScoreboardTeams(server: MinecraftServer) {
+		val scoreboard = server.scoreboard
+		for (teamKey in listOf(scoreboardTeamA, scoreboardTeamB)) {
+			scoreboard.getPlayerTeam(teamKey)?.let { team ->
+				val players = team.players.toList()
+				for (playerName in players) {
+					scoreboard.removePlayerFromTeam(playerName, team)
+				}
+			}
+		}
+	}
 
 	fun reset() {
 		timerTicks = 0
 		isRunning = true
 		teamAScore = 0
 		teamBScore = 0
+		teamAPlayers.clear()
+		teamBPlayers.clear()
 		PlayerRoleState.reset()
 	}
 

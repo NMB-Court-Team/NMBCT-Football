@@ -24,6 +24,7 @@ object MatchCommand {
 		})
 
 		root.then(Commands.literal("reset").executes {
+			MatchState.clearScoreboardTeams(it.source.server)
 			MatchState.reset()
 			it.source.sendSuccess({ Component.literal("比赛已重置") }, true)
 			1
@@ -65,9 +66,71 @@ object MatchCommand {
 				}
 		))
 
+		registerTeamCommands(root)
 		registerGoalkeeperCommands(root)
 
 		dispatcher.register(root)
+	}
+
+	private fun registerTeamCommands(root: com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack>) {
+		val joinCmd = Commands.literal("join")
+		for (team in TeamSide.entries) {
+			joinCmd.then(
+				Commands.literal(team.name).executes { ctx ->
+					val player = ctx.source.playerOrException
+					MatchState.removePlayer(player.uuid)
+					MatchState.addPlayer(team, player.uuid)
+					MatchState.syncPlayerScoreboard(player.uuid, team, ctx.source.server)
+					ctx.source.sendSuccess(
+						{ Component.literal("你已加入${MatchState.getTeamName(team)}") }, true
+					)
+					1
+				}
+			)
+		}
+		root.then(joinCmd)
+
+		root.then(Commands.literal("leave").executes { ctx ->
+			val player = ctx.source.playerOrException
+			if (MatchState.removePlayer(player.uuid)) {
+				MatchState.syncPlayerScoreboard(player.uuid, null, ctx.source.server)
+				ctx.source.sendSuccess({ Component.literal("你已退出队伍") }, true)
+			} else {
+				ctx.source.sendSuccess({ Component.literal("你当前不在任何队伍中") }, true)
+			}
+			1
+		})
+
+		val clearCmd = Commands.literal("clear")
+			.executes { ctx ->
+				MatchState.clearScoreboardTeams(ctx.source.server)
+				MatchState.teamAPlayers.clear()
+				MatchState.teamBPlayers.clear()
+				ctx.source.sendSuccess({ Component.literal("已清空所有队伍") }, true)
+				1
+			}
+		for (team in TeamSide.entries) {
+			clearCmd.then(
+				Commands.literal(team.name).executes { ctx ->
+					val players = when (team) {
+						TeamSide.A -> MatchState.teamAPlayers.toList()
+						TeamSide.B -> MatchState.teamBPlayers.toList()
+					}
+					for (uuid in players) {
+						MatchState.syncPlayerScoreboard(uuid, null, ctx.source.server)
+					}
+					when (team) {
+						TeamSide.A -> MatchState.teamAPlayers.clear()
+						TeamSide.B -> MatchState.teamBPlayers.clear()
+					}
+					ctx.source.sendSuccess(
+						{ Component.literal("已清空${MatchState.getTeamName(team)}") }, true
+					)
+					1
+				}
+			)
+		}
+		root.then(clearCmd)
 	}
 
 	private fun registerGoalkeeperCommands(root: com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack>) {
@@ -122,4 +185,3 @@ object MatchCommand {
 		)
 	}
 }
-
