@@ -8,6 +8,7 @@ import net.astrorbits.football.item.FootballItemGroups
 import net.astrorbits.football.item.Items
 import net.astrorbits.football.item.FootballItemUseGuards
 import net.astrorbits.football.match.MatchCommand
+import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.network.FootballNetworking
 import net.fabricmc.api.ModInitializer
@@ -27,6 +28,7 @@ object NMBCTFootball : ModInitializer {
 	override fun onInitialize() {
 		FootballServerConfigHolder.init()
 		FootballClientConfigHolder.init()
+		MatchConfigHolder.init()
 
 		Items.init()
 		FootballItemGroups.init()

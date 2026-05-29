@@ -8,6 +8,7 @@ import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.commands.arguments.ComponentArgument
 import net.minecraft.commands.arguments.EntityArgument
+import net.astrorbits.football.network.FootballNetworking
 import net.minecraft.network.chat.Component
 
 object MatchCommand {
@@ -60,7 +61,7 @@ object MatchCommand {
 				.executes {
 					MatchState.teamAName = ComponentArgument.getResolvedComponent(it, "name")
 					it.source.sendSuccess({
-						Component.translatable("command.nmbct-football.match.name_a", MatchState.teamAName)
+						Component.translatable("command.nmbct-football.match.name_a", MatchState.getTeamName(TeamSide.A))
 					}, true)
 					1
 				}
@@ -71,11 +72,28 @@ object MatchCommand {
 				.executes {
 					MatchState.teamBName = ComponentArgument.getResolvedComponent(it, "name")
 					it.source.sendSuccess({
-						Component.translatable("command.nmbct-football.match.name_b", MatchState.teamBName)
+						Component.translatable("command.nmbct-football.match.name_b", MatchState.getTeamName(TeamSide.B))
 					}, true)
 					1
 				}
 		))
+
+		root.then(Commands.literal("setup")
+			.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+			.executes { ctx ->
+				val player = ctx.source.player
+				if (player == null) {
+					ctx.source.sendFailure(Component.translatable("command.nmbct-football.config.player_only"))
+					return@executes 0
+				}
+				FootballNetworking.sendMatchConfigSync(player, MatchConfigHolder.current)
+				ctx.source.sendSuccess(
+					{ Component.translatable("command.nmbct-football.match.setup_opened") },
+					true,
+				)
+				1
+			}
+		)
 
 		registerTeamCommands(root)
 		registerGoalkeeperCommands(root)

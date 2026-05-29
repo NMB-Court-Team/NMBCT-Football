@@ -6,8 +6,8 @@ import net.minecraft.server.MinecraftServer
 import java.util.UUID
 
 object MatchState {
-	private val DEFAULT_TEAM_A_NAME = Component.translatable("team_name.nmbct-football.teamA")
-	private val DEFAULT_TEAM_B_NAME = Component.translatable("team_name.nmbct-football.teamB")
+	private val DEFAULT_TEAM_A_NAME = Component.translatable("team_name.nmbct-football.teamA").withStyle(ChatFormatting.RED)
+	private val DEFAULT_TEAM_B_NAME = Component.translatable("team_name.nmbct-football.teamB").withStyle(ChatFormatting.BLUE)
 
 	private const val SCOREBOARD_TEAM_A = "football_A"
 	private const val SCOREBOARD_TEAM_B = "football_B"
@@ -22,8 +22,8 @@ object MatchState {
 	val teamBPlayers: MutableSet<UUID> = mutableSetOf()
 
 	fun getTeamName(team: TeamSide): Component = when (team) {
-		TeamSide.A -> teamAName
-		TeamSide.B -> teamBName
+		TeamSide.A -> teamAName.copy().withStyle(ChatFormatting.RED)
+		TeamSide.B -> teamBName.copy().withStyle(ChatFormatting.AQUA)
 	}
 
 	fun getPlayerTeam(uuid: UUID): TeamSide? = when {
@@ -48,9 +48,13 @@ object MatchState {
 		val playerName = player.gameProfile.name
 		val scoreboard = server.scoreboard
 
-		// 从所有足球队伍中移除
-		scoreboard.getPlayerTeam(SCOREBOARD_TEAM_A)?.let { scoreboard.removePlayerFromTeam(playerName, it) }
-		scoreboard.getPlayerTeam(SCOREBOARD_TEAM_B)?.let { scoreboard.removePlayerFromTeam(playerName, it) }
+		// 只从该玩家实际所在的足球记分板队伍中移除
+		for (teamKey in listOf(SCOREBOARD_TEAM_A, SCOREBOARD_TEAM_B)) {
+			val sbTeam = scoreboard.getPlayerTeam(teamKey) ?: continue
+			if (sbTeam.players.contains(playerName)) {
+				scoreboard.removePlayerFromTeam(playerName, sbTeam)
+			}
+		}
 
 		if (team != null) {
 			val teamKey = when (team) {
@@ -59,7 +63,7 @@ object MatchState {
 			}
 			val color = when (team) {
 				TeamSide.A -> ChatFormatting.RED
-				TeamSide.B -> ChatFormatting.BLUE
+				TeamSide.B -> ChatFormatting.AQUA
 			}
 			val sbTeam = scoreboard.getPlayerTeam(teamKey) ?: run {
 				val t = scoreboard.addPlayerTeam(teamKey)
