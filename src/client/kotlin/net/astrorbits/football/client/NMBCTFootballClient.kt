@@ -2,11 +2,9 @@ package net.astrorbits.football.client
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.NMBCTFootball
-import net.astrorbits.football.config.FootballConfigNetworking
 import net.astrorbits.football.client.match.MatchStateClient
-import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.config.FootballConfigNetworking
 import net.fabricmc.api.ClientModInitializer
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry
 import net.minecraft.client.renderer.entity.EntityRenderers
 import net.minecraft.resources.Identifier

@@ -3,7 +3,6 @@ package net.astrorbits.football.client
 import com.mojang.blaze3d.vertex.PoseStack
 import net.astrorbits.football.Football
 import net.astrorbits.football.item.Items
-import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.GoalkeeperHoldPoseUtil
 import net.minecraft.client.Minecraft
 import net.minecraft.client.renderer.SubmitNodeCollector
@@ -14,7 +13,6 @@ import net.minecraft.client.renderer.state.level.CameraRenderState
 import net.minecraft.client.renderer.texture.OverlayTexture
 import net.minecraft.world.item.ItemDisplayContext
 import net.minecraft.world.item.ItemStack
-import net.minecraft.world.phys.Vec3
 
 class FootballRenderer(context: EntityRendererProvider.Context) :
     EntityRenderer<Football, FootballRenderState>(context) {

@@ -32,10 +32,6 @@ object CobwebUtil {
         return false
     }
 
-    /**
-     * Applies cobweb drag to velocity. Values match vanilla [Entity.makeStuckInBlock] scaling
-     * (0.25 horizontal, 0.05 vertical per tick while inside the web).
-     */
     fun applyCobwebDrag(state: FootballPhysicsState) {
         state.linearVelocity = Vec3(
             state.linearVelocity.x * FootballPhysicsConfig.COBWEB_HORIZONTAL_DRAG,

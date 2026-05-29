@@ -6,7 +6,7 @@ import net.astrorbits.football.config.FootballInputFlags
 /**
  * @deprecated 请使用 [net.astrorbits.football.config.FootballConfigs] 与 [FootballInputFlags]。
  */
-@Deprecated("Use FootballConfigs", ReplaceWith("FootballConfigs"))
+//@Deprecated("Use FootballConfigs", ReplaceWith("FootballConfigs"))
 object FootballInputConfig {
     val PLAYER_KICK_RANGE get() = FootballConfigs.server.playerInput.playerKickRange
     val HINT_HIDE_EXTRA_RANGE get() = FootballConfigs.client.hintHideExtraRange

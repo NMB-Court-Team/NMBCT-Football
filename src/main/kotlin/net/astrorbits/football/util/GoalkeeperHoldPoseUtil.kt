@@ -86,7 +86,7 @@ object GoalkeeperHoldPoseUtil {
             return
         }
         val headYaw = entity.yHeadRot
-        entity.setYRot(headYaw)
+        entity.yRot = headYaw
         entity.yRotO = headYaw
         entity.yBodyRot = headYaw
         entity.yBodyRotO = headYaw

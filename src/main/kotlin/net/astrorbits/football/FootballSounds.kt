@@ -336,7 +336,7 @@ object FootballSounds {
 
     private fun normalizeKickForce(force: Double): Float {
         val min = FootballInputConfig.CHIP_FORCE
-        val max = FootballInputConfig.SHOOT_FORCE_MAX * FootballInputConfig.SHOOT_SPRINT_BONUS
+        val max = SHOOT_FORCE_MAX * FootballInputConfig.SHOOT_SPRINT_BONUS
         if (max <= min) return 1f
         return ((force - min) / (max - min)).toFloat().coerceIn(0f, 1f)
     }

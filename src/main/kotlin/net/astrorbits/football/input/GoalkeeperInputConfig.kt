@@ -5,7 +5,7 @@ import net.astrorbits.football.config.FootballConfigs
 /**
  * @deprecated 请使用 [net.astrorbits.football.config.FootballConfigs.server.goalkeeper]。
  */
-@Deprecated("Use FootballConfigs.server.goalkeeper", ReplaceWith("FootballConfigs.server.goalkeeper"))
+//@Deprecated("Use FootballConfigs.server.goalkeeper", ReplaceWith("FootballConfigs.server.goalkeeper"))
 object GoalkeeperInputConfig {
     val GK_CATCH_RANGE get() = FootballConfigs.server.goalkeeper.catchRange
     val GK_CROUCH_RANGE_BONUS get() = FootballConfigs.server.goalkeeper.crouchRangeBonus
