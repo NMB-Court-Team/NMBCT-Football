@@ -1,76 +1,85 @@
 package net.astrorbits.football.client.render
 
-import net.astrorbits.football.client.key.FootballKeyBindings
 import net.astrorbits.football.client.FootballOperabilityClient
 import net.astrorbits.football.client.GoalkeeperStateClient
+import net.astrorbits.football.client.key.FootballKeyBindings
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.KeyMapping
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.Font
 import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.client.gui.screens.ChatScreen
+import net.minecraft.client.player.LocalPlayer
 import net.minecraft.network.chat.Component
 
 class FootballKeybindHintHudElement : HudElement {
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
         val client = Minecraft.getInstance()
-        if (client.screen != null || client.isPaused || client.debugOverlay.showDebugScreen()) {
+        if (!canRenderHud(client)) {
             return
         }
-        val level = client.level ?: return
         val player = client.player ?: return
-        if (!player.mainHandItem.isEmpty) {
-            return
-        }
-
-        val actionsActive = FootballOperabilityClient.canOperateFootball(player, level)
-        val titleColor = if (actionsActive) TITLE_COLOR_ACTIVE else TITLE_COLOR_INACTIVE
-        val labelColor = if (actionsActive) LABEL_COLOR_ACTIVE else LABEL_COLOR_INACTIVE
-        val keyColor = if (actionsActive) KEY_COLOR_ACTIVE else KEY_COLOR_INACTIVE
-        val keyBoxBg = if (actionsActive) KEY_BOX_BG_ACTIVE else KEY_BOX_BG_INACTIVE
+        val level = client.level ?: return
 
         val font = client.font
-        val screenW = client.window.guiScaledWidth
-        val rows = buildHintRows().map { (key, labelKey) ->
-            val keyLabel = key.translatedKeyMessage.string
-            HintRow(
-                keyLabel = keyLabel,
-                label = Component.translatable(labelKey).string,
-                keyBoxW = keyBoxWidth(font, keyLabel),
-            )
-        }
-
-        val titleKey = if (GoalkeeperStateClient.isGoalkeeper) {
-            TITLE_KEY_GK
+        val lookAroundRow = buildHintRow(font, FootballKeyBindings.LOOK_AROUND, LOOK_AROUND_LABEL_KEY)
+        val footballRows = if (canRenderFootballHints(player)) {
+            buildFootballHintRows(font)
         } else {
-            TITLE_KEY
+            emptyList()
         }
-        val title = Component.translatable(titleKey).string
-        val titleW = font.width(title)
-        val rowContentW = rows.maxOf { font.width(it.label) + it.keyBoxW + KEY_LABEL_GAP }
-        val panelW = PAD * 2 + maxOf(titleW, rowContentW)
-        val panelH = PAD + font.lineHeight + ROW_GAP + rows.size * (font.lineHeight + ROW_GAP) + PAD
-        val panelX = screenW - MARGIN - panelW
-        val panelY = MARGIN
-
-        extra.fill(panelX, panelY, panelX + panelW, panelY + panelH, PANEL_BG)
-        extra.text(font, title, panelX + panelW - PAD - font.width(title), panelY + PAD, titleColor, true)
-
-        var y = panelY + PAD + font.lineHeight + ROW_GAP
-        for (row in rows) {
-            val rowRight = panelX + panelW - PAD
-            val labelX = rowRight - font.width(row.label)
-            extra.text(font, row.label, labelX, y, labelColor, true)
-
-            val keyBoxX = labelX - KEY_LABEL_GAP - row.keyBoxW
-            extra.fill(keyBoxX, y - 1, keyBoxX + row.keyBoxW, y + font.lineHeight + 1, keyBoxBg)
-            val keyX = keyBoxX + row.keyBoxW / 2 - font.width(row.keyLabel) / 2
-            extra.text(font, row.keyLabel, keyX, y, keyColor, true)
-            y += font.lineHeight + ROW_GAP
+        val footballColors = if (FootballOperabilityClient.canOperateFootball(player, level)) {
+            RowColors.ACTIVE
+        } else {
+            RowColors.INACTIVE
         }
+
+        if (footballRows.isEmpty()) {
+            renderPanel(
+                extra = extra,
+                font = font,
+                screenW = client.window.guiScaledWidth,
+                title = null,
+                titleColor = TITLE_COLOR_ACTIVE,
+                rows = listOf(StyledRow(lookAroundRow, RowColors.ACTIVE)),
+            )
+            return
+        }
+
+        val titleKey = if (GoalkeeperStateClient.isGoalkeeper) TITLE_KEY_GK else TITLE_KEY
+        val styledRows = footballRows.map { StyledRow(it, footballColors) } +
+            StyledRow(lookAroundRow, RowColors.ACTIVE)
+        renderPanel(
+            extra = extra,
+            font = font,
+            screenW = client.window.guiScaledWidth,
+            title = Component.translatable(titleKey).string,
+            titleColor = footballColors.titleColor,
+            rows = styledRows,
+        )
     }
 
-    private fun buildHintRows(): List<Pair<KeyMapping, String>> {
+    private fun canRenderHud(client: Minecraft): Boolean {
+        if (client.isPaused || client.debugOverlay.showDebugScreen()) {
+            return false
+        }
+        if (client.player == null || client.level == null) {
+            return false
+        }
+        val screen = client.screen
+        return screen == null || screen is ChatScreen
+    }
+
+    private fun canRenderFootballHints(player: LocalPlayer): Boolean =
+        player.mainHandItem.isEmpty
+
+    private fun buildFootballHintRows(font: Font): List<HintRow> =
+        buildFootballActionRows().map { (key, labelKey) ->
+            buildHintRow(font, key, labelKey)
+        }
+
+    private fun buildFootballActionRows(): List<Pair<KeyMapping, String>> {
         if (!GoalkeeperStateClient.isGoalkeeper) {
             return OUTFIELD_HINT_ROWS
         }
@@ -81,19 +90,102 @@ class FootballKeybindHintHudElement : HudElement {
         }
     }
 
+    private fun buildHintRow(font: Font, key: KeyMapping, labelKey: String): HintRow {
+        val keyLabel = key.translatedKeyMessage.string
+        return HintRow(
+            keyLabel = keyLabel,
+            label = Component.translatable(labelKey).string,
+            keyBoxW = keyBoxWidth(font, keyLabel),
+        )
+    }
+
+    private fun renderPanel(
+        extra: GuiGraphicsExtractor,
+        font: Font,
+        screenW: Int,
+        title: String?,
+        titleColor: Int,
+        rows: List<StyledRow>,
+    ) {
+        val rowContentW = rows.maxOf { font.width(it.row.label) + it.row.keyBoxW + KEY_LABEL_GAP }
+        val titleW = title?.let(font::width) ?: 0
+        val panelW = PAD * 2 + maxOf(titleW, rowContentW)
+        val panelH = if (title == null) {
+            PAD * 2 + rows.size * (font.lineHeight + ROW_GAP) - ROW_GAP
+        } else {
+            PAD + font.lineHeight + ROW_GAP + rows.size * (font.lineHeight + ROW_GAP) + PAD
+        }
+        val panelX = screenW - MARGIN - panelW
+        val panelY = MARGIN
+
+        extra.fill(panelX, panelY, panelX + panelW, panelY + panelH, PANEL_BG)
+        var y = panelY + PAD
+        if (title != null) {
+            extra.text(font, title, panelX + panelW - PAD - font.width(title), y, titleColor, true)
+            y += font.lineHeight + ROW_GAP
+        }
+        for (styledRow in rows) {
+            renderRow(extra, font, panelX, panelW, y, styledRow.row, styledRow.colors)
+            y += font.lineHeight + ROW_GAP
+        }
+    }
+
+    private fun renderRow(
+        extra: GuiGraphicsExtractor,
+        font: Font,
+        panelX: Int,
+        panelW: Int,
+        y: Int,
+        row: HintRow,
+        rowColors: RowColors,
+    ) {
+        val rowRight = panelX + panelW - PAD
+        val labelX = rowRight - font.width(row.label)
+        extra.text(font, row.label, labelX, y, rowColors.labelColor, true)
+
+        val keyBoxX = labelX - KEY_LABEL_GAP - row.keyBoxW
+        extra.fill(keyBoxX, y - 1, keyBoxX + row.keyBoxW, y + font.lineHeight + 1, rowColors.keyBoxBg)
+        val keyX = keyBoxX + row.keyBoxW / 2 - font.width(row.keyLabel) / 2
+        extra.text(font, row.keyLabel, keyX, y, rowColors.keyColor, true)
+    }
+
     private fun keyBoxWidth(font: Font, keyLabel: String): Int =
         maxOf(KEY_BOX_MIN_W, font.width(keyLabel) + KEY_BOX_PAD_H * 2)
 
     private data class HintRow(val keyLabel: String, val label: String, val keyBoxW: Int)
 
+    private data class StyledRow(val row: HintRow, val colors: RowColors)
+
+    private data class RowColors(
+        val titleColor: Int,
+        val labelColor: Int,
+        val keyColor: Int,
+        val keyBoxBg: Int,
+    ) {
+        companion object {
+            val ACTIVE = RowColors(
+                titleColor = TITLE_COLOR_ACTIVE,
+                labelColor = LABEL_COLOR_ACTIVE,
+                keyColor = KEY_COLOR_ACTIVE,
+                keyBoxBg = KEY_BOX_BG_ACTIVE,
+            )
+            val INACTIVE = RowColors(
+                titleColor = TITLE_COLOR_INACTIVE,
+                labelColor = LABEL_COLOR_INACTIVE,
+                keyColor = KEY_COLOR_INACTIVE,
+                keyBoxBg = KEY_BOX_BG_INACTIVE,
+            )
+        }
+    }
+
     companion object {
         private const val TITLE_KEY = "hud.nmbct-football.hint.title"
         private const val TITLE_KEY_GK = "hud.nmbct-football.hint.title_gk"
+        private const val LOOK_AROUND_LABEL_KEY = "hud.nmbct-football.hint.look_around"
         private const val MARGIN = 8
         private const val PAD = 8
         private const val ROW_GAP = 4
         private const val KEY_BOX_MIN_W = 28
-        /** 按键方框左右内边距（各一侧）。 */
         private const val KEY_BOX_PAD_H = 4
         private const val KEY_LABEL_GAP = 6
 
