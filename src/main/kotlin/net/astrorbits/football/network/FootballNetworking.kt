@@ -33,6 +33,7 @@ object FootballNetworking {
 		registry.register(MatchStartS2CPayload.TYPE, MatchStartS2CPayload.CODEC)
 		registry.register(KickoffBallTouchedS2CPayload.TYPE, KickoffBallTouchedS2CPayload.CODEC)
 		registry.register(GoalScoredS2CPayload.TYPE, GoalScoredS2CPayload.CODEC)
+		registry.register(PostGoalKickoffS2CPayload.TYPE, PostGoalKickoffS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -95,6 +96,13 @@ object FootballNetworking {
     fun syncGoalkeeperRole(uuid: UUID, server: MinecraftServer?) {
         val player = server?.playerList?.getPlayer(uuid) ?: return
         PlayerRoleState.syncRoleToPlayer(player)
+    }
+
+    fun broadcastPostGoalKickoff(server: MinecraftServer, kickoffTeam: TeamSide) {
+        val payload = PostGoalKickoffS2CPayload(kickoffTeam)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
     }
 
     fun broadcastKickoffBallTouched(server: MinecraftServer) {

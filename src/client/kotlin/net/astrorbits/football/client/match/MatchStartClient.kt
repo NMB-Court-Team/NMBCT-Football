@@ -7,6 +7,8 @@ object MatchStartClient {
     private const val HUD_DURATION_MS = 6000L
     /** 踢球锁定总时长（3s 选择 + 20s 倒计时） */
     private const val LOCK_DURATION_MS = 23000L
+    /** 进球后开球锁定总时长（20s 倒计时，无选择阶段） */
+    private const val POST_GOAL_LOCK_MS = 20000L
     /** 倒计时起始秒数 */
     private const val COUNTDOWN_SECONDS = 20
 
@@ -17,46 +19,57 @@ object MatchStartClient {
     var teamAName: String = ""; private set
     var teamBName: String = ""; private set
     var kickoffTouched: Boolean = false; private set
+    /** 是否为进球后开球（无中央 HUD，无选择阶段） */
+    var isPostGoal: Boolean = false; private set
+
+    private val lockDurationMs: Long
+        get() = if (isPostGoal) POST_GOAL_LOCK_MS else LOCK_DURATION_MS
 
     val isHudActive: Boolean
-        get() = startTimeMs > 0 && elapsedMs < HUD_DURATION_MS
+        get() = !isPostGoal && startTimeMs > 0 && elapsedMs < HUD_DURATION_MS
 
-    /** 踢球操作是否被锁定（计时空锁 + 非发球方触球锁） */
     val isLocked: Boolean
         get() {
             if (startTimeMs == 0L) return false
-            if (elapsedMs < LOCK_DURATION_MS) return true
+            if (elapsedMs < lockDurationMs) return true
             if (!isKickoffTeam && !kickoffTouched) return true
             return false
         }
 
-    /** 是否在选择发球方阶段（前 3 秒） */
     val isChoosing: Boolean
-        get() = startTimeMs > 0 && elapsedMs < 3000L
+        get() = !isPostGoal && startTimeMs > 0 && elapsedMs < 3000L
 
-    /** 倒计时剩余秒数（选择阶段结束后开始倒数） */
     val countdownSeconds: Int
         get() {
-            val remain = (LOCK_DURATION_MS - elapsedMs) / 1000L
+            val remain = (lockDurationMs - elapsedMs) / 1000L
             return remain.coerceIn(0L, COUNTDOWN_SECONDS.toLong()).toInt()
         }
 
-    /** 本队是否为发球方 */
     val isKickoffTeam: Boolean
         get() = playerTeam == kickoffTeam
 
-    fun start(team: TeamSide, gk: Boolean, kickoff: TeamSide, nameA: String, nameB: String) {
+    /** 开场开球（随机发球方 + 中央 HUD + 3s 选择） */
+    fun startMatch(team: TeamSide, gk: Boolean, kickoff: TeamSide, nameA: String, nameB: String) {
         playerTeam = team
         isGk = gk
         kickoffTeam = kickoff
         teamAName = nameA
         teamBName = nameB
         kickoffTouched = false
+        isPostGoal = false
+        startTimeMs = System.currentTimeMillis()
+    }
+
+    /** 进球后开球（失分方发球，仅底部警告，20s 倒数） */
+    fun startPostGoalKickoff(kickoff: TeamSide) {
+        kickoffTeam = kickoff
+        kickoffTouched = false
+        isPostGoal = true
         startTimeMs = System.currentTimeMillis()
     }
 
     fun onBallTouched() { kickoffTouched = true }
 
     val elapsedMs: Long get() = if (startTimeMs > 0) System.currentTimeMillis() - startTimeMs else 0L
-    fun reset() { startTimeMs = 0L; kickoffTouched = false }
+    fun reset() { startTimeMs = 0L; kickoffTouched = false; isPostGoal = false }
 }
