@@ -1,12 +1,12 @@
-package net.astrorbits.football.config.yacl
+package net.astrorbits.football.client.config.yacl
 
 import dev.isxander.yacl3.api.ConfigCategory
 import dev.isxander.yacl3.api.OptionGroup
 import dev.isxander.yacl3.api.YetAnotherConfigLib
 import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.config.client.FootballClientConfigHolder
-import net.astrorbits.football.config.yacl.YaclOptionUtil.addDouble
-import net.astrorbits.football.config.yacl.YaclOptionUtil.addInt
+import net.astrorbits.football.client.util.YaclOptionUtil.addDouble
+import net.astrorbits.football.client.util.YaclOptionUtil.addInt
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 

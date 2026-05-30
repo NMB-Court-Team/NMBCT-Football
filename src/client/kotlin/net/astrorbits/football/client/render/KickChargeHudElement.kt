@@ -1,11 +1,12 @@
-package net.astrorbits.football.client
+package net.astrorbits.football.client.render
 
-import kotlin.math.roundToInt
+import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.util.KickChargeUtil
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphicsExtractor
+import kotlin.math.roundToInt
 
 class KickChargeHudElement : HudElement {
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {

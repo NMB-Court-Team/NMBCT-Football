@@ -1,5 +1,6 @@
-package net.astrorbits.football.config
+package net.astrorbits.football.client.network
 
+import net.astrorbits.football.client.config.MatchConfigScreen
 import net.astrorbits.football.network.MatchConfigSyncS2CPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.Minecraft

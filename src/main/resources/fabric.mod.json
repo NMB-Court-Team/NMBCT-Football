@@ -28,7 +28,7 @@
 			}
 		],
 		"modmenu": [
-			"net.astrorbits.football.config.ModMenuIntegration"
+            "net.astrorbits.football.client.config.ModMenuIntegration"
 		]
 	},
 	"mixins": [

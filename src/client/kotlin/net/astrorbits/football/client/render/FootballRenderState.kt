@@ -1,4 +1,4 @@
-package net.astrorbits.football.client
+package net.astrorbits.football.client.render
 
 import net.minecraft.client.renderer.entity.state.EntityRenderState
 import net.minecraft.client.renderer.item.ItemStackRenderState

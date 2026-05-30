@@ -1,4 +1,4 @@
-package net.astrorbits.football.client
+package net.astrorbits.football.client.render
 
 import net.astrorbits.football.match.MatchState
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement

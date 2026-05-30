@@ -1,4 +1,4 @@
-package net.astrorbits.football.client
+package net.astrorbits.football.client.key
 
 import com.mojang.blaze3d.platform.InputConstants
 import net.astrorbits.football.NMBCTFootball

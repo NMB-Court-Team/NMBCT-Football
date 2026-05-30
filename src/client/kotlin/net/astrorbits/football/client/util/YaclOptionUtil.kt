@@ -1,9 +1,10 @@
-package net.astrorbits.football.config.yacl
+package net.astrorbits.football.client.util
 
 import dev.isxander.yacl3.api.Option
 import dev.isxander.yacl3.api.OptionDescription
 import dev.isxander.yacl3.api.OptionGroup
 import dev.isxander.yacl3.api.controller.DoubleSliderControllerBuilder
+import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder
 import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder
 import dev.isxander.yacl3.api.controller.LongSliderControllerBuilder
 import net.minecraft.network.chat.Component
@@ -88,7 +89,7 @@ object YaclOptionUtil {
                 .description(OptionDescription.of(Component.translatable(descKey)))
                 .binding(range.start, getter, setter)
                 .controller { opt ->
-                    dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder.create(opt)
+                    FloatSliderControllerBuilder.create(opt)
                         .range(range.start, range.endInclusive)
                         .step(step)
                 }

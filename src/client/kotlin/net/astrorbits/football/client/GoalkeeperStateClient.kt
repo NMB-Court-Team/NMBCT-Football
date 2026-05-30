@@ -1,6 +1,7 @@
 package net.astrorbits.football.client
 
 import net.astrorbits.football.Football
+import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.astrorbits.football.network.GoalkeeperHoldLockS2CPayload
 import net.astrorbits.football.network.GoalkeeperRoleS2CPayload

@@ -1,12 +1,13 @@
-package net.astrorbits.football.client
+package net.astrorbits.football.client.render
 
-import kotlin.math.roundToInt
+import net.astrorbits.football.client.GoalkeeperStateClient
 import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.network.chat.Component
+import kotlin.math.roundToInt
 
 class GoalkeeperHoldLockHudElement : HudElement {
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {

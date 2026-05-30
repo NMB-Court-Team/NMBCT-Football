@@ -3,8 +3,15 @@ package net.astrorbits.football.client
 import net.astrorbits.football.Football
 import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.client.match.MatchStateClient
-import net.astrorbits.football.config.FootballConfigNetworking
-import net.astrorbits.football.config.MatchConfigNetworking
+import net.astrorbits.football.client.network.FootballConfigNetworking
+import net.astrorbits.football.client.network.MatchConfigNetworking
+import net.astrorbits.football.client.key.FootballInputHandler
+import net.astrorbits.football.client.key.FootballKeyBindings
+import net.astrorbits.football.client.render.FootballHudElement
+import net.astrorbits.football.client.render.FootballKeybindHintHudElement
+import net.astrorbits.football.client.render.FootballRenderer
+import net.astrorbits.football.client.render.GoalkeeperHoldLockHudElement
+import net.astrorbits.football.client.render.KickChargeHudElement
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry
 import net.minecraft.client.renderer.entity.EntityRenderers

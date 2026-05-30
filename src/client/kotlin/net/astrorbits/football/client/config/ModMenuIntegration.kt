@@ -1,8 +1,8 @@
-package net.astrorbits.football.config
+package net.astrorbits.football.client.config
 
 import com.terraformersmc.modmenu.api.ConfigScreenFactory
 import com.terraformersmc.modmenu.api.ModMenuApi
-import net.astrorbits.football.config.yacl.FootballClientConfigScreen
+import net.astrorbits.football.client.config.yacl.FootballClientConfigScreen
 
 class ModMenuIntegration : ModMenuApi {
     override fun getModConfigScreenFactory(): ConfigScreenFactory<*> =

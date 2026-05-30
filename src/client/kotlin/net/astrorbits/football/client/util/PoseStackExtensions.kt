@@ -1,4 +1,4 @@
-package net.astrorbits.football.client
+package net.astrorbits.football.client.util
 
 import com.mojang.blaze3d.vertex.PoseStack
 

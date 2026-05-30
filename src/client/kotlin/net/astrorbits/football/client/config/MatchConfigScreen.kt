@@ -1,4 +1,4 @@
-package net.astrorbits.football.config
+package net.astrorbits.football.client.config
 
 import net.astrorbits.football.match.MatchConfig
 import net.astrorbits.football.network.MatchConfigApplyC2SPayload

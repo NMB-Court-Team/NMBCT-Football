@@ -1,5 +1,6 @@
 package net.astrorbits.football.client
 
+import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.item.Items
 import net.fabricmc.fabric.api.event.client.player.ClientPreAttackCallback
 
