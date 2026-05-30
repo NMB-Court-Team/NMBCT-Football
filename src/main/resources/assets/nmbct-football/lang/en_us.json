@@ -37,6 +37,7 @@
     "hud.nmbct-football.kickoff_lock.wait_touch": "⚠ Kicks locked. Waiting for kickoff touch.",
     "hud.nmbct-football.goal.goal": "Goal!",
     "hud.nmbct-football.goal.own_goal": "Own goal!",
+    "hud.nmbct-football.half_kickoff.kickoff": "Kickoff",
     "hud.nmbct-football.stoppage": "ET",
     "team_name.nmbct-football.teamA": "Red Team",
     "team_name.nmbct-football.teamB": "Blue Team",

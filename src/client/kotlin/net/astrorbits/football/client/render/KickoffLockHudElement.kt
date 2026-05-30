@@ -29,7 +29,7 @@ class KickoffLockHudElement : HudElement {
                 val line2 = Component.translatable("hud.nmbct-football.kickoff_lock.wait_opponent").string
                 drawCenter(extra, font, line2, w / 2, y + 14, 0xFFFFAA00.toInt())
             }
-        } else {
+        } else if (!MatchStartClient.isKickoffTeam) {
             val text = Component.translatable("hud.nmbct-football.kickoff_lock.wait_touch").string
             drawCenter(extra, font, text, w / 2, y, 0xFFFFAA00.toInt())
         }

@@ -2,7 +2,9 @@ package net.astrorbits.football.client.match
 
 import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.network.HalfKickoffRequestC2SPayload
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.Minecraft
 
 object MatchStateClient {
@@ -17,9 +19,9 @@ object MatchStateClient {
         val phase = MatchState.currentPhase
         // 进入新半场时终止未完成的开球计时（防止旧计时器在下一半场继续累积）
         if (phase != prevPhase) {
-            if (phase == MatchPhase.FIRST_HALF || phase == MatchPhase.SECOND_HALF ||
-                phase == MatchPhase.EXTRA_FIRST || phase == MatchPhase.EXTRA_SECOND) {
+            if (phase == MatchPhase.SECOND_HALF || phase == MatchPhase.EXTRA_FIRST || phase == MatchPhase.EXTRA_SECOND) {
                 MatchStartClient.cancelKickoff()
+                ClientPlayNetworking.send(HalfKickoffRequestC2SPayload.INSTANCE)
             }
             prevPhase = phase
         }

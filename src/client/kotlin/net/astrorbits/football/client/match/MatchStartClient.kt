@@ -40,7 +40,7 @@ object MatchStartClient {
 
     val countdownSeconds: Int
         get() {
-            val remain = (lockDurationMs - elapsedMs) / 1000L
+            val remain = (lockDurationMs - elapsedMs + 999L) / 1000L  // 向上取整，避免最后 1 秒内显示 0
             return remain.coerceIn(0L, COUNTDOWN_SECONDS.toLong()).toInt()
         }
 
@@ -59,6 +59,22 @@ object MatchStartClient {
         kickoffTouched = false; isPostGoal = true
         startTimeMs = System.currentTimeMillis()
         kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
+    }
+
+    /** 半场开球 HUD */
+    var halfKickoffPhaseKey: String = ""; private set
+    var halfKickoffActive: Boolean = false; private set
+    var halfKickoffStartMs: Long = 0L; private set
+
+    val isHalfKickoffHudActive: Boolean
+        get() = halfKickoffActive && (System.currentTimeMillis() - halfKickoffStartMs) < 4000L
+
+    fun startHalfKickoff(kickoff: TeamSide, phaseKey: String, nameA: String, nameB: String) {
+        kickoffTeam = kickoff; teamAName = nameA; teamBName = nameB
+        kickoffTouched = false; isPostGoal = true
+        halfKickoffPhaseKey = phaseKey; halfKickoffActive = true
+        halfKickoffStartMs = System.currentTimeMillis()
+        startTimeMs = halfKickoffStartMs; kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
     }
 
     fun onBallTouched() {

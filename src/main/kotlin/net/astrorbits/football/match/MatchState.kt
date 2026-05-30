@@ -31,6 +31,10 @@ object MatchState {
     var kickoffTouched: Boolean = false
     /** 当前半场动态累积的补时（tick），由客户端计算 */
     var dynamicStoppageTicks: Int = 0
+    /** 半场开球是否已广播（防重复） */
+    var halfKickoffBroadcasted: Boolean = false
+    /** 上一个半场的发球方，用于下一半场交替 */
+    var lastHalfKickoffTeam: TeamSide? = null
 
     fun getTeamName(team: TeamSide): Component = when (team) {
         TeamSide.A -> teamAName.copy().withStyle(ChatFormatting.RED)
@@ -109,6 +113,8 @@ object MatchState {
         kickoffTeam = null
         kickoffTouched = false
         dynamicStoppageTicks = 0
+        halfKickoffBroadcasted = false
+        lastHalfKickoffTeam = null
         PlayerRoleState.reset()
     }
 
@@ -146,6 +152,7 @@ object MatchState {
     /** 向双方在线队员广播比赛开始 HUD 信息。 */
     fun broadcastMatchStart(server: MinecraftServer, kickoff: TeamSide) {
         kickoffTeam = kickoff
+        lastHalfKickoffTeam = kickoff
         kickoffTouched = false
         val nameA = getTeamName(TeamSide.A).string
         val nameB = getTeamName(TeamSide.B).string
@@ -299,6 +306,7 @@ object MatchState {
         if (phase == MatchPhase.FIRST_HALF || phase == MatchPhase.SECOND_HALF ||
             phase == MatchPhase.EXTRA_FIRST || phase == MatchPhase.EXTRA_SECOND) {
             dynamicStoppageTicks = 0
+            halfKickoffBroadcasted = false  // 进入新半场，允许下次开球广播
         }
         timerTicks = when (phase) {
             MatchPhase.PRE_MATCH -> 0
