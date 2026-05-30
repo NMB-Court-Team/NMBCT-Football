@@ -29,6 +29,8 @@ object MatchState {
     val teamBPlayers: MutableSet<UUID> = mutableSetOf()
     var kickoffTeam: TeamSide? = null
     var kickoffTouched: Boolean = false
+    /** 当前半场动态累积的补时（tick），由客户端计算 */
+    var dynamicStoppageTicks: Int = 0
 
     fun getTeamName(team: TeamSide): Component = when (team) {
         TeamSide.A -> teamAName.copy().withStyle(ChatFormatting.RED)
@@ -106,6 +108,7 @@ object MatchState {
         teamBPlayers.clear()
         kickoffTeam = null
         kickoffTouched = false
+        dynamicStoppageTicks = 0
         PlayerRoleState.reset()
     }
 
@@ -253,7 +256,7 @@ object MatchState {
 
     /** 补时阶段的最大时长（tick），仅用于补时面板的 "+MM:SS" 目标显示 */
     fun getStoppageTargetTicks(): Int {
-        return MatchConfigHolder.current.stoppageTimeMaxMinutes * 60 * 20
+        return if (dynamicStoppageTicks > 0) dynamicStoppageTicks else MatchConfigHolder.current.stoppageTimeMaxMinutes * 60 * 20
     }
 
     /** 主计时器显示用 tick（补时期间主计时器冻结，返回 timerTicks） */
@@ -264,7 +267,7 @@ object MatchState {
         val config = MatchConfigHolder.current
         val halfDuration = config.halfTimeMinutes * 60 * 20
         val extraDuration = config.extraTimeHalfMinutes * 60 * 20
-        val stoppageDuration = config.stoppageTimeMaxMinutes * 60 * 20
+        val stoppageDuration = getStoppageTargetTicks()
         return when (currentPhase) {
             MatchPhase.FIRST_HALF -> (halfDuration - timerTicks).coerceAtLeast(0)
             MatchPhase.FIRST_HALF_ET -> (stoppageDuration - stoppageTimerTicks).coerceAtLeast(0)
@@ -292,6 +295,11 @@ object MatchState {
     fun setPhase(phase: MatchPhase) {
         currentPhase = phase
         stoppageTimerTicks = 0
+        // 进入新半场时清零动态补时
+        if (phase == MatchPhase.FIRST_HALF || phase == MatchPhase.SECOND_HALF ||
+            phase == MatchPhase.EXTRA_FIRST || phase == MatchPhase.EXTRA_SECOND) {
+            dynamicStoppageTicks = 0
+        }
         timerTicks = when (phase) {
             MatchPhase.PRE_MATCH -> 0
             MatchPhase.FIRST_HALF -> 0
@@ -339,9 +347,9 @@ object MatchState {
     fun getNextPhaseForAutoAdvance(): MatchPhase? {
         val config = MatchConfigHolder.current
         return when (currentPhase) {
-            MatchPhase.FIRST_HALF -> if (config.enableStoppageTime) MatchPhase.FIRST_HALF_ET else MatchPhase.SECOND_HALF
+            MatchPhase.FIRST_HALF -> if (config.enableStoppageTime && dynamicStoppageTicks > 0) MatchPhase.FIRST_HALF_ET else MatchPhase.SECOND_HALF
             MatchPhase.SECOND_HALF -> {
-                if (config.enableStoppageTime) MatchPhase.SECOND_HALF_ET
+                if (config.enableStoppageTime && dynamicStoppageTicks > 0) MatchPhase.SECOND_HALF_ET
                 else if (config.enableExtraTime) MatchPhase.EXTRA_FIRST
                 else if (config.enablePenaltyShootout) MatchPhase.PENALTIES
                 else MatchPhase.FINISHED
@@ -351,10 +359,10 @@ object MatchState {
                 else if (config.enablePenaltyShootout) MatchPhase.PENALTIES
                 else MatchPhase.FINISHED
             }
-            MatchPhase.EXTRA_FIRST -> if (config.enableStoppageTime) MatchPhase.EXTRA_FIRST_ET else MatchPhase.EXTRA_SECOND
+            MatchPhase.EXTRA_FIRST -> if (config.enableStoppageTime && dynamicStoppageTicks > 0) MatchPhase.EXTRA_FIRST_ET else MatchPhase.EXTRA_SECOND
             MatchPhase.EXTRA_FIRST_ET -> MatchPhase.EXTRA_SECOND
             MatchPhase.EXTRA_SECOND -> {
-                if (config.enableStoppageTime) MatchPhase.EXTRA_SECOND_ET
+                if (config.enableStoppageTime && dynamicStoppageTicks > 0) MatchPhase.EXTRA_SECOND_ET
                 else if (config.enablePenaltyShootout) MatchPhase.PENALTIES
                 else MatchPhase.FINISHED
             }

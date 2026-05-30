@@ -11,6 +11,7 @@ object MatchStateClient {
     }
 
     fun tick(client: Minecraft) {
+        MatchStartClient.tickStoppage()
         if (MatchState.currentPhase == MatchPhase.PRE_MATCH || MatchState.currentPhase == MatchPhase.FINISHED) {
             return
         }
