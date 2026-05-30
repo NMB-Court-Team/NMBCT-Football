@@ -32,6 +32,7 @@ object FootballNetworking {
 		registry.register(MatchFieldConfigSyncS2CPayload.TYPE, MatchFieldConfigSyncS2CPayload.CODEC)
 		registry.register(MatchStartS2CPayload.TYPE, MatchStartS2CPayload.CODEC)
 		registry.register(KickoffBallTouchedS2CPayload.TYPE, KickoffBallTouchedS2CPayload.CODEC)
+		registry.register(GoalScoredS2CPayload.TYPE, GoalScoredS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -99,6 +100,14 @@ object FootballNetworking {
     fun broadcastKickoffBallTouched(server: MinecraftServer) {
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, KickoffBallTouchedS2CPayload.INSTANCE)
+        }
+    }
+
+    fun broadcastGoalScored(server: MinecraftServer, scoringTeam: TeamSide, scorerName: String,
+                            scorerTeam: TeamSide, teamAScore: Int, teamBScore: Int, ownGoal: Boolean) {
+        val payload = GoalScoredS2CPayload(scoringTeam, scorerName, scorerTeam, teamAScore, teamBScore, ownGoal)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
         }
     }
 }

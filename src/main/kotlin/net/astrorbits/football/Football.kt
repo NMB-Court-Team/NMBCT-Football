@@ -216,17 +216,15 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (iz < minZ - 1.01 || iz > maxZ + 1.01) return
 
         MatchState.onGoal(scoringTeam)
-        // 广播进球信息（含进球者）
+        // 广播进球 HUD（含进球者、比分、是否乌龙）
         val server = (level() as? net.minecraft.server.level.ServerLevel)?.server
         if (server != null) {
-            val scorerName = lastKicker?.let { server.playerList.getPlayer(it)?.gameProfile?.name }
-            val teamName = MatchState.getTeamName(scoringTeam)
-            val msg = if (scorerName != null) {
-                net.minecraft.network.chat.Component.translatable("hud.nmbct-football.goal.scored_by", scorerName, teamName, MatchState.teamAScore.toString(), MatchState.teamBScore.toString())
-            } else {
-                net.minecraft.network.chat.Component.translatable("hud.nmbct-football.goal.scored", teamName, MatchState.teamAScore.toString(), MatchState.teamBScore.toString())
-            }
-            server.playerList.broadcastSystemMessage(msg, false)
+            val scorerName = lastKicker?.let { server.playerList.getPlayer(it)?.gameProfile?.name } ?: "?"
+            val scorerTeam = lastKicker?.let { MatchState.getPlayerTeam(it) } ?: scoringTeam
+            val ownGoal = scorerTeam != scoringTeam
+            net.astrorbits.football.network.FootballNetworking.broadcastGoalScored(
+                server, scoringTeam, scorerName, scorerTeam, MatchState.teamAScore, MatchState.teamBScore, ownGoal,
+            )
         }
         FootballParticles.playGoal(level(), FootballParticles.centerOfFootball(this))
     }
