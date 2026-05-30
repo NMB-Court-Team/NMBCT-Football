@@ -19,6 +19,7 @@ import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.Vec3Math
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.*
+import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.level.Level
@@ -49,6 +50,7 @@ import kotlin.math.sin
  * | [playGkDive] | 守门员鱼跃 | 云 + 白烟拖尾 |
  * | [playGkPunch] | 守门员拳击 / 挡出 | 暴击 |
  * | [playGkThrow] | 守门员手抛 | 横扫 + 轻尘 |
+ * | [playGoal] | 进球 | 闪光 + 庆祝 + 烟花 + 暴击 + 金色粉尘 |
  *
  * 所有播放均在服务端 [ServerLevel.sendParticles] 执行，会自动同步给附近客户端。
  */
@@ -279,6 +281,44 @@ object FootballParticles {
 
     fun playGkThrow(player: ServerPlayer, football: Football) {
         playGkThrow(player.level(), centerOfFootball(football))
+    }
+
+    /**
+     * 进球庆祝粒子效果：闪光 + 绿色庆祝火花 + 烟花 + 暴击 + 金色粉尘。
+     * 使用 force=true 确保所有玩家无论距离远近都能看到。
+     */
+    fun playGoal(level: Level, center: Vec3) {
+        val server = level as? ServerLevel ?: return
+        // 中心爆炸
+        emitForcedBurst(server, center, ParticleBurst(ParticleTypes.EXPLOSION, 3, spreadX = 0.3, spreadY = 0.3, spreadZ = 0.3, speed = 0.3))
+        // 绿色庆祝粒子（村民快乐）
+        emitForcedBurst(server, center, ParticleBurst(ParticleTypes.HAPPY_VILLAGER, 80, spreadX = 2.0, spreadY = 2.0, spreadZ = 2.0, speed = 0.6))
+        // 烟花火花
+        emitForcedBurst(server, center, ParticleBurst(ParticleTypes.FIREWORK, 60, spreadX = 1.5, spreadY = 1.5, spreadZ = 1.5, speed = 0.5))
+        // 暴击粒子
+        emitForcedBurst(server, center, critBurst(50, 0.35))
+        // 金色粉尘环
+        val goldDust = DustParticleOptions(0xFFFFD700.toInt(), 1.5f)
+        emitForcedBurst(server, center, ParticleBurst(goldDust, 50, spreadX = 1.2, spreadY = 1.2, spreadZ = 1.2, speed = 0.3))
+    }
+
+    /**
+     * 发送无视距离的粒子（force=true），对所有在线玩家可见。
+     */
+    private fun emitForcedBurst(server: ServerLevel, center: Vec3, burst: ParticleBurst) {
+        if (burst.count <= 0) return
+        val packet = ClientboundLevelParticlesPacket(
+            burst.options,
+            true,   // overrideLimiter
+            true,   // alwaysShow
+            center.x, center.y, center.z,
+            burst.spreadX.toFloat(), burst.spreadY.toFloat(), burst.spreadZ.toFloat(),
+            burst.speed.toFloat(),
+            burst.count,
+        )
+        for (player in server.server.playerList.players) {
+            player.connection.send(packet)
+        }
     }
 
     private fun emitBurst(level: Level, center: Vec3, burst: ParticleBurst) {
