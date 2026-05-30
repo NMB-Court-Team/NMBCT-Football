@@ -42,7 +42,8 @@ object NMBCTFootballClient : ClientModInitializer {
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "kick_charge_hud"),
 			KickChargeHudElement()
 		)
-		HudElementRegistry.addLast(
+		HudElementRegistry.attachElementAfter(
+			net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements.SUBTITLES,
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "keybind_hint_hud"),
 			FootballKeybindHintHudElement()
 		)

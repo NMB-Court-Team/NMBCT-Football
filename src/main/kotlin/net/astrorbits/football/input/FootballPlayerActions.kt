@@ -36,13 +36,13 @@ object FootballPlayerActions {
         }
 
         when (payload.action) {
-            FootballActionType.DRIBBLE_HOLD -> handleDribbleHold(player)
+            FootballActionType.DRIBBLE_HOLD -> handleDribbleHold(player, payload)
             FootballActionType.DRIBBLE_END -> FootballDribbleSessions.end(player)
             else -> handleKickAction(player, payload)
         }
     }
 
-    private fun handleDribbleHold(player: ServerPlayer) {
+    private fun handleDribbleHold(player: ServerPlayer, payload: FootballActionC2SPayload) {
         if (PlayerRoleState.isGoalkeeper(player)) {
             FootballDribbleSessions.end(player)
             return
@@ -75,7 +75,7 @@ object FootballPlayerActions {
             return
         }
 
-        FootballDribbleSessions.beginOrRefresh(player, football, now)
+        FootballDribbleSessions.beginOrRefresh(player, football, now, payload)
     }
 
     private fun handleKickAction(player: ServerPlayer, payload: FootballActionC2SPayload) {

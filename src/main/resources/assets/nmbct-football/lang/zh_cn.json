@@ -13,6 +13,7 @@
     "key.nmbct-football.chip": "挑球",
     "key.nmbct-football.dribble": "带球",
     "key.nmbct-football.look_around": "观察四周",
+    "hud.nmbct-football.hint.look_around": "观察四周",
     "hud.nmbct-football.hint.title": "足球操作",
     "hud.nmbct-football.hint.title_gk": "守门员操作",
     "hud.nmbct-football.hint.pass_shoot": "短按传球 / 长按射门",

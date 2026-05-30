@@ -14,7 +14,7 @@ object FootballDribbleAssist {
      *
      * @return 控制是否仍有效；false 表示应结束 session（超距、实体无效等）
      */
-    fun apply(player: ServerPlayer, football: Football): Boolean {
+    fun apply(player: ServerPlayer, football: Football, dribbleBaseYaw: Float? = null): Boolean {
         if (player.mainHandItem.isEmpty.not()) {
             return false
         }
@@ -24,7 +24,7 @@ object FootballDribbleAssist {
             return false
         }
 
-        val moveDir = FootballKickUtil.resolveDribbleDirection(player)
+        val moveDir = FootballKickUtil.resolveDribbleDirection(player, dribbleBaseYaw)
         if (moveDir.lengthSqr() < 1.0e-8) {
             return true
         }

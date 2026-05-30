@@ -50,4 +50,5 @@ object FootballInputConfig {
     val KICK_LOOK_PITCH_ANGLE_MAX get() = FootballConfigs.server.playerInput.kickLookPitchAngleMax
     const val FLAG_SPRINT = FootballInputFlags.SPRINT
     const val FLAG_DIVE_USE_LOOK = FootballInputFlags.DIVE_USE_LOOK
+    const val FLAG_LOOK_AROUND = FootballInputFlags.LOOK_AROUND
 }

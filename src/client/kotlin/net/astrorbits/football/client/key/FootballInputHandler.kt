@@ -292,7 +292,7 @@ object FootballInputHandler {
             return
         }
         dribbleTickCounter = 0
-        sendAction(player, FootballActionType.DRIBBLE_HOLD, 0f, 0L, buildFlags(player))
+        sendDribbleAction(player, FootballActionType.DRIBBLE_HOLD, buildDribbleFlags(player))
     }
 
     private fun updateShootCharge(heldMs: Long) {
@@ -362,12 +362,39 @@ object FootballInputHandler {
         return flags
     }
 
+    private fun buildDribbleFlags(player: LocalPlayer): Int {
+        var flags = buildFlags(player)
+        if (LookAroundClient.active) {
+            flags = flags or FootballInputConfig.FLAG_LOOK_AROUND
+        }
+        return flags
+    }
+
+    private fun sendDribbleAction(player: LocalPlayer, action: FootballActionType, flags: Int) {
+        val lookYaw = if (LookAroundClient.active) {
+            LookAroundClient.movementYaw(player)
+        } else {
+            player.yHeadRot
+        }
+        sendAction(
+            player = player,
+            action = action,
+            chargeRatio = 0f,
+            chargeHeldMs = 0L,
+            flags = flags,
+            lookYaw = lookYaw,
+            lookPitch = player.xRot,
+        )
+    }
+
     private fun sendAction(
         player: LocalPlayer,
         action: FootballActionType,
         chargeRatio: Float,
         chargeHeldMs: Long,
         flags: Int,
+        lookYaw: Float = player.yHeadRot,
+        lookPitch: Float = player.xRot,
     ) {
         ClientPlayNetworking.send(
             FootballActionC2SPayload(
@@ -375,8 +402,8 @@ object FootballInputHandler {
                 chargeRatio = chargeRatio,
                 chargeHeldMs = chargeHeldMs,
                 flags = flags,
-                lookYaw = player.yHeadRot,
-                lookPitch = player.xRot,
+                lookYaw = lookYaw,
+                lookPitch = lookPitch,
             )
         )
     }

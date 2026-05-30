@@ -89,12 +89,18 @@ object FootballKickUtil {
         )
     }
 
-    fun resolveDribbleDirection(player: Player): Vec3 {
-        val movement = FootballMovementInputUtil.movementInputVector(player)
+    fun resolveDribbleDirection(player: Player, dribbleBaseYaw: Float? = null): Vec3 {
+        val movement = if (dribbleBaseYaw != null) {
+            FootballMovementInputUtil.movementInputVector(player, dribbleBaseYaw)
+        } else {
+            FootballMovementInputUtil.movementInputVector(player)
+        }
         if (movement.lengthSqr() > 1.0e-4) {
             return Vec3Math.normalizeSafe(movement)
         }
-        return Vec3Math.normalizeSafe(Vec3Math.horizontal(player.lookAngle))
+        val yaw = dribbleBaseYaw ?: player.yRot
+        val yawRad = Math.toRadians(yaw.toDouble())
+        return Vec3Math.normalizeSafe(Vec3(-sin(yawRad), 0.0, cos(yawRad)))
     }
 
     fun applyKickToFootball(player: Player, football: Football, params: KickParams, applySpread: Boolean = false) {
@@ -224,8 +230,8 @@ object FootballKickUtil {
         return Vec3Math.normalizeSafe(spread).scale(force)
     }
 
-    fun applyDribbleTouch(player: Player, football: Football) {
-        val direction = resolveDribbleDirection(player)
+    fun applyDribbleTouch(player: Player, football: Football, dribbleBaseYaw: Float? = null) {
+        val direction = resolveDribbleDirection(player, dribbleBaseYaw)
         if (direction.lengthSqr() < 1.0e-8) {
             return
         }
