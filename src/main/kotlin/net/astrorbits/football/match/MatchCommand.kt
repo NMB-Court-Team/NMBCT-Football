@@ -16,16 +16,18 @@ object MatchCommand {
 		val root = Commands.literal("match")
 
 		root.then(Commands.literal("start").executes {
-			MatchState.isRunning = true
-			it.source.sendSuccess({ Component.translatable("command.nmbct-football.match.timer_started") }, true)
+			MatchState.advancePhase()
 			1
 		})
 
 		root.then(Commands.literal("pause").executes {
-			MatchState.isRunning = false
-			it.source.sendSuccess({ Component.translatable("command.nmbct-football.match.timer_paused") }, true)
+			MatchState.isRunning = !MatchState.isRunning
+			val key = if (MatchState.isRunning) "command.nmbct-football.match.timer_started" else "command.nmbct-football.match.timer_paused"
+			it.source.sendSuccess({ Component.translatable(key) }, true)
 			1
 		})
+
+		registerPhaseCommands(root)
 
 		root.then(Commands.literal("reset").executes {
 			MatchState.clearScoreboardTeams(it.source.server)
@@ -99,6 +101,54 @@ object MatchCommand {
 		registerGoalkeeperCommands(root)
 
 		dispatcher.register(root)
+	}
+
+	private fun registerPhaseCommands(root: LiteralArgumentBuilder<CommandSourceStack>) {
+		val phaseCmd = Commands.literal("phase")
+
+		// /match phase — show current phase
+		phaseCmd.executes { ctx ->
+			val phase = MatchState.currentPhase
+			val timeInfo = MatchState.formatElapsed(MatchState.getPhaseDisplayTicks())
+			ctx.source.sendSuccess(
+				{
+					Component.translatable(
+						"command.nmbct-football.match.phase.current",
+						Component.translatable(phase.displayNameKey),
+						timeInfo,
+					)
+				},
+				true,
+			)
+			1
+		}
+
+		// /match phase advance — advance to next phase (no chat message)
+		phaseCmd.then(Commands.literal("advance").executes {
+			MatchState.advancePhase()
+			1
+		})
+
+		// /match phase set <phase_name> — set to specific phase
+		val setCmd = Commands.literal("set")
+		for (phase in MatchPhase.entries) {
+			setCmd.then(Commands.literal(phase.name).executes { ctx ->
+				MatchState.setPhase(phase)
+				ctx.source.sendSuccess(
+					{
+						Component.translatable(
+							"command.nmbct-football.match.phase.set",
+							Component.translatable(phase.displayNameKey),
+						)
+					},
+					true,
+				)
+				1
+			})
+		}
+		phaseCmd.then(setCmd)
+
+		root.then(phaseCmd)
 	}
 
 	private fun registerTeamCommands(root: LiteralArgumentBuilder<CommandSourceStack>) {
