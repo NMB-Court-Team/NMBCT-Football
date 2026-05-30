@@ -63,6 +63,8 @@ object FootballInputHandler {
     }
 
     private var dribbleTickCounter = 0
+    /** 传球/射门/挑球后须松开带球键再按，避免仍按住时立刻重新拉球。 */
+    private var dribbleResumeBlocked = false
 
     fun registerTickEvent() {
         ClientTickEvents.END_CLIENT_TICK.register reg@{ client ->
@@ -205,12 +207,18 @@ object FootballInputHandler {
                             )
                         holdingBall ->
                             sendAction(player, FootballActionType.GK_THROW_SHORT, 0f, heldMs, flags)
-                        heldMs < FootballInputConfig.TAP_MAX_MS ->
+                        heldMs < FootballInputConfig.TAP_MAX_MS -> {
                             sendAction(player, FootballActionType.PASS, 0f, heldMs, flags)
-                        KickChargeUtil.isCharging(heldMs, chargeSettings()) ->
+                            blockDribbleResume(player)
+                        }
+                        KickChargeUtil.isCharging(heldMs, chargeSettings()) -> {
                             sendAction(player, FootballActionType.SHOOT, shootChargeRatio, heldMs, flags)
-                        else ->
+                            blockDribbleResume(player)
+                        }
+                        else -> {
                             sendAction(player, FootballActionType.PASS, 0f, heldMs, flags)
+                            blockDribbleResume(player)
+                        }
                     }
                 }
                 kickPressStartMs = null
@@ -241,6 +249,7 @@ object FootballInputHandler {
     private fun handleChipPress(player: LocalPlayer) {
         if (FootballKeyBindings.CHIP.isDown && !chipPrevTickPressed) {
             sendAction(player, FootballActionType.CHIP, 0f, 0L, buildFlags(player))
+            blockDribbleResume(player)
         }
     }
 
@@ -252,10 +261,15 @@ object FootballInputHandler {
 
     private fun handleDribbleHold(player: LocalPlayer) {
         if (!FootballKeyBindings.DRIBBLE.isDown) {
+            dribbleResumeBlocked = false
             if (dribblePrevTickPressed) {
                 sendAction(player, FootballActionType.DRIBBLE_END, 0f, 0L, 0)
             }
             dribbleTickCounter = 0
+            return
+        }
+
+        if (dribbleResumeBlocked) {
             return
         }
 
@@ -361,6 +375,12 @@ object FootballInputHandler {
         )
     }
 
+    private fun blockDribbleResume(player: LocalPlayer) {
+        dribbleResumeBlocked = true
+        sendAction(player, FootballActionType.DRIBBLE_END, 0f, 0L, 0)
+        dribbleTickCounter = 0
+    }
+
     private fun resetTransientState(player: LocalPlayer? = null, notifyDribbleEnd: Boolean = true) {
         if (notifyDribbleEnd && player != null && !GoalkeeperStateClient.isGoalkeeper &&
             (dribblePrevTickPressed || FootballKeyBindings.DRIBBLE.isDown)
@@ -370,6 +390,7 @@ object FootballInputHandler {
         kickPressStartMs = null
         resetChargeDisplay()
         dribbleTickCounter = 0
+        dribbleResumeBlocked = false
     }
 
     private fun resetChargeDisplay() {

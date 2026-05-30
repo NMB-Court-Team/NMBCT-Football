@@ -6,8 +6,10 @@ import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.item.FootballItem
+import net.astrorbits.football.Football
 import net.astrorbits.football.util.FootballKickUtil
 import net.astrorbits.football.util.KickChargeUtil
+import net.astrorbits.football.util.Vec3Math
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.player.Player
 import java.util.UUID
@@ -15,6 +17,11 @@ import java.util.concurrent.ConcurrentHashMap
 
 object FootballPlayerActions {
     private val lastActionTick = ConcurrentHashMap<UUID, Long>()
+    private val lastKickAwayActionTick = ConcurrentHashMap<UUID, Long>()
+
+    /** 踢球后在此 tick 数内，若球仍明显远离玩家则拒绝恢复运球。 */
+    private const val DRIBBLE_RESUME_VELOCITY_CHECK_TICKS = 20L
+    private const val DRIBBLE_RESUME_MIN_BALL_SPEED_SQR = 0.01
 
     fun handle(player: ServerPlayer, payload: FootballActionC2SPayload) {
         if (payload.action == FootballActionType.ITEM_THROW) {
@@ -61,6 +68,11 @@ object FootballPlayerActions {
         }
 
         val now = player.level().gameTime
+        if (shouldBlockDribbleAfterKickAway(player, football, now)) {
+            FootballDribbleSessions.end(player)
+            return
+        }
+
         FootballDribbleSessions.beginOrRefresh(player, football, now)
     }
 
@@ -95,7 +107,7 @@ object FootballPlayerActions {
                 FootballKickUtil.applyKickToFootball(player, football, params, applySpread = true)
                 FootballSounds.playKick(player, params.force)
                 FootballParticles.playKick(player, football, params.force)
-                lastActionTick[player.uuid] = now
+                markKickAwayAction(player, now)
             }
             FootballActionType.SHOOT -> {
                 val chargeSettings = FootballInputConfig.chargeSettings()
@@ -105,7 +117,7 @@ object FootballPlayerActions {
                 FootballKickUtil.applyKickToFootball(player, football, params, applySpread = !perfect)
                 FootballSounds.playKick(player, params.force)
                 FootballParticles.playKick(player, football, params.force)
-                lastActionTick[player.uuid] = now
+                markKickAwayAction(player, now)
             }
             FootballActionType.TRAP -> {
                 football.trap()
@@ -122,7 +134,7 @@ object FootballPlayerActions {
                 )
                 FootballSounds.playKick(player, params.force)
                 FootballParticles.playKick(player, football, params.force)
-                lastActionTick[player.uuid] = now
+                markKickAwayAction(player, now)
             }
             FootballActionType.DRIBBLE_HOLD, FootballActionType.DRIBBLE_END,
             FootballActionType.GK_CATCH, FootballActionType.GK_DIVE, FootballActionType.GK_PUNCH,
@@ -133,4 +145,28 @@ object FootballPlayerActions {
     }
 
     private fun canAct(player: Player): Boolean = player.mainHandItem.isEmpty
+
+    private fun markKickAwayAction(player: ServerPlayer, now: Long) {
+        lastActionTick[player.uuid] = now
+        lastKickAwayActionTick[player.uuid] = now
+    }
+
+    private fun shouldBlockDribbleAfterKickAway(player: ServerPlayer, football: Football, now: Long): Boolean {
+        val lastKick = lastKickAwayActionTick[player.uuid] ?: return false
+        if (now - lastKick > DRIBBLE_RESUME_VELOCITY_CHECK_TICKS) {
+            return false
+        }
+
+        val toBall = Vec3Math.horizontal(football.position().subtract(player.position()))
+        if (toBall.lengthSqr() < 1.0e-8) {
+            return false
+        }
+
+        val speed = Vec3Math.horizontal(football.getPhysicsState().linearVelocity)
+        if (speed.lengthSqr() < DRIBBLE_RESUME_MIN_BALL_SPEED_SQR) {
+            return false
+        }
+
+        return toBall.normalize().dot(speed.normalize()) > 0.0
+    }
 }

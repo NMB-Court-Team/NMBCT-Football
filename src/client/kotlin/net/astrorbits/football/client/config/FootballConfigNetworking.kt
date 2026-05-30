@@ -1,4 +1,4 @@
-package net.astrorbits.football.client.network
+package net.astrorbits.football.client.config
 
 import net.astrorbits.football.client.config.yacl.FootballServerConfigScreen
 import net.astrorbits.football.network.ServerConfigSyncS2CPayload

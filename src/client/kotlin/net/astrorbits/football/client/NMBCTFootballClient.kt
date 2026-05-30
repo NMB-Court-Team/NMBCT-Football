@@ -3,8 +3,8 @@ package net.astrorbits.football.client
 import net.astrorbits.football.Football
 import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.client.match.MatchStateClient
-import net.astrorbits.football.client.network.FootballConfigNetworking
-import net.astrorbits.football.client.network.MatchConfigNetworking
+import net.astrorbits.football.client.config.FootballConfigNetworking
+import net.astrorbits.football.client.config.MatchConfigNetworking
 import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.client.key.FootballKeyBindings
 import net.astrorbits.football.client.render.FootballHudElement
