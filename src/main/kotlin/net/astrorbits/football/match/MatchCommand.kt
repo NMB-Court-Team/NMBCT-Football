@@ -18,6 +18,8 @@ object MatchCommand {
 		root.then(Commands.literal("start").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes {
 			PlayerRoleState.randomAssignGoalkeepers(it.source.server)
 			MatchState.teleportTeamsToSpawnPositions(it.source.server)
+			val kickoff = TeamSide.entries.random()
+			MatchState.broadcastMatchStart(it.source.server, kickoff)
 			MatchState.advancePhase()
 			1
 		})

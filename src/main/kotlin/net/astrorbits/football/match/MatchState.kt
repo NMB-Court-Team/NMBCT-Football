@@ -115,6 +115,22 @@ object MatchState {
     }
 
     /** 开赛时将双方队员传送至出生点。守门员传至 GK 点，其余队员按"每个坐标至少一人"分配。 */
+    /** 向双方在线队员广播比赛开始 HUD 信息。 */
+    fun broadcastMatchStart(server: MinecraftServer, kickoffTeam: TeamSide) {
+        val nameA = getTeamName(TeamSide.A).string
+        val nameB = getTeamName(TeamSide.B).string
+        for (uuid in teamAPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            val isGk = PlayerRoleState.teamAGoalkeeper == uuid
+            net.astrorbits.football.network.FootballNetworking.sendMatchStart(player, TeamSide.A, isGk, kickoffTeam, nameA, nameB)
+        }
+        for (uuid in teamBPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            val isGk = PlayerRoleState.teamBGoalkeeper == uuid
+            net.astrorbits.football.network.FootballNetworking.sendMatchStart(player, TeamSide.B, isGk, kickoffTeam, nameA, nameB)
+        }
+    }
+
     fun teleportTeamsToSpawnPositions(server: MinecraftServer) {
         val config = MatchConfigHolder.current
 
