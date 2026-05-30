@@ -40,7 +40,7 @@ object FootballKeyBindings {
         KeyMapping(
             "key.nmbct-football.dribble",
             InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_SPACE,
+            GLFW.GLFW_MOUSE_BUTTON_LEFT,
             CATEGORY
         )
     )

@@ -23,6 +23,7 @@ import net.minecraft.resources.ResourceKey
 import net.minecraft.core.Registry
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.server.permissions.Permissions
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.damagesource.DamageSource
@@ -438,7 +439,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (level().isClientSide) {
             return InteractionResult.SUCCESS
         }
-        if (player !is ServerPlayer) {
+        if (player !is ServerPlayer || !player.isCreative || !player.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER)) {
             return InteractionResult.PASS
         }
         return tryPickUpAsItem(player)
