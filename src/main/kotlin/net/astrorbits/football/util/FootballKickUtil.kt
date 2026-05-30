@@ -104,6 +104,7 @@ object FootballKickUtil {
     }
 
     fun applyKickToFootball(player: Player, football: Football, params: KickParams, applySpread: Boolean = false) {
+        football.lastKicker = player.uuid
         applyKickToFootballWithLook(
             football = football,
             params = params,

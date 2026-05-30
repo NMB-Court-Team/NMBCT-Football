@@ -15,6 +15,7 @@ import net.astrorbits.football.util.QuaternionMath
 import net.astrorbits.football.util.GoalkeeperHoldPoseUtil
 import net.astrorbits.football.util.Vec3Math
 import net.minecraft.core.registries.BuiltInRegistries
+import java.util.UUID
 import net.minecraft.core.registries.Registries
 import net.minecraft.network.syncher.EntityDataAccessor
 import net.minecraft.network.syncher.EntityDataSerializers
@@ -44,6 +45,8 @@ import org.joml.Vector3f
 import org.joml.Vector3fc
 
 class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
+    /** 最后踢球/触球玩家的 UUID，用于进球归属。 */
+    var lastKicker: UUID? = null
     private val physicsState = FootballPhysicsState()
     private val previousOrientation = Quaternionf()
     /** 本 tick 渲染用的速度快照，避免帧内同步改动导致位置/朝向抖动。 */
@@ -213,6 +216,18 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (iz < minZ - 1.01 || iz > maxZ + 1.01) return
 
         MatchState.onGoal(scoringTeam)
+        // 广播进球信息（含进球者）
+        val server = (level() as? net.minecraft.server.level.ServerLevel)?.server
+        if (server != null) {
+            val scorerName = lastKicker?.let { server.playerList.getPlayer(it)?.gameProfile?.name }
+            val teamName = MatchState.getTeamName(scoringTeam)
+            val msg = if (scorerName != null) {
+                net.minecraft.network.chat.Component.translatable("hud.nmbct-football.goal.scored_by", scorerName, teamName, MatchState.teamAScore.toString(), MatchState.teamBScore.toString())
+            } else {
+                net.minecraft.network.chat.Component.translatable("hud.nmbct-football.goal.scored", teamName, MatchState.teamAScore.toString(), MatchState.teamBScore.toString())
+            }
+            server.playerList.broadcastSystemMessage(msg, false)
+        }
         FootballParticles.playGoal(level(), FootballParticles.centerOfFootball(this))
     }
 
