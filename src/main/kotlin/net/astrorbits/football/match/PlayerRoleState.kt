@@ -69,6 +69,20 @@ object PlayerRoleState {
         GoalkeeperUtil.findHeldFootball(player)?.dropAt(player)
     }
 
+    /** 从双方队伍中各随机选取一名在线队员设为守门员。已离线的队员会被跳过。 */
+    fun randomAssignGoalkeepers(server: net.minecraft.server.MinecraftServer) {
+        for (team in TeamSide.entries) {
+            val players = when (team) {
+                TeamSide.A -> MatchState.teamAPlayers.toList()
+                TeamSide.B -> MatchState.teamBPlayers.toList()
+            }
+            if (players.isEmpty()) continue
+            players.shuffled().firstNotNullOfOrNull { server.playerList.getPlayer(it) }?.let { player ->
+                setOfficialGk(team, player)
+            }
+        }
+    }
+
     fun reset() {
         teamAGoalkeeper = null
         teamBGoalkeeper = null

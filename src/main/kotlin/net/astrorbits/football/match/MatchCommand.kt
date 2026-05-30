@@ -15,12 +15,13 @@ object MatchCommand {
 	fun register(dispatcher: CommandDispatcher<CommandSourceStack>, context: CommandBuildContext) {
 		val root = Commands.literal("match")
 
-		root.then(Commands.literal("start").executes {
+		root.then(Commands.literal("start").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes {
+			PlayerRoleState.randomAssignGoalkeepers(it.source.server)
 			MatchState.advancePhase()
 			1
 		})
 
-		root.then(Commands.literal("pause").executes {
+		root.then(Commands.literal("pause").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes {
 			MatchState.isRunning = !MatchState.isRunning
 			val key = if (MatchState.isRunning) "command.nmbct-football.match.timer_started" else "command.nmbct-football.match.timer_paused"
 			it.source.sendSuccess({ Component.translatable(key) }, true)
@@ -29,14 +30,14 @@ object MatchCommand {
 
 		registerPhaseCommands(root)
 
-		root.then(Commands.literal("reset").executes {
+		root.then(Commands.literal("reset").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes {
 			MatchState.clearScoreboardTeams(it.source.server)
 			MatchState.reset()
 			it.source.sendSuccess({ Component.translatable("command.nmbct-football.match.reset") }, true)
 			1
 		})
 
-		root.then(Commands.literal("scoreA").then(
+		root.then(Commands.literal("scoreA").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).then(
 			Commands.argument("value", IntegerArgumentType.integer(0))
 				.executes {
 					MatchState.teamAScore = IntegerArgumentType.getInteger(it, "value")
@@ -47,7 +48,7 @@ object MatchCommand {
 				}
 		))
 
-		root.then(Commands.literal("scoreB").then(
+		root.then(Commands.literal("scoreB").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).then(
 			Commands.argument("value", IntegerArgumentType.integer(0))
 				.executes {
 					MatchState.teamBScore = IntegerArgumentType.getInteger(it, "value")
@@ -58,7 +59,7 @@ object MatchCommand {
 				}
 		))
 
-		root.then(Commands.literal("nameA").then(
+		root.then(Commands.literal("nameA").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).then(
 			Commands.argument("name", ComponentArgument.textComponent(context))
 				.executes {
 					MatchState.teamAName = ComponentArgument.getResolvedComponent(it, "name")
@@ -69,7 +70,7 @@ object MatchCommand {
 				}
 		))
 
-		root.then(Commands.literal("nameB").then(
+		root.then(Commands.literal("nameB").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).then(
 			Commands.argument("name", ComponentArgument.textComponent(context))
 				.executes {
 					MatchState.teamBName = ComponentArgument.getResolvedComponent(it, "name")
@@ -104,7 +105,7 @@ object MatchCommand {
 	}
 
 	private fun registerPhaseCommands(root: LiteralArgumentBuilder<CommandSourceStack>) {
-		val phaseCmd = Commands.literal("phase")
+		val phaseCmd = Commands.literal("phase").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 
 		// /match phase — show current phase
 		phaseCmd.executes { ctx ->
@@ -180,7 +181,7 @@ object MatchCommand {
 			1
 		})
 
-		val clearCmd = Commands.literal("clear")
+		val clearCmd = Commands.literal("clear").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 			.executes { ctx ->
 				MatchState.clearScoreboardTeams(ctx.source.server)
 				MatchState.teamAPlayers.clear()
@@ -213,7 +214,7 @@ object MatchCommand {
 	}
 
 	private fun registerGoalkeeperCommands(root: LiteralArgumentBuilder<CommandSourceStack>) {
-		val setGk = Commands.literal("setGk")
+		val setGk = Commands.literal("setGk").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 		for (team in TeamSide.entries) {
 			val teamLabel = team.name
 			setGk.then(
@@ -236,7 +237,7 @@ object MatchCommand {
 		}
 		root.then(setGk)
 
-		val clearGk = Commands.literal("clearGk")
+		val clearGk = Commands.literal("clearGk").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 		for (team in TeamSide.entries) {
 			val teamLabel = team.name
 			clearGk.then(
@@ -252,7 +253,7 @@ object MatchCommand {
 		root.then(clearGk)
 
 		root.then(
-			Commands.literal("gk").then(
+			Commands.literal("gk").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).then(
 				Commands.literal("on").executes { ctx ->
 					val player = ctx.source.playerOrException
 					PlayerRoleState.setVoluntaryGk(player, true)
