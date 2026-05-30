@@ -188,7 +188,7 @@ object MatchState {
     }
 
     private fun teleportTo(player: ServerPlayer, pos: SpawnPosition) {
-        val level = player.level() as? ServerLevel ?: return
+        val level = player.level() ?: return
         player.teleportTo(level, pos.x, pos.y, pos.z, java.util.HashSet(), pos.yaw, pos.pitch, false)
     }
 

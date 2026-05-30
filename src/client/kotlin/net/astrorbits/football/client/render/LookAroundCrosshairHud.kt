@@ -35,6 +35,6 @@ object LookAroundCrosshairHud {
         val screenH = client.window.guiScaledHeight
         val x = (screenW - WIDTH) / 2
         val y = (screenH - HEIGHT) / 2
-        extra.blitSprite(RenderPipelines.GUI_TEXTURED, SPRITE, x, y, WIDTH, HEIGHT)
+        extra.blitSprite(RenderPipelines.CROSSHAIR, SPRITE, x, y, WIDTH, HEIGHT)
     }
 }

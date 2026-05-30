@@ -3,6 +3,7 @@ package net.astrorbits.football.client.key
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.minecraft.client.Minecraft
 import net.minecraft.client.player.LocalPlayer
+import net.minecraft.util.Mth
 import net.minecraft.world.entity.player.Player
 
 object LookAroundClient {
@@ -17,6 +18,14 @@ object LookAroundClient {
     private var freeLookPitch = 0f
 
     fun movementYaw(player: Player): Float = lockedYaw ?: player.yRot
+
+    @JvmStatic
+    fun onTurnApplied(player: LocalPlayer) {
+        if (!active) {
+            return
+        }
+        clampFreeLookYaw(player)
+    }
 
     fun register() {
         ClientTickEvents.END_CLIENT_TICK.register { client ->
@@ -92,4 +101,14 @@ object LookAroundClient {
         lockedPitch = null
         prevKeyDown = false
     }
+
+    private fun clampFreeLookYaw(player: LocalPlayer) {
+        val base = lockedYaw ?: return
+        val offset = Mth.wrapDegrees(player.yRot - base)
+        val clampedYaw = base + offset.coerceIn(-MAX_YAW_OFFSET, MAX_YAW_OFFSET)
+        player.yRot = clampedYaw
+        player.yHeadRot = clampedYaw
+    }
+
+    private const val MAX_YAW_OFFSET = 90f
 }
