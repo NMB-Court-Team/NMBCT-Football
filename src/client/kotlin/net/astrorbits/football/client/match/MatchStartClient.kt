@@ -90,6 +90,14 @@ object MatchStartClient {
         }
     }
 
+    /** 半场切换时调用，终止当前未完成的开球计时 */
+    fun cancelKickoff() {
+        if (!kickoffTouched) {
+            kickoffTouched = true
+            lastStoppageTickMs = 0L
+        }
+    }
+
     val elapsedMs: Long get() = if (startTimeMs > 0) System.currentTimeMillis() - startTimeMs else 0L
     fun reset() { startTimeMs = 0L; kickoffTouched = false; isPostGoal = false }
 }
