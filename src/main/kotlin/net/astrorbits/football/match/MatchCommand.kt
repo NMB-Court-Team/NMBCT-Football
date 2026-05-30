@@ -17,6 +17,7 @@ object MatchCommand {
 
 		root.then(Commands.literal("start").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes {
 			PlayerRoleState.randomAssignGoalkeepers(it.source.server)
+			MatchState.teleportTeamsToSpawnPositions(it.source.server)
 			MatchState.advancePhase()
 			1
 		})
@@ -92,6 +93,23 @@ object MatchCommand {
 				FootballNetworking.sendMatchConfigSync(player, MatchConfigHolder.current)
 				ctx.source.sendSuccess(
 					{ Component.translatable("command.nmbct-football.match.setup_opened") },
+					true,
+				)
+				1
+			}
+		)
+
+		root.then(Commands.literal("setting")
+			.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+			.executes { ctx ->
+				val player = ctx.source.player
+				if (player == null) {
+					ctx.source.sendFailure(Component.translatable("command.nmbct-football.config.player_only"))
+					return@executes 0
+				}
+				FootballNetworking.sendMatchFieldConfigSync(player, MatchConfigHolder.current)
+				ctx.source.sendSuccess(
+					{ Component.translatable("command.nmbct-football.match.setting_opened") },
 					true,
 				)
 				1

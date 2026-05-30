@@ -3,6 +3,49 @@ package net.astrorbits.football.match
 import com.mojang.serialization.Codec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 
+/** 出生点坐标 */
+data class SpawnPosition(
+    val x: Double = 0.0,
+    val y: Double = 64.0,
+    val z: Double = 0.0,
+    val yaw: Float = 0f,
+    val pitch: Float = 0f,
+) {
+    companion object {
+        val CODEC: Codec<SpawnPosition> = RecordCodecBuilder.create { i ->
+            i.group(
+                Codec.DOUBLE.fieldOf("x").forGetter(SpawnPosition::x),
+                Codec.DOUBLE.fieldOf("y").forGetter(SpawnPosition::y),
+                Codec.DOUBLE.fieldOf("z").forGetter(SpawnPosition::z),
+                Codec.FLOAT.optionalFieldOf("yaw", 0f).forGetter(SpawnPosition::yaw),
+                Codec.FLOAT.optionalFieldOf("pitch", 0f).forGetter(SpawnPosition::pitch),
+            ).apply(i, ::SpawnPosition)
+        }
+
+        val DEFAULT = SpawnPosition()
+    }
+}
+
+/** 单支队伍的出生点配置：守门员位置 + 普通队员位置列表 */
+data class TeamSpawnConfig(
+    val gk: SpawnPosition = SpawnPosition.DEFAULT,
+    val players: List<SpawnPosition> = emptyList(),
+) {
+    companion object {
+        private val SPAWN_POSITION_LIST: Codec<List<SpawnPosition>> =
+            SpawnPosition.CODEC.listOf()
+
+        val CODEC: Codec<TeamSpawnConfig> = RecordCodecBuilder.create { i ->
+            i.group(
+                SpawnPosition.CODEC.optionalFieldOf("gk", SpawnPosition.DEFAULT).forGetter(TeamSpawnConfig::gk),
+                SPAWN_POSITION_LIST.optionalFieldOf("players", emptyList<SpawnPosition>()).forGetter(TeamSpawnConfig::players),
+            ).apply(i, ::TeamSpawnConfig)
+        }
+
+        val DEFAULT = TeamSpawnConfig()
+    }
+}
+
 /** 球门：两个对角 3D 点定义的垂直矩形 + 球门朝向 */
 data class GoalConfig(
     val x1: Double = 0.0,
@@ -43,9 +86,10 @@ data class MatchConfig(
     val enableExtraTime: Boolean = false,
     val extraTimeHalfMinutes: Int = 3,
     val enablePenaltyShootout: Boolean = false,
-    val enableGoalDetection: Boolean = false,
     val goalA: GoalConfig = GoalConfig.DEFAULT,
     val goalB: GoalConfig = GoalConfig.DEFAULT,
+    val teamASpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
+    val teamBSpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
 ) {
     companion object {
         const val DEFAULT_TEAM_A_NAME = "红队"
@@ -61,9 +105,10 @@ data class MatchConfig(
                 Codec.BOOL.fieldOf("enable_extra_time").forGetter(MatchConfig::enableExtraTime),
                 Codec.INT.fieldOf("extra_time_half_minutes").forGetter(MatchConfig::extraTimeHalfMinutes),
                 Codec.BOOL.fieldOf("enable_penalty_shootout").forGetter(MatchConfig::enablePenaltyShootout),
-                Codec.BOOL.fieldOf("enable_goal_detection").forGetter(MatchConfig::enableGoalDetection),
-                GoalConfig.CODEC.fieldOf("goal_a").forGetter(MatchConfig::goalA),
-                GoalConfig.CODEC.fieldOf("goal_b").forGetter(MatchConfig::goalB),
+                GoalConfig.CODEC.optionalFieldOf("goal_a", GoalConfig.DEFAULT).forGetter(MatchConfig::goalA),
+                GoalConfig.CODEC.optionalFieldOf("goal_b", GoalConfig.DEFAULT).forGetter(MatchConfig::goalB),
+                TeamSpawnConfig.CODEC.optionalFieldOf("team_a_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamASpawn),
+                TeamSpawnConfig.CODEC.optionalFieldOf("team_b_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamBSpawn),
             ).apply(i, ::MatchConfig)
         }
 

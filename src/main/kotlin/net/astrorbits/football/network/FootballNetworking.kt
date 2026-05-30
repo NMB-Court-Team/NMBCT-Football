@@ -28,6 +28,7 @@ object FootballNetworking {
         registry.register(GoalkeeperHoldLockS2CPayload.TYPE, GoalkeeperHoldLockS2CPayload.CODEC)
         registry.register(ServerConfigSyncS2CPayload.TYPE, ServerConfigSyncS2CPayload.CODEC)
 	        registry.register(MatchConfigSyncS2CPayload.TYPE, MatchConfigSyncS2CPayload.CODEC)
+		registry.register(MatchFieldConfigSyncS2CPayload.TYPE, MatchFieldConfigSyncS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -68,6 +69,10 @@ object FootballNetworking {
 
     fun sendMatchConfigSync(player: ServerPlayer, config: net.astrorbits.football.match.MatchConfig) {
         ServerPlayNetworking.send(player, MatchConfigSyncS2CPayload(config))
+    }
+
+    fun sendMatchFieldConfigSync(player: ServerPlayer, config: net.astrorbits.football.match.MatchConfig) {
+        ServerPlayNetworking.send(player, MatchFieldConfigSyncS2CPayload(config))
     }
 
     fun sendGoalkeeperRole(player: ServerPlayer, isGoalkeeper: Boolean) {
