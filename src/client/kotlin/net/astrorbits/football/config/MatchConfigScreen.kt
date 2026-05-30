@@ -181,6 +181,9 @@ class MatchConfigScreen(
             enableExtraTime = if (::extraCheck.isInitialized) extraCheck.selected() else initial.enableExtraTime,
             extraTimeHalfMinutes = extraTimeHalfMinutes.coerceIn(1, 15),
             enablePenaltyShootout = if (::penaltyCheck.isInitialized) penaltyCheck.selected() else initial.enablePenaltyShootout,
+            enableGoalDetection = initial.enableGoalDetection,
+            goalA = initial.goalA,
+            goalB = initial.goalB,
         )
         if (ClientPlayNetworking.canSend(MatchConfigApplyC2SPayload.TYPE)) {
             ClientPlayNetworking.send(MatchConfigApplyC2SPayload(config))

@@ -3,6 +3,10 @@ package net.astrorbits.football
 import net.astrorbits.football.input.GoalkeeperHoldLock
 import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.astrorbits.football.item.Items
+import net.astrorbits.football.match.MatchConfigHolder
+import net.astrorbits.football.match.MatchPhase
+import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.match.TeamSide
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
 import net.astrorbits.football.util.CobwebUtil
@@ -131,6 +135,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         FootballSounds.playCollisionBounces(level(), blockPosition(), bounce, level().random)
         FootballParticles.playCollisionBounces(level(), blockPosition(), bounce)
 
+        detectGoal(beforeMove, position())
+
         physicsState.inCobweb = false
         if (CobwebUtil.isIntersectingCobweb(level(), boundingBox)) {
             CobwebUtil.applyCobwebDrag(physicsState)
@@ -147,6 +153,66 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
         deltaMovement = physicsState.linearVelocity
         syncPhysicsToEntityData()
+    }
+
+    private fun detectGoal(prevPos: Vec3, currPos: Vec3) {
+        val config = MatchConfigHolder.current
+        if (!config.enableGoalDetection) return
+        if (MatchState.currentPhase == MatchPhase.PRE_MATCH || MatchState.currentPhase == MatchPhase.FINISHED) return
+
+        val radius = FootballPhysicsConfig.RADIUS
+        val prevCenter = prevPos.add(0.0, radius, 0.0)
+        val currCenter = currPos.add(0.0, radius, 0.0)
+
+        // 球门 A 由 A 队防守，球入门则 B 队得分
+        checkGoal(config.goalA, prevCenter, currCenter, TeamSide.B)
+        // 球门 B 由 B 队防守，球入门则 A 队得分
+        checkGoal(config.goalB, prevCenter, currCenter, TeamSide.A)
+    }
+
+    private fun checkGoal(
+        goal: net.astrorbits.football.match.GoalConfig,
+        prevCenter: Vec3,
+        currCenter: Vec3,
+        scoringTeam: TeamSide,
+    ) {
+        val facing = Vec3(goal.facingX, goal.facingY, goal.facingZ)
+        val facingLenSqr = facing.lengthSqr()
+        if (facingLenSqr < 1e-6) return
+
+        val gx1 = goal.x1; val gy1 = goal.y1; val gz1 = goal.z1
+        val gx2 = goal.x2; val gy2 = goal.y2; val gz2 = goal.z2
+
+        // 判定面向球门内移 1 格
+        val refX = gx1 + facing.x
+        val refY = gy1 + facing.y
+        val refZ = gz1 + facing.z
+        val d1 = (prevCenter.x - refX) * facing.x + (prevCenter.y - refY) * facing.y + (prevCenter.z - refZ) * facing.z
+        val d2 = (currCenter.x - refX) * facing.x + (currCenter.y - refY) * facing.y + (currCenter.z - refZ) * facing.z
+
+        if (d1 * d2 >= 0) return
+        if (d2 - d1 <= 0) return
+
+        // 穿越点
+        val t = d1 / (d1 - d2)
+        val movement = currCenter.subtract(prevCenter)
+        val ix = prevCenter.x + movement.x * t
+        val iy = prevCenter.y + movement.y * t
+        val iz = prevCenter.z + movement.z * t
+
+        // 穿越点是否在门框范围内
+        val minX = minOf(gx1, gx2)
+        val maxX = maxOf(gx1, gx2)
+        val minY = minOf(gy1, gy2)
+        val maxY = maxOf(gy1, gy2)
+        val minZ = minOf(gz1, gz2)
+        val maxZ = maxOf(gz1, gz2)
+
+        if (ix < minX || ix > maxX) return
+        if (iy < minY || iy > maxY) return
+        if (iz < minZ - 1.01 || iz > maxZ + 1.01) return
+
+        MatchState.onGoal(scoringTeam)
     }
 
     fun kick(kickPoint: Vec3, direction: Vec3) {
