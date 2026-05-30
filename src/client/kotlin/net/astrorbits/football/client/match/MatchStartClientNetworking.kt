@@ -1,5 +1,6 @@
 package net.astrorbits.football.client.match
 
+import net.astrorbits.football.network.KickoffBallTouchedS2CPayload
 import net.astrorbits.football.network.MatchStartS2CPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.Minecraft
@@ -12,6 +13,11 @@ object MatchStartClientNetworking {
                     payload.playerTeam, payload.isGk, payload.kickoffTeam,
                     payload.teamAName, payload.teamBName,
                 )
+            }
+        }
+        ClientPlayNetworking.registerGlobalReceiver(KickoffBallTouchedS2CPayload.TYPE) { _, _ ->
+            Minecraft.getInstance().execute {
+                MatchStartClient.onBallTouched()
             }
         }
     }

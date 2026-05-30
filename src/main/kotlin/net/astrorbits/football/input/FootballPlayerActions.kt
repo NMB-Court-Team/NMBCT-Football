@@ -24,6 +24,8 @@ object FootballPlayerActions {
     private const val DRIBBLE_RESUME_MIN_BALL_SPEED_SQR = 0.01
 
     fun handle(player: ServerPlayer, payload: FootballActionC2SPayload) {
+        // TODO: 服务端双重保险 — 开球锁定时拒绝接收此玩家的足球操作包
+        net.astrorbits.football.match.MatchState.notifyKickoffBallTouched(player)
         if (payload.action == FootballActionType.ITEM_THROW) {
             FootballItem.tryThrowFromMainHand(player)
             return

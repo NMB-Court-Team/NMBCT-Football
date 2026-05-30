@@ -2,6 +2,7 @@ package net.astrorbits.football.client.key
 
 import net.astrorbits.football.client.FootballOperabilityClient
 import net.astrorbits.football.client.GoalkeeperStateClient
+import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.config.FootballConfigs
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.FootballMovementInputUtil
@@ -77,6 +78,11 @@ object FootballInputHandler {
 
             if (client.screen != null || client.isPaused) {
                 resetTransientState(player)
+                updatePrevTickPressed()
+                return@reg
+            }
+
+            if (MatchStartClient.isLocked) {
                 updatePrevTickPressed()
                 return@reg
             }

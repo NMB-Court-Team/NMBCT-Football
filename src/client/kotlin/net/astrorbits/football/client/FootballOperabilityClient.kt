@@ -1,6 +1,7 @@
 package net.astrorbits.football.client
 
 import net.astrorbits.football.Football
+import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.minecraft.client.player.LocalPlayer
@@ -8,6 +9,7 @@ import net.minecraft.world.level.Level
 
 object FootballOperabilityClient {
     fun canOperateFootball(player: LocalPlayer, level: Level): Boolean {
+        if (MatchStartClient.isLocked) return false
         if (GoalkeeperStateClient.isGoalkeeper) {
             if (GoalkeeperStateClient.isHoldingBall) {
                 return !GoalkeeperStateClient.isHoldReleaseLocked()

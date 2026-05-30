@@ -1,10 +1,13 @@
 package net.astrorbits.football.match
 
+import net.astrorbits.football.Football
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.Vec3
 import java.util.UUID
 
 object MatchState {
@@ -24,6 +27,8 @@ object MatchState {
     var teamBScore = 0
     val teamAPlayers: MutableSet<UUID> = mutableSetOf()
     val teamBPlayers: MutableSet<UUID> = mutableSetOf()
+    var kickoffTeam: TeamSide? = null
+    var kickoffTouched: Boolean = false
 
     fun getTeamName(team: TeamSide): Component = when (team) {
         TeamSide.A -> teamAName.copy().withStyle(ChatFormatting.RED)
@@ -99,6 +104,8 @@ object MatchState {
         teamBScore = 0
         teamAPlayers.clear()
         teamBPlayers.clear()
+        kickoffTeam = null
+        kickoffTouched = false
         PlayerRoleState.reset()
     }
 
@@ -114,20 +121,40 @@ object MatchState {
         }
     }
 
-    /** 开赛时将双方队员传送至出生点。守门员传至 GK 点，其余队员按"每个坐标至少一人"分配。 */
+    /** 发球方队员首次触球时调用，广播解锁非发球方。 */
+    fun notifyKickoffBallTouched(player: ServerPlayer) {
+        if (kickoffTouched) return
+        val kt = kickoffTeam ?: return
+        if (getPlayerTeam(player.uuid) != kt) return
+        kickoffTouched = true
+        val server = player.level().server ?: return
+        net.astrorbits.football.network.FootballNetworking.broadcastKickoffBallTouched(server)
+    }
+
+    /** 清除场上所有足球并在 (8.5, -60, 8.5) 放置一个新足球。 */
+    fun resetFootball(level: ServerLevel) {
+        val all = AABB(Vec3(-3.0E7, -3.0E7, -3.0E7), Vec3(3.0E7, 3.0E7, 3.0E7))
+        level.getEntitiesOfClass(Football::class.java, all).forEach { it.discard() }
+        val fb = Football(Football.ENTITY_TYPE, level)
+        fb.setPos(8.5, -60.0, 8.5)
+        level.addFreshEntity(fb)
+    }
+
     /** 向双方在线队员广播比赛开始 HUD 信息。 */
-    fun broadcastMatchStart(server: MinecraftServer, kickoffTeam: TeamSide) {
+    fun broadcastMatchStart(server: MinecraftServer, kickoff: TeamSide) {
+        kickoffTeam = kickoff
+        kickoffTouched = false
         val nameA = getTeamName(TeamSide.A).string
         val nameB = getTeamName(TeamSide.B).string
         for (uuid in teamAPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
             val isGk = PlayerRoleState.teamAGoalkeeper == uuid
-            net.astrorbits.football.network.FootballNetworking.sendMatchStart(player, TeamSide.A, isGk, kickoffTeam, nameA, nameB)
+            net.astrorbits.football.network.FootballNetworking.sendMatchStart(player, TeamSide.A, isGk, kickoff, nameA, nameB)
         }
         for (uuid in teamBPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
             val isGk = PlayerRoleState.teamBGoalkeeper == uuid
-            net.astrorbits.football.network.FootballNetworking.sendMatchStart(player, TeamSide.B, isGk, kickoffTeam, nameA, nameB)
+            net.astrorbits.football.network.FootballNetworking.sendMatchStart(player, TeamSide.B, isGk, kickoff, nameA, nameB)
         }
     }
 

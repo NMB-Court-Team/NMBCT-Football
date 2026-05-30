@@ -12,9 +12,9 @@ import net.minecraft.network.chat.Style
 class MatchStartHudElement : HudElement {
 
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
-        if (!MatchStartClient.isActive) return
+        if (!MatchStartClient.isHudActive) return
         val client = Minecraft.getInstance()
-        if (client.screen != null || client.isPaused) return
+        if (client.isPaused) return
 
         val elapsed = MatchStartClient.elapsedMs
         val remaining = 6000L - elapsed
