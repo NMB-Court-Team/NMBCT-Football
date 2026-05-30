@@ -2,6 +2,7 @@ package net.astrorbits.football.client.match
 
 import net.astrorbits.football.network.KickoffBallTouchedS2CPayload
 import net.astrorbits.football.network.MatchStartS2CPayload
+import net.astrorbits.football.network.MatchResetS2CPayload
 import net.astrorbits.football.network.PostGoalKickoffS2CPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.Minecraft
@@ -24,6 +25,11 @@ object MatchStartClientNetworking {
         ClientPlayNetworking.registerGlobalReceiver(KickoffBallTouchedS2CPayload.TYPE) { _, _ ->
             Minecraft.getInstance().execute {
                 MatchStartClient.onBallTouched()
+            }
+        }
+        ClientPlayNetworking.registerGlobalReceiver(MatchResetS2CPayload.TYPE) { _, _ ->
+            Minecraft.getInstance().execute {
+                MatchStartClient.reset()
             }
         }
     }

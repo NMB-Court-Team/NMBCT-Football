@@ -34,6 +34,7 @@ object FootballNetworking {
 		registry.register(KickoffBallTouchedS2CPayload.TYPE, KickoffBallTouchedS2CPayload.CODEC)
 		registry.register(GoalScoredS2CPayload.TYPE, GoalScoredS2CPayload.CODEC)
 		registry.register(PostGoalKickoffS2CPayload.TYPE, PostGoalKickoffS2CPayload.CODEC)
+		registry.register(MatchResetS2CPayload.TYPE, MatchResetS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -102,6 +103,12 @@ object FootballNetworking {
         val payload = PostGoalKickoffS2CPayload(kickoffTeam)
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun broadcastMatchReset(server: MinecraftServer) {
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, MatchResetS2CPayload.INSTANCE)
         }
     }
 
