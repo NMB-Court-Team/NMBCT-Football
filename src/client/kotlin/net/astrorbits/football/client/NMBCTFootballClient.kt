@@ -11,6 +11,7 @@ import net.astrorbits.football.client.match.MatchStartClientNetworking
 import net.astrorbits.football.client.render.GoalScoredHudElement
 import net.astrorbits.football.client.render.HalfKickoffHudElement
 import net.astrorbits.football.client.render.KickoffLockHudElement
+import net.astrorbits.football.client.render.MatchResultHudElement
 import net.astrorbits.football.client.render.MatchStartHudElement
 import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.client.key.FootballKeyBindings
@@ -75,6 +76,11 @@ object NMBCTFootballClient : ClientModInitializer {
 		HudElementRegistry.addLast(
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "half_kickoff_hud"),
 			HalfKickoffHudElement()
+		)
+
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "match_result_hud"),
+			MatchResultHudElement()
 		)
 
 		GoalkeeperStateClient.register()

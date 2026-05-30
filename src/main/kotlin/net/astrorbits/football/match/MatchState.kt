@@ -358,24 +358,24 @@ object MatchState {
             MatchPhase.FIRST_HALF -> if (config.enableStoppageTime && dynamicStoppageTicks > 0) MatchPhase.FIRST_HALF_ET else MatchPhase.SECOND_HALF
             MatchPhase.SECOND_HALF -> {
                 if (config.enableStoppageTime && dynamicStoppageTicks > 0) MatchPhase.SECOND_HALF_ET
-                else if (config.enableExtraTime) MatchPhase.EXTRA_FIRST
-                else if (config.enablePenaltyShootout) MatchPhase.PENALTIES
+                else if (config.enableExtraTime && teamAScore == teamBScore) MatchPhase.EXTRA_FIRST
+                else if (config.enablePenaltyShootout && teamAScore == teamBScore) MatchPhase.PENALTIES
                 else MatchPhase.FINISHED
             }
             MatchPhase.SECOND_HALF_ET -> {
-                if (config.enableExtraTime) MatchPhase.EXTRA_FIRST
-                else if (config.enablePenaltyShootout) MatchPhase.PENALTIES
+                if (config.enableExtraTime && teamAScore == teamBScore) MatchPhase.EXTRA_FIRST
+                else if (config.enablePenaltyShootout && teamAScore == teamBScore) MatchPhase.PENALTIES
                 else MatchPhase.FINISHED
             }
             MatchPhase.EXTRA_FIRST -> if (config.enableStoppageTime && dynamicStoppageTicks > 0) MatchPhase.EXTRA_FIRST_ET else MatchPhase.EXTRA_SECOND
             MatchPhase.EXTRA_FIRST_ET -> MatchPhase.EXTRA_SECOND
             MatchPhase.EXTRA_SECOND -> {
                 if (config.enableStoppageTime && dynamicStoppageTicks > 0) MatchPhase.EXTRA_SECOND_ET
-                else if (config.enablePenaltyShootout) MatchPhase.PENALTIES
+                else if (config.enablePenaltyShootout && teamAScore == teamBScore) MatchPhase.PENALTIES
                 else MatchPhase.FINISHED
             }
             MatchPhase.EXTRA_SECOND_ET -> {
-                if (config.enablePenaltyShootout) MatchPhase.PENALTIES
+                if (config.enablePenaltyShootout && teamAScore == teamBScore) MatchPhase.PENALTIES
                 else MatchPhase.FINISHED
             }
             else -> currentPhase.next

@@ -4,6 +4,7 @@ import net.astrorbits.football.network.KickoffBallTouchedS2CPayload
 import net.astrorbits.football.network.MatchStartS2CPayload
 import net.astrorbits.football.network.HalfKickoffS2CPayload
 import net.astrorbits.football.network.MatchResetS2CPayload
+import net.astrorbits.football.network.MatchResultS2CPayload
 import net.astrorbits.football.network.PostGoalKickoffS2CPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.Minecraft
@@ -38,6 +39,15 @@ object MatchStartClientNetworking {
                 MatchStartClient.startHalfKickoff(
                     payload.kickoffTeam, payload.phaseKey,
                     payload.teamAName, payload.teamBName,
+                )
+            }
+        }
+        ClientPlayNetworking.registerGlobalReceiver(MatchResultS2CPayload.TYPE) { payload, _ ->
+            Minecraft.getInstance().execute {
+                net.astrorbits.football.client.match.MatchResultClient.show(
+                    payload.teamAScore, payload.teamBScore,
+                    payload.teamAName, payload.teamBName,
+                    payload.isDraw,
                 )
             }
         }

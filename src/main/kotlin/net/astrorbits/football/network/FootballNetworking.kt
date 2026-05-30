@@ -23,6 +23,7 @@ object FootballNetworking {
         registry.register(ServerConfigApplyC2SPayload.TYPE, ServerConfigApplyC2SPayload.CODEC)
 	        registry.register(MatchConfigApplyC2SPayload.TYPE, MatchConfigApplyC2SPayload.CODEC)
 		registry.register(HalfKickoffRequestC2SPayload.TYPE, HalfKickoffRequestC2SPayload.CODEC)
+		registry.register(MatchResultRequestC2SPayload.TYPE, MatchResultRequestC2SPayload.CODEC)
     }
 
     private fun registerS2CPayloadType(registry: PayloadTypeRegistry<RegistryFriendlyByteBuf>) {
@@ -38,6 +39,8 @@ object FootballNetworking {
 		registry.register(MatchResetS2CPayload.TYPE, MatchResetS2CPayload.CODEC)
 		registry.register(HalfKickoffRequestC2SPayload.TYPE, HalfKickoffRequestC2SPayload.CODEC)
 		registry.register(HalfKickoffS2CPayload.TYPE, HalfKickoffS2CPayload.CODEC)
+		registry.register(MatchResultRequestC2SPayload.TYPE, MatchResultRequestC2SPayload.CODEC)
+		registry.register(MatchResultS2CPayload.TYPE, MatchResultS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -77,6 +80,15 @@ object FootballNetworking {
                 handleHalfKickoffRequest(level, server)
             }
         }
+        ServerPlayNetworking.registerGlobalReceiver(MatchResultRequestC2SPayload.TYPE) { _, context ->
+            context.server().execute {
+                val server = context.server()
+                val nameA = net.astrorbits.football.match.MatchState.getTeamName(net.astrorbits.football.match.TeamSide.A).string
+                val nameB = net.astrorbits.football.match.MatchState.getTeamName(net.astrorbits.football.match.TeamSide.B).string
+                val isDraw = net.astrorbits.football.match.MatchState.teamAScore == net.astrorbits.football.match.MatchState.teamBScore
+                broadcastMatchResult(server, net.astrorbits.football.match.MatchState.teamAScore, net.astrorbits.football.match.MatchState.teamBScore, nameA, nameB, isDraw)
+            }
+        }
     }
 
     private fun handleHalfKickoffRequest(level: net.minecraft.server.level.ServerLevel, server: MinecraftServer) {
@@ -103,6 +115,13 @@ object FootballNetworking {
 
     fun broadcastHalfKickoff(server: MinecraftServer, kickoffTeam: TeamSide, phaseKey: String, teamAName: String, teamBName: String) {
         val payload = HalfKickoffS2CPayload(kickoffTeam, phaseKey, teamAName, teamBName)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun broadcastMatchResult(server: MinecraftServer, teamAScore: Int, teamBScore: Int, teamAName: String, teamBName: String, isDraw: Boolean) {
+        val payload = MatchResultS2CPayload(teamAScore, teamBScore, teamAName, teamBName, isDraw)
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
         }
