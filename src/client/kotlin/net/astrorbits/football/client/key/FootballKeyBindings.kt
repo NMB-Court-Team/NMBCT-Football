@@ -45,6 +45,15 @@ object FootballKeyBindings {
         )
     )
 
+    val LOOK_AROUND: KeyMapping = KeyMappingHelper.registerKeyMapping(
+        KeyMapping(
+            "key.nmbct-football.look_around",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_LEFT_ALT,
+            CATEGORY
+        )
+    )
+
     fun init() {
         // static init
     }

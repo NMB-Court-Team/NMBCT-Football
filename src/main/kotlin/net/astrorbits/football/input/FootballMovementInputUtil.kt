@@ -9,11 +9,17 @@ object FootballMovementInputUtil {
         return movementInputVector(player).lengthSqr() > 1.0e-4
     }
 
+    fun hasMovementInput(player: Player, movementYaw: Float): Boolean {
+        return movementInputVector(player, movementYaw).lengthSqr() > 1.0e-4
+    }
+
     /**
      * 水平移动意图（世界坐标），长度约 0~1。
      * 服务端使用 [ServerPlayer.lastClientMoveIntent]；客户端回退到 xxa/zza 换算。
+     *
+     * @param movementYaw 移动基准朝向；为 null 时使用 [Player.yRot]。
      */
-    fun movementInputVector(player: Player): Vec3 {
+    fun movementInputVector(player: Player, movementYaw: Float? = null): Vec3 {
         if (player is ServerPlayer) {
             return horizontalMoveIntent(player.lastClientMoveIntent)
         }
@@ -24,7 +30,7 @@ object FootballMovementInputUtil {
             return Vec3.ZERO
         }
 
-        val yawRad = Math.toRadians(player.yRot.toDouble())
+        val yawRad = Math.toRadians((movementYaw ?: player.yRot).toDouble())
         val forwardX = -kotlin.math.sin(yawRad)
         val forwardZ = kotlin.math.cos(yawRad)
         val rightX = -forwardZ

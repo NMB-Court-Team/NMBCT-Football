@@ -14,7 +14,7 @@ import net.minecraft.network.chat.Component
 class FootballKeybindHintHudElement : HudElement {
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
         val client = Minecraft.getInstance()
-        if (client.screen != null || client.isPaused) {
+        if (client.screen != null || client.isPaused || client.debugOverlay.showDebugScreen()) {
             return
         }
         val level = client.level ?: return

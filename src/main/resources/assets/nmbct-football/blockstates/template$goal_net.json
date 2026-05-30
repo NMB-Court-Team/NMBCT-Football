@@ -1,0 +1,249 @@
+{
+    "_comment": "本文件是一个模板文件，会通过python脚本生成真正的blockstate文件，注释不会出现在生成的文件中",
+    "_replacements": {
+        "_comment1": "这是各个复合方向对应的模型变换，U=up, D=down, N=north, S=south, E=east, W=west",
+        "_comment2": "后文中会将例如$UN_corner替换成对应的内容；替换内容可以用|管道符代表别名",
+        "_comment3": "corner是双包边模型，side是单包边模型，flat是无包边模型",
+        "UN_corner|NU_corner": {"model": "nmbct-football:block/goal_net/corner"},
+        "UE_corner|EU_corner": {"model": "nmbct-football:block/goal_net/corner", "y": 90},
+        "US_corner|SU_corner": {"model": "nmbct-football:block/goal_net/corner", "y": 180},
+        "UW_corner|WU_corner": {"model": "nmbct-football:block/goal_net/corner", "y": -90},
+        "NW_corner|WN_corner": {"model": "nmbct-football:block/goal_net/corner", "z": 90},
+        "NE_corner|EN_corner": {"model": "nmbct-football:block/goal_net/corner", "z": -90},
+        "SW_corner|WS_corner": {"model": "nmbct-football:block/goal_net/corner", "y": 180, "z": 90},
+        "SE_corner|ES_corner": {"model": "nmbct-football:block/goal_net/corner", "y": 180, "z": -90},
+        "DN_corner|ND_corner": {"model": "nmbct-football:block/goal_net/corner", "x": -90},
+        "DE_corner|ED_corner": {"model": "nmbct-football:block/goal_net/corner", "x": -90, "y": 90},
+        "DS_corner|SD_corner": {"model": "nmbct-football:block/goal_net/corner", "x": -90, "y": 180},
+        "DW_corner|WD_corner": {"model": "nmbct-football:block/goal_net/corner", "x": -90, "y": -90},
+        "UN_side_U|NU_side_U": {"model": "nmbct-football:block/goal_net/side_up"},
+        "UE_side_U|EU_side_U": {"model": "nmbct-football:block/goal_net/side_up", "y": 90},
+        "US_side_U|SU_side_U": {"model": "nmbct-football:block/goal_net/side_up", "y": 180},
+        "UW_side_U|WU_side_U": {"model": "nmbct-football:block/goal_net/side_up", "y": -90},
+        "UN_side_N|NU_side_N": {"model": "nmbct-football:block/goal_net/side_north"},
+        "UE_side_E|EU_side_E": {"model": "nmbct-football:block/goal_net/side_north", "y": 90},
+        "US_side_S|SU_side_S": {"model": "nmbct-football:block/goal_net/side_north", "y": 180},
+        "UW_side_W|WU_side_W": {"model": "nmbct-football:block/goal_net/side_north", "y": -90},
+        "NW_side_W|WN_side_W": {"model": "nmbct-football:block/goal_net/side_up", "z": 90},
+        "NE_side_E|EN_side_E": {"model": "nmbct-football:block/goal_net/side_up", "z": -90},
+        "SW_side_W|WS_side_W": {"model": "nmbct-football:block/goal_net/side_up", "y": 180, "z": 90},
+        "SE_side_E|ES_side_E": {"model": "nmbct-football:block/goal_net/side_up", "y": 180, "z": -90},
+        "NW_side_N|WN_side_N": {"model": "nmbct-football:block/goal_net/side_north", "z": 90},
+        "NE_side_N|EN_side_N": {"model": "nmbct-football:block/goal_net/side_north", "z": -90},
+        "SW_side_S|WS_side_S": {"model": "nmbct-football:block/goal_net/side_north", "y": 180, "z": 90},
+        "SE_side_S|ES_side_S": {"model": "nmbct-football:block/goal_net/side_north", "y": 180, "z": -90},
+        "DN_side_D|ND_side_D": {"model": "nmbct-football:block/goal_net/side_north", "x": -90},
+        "DE_side_D|ED_side_D": {"model": "nmbct-football:block/goal_net/side_north", "x": -90, "y": 90},
+        "DS_side_D|SD_side_D": {"model": "nmbct-football:block/goal_net/side_north", "x": -90, "y": 180},
+        "DW_side_D|WD_side_D": {"model": "nmbct-football:block/goal_net/side_north", "x": -90, "y": -90},
+        "DN_side_N|ND_side_N": {"model": "nmbct-football:block/goal_net/side_up", "x": -90},
+        "DE_side_E|ED_side_E": {"model": "nmbct-football:block/goal_net/side_up", "x": -90, "y": 90},
+        "DS_side_S|SD_side_S": {"model": "nmbct-football:block/goal_net/side_up", "x": -90, "y": 180},
+        "DW_side_W|WD_side_W": {"model": "nmbct-football:block/goal_net/side_up", "x": -90, "y": -90},
+        "UN_flat|NU_flat": {"model": "nmbct-football:block/goal_net/flat"},
+        "UE_flat|EU_flat": {"model": "nmbct-football:block/goal_net/flat", "y": 90},
+        "US_flat|SU_flat": {"model": "nmbct-football:block/goal_net/flat", "y": 180},
+        "UW_flat|WU_flat": {"model": "nmbct-football:block/goal_net/flat", "y": -90},
+        "NW_flat|WN_flat": {"model": "nmbct-football:block/goal_net/flat", "z": 90},
+        "NE_flat|EN_flat": {"model": "nmbct-football:block/goal_net/flat", "z": -90},
+        "SW_flat|WS_flat": {"model": "nmbct-football:block/goal_net/flat", "y": 180, "z": 90},
+        "SE_flat|ES_flat": {"model": "nmbct-football:block/goal_net/flat", "y": 180, "z": -90},
+        "DN_flat|ND_flat": {"model": "nmbct-football:block/goal_net/flat", "x": -90},
+        "DE_flat|ED_flat": {"model": "nmbct-football:block/goal_net/flat", "x": -90, "y": 90},
+        "DS_flat|SD_flat": {"model": "nmbct-football:block/goal_net/flat", "x": -90, "y": 180},
+        "DW_flat|WD_flat": {"model": "nmbct-football:block/goal_net/flat", "x": -90, "y": -90}
+    },
+    "variants": {
+        "_comment0": "0连接：所有方向都渲染，且全部包边",
+        "up=false,down=false,north=false,south=false,east=false,west=false": [
+            "$UN_corner", "$UE_corner", "$US_corner", "$UW_corner",
+            "$NW_corner", "$NE_corner", "$SW_corner", "$SE_corner",
+            "$DN_corner", "$DE_corner", "$DS_corner", "$DW_corner"
+        ],
+        "_comment1": "1连接：渲染该方向所在的两个面，该方向不包边，其他方向包边",
+        "up=true,down=false,north=false,south=false,east=false,west=false": [
+            "$UN_side_N", "$UE_side_E", "$US_side_S", "$UW_side_W",
+            "$DN_corner", "$DE_corner", "$DS_corner", "$DW_corner"
+        ],
+        "up=false,down=true,north=false,south=false,east=false,west=false": [
+            "$DN_side_N", "$DE_side_E", "$DS_side_S", "$DW_side_W",
+            "$UN_corner", "$UE_corner", "$US_corner", "$UW_corner"
+        ],
+        "up=false,down=false,north=true,south=false,east=false,west=false": [
+            "$NU_side_U", "$NE_side_E", "$ND_side_D", "$NW_side_W",
+            "$SU_corner", "$SE_corner", "$SD_corner", "$SW_corner"
+        ],
+        "up=false,down=false,north=false,south=true,east=false,west=false": [
+            "$SU_side_U", "$SE_side_E", "$SD_side_D", "$SW_side_W",
+            "$NU_corner", "$NE_corner", "$ND_corner", "$NW_corner"
+        ],
+        "up=false,down=false,north=false,south=false,east=true,west=false": [
+            "$EU_side_U", "$EN_side_N", "$ED_side_D", "$ES_side_S",
+            "$WU_corner", "$WN_corner", "$WD_corner", "$WS_corner"
+        ],
+        "up=false,down=false,north=false,south=false,east=false,west=true": [
+            "$WU_side_U", "$WN_side_N", "$WD_side_D", "$WS_side_S",
+            "$EU_corner", "$EN_corner", "$ED_corner", "$ES_corner"
+        ],
+        "_comment2-1": "2连接-对位：这两个方向在同个轴上，渲染该轴所在的两个面，这两个方向不包边，其他方向包边",
+        "up=true,down=true,north=false,south=false,east=false,west=false": [
+            "$UN_side_N", "$UE_side_E", "$US_side_S", "$UW_side_W",
+            "$DN_side_N", "$DE_side_E", "$DS_side_S", "$DW_side_W"
+        ],
+        "up=false,down=false,north=true,south=true,east=false,west=false": [
+            "$NU_side_U", "$NE_side_E", "$ND_side_D", "$NW_side_W",
+            "$SU_side_U", "$SE_side_E", "$SD_side_D", "$SW_side_W"
+        ],
+        "up=false,down=false,north=false,south=false,east=true,west=true": [
+            "$EU_side_U", "$EN_side_N", "$ED_side_D", "$ES_side_S",
+            "$WU_side_U", "$WN_side_N", "$WD_side_D", "$WS_side_S"
+        ],
+        "_comment2-2": "2连接-邻位：这两个方向不在同个轴上，渲染这两个方向所在的一个面，这两个方向不包边，其他方向包边",
+        "up=true,down=false,north=true,south=false,east=false,west=false": [
+            "$UN_flat", "$US_side_S", "$ND_side_D", "$SD_corner"
+        ],
+        "up=true,down=false,north=false,south=true,east=false,west=false": [
+            "$US_flat", "$UN_side_N", "$SD_side_D", "$ND_corner"
+        ],
+        "up=true,down=false,north=false,south=false,east=true,west=false": [
+            "$UE_flat", "$UW_side_W", "$ED_side_D", "$WD_corner"
+        ],
+        "up=true,down=false,north=false,south=false,east=false,west=true": [
+            "$UW_flat", "$UE_side_E", "$WD_side_D", "$ED_corner"
+        ],
+        "up=false,down=true,north=true,south=false,east=false,west=false": [
+            "$DN_flat", "$DS_side_S", "$NU_side_U", "$SU_corner"
+        ],
+        "up=false,down=true,north=false,south=true,east=false,west=false": [
+            "$DS_flat", "$DN_side_N", "$SU_side_U", "$NU_corner"
+        ],
+        "up=false,down=true,north=false,south=false,east=true,west=false": [
+            "$DE_flat", "$DW_side_W", "$EU_side_U", "$WU_corner"
+        ],
+        "up=false,down=true,north=false,south=false,east=false,west=true": [
+            "$DW_flat", "$DE_side_E", "$WU_side_U", "$EU_corner"
+        ],
+        "_comment3-1": "3连接-同平面：这三个方向在同一平面上，渲染该平面，这三个方向不包边，其他方向包边",
+        "up=true,down=false,north=true,south=true,east=false,west=false": [
+            "$UN_flat", "$US_flat", "$DN_side_D", "$DS_side_D"
+        ],
+        "up=false,down=true,north=true,south=true,east=false,west=false": [
+            "$DN_flat", "$DS_flat", "$UN_side_U", "$US_side_U"
+        ],
+        "up=true,down=false,north=false,south=false,east=true,west=true": [
+            "$UE_flat", "$UW_flat", "$DE_side_D", "$DW_side_D"
+        ],
+        "up=false,down=true,north=false,south=false,east=true,west=true": [
+            "$DE_flat", "$DW_flat", "$UE_side_U", "$UW_side_U"
+        ],
+        "up=false,down=false,north=true,south=false,east=true,west=true": [
+            "$NE_flat", "$NW_flat", "$SE_side_S", "$SW_side_S"
+        ],
+        "up=false,down=false,north=false,south=true,east=true,west=true": [
+            "$SE_flat", "$SW_flat", "$NE_side_N", "$NW_side_N"
+        ],
+        "_comment3-2": "3连接-非同平面：这三个方向不在同一平面上，渲染这三个方向围成的角落，全都不包边",
+        "up=true,down=false,north=true,south=false,east=true,west=false": [
+            "$UN_flat", "$NE_flat", "$UE_flat"
+        ],
+        "up=true,down=false,north=true,south=false,east=false,west=true": [
+            "$UN_flat", "$NW_flat", "$UW_flat"
+        ],
+        "up=true,down=false,north=false,south=true,east=true,west=false": [
+            "$US_flat", "$SE_flat", "$UE_flat"
+        ],
+        "up=true,down=false,north=false,south=true,east=false,west=true": [
+            "$US_flat", "$SW_flat", "$UW_flat"
+        ],
+        "up=false,down=true,north=true,south=false,east=true,west=false": [
+            "$DN_flat", "$NE_flat", "$DE_flat"
+        ],
+        "up=false,down=true,north=true,south=false,east=false,west=true": [
+            "$DN_flat", "$NW_flat", "$DW_flat"
+        ],
+        "up=false,down=true,north=false,south=true,east=true,west=false": [
+            "$DS_flat", "$SE_flat", "$DE_flat"
+        ],
+        "up=false,down=true,north=false,south=true,east=false,west=true": [
+            "$DS_flat", "$SW_flat", "$DW_flat"
+        ],
+        "_comment4-1": "4连接-对位：这四个方向在同一个面上，渲染这个面，不包边",
+        "up=true,down=true,north=true,south=true,east=false,west=false": [
+            "$UN_flat", "$US_flat", "$DN_flat", "$DS_flat"
+        ],
+        "up=true,down=true,north=false,south=false,east=true,west=true": [
+            "$UE_flat", "$UW_flat", "$DE_flat", "$DW_flat"
+        ],
+        "up=false,down=false,north=true,south=true,east=true,west=true": [
+            "$NE_flat", "$NW_flat", "$SE_flat", "$SW_flat"
+        ],
+        "_comment4-2": "4连接-邻位：这四个方向围成的角全都渲染，全都不包边",
+        "up=true,down=true,north=true,south=false,east=true,west=false": [
+            "$UN_flat", "$UE_flat", "$DN_flat", "$DE_flat", "$NE_flat"
+        ],
+        "up=true,down=true,north=true,south=false,east=false,west=true": [
+            "$UN_flat", "$UW_flat", "$DN_flat", "$DW_flat", "$NW_flat"
+        ],
+        "up=true,down=true,north=false,south=true,east=true,west=false": [
+            "$US_flat", "$UE_flat", "$DS_flat", "$DE_flat", "$SE_flat"
+        ],
+        "up=true,down=true,north=false,south=true,east=false,west=true": [
+            "$US_flat", "$UW_flat", "$DS_flat", "$DW_flat", "$SW_flat"
+        ],
+        "up=true,down=false,north=true,south=true,east=true,west=false": [
+            "$NU_flat", "$NE_flat", "$SU_flat", "$SE_flat", "$UE_flat"
+        ],
+        "up=true,down=false,north=true,south=true,east=false,west=true": [
+            "$NU_flat", "$NW_flat", "$SU_flat", "$SW_flat", "$UW_flat"
+        ],
+        "up=false,down=true,north=true,south=true,east=true,west=false": [
+            "$ND_flat", "$NE_flat", "$SD_flat", "$SE_flat", "$DE_flat"
+        ],
+        "up=false,down=true,north=true,south=true,east=false,west=true": [
+            "$ND_flat", "$NW_flat", "$SD_flat", "$SW_flat", "$DW_flat"
+        ],
+        "up=true,down=false,north=true,south=false,east=true,west=true": [
+            "$EU_flat", "$EN_flat", "$WU_flat", "$WN_flat", "$UN_flat"
+        ],
+        "up=false,down=true,north=true,south=false,east=true,west=true": [
+            "$ED_flat", "$EN_flat", "$WD_flat", "$WN_flat", "$DN_flat"
+        ],
+        "up=true,down=false,north=false,south=true,east=true,west=true": [
+            "$EU_flat", "$ES_flat", "$WU_flat", "$WS_flat", "$US_flat"
+        ],
+        "up=false,down=true,north=false,south=true,east=true,west=true": [
+            "$ED_flat", "$ES_flat", "$WD_flat", "$WS_flat", "$DS_flat"
+        ],
+        "_comment5": "5连接：这五个方向围成的角全部渲染，不包边",
+        "up=true,down=true,north=true,south=true,east=true,west=false": [
+            "$UN_flat", "$US_flat", "$DN_flat", "$DS_flat",
+            "$UE_flat", "$DE_flat", "$NE_flat", "$SE_flat"
+        ],
+        "up=true,down=true,north=true,south=true,east=false,west=true": [
+            "$UN_flat", "$US_flat", "$DN_flat", "$DS_flat",
+            "$UW_flat", "$DW_flat", "$NW_flat", "$SW_flat"
+        ],
+        "up=true,down=true,north=true,south=false,east=true,west=true": [
+            "$UE_flat", "$UW_flat", "$DE_flat", "$DW_flat",
+            "$UN_flat", "$DN_flat", "$EN_flat", "$WN_flat"
+        ],
+        "up=true,down=true,north=false,south=true,east=true,west=true": [
+            "$UE_flat", "$UW_flat", "$DE_flat", "$DW_flat",
+            "$US_flat", "$DS_flat", "$ES_flat", "$WS_flat"
+        ],
+        "up=true,down=false,north=true,south=true,east=true,west=true": [
+            "$NE_flat", "$NW_flat", "$SE_flat", "$SW_flat",
+            "$NU_flat", "$SU_flat", "$EU_flat", "$WU_flat"
+        ],
+        "up=false,down=true,north=true,south=true,east=true,west=true": [
+            "$NE_flat", "$NW_flat", "$SE_flat", "$SW_flat",
+            "$ND_flat", "$SD_flat", "$ED_flat", "$WD_flat"
+        ],
+        "_comment6": "6连接：所有方向都渲染，不包边",
+        "up=true,down=true,north=true,south=true,east=true,west=true": [
+            "$UN_flat", "$US_flat", "$UE_flat", "$UW_flat",
+            "$NE_flat", "$NW_flat", "$SE_flat", "$SW_flat",
+            "$DN_flat", "$DS_flat", "$DE_flat", "$DW_flat"
+        ]
+    }
+}

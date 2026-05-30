@@ -7,6 +7,8 @@ import net.astrorbits.football.client.config.FootballConfigNetworking
 import net.astrorbits.football.client.config.MatchConfigNetworking
 import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.client.key.FootballKeyBindings
+import net.astrorbits.football.client.key.LookAroundClient
+import net.astrorbits.football.client.render.LookAroundCrosshairHud
 import net.astrorbits.football.client.render.FootballHudElement
 import net.astrorbits.football.client.render.FootballKeybindHintHudElement
 import net.astrorbits.football.client.render.FootballRenderer
@@ -48,6 +50,8 @@ object NMBCTFootballClient : ClientModInitializer {
 		GoalkeeperHoldPoseClient.register()
 		FootballClientAttackInteractions.register()
 		FootballInputHandler.registerTickEvent()
+		LookAroundClient.register()
+		LookAroundCrosshairHud.register()
 		MatchStateClient.registerTickEvent()
 	}
 }

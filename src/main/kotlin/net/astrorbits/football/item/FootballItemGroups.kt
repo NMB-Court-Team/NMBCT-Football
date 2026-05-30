@@ -1,6 +1,7 @@
 package net.astrorbits.football.item
 
 import net.astrorbits.football.NMBCTFootball
+import net.astrorbits.football.block.Blocks
 import net.minecraft.core.Registry
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.chat.Component
@@ -16,6 +17,7 @@ object FootballItemGroups {
             output.accept(Items.WHISTLE)
             output.accept(Items.RED_CARD)
             output.accept(Items.YELLOW_CARD)
+            output.accept(Blocks.GOAL_NET)
         }
         .build()
 

@@ -273,7 +273,7 @@ object FootballInputHandler {
             return
         }
 
-        if (!FootballMovementInputUtil.hasMovementInput(player)) {
+        if (!FootballMovementInputUtil.hasMovementInput(player, LookAroundClient.movementYaw(player))) {
             return
         }
 
@@ -350,7 +350,7 @@ object FootballInputHandler {
 
     private fun buildDiveFlags(player: LocalPlayer): Int {
         var flags = 0
-        if (!FootballMovementInputUtil.hasMovementInput(player)) {
+        if (!FootballMovementInputUtil.hasMovementInput(player, LookAroundClient.movementYaw(player))) {
             flags = flags or FootballInputConfig.FLAG_DIVE_USE_LOOK
         }
         return flags

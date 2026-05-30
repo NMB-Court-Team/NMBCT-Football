@@ -1,5 +1,6 @@
 package net.astrorbits.football
 
+import net.astrorbits.football.block.Blocks
 import net.astrorbits.football.config.client.FootballClientConfigHolder
 import net.astrorbits.football.config.server.FootballServerConfigHolder
 import net.astrorbits.football.input.FootballDribbleSessions
@@ -31,6 +32,7 @@ object NMBCTFootball : ModInitializer {
 		MatchConfigHolder.init()
 
 		Items.init()
+		Blocks.init()
 		FootballItemGroups.init()
 		Football.init()
 		FootballSounds.init()

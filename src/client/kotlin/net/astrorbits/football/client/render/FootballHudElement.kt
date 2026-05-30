@@ -12,7 +12,12 @@ import net.minecraft.util.FormattedCharSequence
 class FootballHudElement : HudElement {
 
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
-        val font = Minecraft.getInstance().font
+        val client = Minecraft.getInstance()
+        if (client.debugOverlay.showDebugScreen()) {
+            return
+        }
+
+        val font = client.font
         val mainPhase = MatchState.getMainDisplayPhase()
         val phaseText = Component.translatable(mainPhase.displayNameKey)
         val timer = MatchState.formatElapsed(MatchState.getPhaseDisplayTicks())

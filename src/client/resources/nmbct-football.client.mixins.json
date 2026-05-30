@@ -3,6 +3,7 @@
 	"package": "net.astrorbits.football.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
+		"LocalPlayerMixin",
 		"PlayerModelMixin"
 	],
 	"injectors": {
