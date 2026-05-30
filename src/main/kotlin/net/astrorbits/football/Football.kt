@@ -213,6 +213,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (iz < minZ - 1.01 || iz > maxZ + 1.01) return
 
         MatchState.onGoal(scoringTeam)
+        FootballParticles.playGoal(level(), FootballParticles.centerOfFootball(this))
     }
 
     fun kick(kickPoint: Vec3, direction: Vec3) {
