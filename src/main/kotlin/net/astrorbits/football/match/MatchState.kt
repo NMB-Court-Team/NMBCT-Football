@@ -3,6 +3,8 @@ package net.astrorbits.football.match
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.server.MinecraftServer
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
 import java.util.UUID
 
 object MatchState {
@@ -110,6 +112,84 @@ object MatchState {
             TeamSide.A -> teamAScore++
             TeamSide.B -> teamBScore++
         }
+    }
+
+    /** 开赛时将双方队员传送至出生点。守门员传至 GK 点，其余队员按"每个坐标至少一人"分配。 */
+    /** 向双方在线队员广播比赛开始 HUD 信息。 */
+    fun broadcastMatchStart(server: MinecraftServer, kickoffTeam: TeamSide) {
+        val nameA = getTeamName(TeamSide.A).string
+        val nameB = getTeamName(TeamSide.B).string
+        for (uuid in teamAPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            val isGk = PlayerRoleState.teamAGoalkeeper == uuid
+            net.astrorbits.football.network.FootballNetworking.sendMatchStart(player, TeamSide.A, isGk, kickoffTeam, nameA, nameB)
+        }
+        for (uuid in teamBPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            val isGk = PlayerRoleState.teamBGoalkeeper == uuid
+            net.astrorbits.football.network.FootballNetworking.sendMatchStart(player, TeamSide.B, isGk, kickoffTeam, nameA, nameB)
+        }
+    }
+
+    fun teleportTeamsToSpawnPositions(server: MinecraftServer) {
+        val config = MatchConfigHolder.current
+
+        for (side in TeamSide.entries) {
+            val uuids = when (side) {
+                TeamSide.A -> teamAPlayers
+                TeamSide.B -> teamBPlayers
+            }
+            val spawnCfg = when (side) {
+                TeamSide.A -> config.teamASpawn
+                TeamSide.B -> config.teamBSpawn
+            }
+            val gkUuid = when (side) {
+                TeamSide.A -> PlayerRoleState.teamAGoalkeeper
+                TeamSide.B -> PlayerRoleState.teamBGoalkeeper
+            }
+            teleportTeam(side, uuids, gkUuid, spawnCfg, server)
+        }
+    }
+
+    private fun teleportTeam(
+        side: TeamSide,
+        uuids: Set<UUID>,
+        gkUuid: UUID?,
+        spawnCfg: TeamSpawnConfig,
+        server: MinecraftServer,
+    ) {
+        val online = uuids.mapNotNull { server.playerList.getPlayer(it) }
+        if (online.isEmpty()) return
+
+        val gk = gkUuid?.let { server.playerList.getPlayer(it) }
+        // 门将传至 GK 出生点
+        gk?.let { teleportTo(it, spawnCfg.gk) }
+
+        // 普通队员（排除门将）
+        val outfield = online.filter { it.uuid != gkUuid }.shuffled()
+        if (outfield.isEmpty()) return
+
+        val positions = spawnCfg.players
+        if (positions.isEmpty()) return
+
+        // 每个坐标至少分配一人
+        for (i in positions.indices) {
+            if (i < outfield.size) {
+                teleportTo(outfield[i], positions[i])
+            }
+        }
+
+        // 剩余队员随机分配
+        if (outfield.size > positions.size) {
+            for (i in positions.size until outfield.size) {
+                teleportTo(outfield[i], positions.random())
+            }
+        }
+    }
+
+    private fun teleportTo(player: ServerPlayer, pos: SpawnPosition) {
+        val level = player.level() as? ServerLevel ?: return
+        player.teleportTo(level, pos.x, pos.y, pos.z, java.util.HashSet(), pos.yaw, pos.pitch, false)
     }
 
     /** 正计时格式化 (从 0 向上) */

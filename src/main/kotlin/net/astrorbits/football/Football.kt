@@ -157,10 +157,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     private fun detectGoal(prevPos: Vec3, currPos: Vec3) {
-        val config = MatchConfigHolder.current
-        if (!config.enableGoalDetection) return
         if (MatchState.currentPhase == MatchPhase.PRE_MATCH || MatchState.currentPhase == MatchPhase.FINISHED) return
 
+        val config = MatchConfigHolder.current
         val radius = FootballPhysicsConfig.RADIUS
         val prevCenter = prevPos.add(0.0, radius, 0.0)
         val currCenter = currPos.add(0.0, radius, 0.0)

@@ -4,6 +4,7 @@ import net.astrorbits.football.config.server.FootballServerConfigHolder
 import net.astrorbits.football.input.FootballPlayerActions
 import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.match.PlayerRoleState
+import net.astrorbits.football.match.TeamSide
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.network.RegistryFriendlyByteBuf
@@ -28,6 +29,8 @@ object FootballNetworking {
         registry.register(GoalkeeperHoldLockS2CPayload.TYPE, GoalkeeperHoldLockS2CPayload.CODEC)
         registry.register(ServerConfigSyncS2CPayload.TYPE, ServerConfigSyncS2CPayload.CODEC)
 	        registry.register(MatchConfigSyncS2CPayload.TYPE, MatchConfigSyncS2CPayload.CODEC)
+		registry.register(MatchFieldConfigSyncS2CPayload.TYPE, MatchFieldConfigSyncS2CPayload.CODEC)
+		registry.register(MatchStartS2CPayload.TYPE, MatchStartS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -70,8 +73,17 @@ object FootballNetworking {
         ServerPlayNetworking.send(player, MatchConfigSyncS2CPayload(config))
     }
 
+    fun sendMatchFieldConfigSync(player: ServerPlayer, config: net.astrorbits.football.match.MatchConfig) {
+        ServerPlayNetworking.send(player, MatchFieldConfigSyncS2CPayload(config))
+    }
+
     fun sendGoalkeeperRole(player: ServerPlayer, isGoalkeeper: Boolean) {
         ServerPlayNetworking.send(player, GoalkeeperRoleS2CPayload(isGoalkeeper))
+    }
+
+    fun sendMatchStart(player: ServerPlayer, playerTeam: TeamSide, isGk: Boolean, kickoffTeam: TeamSide,
+                       teamAName: String, teamBName: String) {
+        ServerPlayNetworking.send(player, MatchStartS2CPayload(playerTeam, isGk, kickoffTeam, teamAName, teamBName))
     }
 
     fun sendHoldReleaseLock(player: ServerPlayer, lockTicksRemaining: Int) {
