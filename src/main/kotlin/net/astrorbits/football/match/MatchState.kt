@@ -104,6 +104,14 @@ object MatchState {
         isRunning = !isRunning
     }
 
+    /** 进球处理：scoringTeam 为得分队伍 */
+    fun onGoal(scoringTeam: TeamSide) {
+        when (scoringTeam) {
+            TeamSide.A -> teamAScore++
+            TeamSide.B -> teamBScore++
+        }
+    }
+
     /** 正计时格式化 (从 0 向上) */
     fun formatTime(): String {
         val totalSeconds = timerTicks / 20
