@@ -17,7 +17,7 @@ class KickoffLockHudElement : HudElement {
 
         val font = client.font
         val w = client.window.guiScaledWidth
-        val y = client.window.guiScaledHeight - 68
+        val y = client.window.guiScaledHeight - 86
 
         if (MatchStartClient.isChoosing) {
             val text = Component.translatable("hud.nmbct-football.kickoff_lock.waiting").string

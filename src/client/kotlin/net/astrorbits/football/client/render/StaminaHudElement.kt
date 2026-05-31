@@ -23,7 +23,7 @@ class StaminaHudElement : HudElement {
         val barW = 120
         val barH = 8
         val x = width / 2 - barW / 2
-        val y = height - 50  // 快捷栏上方
+        val y = height - 60  // 快捷栏上方
 
         val ratio = stamina.toFloat() / StaminaClient.MAX_STAMINA
         val fillW = (barW * ratio).roundToInt().coerceIn(0, barW)

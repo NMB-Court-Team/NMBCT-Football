@@ -43,3 +43,5 @@ replay_*.log
 .git/
 /.claude/
 .kotlin/
+/AGENTS.md
+/.agents/
