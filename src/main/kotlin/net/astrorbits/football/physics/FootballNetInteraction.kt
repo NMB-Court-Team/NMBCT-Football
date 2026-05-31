@@ -11,6 +11,7 @@ import net.minecraft.world.phys.Vec3
  * - 被吸收的动量转化为对附近网格节点的位移，形成网面被顶出的凹陷。
  */
 object FootballNetInteraction {
+    private const val EPS = 1.0e-6
 
     /**
      * 在足球完成本 tick 位移后调用。
@@ -52,32 +53,25 @@ object FootballNetInteraction {
         prevCenter: Vec3,
         currCenter: Vec3,
     ): NetContact? {
-        val n = rect.normal
-        val o = rect.origin
-        val distNow = currCenter.subtract(o).dot(n)
-        val distPrev = prevCenter.subtract(o).dot(n)
-
-        // 投影到网面，确认是否在矩形范围内。
-        val proj = currCenter.subtract(n.scale(distNow))
-        val rel = proj.subtract(o)
-        val u = rel.dot(rect.uAxis)
-        val v = rel.dot(rect.vAxis)
-        if (u < -radius || u > rect.uLength + radius) return null
-        if (v < -radius || v > rect.vLength + radius) return null
-
-        val crossed = distPrev * distNow < 0.0
-        val touching = Math.abs(distNow) < radius + GoalNetConfig.CONTACT_MARGIN
-        if (!crossed && !touching) return null
+        val local = findBestContact(rect, mesh, radius, prevCenter, currCenter) ?: return null
 
         val velocity = state.linearVelocity
+        val n = local.normal
         val vn = velocity.dot(n)
 
-        // 入射侧：以上一帧所在侧为准（穿透时用 distPrev，否则用 distNow）。
-        val side = if (distPrev != 0.0) Math.signum(distPrev) else Math.signum(distNow).let { if (it == 0.0) 1.0 else it }
+        // 入射侧：穿面时优先用上一帧侧别；仅接触时用当前侧别。
+        val side = when {
+            kotlin.math.abs(local.signedPrev) > EPS -> Math.signum(local.signedPrev)
+            kotlin.math.abs(local.signedNow) > EPS -> Math.signum(local.signedNow)
+            else -> {
+                val moving = velocity.dot(n)
+                if (moving > 0.0) -1.0 else 1.0
+            }
+        }
 
         // 仅在朝网运动或已穿透时作用，避免静止/远离时抖动。
         val approaching = vn * side < 0.0
-        if (!crossed && !approaching) return null
+        if (!local.crossed && !approaching) return null
 
         // 速度分解：法向吸收，切向保留。
         val vNormal = n.scale(vn)
@@ -88,17 +82,245 @@ object FootballNetInteraction {
         // 网被顶出的方向 = 球运动穿入方向（-side*n）。
         val pushDir = n.scale(-side)
         val speedIntoNet = Math.abs(vn)
-        val penetration = (radius + GoalNetConfig.CONTACT_MARGIN - Math.abs(distNow)).coerceAtLeast(0.0)
+        val penetration = (radius + GoalNetConfig.CONTACT_MARGIN - local.distanceNow).coerceAtLeast(0.0)
         val pushAmount = (penetration + speedIntoNet * 0.5) * GoalNetConfig.BALL_PUSH_STRENGTH
         if (pushAmount > 1.0e-4) {
-            mesh.applyDisplacement(proj, pushDir.scale(pushAmount), GoalNetConfig.BALL_PUSH_RADIUS)
+            mesh.applyDisplacement(local.point, pushDir.scale(pushAmount), GoalNetConfig.BALL_PUSH_RADIUS)
             net.markDisturbed()
         }
 
         // 把球留在入射侧、贴着网面（防止穿过）。
-        val restCenter = proj.add(n.scale(side * radius))
+        val restCenter = local.point.add(n.scale(side * radius))
         state.linearVelocity = newVelocity
         return NetContact(restCenter)
+    }
+
+    private data class LocalContact(
+        val point: Vec3,
+        val normal: Vec3,
+        val distanceNow: Double,
+        val signedNow: Double,
+        val signedPrev: Double,
+        val crossed: Boolean,
+        val score: Double,
+    )
+
+    /**
+     * 基于“实时变形网格三角形”寻找最优接触点：
+     * - touching：球心到三角形最近点距离 <= 球半径+余量
+     * - crossed：球心轨迹线段穿过三角形平面并落在三角形内
+     */
+    private fun findBestContact(
+        rect: net.astrorbits.football.util.GoalNetGeometry.NetRectangle,
+        mesh: GoalNetMesh,
+        radius: Double,
+        prevCenter: Vec3,
+        currCenter: Vec3,
+    ): LocalContact? {
+        val contactRadius = radius + GoalNetConfig.CONTACT_MARGIN
+        val sweptMinX = minOf(prevCenter.x, currCenter.x) - contactRadius
+        val sweptMinY = minOf(prevCenter.y, currCenter.y) - contactRadius
+        val sweptMinZ = minOf(prevCenter.z, currCenter.z) - contactRadius
+        val sweptMaxX = maxOf(prevCenter.x, currCenter.x) + contactRadius
+        val sweptMaxY = maxOf(prevCenter.y, currCenter.y) + contactRadius
+        val sweptMaxZ = maxOf(prevCenter.z, currCenter.z) + contactRadius
+        var best: LocalContact? = null
+        val cols = mesh.cols
+        val rows = mesh.rows
+
+        for (j in 0 until rows - 1) {
+            for (i in 0 until cols - 1) {
+                val k00 = mesh.index(i, j)
+                val k10 = mesh.index(i + 1, j)
+                val k01 = mesh.index(i, j + 1)
+                val k11 = mesh.index(i + 1, j + 1)
+                val p00 = mesh.nodeWorld(k00)
+                val p10 = mesh.nodeWorld(k10)
+                val p01 = mesh.nodeWorld(k01)
+                val p11 = mesh.nodeWorld(k11)
+
+                // 粗筛：球的 swept AABB 与单元（四点）AABB 不相交时跳过两三角精检。
+                if (!cellMayContact(
+                        p00, p10, p01, p11,
+                        sweptMinX, sweptMinY, sweptMinZ,
+                        sweptMaxX, sweptMaxY, sweptMaxZ,
+                        contactRadius
+                    )
+                ) {
+                    continue
+                }
+
+                best = pickBetter(
+                    best,
+                    evaluateTriangle(rect.normal, p00, p10, p11, contactRadius, prevCenter, currCenter)
+                )
+                best = pickBetter(
+                    best,
+                    evaluateTriangle(rect.normal, p00, p11, p01, contactRadius, prevCenter, currCenter)
+                )
+            }
+        }
+        return best
+    }
+
+    private fun cellMayContact(
+        p00: Vec3,
+        p10: Vec3,
+        p01: Vec3,
+        p11: Vec3,
+        sweptMinX: Double,
+        sweptMinY: Double,
+        sweptMinZ: Double,
+        sweptMaxX: Double,
+        sweptMaxY: Double,
+        sweptMaxZ: Double,
+        padding: Double,
+    ): Boolean {
+        val cellMinX = minOf(p00.x, p10.x, p01.x, p11.x) - padding
+        val cellMinY = minOf(p00.y, p10.y, p01.y, p11.y) - padding
+        val cellMinZ = minOf(p00.z, p10.z, p01.z, p11.z) - padding
+        val cellMaxX = maxOf(p00.x, p10.x, p01.x, p11.x) + padding
+        val cellMaxY = maxOf(p00.y, p10.y, p01.y, p11.y) + padding
+        val cellMaxZ = maxOf(p00.z, p10.z, p01.z, p11.z) + padding
+        return aabbIntersects(
+            sweptMinX, sweptMinY, sweptMinZ, sweptMaxX, sweptMaxY, sweptMaxZ,
+            cellMinX, cellMinY, cellMinZ, cellMaxX, cellMaxY, cellMaxZ
+        )
+    }
+
+    private fun aabbIntersects(
+        aMinX: Double, aMinY: Double, aMinZ: Double,
+        aMaxX: Double, aMaxY: Double, aMaxZ: Double,
+        bMinX: Double, bMinY: Double, bMinZ: Double,
+        bMaxX: Double, bMaxY: Double, bMaxZ: Double,
+    ): Boolean {
+        return aMinX <= bMaxX && aMaxX >= bMinX &&
+            aMinY <= bMaxY && aMaxY >= bMinY &&
+            aMinZ <= bMaxZ && aMaxZ >= bMinZ
+    }
+
+    private fun pickBetter(current: LocalContact?, next: LocalContact?): LocalContact? {
+        if (next == null) return current
+        if (current == null) return next
+        return if (next.score > current.score) next else current
+    }
+
+    private fun evaluateTriangle(
+        preferredNormal: Vec3,
+        a: Vec3,
+        b: Vec3,
+        c: Vec3,
+        contactRadius: Double,
+        prevCenter: Vec3,
+        currCenter: Vec3,
+    ): LocalContact? {
+        val triNormal = orientedNormal(preferredNormal, a, b, c) ?: return null
+        val closestNow = closestPointOnTriangle(currCenter, a, b, c)
+        val closestPrev = closestPointOnTriangle(prevCenter, a, b, c)
+        val nowOffset = currCenter.subtract(closestNow)
+        val prevOffset = prevCenter.subtract(closestPrev)
+        val distNow = kotlin.math.sqrt(nowOffset.lengthSqr())
+        val signedNow = currCenter.subtract(closestNow).dot(triNormal)
+        val signedPrev = prevCenter.subtract(closestPrev).dot(triNormal)
+        val touching = distNow <= contactRadius
+        val crossed = segmentCrossesTrianglePlane(prevCenter, currCenter, a, b, c, triNormal)
+        if (!touching && !crossed) return null
+
+        val score = if (crossed) {
+            // 穿面优先级更高，避免高速球只被“附近接触”覆盖。
+            10_000.0 + (contactRadius - distNow).coerceAtLeast(0.0)
+        } else {
+            (contactRadius - distNow).coerceAtLeast(0.0)
+        }
+        return LocalContact(
+            point = closestNow,
+            normal = triNormal,
+            distanceNow = distNow,
+            signedNow = signedNow,
+            signedPrev = signedPrev,
+            crossed = crossed,
+            score = score,
+        )
+    }
+
+    private fun orientedNormal(preferredNormal: Vec3, a: Vec3, b: Vec3, c: Vec3): Vec3? {
+        val ab = b.subtract(a)
+        val ac = c.subtract(a)
+        var n = ab.cross(ac)
+        val lenSqr = n.lengthSqr()
+        if (lenSqr < EPS) return null
+        n = n.scale(1.0 / kotlin.math.sqrt(lenSqr))
+        return if (n.dot(preferredNormal) < 0.0) n.scale(-1.0) else n
+    }
+
+    /**
+     * Christer Ericson《Real-Time Collision Detection》三角形最近点算法。
+     */
+    private fun closestPointOnTriangle(p: Vec3, a: Vec3, b: Vec3, c: Vec3): Vec3 {
+        val ab = b.subtract(a)
+        val ac = c.subtract(a)
+        val ap = p.subtract(a)
+        val d1 = ab.dot(ap)
+        val d2 = ac.dot(ap)
+        if (d1 <= 0.0 && d2 <= 0.0) return a
+
+        val bp = p.subtract(b)
+        val d3 = ab.dot(bp)
+        val d4 = ac.dot(bp)
+        if (d3 >= 0.0 && d4 <= d3) return b
+
+        val vc = d1 * d4 - d3 * d2
+        if (vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0) {
+            val v = d1 / (d1 - d3)
+            return a.add(ab.scale(v))
+        }
+
+        val cp = p.subtract(c)
+        val d5 = ab.dot(cp)
+        val d6 = ac.dot(cp)
+        if (d6 >= 0.0 && d5 <= d6) return c
+
+        val vb = d5 * d2 - d1 * d6
+        if (vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0) {
+            val w = d2 / (d2 - d6)
+            return a.add(ac.scale(w))
+        }
+
+        val va = d3 * d6 - d5 * d4
+        if (va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0) {
+            val bc = c.subtract(b)
+            val w = (d4 - d3) / ((d4 - d3) + (d5 - d6))
+            return b.add(bc.scale(w))
+        }
+
+        val denom = 1.0 / (va + vb + vc)
+        val v = vb * denom
+        val w = vc * denom
+        return a.add(ab.scale(v)).add(ac.scale(w))
+    }
+
+    private fun segmentCrossesTrianglePlane(
+        p0: Vec3,
+        p1: Vec3,
+        a: Vec3,
+        b: Vec3,
+        c: Vec3,
+        n: Vec3,
+    ): Boolean {
+        val dir = p1.subtract(p0)
+        val den = dir.dot(n)
+        if (kotlin.math.abs(den) < EPS) return false
+        val t = a.subtract(p0).dot(n) / den
+        if (t < 0.0 || t > 1.0) return false
+        val hit = p0.add(dir.scale(t))
+        return pointInTriangle(hit, a, b, c, n)
+    }
+
+    private fun pointInTriangle(p: Vec3, a: Vec3, b: Vec3, c: Vec3, n: Vec3): Boolean {
+        val c0 = b.subtract(a).cross(p.subtract(a)).dot(n)
+        val c1 = c.subtract(b).cross(p.subtract(b)).dot(n)
+        val c2 = a.subtract(c).cross(p.subtract(c)).dot(n)
+        return c0 >= -EPS && c1 >= -EPS && c2 >= -EPS
     }
 
     /** 接触结果：球应被放置到的球心位置。 */

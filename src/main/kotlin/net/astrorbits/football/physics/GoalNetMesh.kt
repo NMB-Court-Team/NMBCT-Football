@@ -96,7 +96,6 @@ class GoalNetMesh(
     }
 
     fun resetToFrame() {
-        val gravity = GoalNetConfig.GRAVITY * (1.0 + slack * GoalNetConfig.SLACK_GRAVITY_GAIN)
         for (k in 0 until nodeCount) {
             posX[k] = frameX[k]; posY[k] = frameY[k]; posZ[k] = frameZ[k]
             prevX[k] = frameX[k]; prevY[k] = frameY[k]; prevZ[k] = frameZ[k]
