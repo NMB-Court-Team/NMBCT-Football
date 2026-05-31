@@ -2,6 +2,7 @@ package net.astrorbits.football.client.key
 
 import net.astrorbits.football.client.FootballOperabilityClient
 import net.astrorbits.football.client.GoalkeeperStateClient
+import net.astrorbits.football.client.SlideTackleStateClient
 import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.config.FootballConfigs
 import net.astrorbits.football.input.FootballInputConfig
@@ -18,6 +19,7 @@ object FootballInputHandler {
     private var trapPrevTickPressed = false
     private var chipPrevTickPressed = false
     private var dribblePrevTickPressed = false
+    private var slidePrevTickPressed = false
 
     private var kickPressStartMs: Long? = null
 
@@ -110,10 +112,19 @@ object FootballInputHandler {
     }
 
     private fun handleOutfieldInput(player: LocalPlayer) {
+        if (SlideTackleStateClient.isSliding(player.id)) {
+            // 滑铲时仅允许维持/结束滑铲输入，不发送其他主动球类动作。
+            kickPressStartMs = null
+            resetChargeDisplay()
+            dribbleTickCounter = 0
+            handleSlideTacklePress(player)
+            return
+        }
         handleKickLongPress(player, holdingBall = false)
         handleTrapPress(player, FootballActionType.TRAP)
         handleChipPress(player)
         handleDribbleHold(player)
+        handleSlideTacklePress(player)
     }
 
     fun onGoalkeeperBeganHoldingBall() {
@@ -295,6 +306,17 @@ object FootballInputHandler {
         sendDribbleAction(player, FootballActionType.DRIBBLE_HOLD, buildDribbleFlags(player))
     }
 
+    private fun handleSlideTacklePress(player: LocalPlayer) {
+        val down = FootballKeyBindings.SLIDE_TACKLE.isDown
+        if (down && !slidePrevTickPressed && player.isSprinting) {
+            sendAction(player, FootballActionType.SLIDE_TACKLE, 0f, 0L, buildFlags(player))
+            return
+        }
+        if (!down && slidePrevTickPressed) {
+            sendAction(player, FootballActionType.SLIDE_TACKLE_END, 0f, 0L, 0)
+        }
+    }
+
     private fun updateShootCharge(heldMs: Long) {
         val settings = chargeSettings()
         val phase = KickChargeUtil.computePhase(heldMs, settings)
@@ -344,6 +366,7 @@ object FootballInputHandler {
         trapPrevTickPressed = FootballKeyBindings.TRAP.isDown
         chipPrevTickPressed = FootballKeyBindings.CHIP.isDown
         dribblePrevTickPressed = FootballKeyBindings.DRIBBLE.isDown
+        slidePrevTickPressed = FootballKeyBindings.SLIDE_TACKLE.isDown
     }
 
     private fun buildFlags(player: LocalPlayer): Int {

@@ -268,6 +268,14 @@ object FootballSounds {
         basePitch = 0.95f,
     )
 
+    val SLIDE_TACKLE: SoundSpec = SoundSpec(
+        event = SoundEvents.PLAYER_ATTACK_SWEEP,
+        source = SoundSource.PLAYERS,
+        volume = 0.62f,
+        basePitch = 0.9f,
+        pitchSpread = 0.08f,
+    )
+
     fun playGkCatch(player: ServerPlayer, incomingSpeed: Double = 0.0) {
         val reference = kotlin.math.max(GoalkeeperInputConfig.GK_CATCH_MAX_SPEED, GoalkeeperInputConfig.GK_DIVE_CATCH_MAX_SPEED)
             .coerceAtLeast(0.1)
@@ -294,6 +302,31 @@ object FootballSounds {
 
     fun playGkThrow(player: ServerPlayer) {
         play(player.level(), player.blockPosition(), GK_THROW, player.random)
+    }
+
+    fun playSlideTackle(player: ServerPlayer) {
+        val belowPos = player.blockPosition().below()
+        val blockState = player.level().getBlockState(belowPos)
+        val soundType = blockState.soundType
+        val breakEvent = soundType.breakSound
+        if (breakEvent == null) {
+            return
+        }
+        // 滑铲脚步声使用脚下方块破坏声，音量减半。
+        player.level().playSound(
+            null,
+            player.blockPosition(),
+            breakEvent,
+            SoundSource.BLOCKS,
+            soundType.volume * 0.5f,
+            soundType.pitch,
+        )
+    }
+
+    fun playSlideTackleContact(player: ServerPlayer, force: Double) {
+        val normalizedForce = normalizeKickForce(force)
+        val volumeScale = 0.9f + normalizedForce * 0.2f
+        play(player.level(), player.blockPosition(), SLIDE_TACKLE, player.random, volumeScale)
     }
 
     fun playFootballPlace(level: Level, pos: BlockPos, random: RandomSource) {

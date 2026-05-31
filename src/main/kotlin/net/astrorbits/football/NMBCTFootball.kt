@@ -6,6 +6,7 @@ import net.astrorbits.football.config.client.FootballClientConfigHolder
 import net.astrorbits.football.config.server.FootballServerConfigHolder
 import net.astrorbits.football.input.FootballDribbleSessions
 import net.astrorbits.football.input.GoalkeeperDiveSessions
+import net.astrorbits.football.input.SlideTackleSessions
 import net.astrorbits.football.item.FootballItemGroups
 import net.astrorbits.football.item.Items
 import net.astrorbits.football.item.FootballItemUseGuards
@@ -54,6 +55,7 @@ object NMBCTFootball : ModInitializer {
 		FootballItemUseGuards.register()
 		FootballDribbleSessions.registerEvents()
 		GoalkeeperDiveSessions.registerEvents()
+		SlideTackleSessions.registerEvents()
 
 		ServerPlayConnectionEvents.JOIN.register { handler, _, _ ->
 			PlayerRoleState.syncRoleToPlayer(handler.player)

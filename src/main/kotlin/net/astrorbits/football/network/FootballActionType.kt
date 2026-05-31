@@ -30,4 +30,8 @@ enum class FootballActionType {
     GK_DROP,
     /** 主手持足球物品时，左键沿视线轻踢抛出。 */
     ITEM_THROW,
+    /** 跑步中触发滑铲动作。 */
+    SLIDE_TACKLE,
+    /** 松开滑铲键后请求结束滑铲。 */
+    SLIDE_TACKLE_END,
 }

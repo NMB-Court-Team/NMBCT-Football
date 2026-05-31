@@ -24,7 +24,7 @@ class MatchStartHudElement : HudElement {
         val h = client.window.guiScaledHeight
         val scale = 3.0f
         val cx = (w / 2f / scale).toInt()
-        val baseY = (h / 2f / scale).toInt() - 20
+        val baseY = (h / 2f / scale).toInt() - 36
 
         // fade out in last 1 second
         val alpha = ((remaining.coerceIn(0L, 1000L) / 1000f) * 255).toInt()

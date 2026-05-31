@@ -23,6 +23,8 @@ object FootballNetworking {
         registry.register(FootballActionC2SPayload.TYPE, FootballActionC2SPayload.CODEC)
         registry.register(ServerConfigApplyC2SPayload.TYPE, ServerConfigApplyC2SPayload.CODEC)
 	        registry.register(MatchConfigApplyC2SPayload.TYPE, MatchConfigApplyC2SPayload.CODEC)
+		registry.register(HalfKickoffRequestC2SPayload.TYPE, HalfKickoffRequestC2SPayload.CODEC)
+		registry.register(MatchResultRequestC2SPayload.TYPE, MatchResultRequestC2SPayload.CODEC)
     }
 
     private fun registerS2CPayloadType(registry: PayloadTypeRegistry<RegistryFriendlyByteBuf>) {
@@ -35,6 +37,13 @@ object FootballNetworking {
 		registry.register(KickoffBallTouchedS2CPayload.TYPE, KickoffBallTouchedS2CPayload.CODEC)
 		registry.register(GoalNetStateS2CPayload.TYPE, GoalNetStateS2CPayload.CODEC)
 		registry.register(GoalNetConnectorSelectionS2CPayload.TYPE, GoalNetConnectorSelectionS2CPayload.CODEC)
+		registry.register(GoalScoredS2CPayload.TYPE, GoalScoredS2CPayload.CODEC)
+		registry.register(PostGoalKickoffS2CPayload.TYPE, PostGoalKickoffS2CPayload.CODEC)
+		registry.register(MatchResetS2CPayload.TYPE, MatchResetS2CPayload.CODEC)
+		registry.register(HalfKickoffRequestC2SPayload.TYPE, HalfKickoffRequestC2SPayload.CODEC)
+		registry.register(HalfKickoffS2CPayload.TYPE, HalfKickoffS2CPayload.CODEC)
+		registry.register(MatchResultRequestC2SPayload.TYPE, MatchResultRequestC2SPayload.CODEC)
+		registry.register(MatchResultS2CPayload.TYPE, MatchResultS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -67,6 +76,58 @@ object FootballNetworking {
                 )
             }
         }
+        ServerPlayNetworking.registerGlobalReceiver(HalfKickoffRequestC2SPayload.TYPE) { _, context ->
+            context.server().execute {
+                val server = context.server()
+                val level = context.player().level() as? net.minecraft.server.level.ServerLevel ?: return@execute
+                handleHalfKickoffRequest(level, server)
+            }
+        }
+        ServerPlayNetworking.registerGlobalReceiver(MatchResultRequestC2SPayload.TYPE) { _, context ->
+            context.server().execute {
+                val server = context.server()
+                val nameA = net.astrorbits.football.match.MatchState.getTeamName(net.astrorbits.football.match.TeamSide.A).string
+                val nameB = net.astrorbits.football.match.MatchState.getTeamName(net.astrorbits.football.match.TeamSide.B).string
+                val isDraw = net.astrorbits.football.match.MatchState.teamAScore == net.astrorbits.football.match.MatchState.teamBScore
+                broadcastMatchResult(server, net.astrorbits.football.match.MatchState.teamAScore, net.astrorbits.football.match.MatchState.teamBScore, nameA, nameB, isDraw)
+            }
+        }
+    }
+
+    private fun handleHalfKickoffRequest(level: net.minecraft.server.level.ServerLevel, server: MinecraftServer) {
+        val ms = net.astrorbits.football.match.MatchState
+        val lastHalf = ms.lastHalfKickoffTeam ?: TeamSide.A
+        val nextKickoff = if (lastHalf == TeamSide.A) TeamSide.B else TeamSide.A
+        if (!ms.halfKickoffBroadcasted) {
+            ms.halfKickoffBroadcasted = true
+            ms.lastHalfKickoffTeam = nextKickoff
+            ms.kickoffTeam = nextKickoff
+            ms.kickoffTouched = false
+            ms.resetFootball(level)
+            val nameA = ms.getTeamName(TeamSide.A).string
+            val nameB = ms.getTeamName(TeamSide.B).string
+            val phaseKey = when (ms.currentPhase) {
+                net.astrorbits.football.match.MatchPhase.SECOND_HALF -> "match.phase.second_half"
+                net.astrorbits.football.match.MatchPhase.EXTRA_FIRST -> "match.phase.extra_first"
+                net.astrorbits.football.match.MatchPhase.EXTRA_SECOND -> "match.phase.extra_second"
+                else -> return
+            }
+            broadcastHalfKickoff(server, nextKickoff, phaseKey, nameA, nameB)
+        }
+    }
+
+    fun broadcastHalfKickoff(server: MinecraftServer, kickoffTeam: TeamSide, phaseKey: String, teamAName: String, teamBName: String) {
+        val payload = HalfKickoffS2CPayload(kickoffTeam, phaseKey, teamAName, teamBName)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun broadcastMatchResult(server: MinecraftServer, teamAScore: Int, teamBScore: Int, teamAName: String, teamBName: String, isDraw: Boolean) {
+        val payload = MatchResultS2CPayload(teamAScore, teamBScore, teamAName, teamBName, isDraw)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
     }
 
     fun sendServerConfigSync(player: ServerPlayer, config: net.astrorbits.football.config.server.FootballServerConfig) {
@@ -94,9 +155,30 @@ object FootballNetworking {
         ServerPlayNetworking.send(player, GoalkeeperHoldLockS2CPayload(lockTicksRemaining))
     }
 
+    fun syncSlideTackleState(player: ServerPlayer, sliding: Boolean) {
+        val payload = SlideTackleStateS2CPayload(player.id, sliding)
+        val server = player.level().server
+        for (target in server.playerList.players) {
+            ServerPlayNetworking.send(target, payload)
+        }
+    }
+
     fun syncGoalkeeperRole(uuid: UUID, server: MinecraftServer?) {
         val player = server?.playerList?.getPlayer(uuid) ?: return
         PlayerRoleState.syncRoleToPlayer(player)
+    }
+
+    fun broadcastPostGoalKickoff(server: MinecraftServer, kickoffTeam: TeamSide) {
+        val payload = PostGoalKickoffS2CPayload(kickoffTeam)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun broadcastMatchReset(server: MinecraftServer) {
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, MatchResetS2CPayload.INSTANCE)
+        }
     }
 
     fun broadcastKickoffBallTouched(server: MinecraftServer) {
@@ -119,6 +201,14 @@ object FootballNetworking {
     ) {
         val payload = GoalNetStateS2CPayload(entity.id, cols, rows, relativePositions.copyOf())
         for (player in PlayerLookup.tracking(entity)) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun broadcastGoalScored(server: MinecraftServer, scoringTeam: TeamSide, scorerName: String,
+                            scorerTeam: TeamSide, teamAScore: Int, teamBScore: Int, ownGoal: Boolean) {
+        val payload = GoalScoredS2CPayload(scoringTeam, scorerName, scorerTeam, teamAScore, teamBScore, ownGoal)
+        for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
         }
     }

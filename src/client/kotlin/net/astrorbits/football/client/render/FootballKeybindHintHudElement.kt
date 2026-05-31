@@ -203,6 +203,7 @@ class FootballKeybindHintHudElement : HudElement {
         private val OUTFIELD_HINT_ROWS: List<Pair<KeyMapping, String>> = listOf(
             FootballKeyBindings.KICK to "hud.nmbct-football.hint.pass_shoot",
             FootballKeyBindings.DRIBBLE to "hud.nmbct-football.hint.dribble",
+            FootballKeyBindings.SLIDE_TACKLE to "hud.nmbct-football.hint.slide_tackle",
             FootballKeyBindings.TRAP to "hud.nmbct-football.hint.trap",
             FootballKeyBindings.CHIP to "hud.nmbct-football.hint.chip",
         )

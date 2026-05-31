@@ -73,6 +73,7 @@ object GoalkeeperActions {
                 val params = GoalkeeperUtil.resolveThrowShortParams()
                 FootballParticles.playGkThrow(player, football)
                 football.releaseHold()
+                football.lastKicker = player.uuid
                 FootballKickUtil.applyKickToFootballWithLook(
                     football,
                     params,
@@ -92,6 +93,7 @@ object GoalkeeperActions {
                 val params = GoalkeeperUtil.resolveThrowLongParams(chargeRatio, sprinting, perfect)
                 FootballParticles.playGkThrow(player, football)
                 football.releaseHold()
+                football.lastKicker = player.uuid
                 FootballKickUtil.applyKickToFootballWithLook(
                     football,
                     params,
@@ -104,6 +106,7 @@ object GoalkeeperActions {
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.GK_DROP -> {
+                football.lastKicker = player.uuid
                 FootballParticles.playGkCatch(player, football, 0.0)
                 football.dropAt(player)
                 FootballSounds.playGkCatch(player, 0.0)
@@ -136,6 +139,7 @@ object GoalkeeperActions {
             return
         }
 
+        football.lastKicker = player.uuid
         football.enterHold(player)
         FootballSounds.playGkCatch(player, speed)
         FootballParticles.playGkCatch(player, football, speed)
@@ -185,6 +189,7 @@ object GoalkeeperActions {
     fun tryResolveDiveCatch(player: ServerPlayer, football: Football, diveDirection: Vec3): Boolean {
         val speed = GoalkeeperUtil.ballSpeed(football)
         if (speed <= GoalkeeperInputConfig.GK_DIVE_CATCH_MAX_SPEED) {
+            football.lastKicker = player.uuid
             football.enterHold(player)
             FootballSounds.playGkCatch(player, speed)
             FootballParticles.playGkCatch(player, football, speed)
@@ -193,6 +198,7 @@ object GoalkeeperActions {
 
         val deflectDir = applyDeflectDirection(diveDirection, player)
         val force = speed * GoalkeeperInputConfig.GK_DIVE_DEFLECT_FORCE_SCALE
+        football.lastKicker = player.uuid
         FootballKickUtil.applyKickWithHorizontalDirection(
             football,
             deflectDir,

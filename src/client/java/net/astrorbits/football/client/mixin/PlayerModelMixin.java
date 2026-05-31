@@ -1,6 +1,7 @@
 package net.astrorbits.football.client.mixin;
 
 import net.astrorbits.football.client.GoalkeeperHoldPoseClient;
+import net.astrorbits.football.client.SlideTacklePoseClient;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import org.spongepowered.asm.mixin.Mixin;
@@ -15,9 +16,13 @@ public abstract class PlayerModelMixin {
             at = @At("TAIL")
     )
     private void nmbctFootball$applyGoalkeeperHoldPose(AvatarRenderState state, CallbackInfo ci) {
-        if (!GoalkeeperHoldPoseClient.isPlayerHoldingBall(state.id)) {
+        if (GoalkeeperHoldPoseClient.isPlayerHoldingBall(state.id)) {
+            GoalkeeperHoldPoseClient.applyHoldArmPose((PlayerModel) (Object) this);
             return;
         }
-        GoalkeeperHoldPoseClient.applyHoldArmPose((PlayerModel) (Object) this);
+        if (!SlideTacklePoseClient.isPlayerSliding(state.id)) {
+            return;
+        }
+        SlideTacklePoseClient.applySlidePose((PlayerModel) (Object) this);
     }
 }
