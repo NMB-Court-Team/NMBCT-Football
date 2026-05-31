@@ -11,8 +11,7 @@ import net.minecraft.world.item.Rarity
 object Items {
     val FOOTBALL = register(
         "football",
-        Item.Properties()
-            .rarity(Rarity.RARE),
+        Item.Properties().stacksTo(16),
         ::FootballItem
     )
     val WHISTLE = register(
@@ -29,6 +28,11 @@ object Items {
         "yellow_card",
         Item.Properties(),
         ::Item,
+    )
+    val GOAL_NET_CONNECTOR = register(
+        "goal_net_connector",
+        Item.Properties().stacksTo(1),
+        ::GoalNetConnectorItem,
     )
 
     fun init() {

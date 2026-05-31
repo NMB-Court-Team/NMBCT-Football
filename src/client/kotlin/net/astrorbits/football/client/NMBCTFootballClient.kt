@@ -2,6 +2,10 @@ package net.astrorbits.football.client
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.NMBCTFootball
+import net.astrorbits.football.entity.GoalNetEntity
+import net.astrorbits.football.client.render.GoalNetConnectorPreviewClient
+import net.astrorbits.football.client.render.GoalNetRenderer
+import net.astrorbits.football.client.render.GoalNetStateClient
 import net.astrorbits.football.client.match.MatchStateClient
 import net.astrorbits.football.client.config.FootballConfigNetworking
 import net.astrorbits.football.client.config.MatchConfigNetworking
@@ -30,7 +34,10 @@ import net.minecraft.resources.Identifier
 object NMBCTFootballClient : ClientModInitializer {
 	override fun onInitializeClient() {
 		EntityRenderers.register(Football.ENTITY_TYPE, ::FootballRenderer)
+		EntityRenderers.register(GoalNetEntity.ENTITY_TYPE, ::GoalNetRenderer)
 
+		GoalNetStateClient.register()
+		GoalNetConnectorPreviewClient.register()
 		FootballConfigNetworking.register()
 		MatchConfigNetworking.register()
 		MatchFieldConfigNetworking.register()

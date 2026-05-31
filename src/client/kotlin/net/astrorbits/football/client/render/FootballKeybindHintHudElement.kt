@@ -23,7 +23,7 @@ class FootballKeybindHintHudElement : HudElement {
         val level = client.level ?: return
 
         val font = client.font
-        val lookAroundRow = buildHintRow(font, FootballKeyBindings.LOOK_AROUND, LOOK_AROUND_LABEL_KEY)
+        val lookAroundSection = buildLookAroundSection(font, player)
         val footballRows = if (canRenderFootballHints(player)) {
             buildFootballHintRows(font)
         } else {
@@ -42,14 +42,13 @@ class FootballKeybindHintHudElement : HudElement {
                 screenW = client.window.guiScaledWidth,
                 title = null,
                 titleColor = TITLE_COLOR_ACTIVE,
-                rows = listOf(StyledRow(lookAroundRow, RowColors.ACTIVE)),
+                rows = lookAroundSection,
             )
             return
         }
 
         val titleKey = if (GoalkeeperStateClient.isGoalkeeper) TITLE_KEY_GK else TITLE_KEY
-        val styledRows = footballRows.map { StyledRow(it, footballColors) } +
-            StyledRow(lookAroundRow, RowColors.ACTIVE)
+        val styledRows = footballRows.map { StyledRow(it, footballColors) } + lookAroundSection
         renderPanel(
             extra = extra,
             font = font,
@@ -73,6 +72,21 @@ class FootballKeybindHintHudElement : HudElement {
 
     private fun canRenderFootballHints(player: LocalPlayer): Boolean =
         player.mainHandItem.isEmpty
+
+    private fun buildLookAroundSection(font: Font, player: LocalPlayer): List<StyledRow> {
+        val rows = mutableListOf<StyledRow>()
+        if (!GoalkeeperStateClient.isGoalkeeper) {
+            rows += StyledRow(
+                buildHintRow(font, FootballKeyBindings.SLIDE_TACKLE, SLIDE_TACKLE_LABEL_KEY),
+                if (player.isSprinting) RowColors.ACTIVE else RowColors.INACTIVE,
+            )
+        }
+        rows += StyledRow(
+            buildHintRow(font, FootballKeyBindings.LOOK_AROUND, LOOK_AROUND_LABEL_KEY),
+            RowColors.ACTIVE,
+        )
+        return rows
+    }
 
     private fun buildFootballHintRows(font: Font): List<HintRow> =
         buildFootballActionRows().map { (key, labelKey) ->
@@ -182,6 +196,7 @@ class FootballKeybindHintHudElement : HudElement {
         private const val TITLE_KEY = "hud.nmbct-football.hint.title"
         private const val TITLE_KEY_GK = "hud.nmbct-football.hint.title_gk"
         private const val LOOK_AROUND_LABEL_KEY = "hud.nmbct-football.hint.look_around"
+        private const val SLIDE_TACKLE_LABEL_KEY = "hud.nmbct-football.hint.slide_tackle"
         private const val MARGIN = 8
         private const val PAD = 8
         private const val ROW_GAP = 4
@@ -203,7 +218,6 @@ class FootballKeybindHintHudElement : HudElement {
         private val OUTFIELD_HINT_ROWS: List<Pair<KeyMapping, String>> = listOf(
             FootballKeyBindings.KICK to "hud.nmbct-football.hint.pass_shoot",
             FootballKeyBindings.DRIBBLE to "hud.nmbct-football.hint.dribble",
-            FootballKeyBindings.SLIDE_TACKLE to "hud.nmbct-football.hint.slide_tackle",
             FootballKeyBindings.TRAP to "hud.nmbct-football.hint.trap",
             FootballKeyBindings.CHIP to "hud.nmbct-football.hint.chip",
         )

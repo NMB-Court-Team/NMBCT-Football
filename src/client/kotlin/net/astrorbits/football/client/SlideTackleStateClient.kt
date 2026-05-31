@@ -1,11 +1,12 @@
 package net.astrorbits.football.client
 
-import net.astrorbits.football.input.SlideTackleStateAccess
+import net.astrorbits.football.input.isSlideTackling
 import net.astrorbits.football.network.SlideTackleStateS2CPayload
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.Minecraft
 import net.minecraft.client.player.LocalPlayer
+import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.player.Player
 import kotlin.math.atan2
 
@@ -45,9 +46,9 @@ object SlideTackleStateClient {
     @JvmStatic
     fun isSliding(entityId: Int): Boolean = slidingEntities.contains(entityId)
 
-    private fun applySlideStateToEntity(entity: net.minecraft.world.entity.Entity?, sliding: Boolean) {
+    private fun applySlideStateToEntity(entity: Entity?, sliding: Boolean) {
         val player = entity as? Player ?: return
-        (player as? SlideTackleStateAccess)?.nmbctFootball_setSlideTackling(sliding)
+        player.isSlideTackling = sliding
         player.refreshDimensions()
     }
 

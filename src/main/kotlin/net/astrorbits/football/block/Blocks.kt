@@ -7,18 +7,19 @@ import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
 import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.Item
+import net.minecraft.world.item.Rarity
 import net.minecraft.world.level.block.Block
-import net.minecraft.world.level.block.SoundType
 import net.minecraft.world.level.block.state.BlockBehaviour
 
 object Blocks {
-    val GOAL_NET = registerWithItem(
-        "goal_net",
+
+    val GOAL_NET_ANCHOR = registerWithItem(
+        "goal_net_anchor",
         BlockBehaviour.Properties.of()
-            .strength(0.8f)
-            .sound(SoundType.WOOL)
-            .noOcclusion()
-    ) { GoalNetBlock(it) }
+            .strength(0.6f)
+            .noOcclusion(),
+        factory = ::GoalNetAnchorBlock,
+    )
 
     fun init() {
         // static init

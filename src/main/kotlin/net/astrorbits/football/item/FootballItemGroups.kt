@@ -17,7 +17,8 @@ object FootballItemGroups {
             output.accept(Items.WHISTLE)
             output.accept(Items.RED_CARD)
             output.accept(Items.YELLOW_CARD)
-            output.accept(Blocks.GOAL_NET)
+            output.accept(Items.GOAL_NET_CONNECTOR)
+            output.accept(Blocks.GOAL_NET_ANCHOR)
         }
         .build()
 

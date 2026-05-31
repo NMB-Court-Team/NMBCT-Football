@@ -308,10 +308,7 @@ object FootballSounds {
         val belowPos = player.blockPosition().below()
         val blockState = player.level().getBlockState(belowPos)
         val soundType = blockState.soundType
-        val breakEvent = soundType.breakSound
-        if (breakEvent == null) {
-            return
-        }
+        val breakEvent = soundType.breakSound ?: return
         // 滑铲脚步声使用脚下方块破坏声，音量减半。
         player.level().playSound(
             null,

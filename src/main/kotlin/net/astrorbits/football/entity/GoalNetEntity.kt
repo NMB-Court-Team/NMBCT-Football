@@ -1,0 +1,229 @@
+package net.astrorbits.football.entity
+
+import net.astrorbits.football.NMBCTFootball
+import net.astrorbits.football.network.FootballNetworking
+import net.astrorbits.football.physics.GoalNetConfig
+import net.astrorbits.football.physics.GoalNetMesh
+import net.astrorbits.football.util.GoalNetGeometry
+import net.minecraft.core.BlockPos
+import net.minecraft.core.Registry
+import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.core.registries.Registries
+import net.minecraft.network.syncher.SynchedEntityData
+import net.minecraft.resources.ResourceKey
+import net.minecraft.world.entity.Entity
+import net.minecraft.world.entity.EntityType
+import net.minecraft.world.entity.MobCategory
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.storage.ValueInput
+import net.minecraft.world.level.storage.ValueOutput
+import net.minecraft.world.phys.AABB
+import net.minecraft.world.phys.Vec3
+
+/**
+ * 实体化球网：由四个锚点构成的矩形质点-弹簧网，服务端权威模拟，客户端仅做渲染。
+ */
+class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
+    private var anchors: List<BlockPos> = emptyList()
+    private var rectangle: GoalNetGeometry.NetRectangle? = null
+    private var mesh: GoalNetMesh? = null
+    private var slack: Double = GoalNetConfig.DEFAULT_SLACK
+
+    /** 剩余“活跃”tick：>0 时每 tick 模拟并同步。 */
+    private var activeTicks: Int = 0
+    private var cachedBox: AABB? = null
+    private var syncBuffer: FloatArray = FloatArray(0)
+
+    // 客户端渲染数据（由 S2C 包填充）。
+    var clientCols: Int = 0
+        private set
+    var clientRows: Int = 0
+        private set
+    var clientRelative: FloatArray? = null
+        private set
+
+    init {
+        isNoGravity = true
+        blocksBuilding = false
+    }
+
+    override fun defineSynchedData(builder: SynchedEntityData.Builder) {
+        // 形变通过自定义包同步，无需 synched data。
+    }
+
+    /** 由连接器在创建时调用，传入四个锚点方块与初始松弛度。返回是否构造成功。 */
+    fun setup(level: Level, anchorBlocks: List<BlockPos>, slack: Double): Boolean {
+        val anchorPositions = GoalNetGeometry.resolveAnchorPositions(level, anchorBlocks) ?: return false
+        val result = GoalNetGeometry.validate(anchorPositions)
+        if (result !is GoalNetGeometry.Result.Success) return false
+        this.anchors = anchorBlocks.toList()
+        this.slack = slack.coerceIn(GoalNetConfig.MIN_SLACK, GoalNetConfig.MAX_SLACK)
+        applyRectangle(result.rectangle)
+        return true
+    }
+
+    private fun applyRectangle(rect: GoalNetGeometry.NetRectangle) {
+        rectangle = rect
+        val newMesh = GoalNetMesh(rect, slack)
+        mesh = newMesh
+        syncBuffer = FloatArray(newMesh.nodeCount * 3)
+        setPos(rect.origin.x, rect.origin.y, rect.origin.z)
+        cachedBox = computeBox(rect)
+        setBoundingBox(cachedBox!!)
+        activeTicks = GoalNetConfig.ACTIVE_TICKS_AFTER_DISTURB
+    }
+
+    private fun computeBox(rect: GoalNetGeometry.NetRectangle): AABB {
+        val corners = listOf(
+            rect.origin,
+            rect.origin.add(rect.uAxis.scale(rect.uLength)),
+            rect.origin.add(rect.vAxis.scale(rect.vLength)),
+            rect.origin.add(rect.uAxis.scale(rect.uLength)).add(rect.vAxis.scale(rect.vLength)),
+        )
+        var minX = corners[0].x; var minY = corners[0].y; var minZ = corners[0].z
+        var maxX = minX; var maxY = minY; var maxZ = minZ
+        for (c in corners) {
+            minX = minOf(minX, c.x); minY = minOf(minY, c.y); minZ = minOf(minZ, c.z)
+            maxX = maxOf(maxX, c.x); maxY = maxOf(maxY, c.y); maxZ = maxOf(maxZ, c.z)
+        }
+        // 预留下垂与厚度空间。
+        val sag = (rect.uLength + rect.vLength) * 0.5 * (GoalNetConfig.MAX_SLACK + 0.3) + 1.0
+        return AABB(minX - 1.0, minY - sag, minZ - 1.0, maxX + 1.0, maxY + 1.0, maxZ + 1.0)
+    }
+
+    override fun makeBoundingBox(pos: Vec3): AABB {
+        return cachedBox ?: AABB(pos.x - 0.5, pos.y - 0.5, pos.z - 0.5, pos.x + 0.5, pos.y + 0.5, pos.z + 0.5)
+    }
+
+    fun getMesh(): GoalNetMesh? = mesh
+
+    fun getRectangle(): GoalNetGeometry.NetRectangle? = rectangle
+
+    /** 标记网被扰动，需要继续模拟与同步。 */
+    fun markDisturbed() {
+        activeTicks = GoalNetConfig.ACTIVE_TICKS_AFTER_DISTURB
+    }
+
+    fun increaseSlack(): Double = changeSlack(GoalNetConfig.SLACK_STEP)
+    fun decreaseSlack(): Double = changeSlack(-GoalNetConfig.SLACK_STEP)
+
+    private fun changeSlack(delta: Double): Double {
+        val m = mesh ?: return slack
+        slack = (slack + delta).coerceIn(GoalNetConfig.MIN_SLACK, GoalNetConfig.MAX_SLACK)
+        m.setSlack(slack)
+        markDisturbed()
+        return slack
+    }
+
+    override fun tick() {
+        if (level().isClientSide) {
+            return
+        }
+        val m = mesh
+        if (m == null) {
+            // 数据缺失（异常情况），移除以免占用。
+            if (rectangle == null && tickCount > 5) discard()
+            return
+        }
+
+        val idle = activeTicks <= 0
+        if (!idle) {
+            val motion = m.step()
+            if (motion < GoalNetConfig.SETTLE_SPEED_SQR) {
+                activeTicks--
+            }
+            broadcastState()
+        } else {
+            // 静止时低频同步，确保新进入跟踪范围的玩家也能收到形态。
+            if (tickCount % IDLE_SYNC_INTERVAL == 0) {
+                broadcastState()
+            }
+        }
+    }
+
+    private fun broadcastState() {
+        val m = mesh ?: return
+        if (syncBuffer.size != m.nodeCount * 3) {
+            syncBuffer = FloatArray(m.nodeCount * 3)
+        }
+        m.writeRelative(position(), syncBuffer)
+        FootballNetworking.broadcastGoalNetState(this, m.cols, m.rows, syncBuffer)
+    }
+
+    /** 客户端：写入同步来的节点数据并更新包围盒以保证渲染。 */
+    fun applyClientState(cols: Int, rows: Int, relative: FloatArray) {
+        clientCols = cols
+        clientRows = rows
+        clientRelative = relative
+        updateClientBox(relative)
+    }
+
+    private fun updateClientBox(relative: FloatArray) {
+        if (relative.isEmpty()) return
+        val origin = position()
+        var minX = Double.MAX_VALUE; var minY = Double.MAX_VALUE; var minZ = Double.MAX_VALUE
+        var maxX = -Double.MAX_VALUE; var maxY = -Double.MAX_VALUE; var maxZ = -Double.MAX_VALUE
+        var k = 0
+        while (k + 2 < relative.size) {
+            val x = origin.x + relative[k]; val y = origin.y + relative[k + 1]; val z = origin.z + relative[k + 2]
+            minX = minOf(minX, x); minY = minOf(minY, y); minZ = minOf(minZ, z)
+            maxX = maxOf(maxX, x); maxY = maxOf(maxY, y); maxZ = maxOf(maxZ, z)
+            k += 3
+        }
+        cachedBox = AABB(minX - 0.5, minY - 0.5, minZ - 0.5, maxX + 0.5, maxY + 0.5, maxZ + 0.5)
+        setBoundingBox(cachedBox!!)
+    }
+
+    override fun isPickable(): Boolean = true
+
+    override fun hurtServer(
+        level: net.minecraft.server.level.ServerLevel,
+        source: net.minecraft.world.damagesource.DamageSource,
+        damage: Float,
+    ): Boolean = false
+
+    override fun readAdditionalSaveData(input: ValueInput) {
+        val list = ArrayList<BlockPos>(4)
+        for (n in 0 until 4) {
+            val x = input.getIntOr("a${n}x", Int.MIN_VALUE)
+            val y = input.getIntOr("a${n}y", Int.MIN_VALUE)
+            val z = input.getIntOr("a${n}z", Int.MIN_VALUE)
+            if (x == Int.MIN_VALUE) continue
+            list.add(BlockPos(x, y, z))
+        }
+        slack = input.getDoubleOr("slack", GoalNetConfig.DEFAULT_SLACK)
+        if (list.size == 4) {
+            setup(level(), list, slack)
+        }
+    }
+
+    override fun addAdditionalSaveData(output: ValueOutput) {
+        anchors.forEachIndexed { n, p ->
+            output.putInt("a${n}x", p.x)
+            output.putInt("a${n}y", p.y)
+            output.putInt("a${n}z", p.z)
+        }
+        output.putDouble("slack", slack)
+    }
+
+    companion object {
+        fun init() {
+            // static init
+        }
+
+        private const val IDLE_SYNC_INTERVAL = 20
+
+        private val ENTITY_ID = NMBCTFootball.id("goal_net")
+        private val ENTITY_KEY: ResourceKey<EntityType<*>> = ResourceKey.create(Registries.ENTITY_TYPE, ENTITY_ID)
+
+        val ENTITY_TYPE: EntityType<GoalNetEntity> = Registry.register(
+            BuiltInRegistries.ENTITY_TYPE,
+            ENTITY_KEY,
+            EntityType.Builder.of(::GoalNetEntity, MobCategory.MISC)
+                .sized(0.5f, 0.5f)
+                .clientTrackingRange(96)
+                .updateInterval(20)
+                .build(ENTITY_KEY)
+        )
+    }
+}

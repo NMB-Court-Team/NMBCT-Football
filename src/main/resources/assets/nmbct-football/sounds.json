@@ -29,5 +29,29 @@
       "nmbct-football:palm_4",
       "nmbct-football:palm_5"
     ]
+  },
+  "item.goal_net_connector.select": {
+    "sounds": ["nmbct-football:goal_net_connector/select"]
+  },
+  "item.goal_net_connector.duplicate": {
+    "sounds": ["nmbct-football:goal_net_connector/duplicate"]
+  },
+  "item.goal_net_connector.create": {
+    "sounds": ["nmbct-football:goal_net_connector/create"]
+  },
+  "item.goal_net_connector.fail": {
+    "sounds": ["nmbct-football:goal_net_connector/fail"]
+  },
+  "item.goal_net_connector.clear": {
+    "sounds": ["nmbct-football:goal_net_connector/clear"]
+  },
+  "item.goal_net_connector.slack_up": {
+    "sounds": ["nmbct-football:goal_net_connector/slack_up"]
+  },
+  "item.goal_net_connector.slack_down": {
+    "sounds": ["nmbct-football:goal_net_connector/slack_down"]
+  },
+  "item.goal_net_connector.destroy": {
+    "sounds": ["nmbct-football:goal_net_connector/destroy"]
   }
 }
