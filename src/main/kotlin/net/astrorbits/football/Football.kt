@@ -463,6 +463,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     override fun isPickable(): Boolean = true
 
+    override fun getPickResult(): ItemStack = ItemStack(Items.FOOTBALL)
+
     override fun interact(player: Player, hand: InteractionHand, location: Vec3): InteractionResult {
         return handlePlayerInteract(player)
     }

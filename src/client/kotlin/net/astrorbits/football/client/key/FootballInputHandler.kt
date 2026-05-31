@@ -22,6 +22,9 @@ object FootballInputHandler {
     private var slidePrevTickPressed = false
 
     private var kickPressStartMs: Long? = null
+    /** 每帧捕获的抬键时长，避免仅在 tick 采样导致 1~2 tick 偏差。 */
+    private var kickReleaseHeldMsOverride: Long? = null
+    private var kickRealtimePrevDown = false
 
     var shootChargeRatio: Float = 0f
         private set
@@ -44,6 +47,7 @@ object FootballInputHandler {
 
     /** 基于实时时钟采样蓄力（供 HUD 每帧调用，避免仅 tick 更新导致进度条卡顿）。 */
     fun liveKickChargeDisplay(): KickChargeDisplayState? {
+        syncKickPressRealtimeClock()
         val start = kickPressStartMs ?: return null
         if (!FootballKeyBindings.KICK.isDown) {
             return null
@@ -181,7 +185,10 @@ object FootballInputHandler {
     private fun handleKickLongPress(player: LocalPlayer, holdingBall: Boolean) {
         when (getKickLongPressState()) {
             LongPressState.STARTED -> {
-                kickPressStartMs = System.currentTimeMillis()
+                // 若已在渲染帧捕获按下时刻，则保持它，避免起始时间晚 1 tick。
+                if (kickPressStartMs == null) {
+                    kickPressStartMs = System.currentTimeMillis()
+                }
                 if (holdingBall) {
                     isChargingThrow = false
                     throwChargeRatio = 0f
@@ -208,7 +215,8 @@ object FootballInputHandler {
             LongPressState.FINISHED -> {
                 val start = kickPressStartMs
                 if (start != null) {
-                    val heldMs = System.currentTimeMillis() - start
+                    val heldMs = kickReleaseHeldMsOverride ?: (System.currentTimeMillis() - start)
+                    kickReleaseHeldMsOverride = null
                     val flags = buildFlags(player)
                     when {
                         holdingBall && GoalkeeperStateClient.isHoldReleaseLocked() -> Unit
@@ -254,6 +262,7 @@ object FootballInputHandler {
 
     private fun cancelKickCharge() {
         kickPressStartMs = null
+        kickReleaseHeldMsOverride = null
         resetChargeDisplay()
     }
 
@@ -444,9 +453,29 @@ object FootballInputHandler {
             sendAction(player, FootballActionType.DRIBBLE_END, 0f, 0L, 0)
         }
         kickPressStartMs = null
+        kickReleaseHeldMsOverride = null
         resetChargeDisplay()
         dribbleTickCounter = 0
         dribbleResumeBlocked = false
+    }
+
+    private fun syncKickPressRealtimeClock() {
+        val down = FootballKeyBindings.KICK.isDown
+        val now = System.currentTimeMillis()
+        val chargingThrow = GoalkeeperStateClient.isGoalkeeper && GoalkeeperStateClient.isHoldingBall
+        val chargingShoot = !GoalkeeperStateClient.isGoalkeeper
+        val canTrackCharge = chargingThrow || chargingShoot
+
+        if (down && !kickRealtimePrevDown && canTrackCharge && kickPressStartMs == null) {
+            kickPressStartMs = now
+            kickReleaseHeldMsOverride = null
+        } else if (!down && kickRealtimePrevDown) {
+            val start = kickPressStartMs
+            if (start != null) {
+                kickReleaseHeldMsOverride = (now - start).coerceAtLeast(0L)
+            }
+        }
+        kickRealtimePrevDown = down
     }
 
     private fun resetChargeDisplay() {

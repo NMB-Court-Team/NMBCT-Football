@@ -12,6 +12,7 @@ import net.minecraft.world.phys.Vec3
  */
 object FootballNetInteraction {
     private const val EPS = 1.0e-6
+    private const val STRETCH_CROSSED_BONUS = 0.85
 
     /**
      * 在足球完成本 tick 位移后调用。
@@ -73,24 +74,65 @@ object FootballNetInteraction {
         val approaching = vn * side < 0.0
         if (!local.crossed && !approaching) return null
 
-        // 速度分解：法向吸收，切向保留。
+        // 速度分解：切向减速 + 法向吸收 + 条件回弹。
         val vNormal = n.scale(vn)
         val vTangent = velocity.subtract(vNormal)
-        val newVelocity = vTangent.scale(GoalNetConfig.BALL_TANGENT_RETENTION)
-            .add(vNormal.scale(1.0 - GoalNetConfig.BALL_NORMAL_ABSORPTION))
+        val speedIntoNet = Math.abs(vn)
+        val penetration = (radius + GoalNetConfig.CONTACT_MARGIN - local.distanceNow).coerceAtLeast(0.0)
+        val contactRadius = radius + GoalNetConfig.CONTACT_MARGIN
+        val penetrationRatio = (penetration / contactRadius).coerceIn(0.0, 1.0)
+        val impactRatio = (speedIntoNet / GoalNetConfig.HARD_CONTACT_SPEED).coerceIn(0.0, 1.0)
+        var stretchRatio = (penetrationRatio * 0.7 + impactRatio * 0.3).coerceIn(0.0, 1.0)
+        if (local.crossed) {
+            stretchRatio = maxOf(stretchRatio, STRETCH_CROSSED_BONUS)
+        }
+
+        val tangentRetention = lerp(
+            GoalNetConfig.BALL_TANGENT_RETENTION,
+            GoalNetConfig.BALL_TANGENT_RETENTION_HARD,
+            stretchRatio
+        )
+        val retainedNormal = vNormal.scale(1.0 - GoalNetConfig.BALL_NORMAL_ABSORPTION)
+        val restitution = (GoalNetConfig.BALL_RESTITUTION_BASE +
+            stretchRatio * GoalNetConfig.BALL_RESTITUTION_STRETCH_GAIN)
+            .coerceAtMost(GoalNetConfig.BALL_RESTITUTION_MAX)
+        val reboundNormal = n.scale(side * speedIntoNet * restitution)
+        var newVelocity = vTangent.scale(tangentRetention)
+            .add(retainedNormal)
+            .add(reboundNormal)
+
+        // 去除残留的“朝网内”速度分量，避免贴网旋转与粘附。
+        val inwardSpeed = -(newVelocity.dot(n) * side)
+        if (inwardSpeed > 0.0) {
+            newVelocity = newVelocity.add(n.scale(side * inwardSpeed))
+        }
 
         // 网被顶出的方向 = 球运动穿入方向（-side*n）。
         val pushDir = n.scale(-side)
-        val speedIntoNet = Math.abs(vn)
-        val penetration = (radius + GoalNetConfig.CONTACT_MARGIN - local.distanceNow).coerceAtLeast(0.0)
         val pushAmount = (penetration + speedIntoNet * 0.5) * GoalNetConfig.BALL_PUSH_STRENGTH
         if (pushAmount > 1.0e-4) {
             mesh.applyDisplacement(local.point, pushDir.scale(pushAmount), GoalNetConfig.BALL_PUSH_RADIUS)
             net.markDisturbed()
         }
 
-        // 把球留在入射侧、贴着网面（防止穿过）。
-        val restCenter = local.point.add(n.scale(side * radius))
+        // 触网时加强自旋衰减，压得越深（或越接近穿面）衰减越强。
+        val spinRetention = lerp(
+            GoalNetConfig.BALL_SPIN_RETENTION,
+            GoalNetConfig.BALL_SPIN_RETENTION_HARD,
+            stretchRatio
+        )
+        state.angularVelocity = state.angularVelocity.scale(spinRetention)
+
+        // 接近极限拉伸时给额外反推，优先避免持续嵌入/穿透。
+        val pushoutSpeed = stretchRatio * stretchRatio * GoalNetConfig.STRETCH_PUSHOUT_VELOCITY_GAIN
+        if (pushoutSpeed > 1.0e-4) {
+            newVelocity = newVelocity.add(n.scale(side * pushoutSpeed))
+        }
+
+        // 把球留在入射侧，并与网面保留少量分离距离，减少“黏网”观感。
+        val separation = GoalNetConfig.CONTACT_SEPARATION +
+            penetration * GoalNetConfig.CONTACT_SEPARATION_FROM_PENETRATION
+        val restCenter = local.point.add(n.scale(side * (radius + separation)))
         state.linearVelocity = newVelocity
         return NetContact(restCenter)
     }
@@ -325,4 +367,6 @@ object FootballNetInteraction {
 
     /** 接触结果：球应被放置到的球心位置。 */
     data class NetContact(val restCenter: Vec3)
+
+    private fun lerp(a: Double, b: Double, t: Double): Double = a + (b - a) * t.coerceIn(0.0, 1.0)
 }
