@@ -28,7 +28,7 @@ data class SlideTackleSession(
 
 object SlideTackleSessions {
     // how many ticks at least will stay in slide pose after pressed key
-    private const val MIN_SLIDE_TICKS = 10L
+    private const val MIN_SLIDE_TICKS = 15L
     private const val SLIDE_COOLDOWN_TICKS = 14L
     private const val TOUCH_RANGE_BONUS = 0.75
     private const val CHIP_HEIGHT_THRESHOLD = 0.55

@@ -42,10 +42,31 @@ object GoalNetConfig {
     const val SETTLE_SPEED_SQR: Double = 1.0e-7
 
     /** 足球与网交互：法向速度被吸收的比例（1 = 完全吸收）。 */
-    const val BALL_NORMAL_ABSORPTION: Double = 0.82
+    const val BALL_NORMAL_ABSORPTION: Double = 0.72
 
-    /** 足球与网交互：切向速度保留比例（实现“贴网下滑”）。 */
-    const val BALL_TANGENT_RETENTION: Double = 0.7
+    /** 足球与网交互：常规切向速度保留比例（实现“触网减速”）。 */
+    const val BALL_TANGENT_RETENTION: Double = 0.62
+
+    /** 足球与网交互：重压/极限拉伸时的切向速度保留比例。 */
+    const val BALL_TANGENT_RETENTION_HARD: Double = 0.38
+
+    /** 触网回弹：基础法向反弹系数。 */
+    const val BALL_RESTITUTION_BASE: Double = 0.08
+
+    /** 触网回弹：随“压入/拉伸强度”提升的法向反弹增益。 */
+    const val BALL_RESTITUTION_STRETCH_GAIN: Double = 0.52
+
+    /** 触网回弹：法向反弹系数上限，避免蹦网过强。 */
+    const val BALL_RESTITUTION_MAX: Double = 0.62
+
+    /** 自旋阻尼：常规触网时保留比例。 */
+    const val BALL_SPIN_RETENTION: Double = 0.78
+
+    /** 自旋阻尼：重压/极限拉伸时保留比例（更强抑制一直转）。 */
+    const val BALL_SPIN_RETENTION_HARD: Double = 0.32
+
+    /** “高速硬碰”速度阈值（方块/tick），用于估算拉伸强度。 */
+    const val HARD_CONTACT_SPEED: Double = 0.72
 
     /** 足球推动网时，冲量影响的节点半径（方块）。 */
     const val BALL_PUSH_RADIUS: Double = 1.25
@@ -55,6 +76,15 @@ object GoalNetConfig {
 
     /** 球心到网面距离小于 (球半径 + 该值) 时判定接触。 */
     const val CONTACT_MARGIN: Double = 0.12
+
+    /** 触网后与网面保留的基础分离距离，减少“黏网”观感。 */
+    const val CONTACT_SEPARATION: Double = 0.02
+
+    /** 分离距离随压入深度的放大系数。 */
+    const val CONTACT_SEPARATION_FROM_PENETRATION: Double = 0.45
+
+    /** 网接近极限拉伸时，额外法向反推速度增益（防穿透）。 */
+    const val STRETCH_PUSHOUT_VELOCITY_GAIN: Double = 0.42
 
     /** 渲染：绳线在世界空间的半宽（方块）。固定世界宽度 => 视觉粗细随距离变化。 */
     const val LINE_HALF_WIDTH: Double = 0.013

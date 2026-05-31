@@ -2,8 +2,10 @@ package net.astrorbits.football.entity
 
 import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.network.FootballNetworking
+import net.astrorbits.football.item.Items
 import net.astrorbits.football.physics.GoalNetConfig
 import net.astrorbits.football.physics.GoalNetMesh
+import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.GoalNetGeometry
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Registry
@@ -68,8 +70,7 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
         mesh = newMesh
         syncBuffer = FloatArray(newMesh.nodeCount * 3)
         setPos(rect.origin.x, rect.origin.y, rect.origin.z)
-        cachedBox = computeBox(rect)
-        setBoundingBox(cachedBox!!)
+        refreshServerBox(newMesh, rect)
         activeTicks = GoalNetConfig.ACTIVE_TICKS_AFTER_DISTURB
     }
 
@@ -89,6 +90,34 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
         // 预留下垂与厚度空间。
         val sag = (rect.uLength + rect.vLength) * 0.5 * (GoalNetConfig.MAX_SLACK + 0.3) + 1.0
         return AABB(minX - 1.0, minY - sag, minZ - 1.0, maxX + 1.0, maxY + 1.0, maxZ + 1.0)
+    }
+
+    /**
+     * 用实时网格节点刷新服务端实体 AABB，避免超大网或形变后仅部分区域生效。
+     */
+    private fun refreshServerBox(mesh: GoalNetMesh, fallbackRect: GoalNetGeometry.NetRectangle? = rectangle) {
+        val margin = FootballPhysicsConfig.RADIUS + GoalNetConfig.CONTACT_MARGIN + GoalNetConfig.BALL_PUSH_RADIUS + 0.5
+        var minX = Double.MAX_VALUE
+        var minY = Double.MAX_VALUE
+        var minZ = Double.MAX_VALUE
+        var maxX = -Double.MAX_VALUE
+        var maxY = -Double.MAX_VALUE
+        var maxZ = -Double.MAX_VALUE
+        for (k in 0 until mesh.nodeCount) {
+            val p = mesh.nodeWorld(k)
+            minX = minOf(minX, p.x); minY = minOf(minY, p.y); minZ = minOf(minZ, p.z)
+            maxX = maxOf(maxX, p.x); maxY = maxOf(maxY, p.y); maxZ = maxOf(maxZ, p.z)
+        }
+        val box = if (minX.isFinite() && minY.isFinite() && minZ.isFinite() &&
+            maxX.isFinite() && maxY.isFinite() && maxZ.isFinite()
+        ) {
+            AABB(minX - margin, minY - margin, minZ - margin, maxX + margin, maxY + margin, maxZ + margin)
+        } else {
+            val rect = fallbackRect ?: return
+            computeBox(rect)
+        }
+        cachedBox = box
+        setBoundingBox(box)
     }
 
     override fun makeBoundingBox(pos: Vec3): AABB {
@@ -129,6 +158,7 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
         val idle = activeTicks <= 0
         if (!idle) {
             val motion = m.step()
+            refreshServerBox(m)
             if (motion < GoalNetConfig.SETTLE_SPEED_SQR) {
                 activeTicks--
             }
@@ -136,6 +166,7 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
         } else {
             // 静止时低频同步，确保新进入跟踪范围的玩家也能收到形态。
             if (tickCount % IDLE_SYNC_INTERVAL == 0) {
+                refreshServerBox(m)
                 broadcastState()
             }
         }
@@ -174,7 +205,11 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
         setBoundingBox(cachedBox!!)
     }
 
-    override fun isPickable(): Boolean = true
+    override fun isPickable(): Boolean {
+        val nearestPlayer = level().getNearestPlayer(this, 16.0) ?: return false
+        return nearestPlayer.mainHandItem.`is`(Items.GOAL_NET_CONNECTOR) ||
+            nearestPlayer.offhandItem.`is`(Items.GOAL_NET_CONNECTOR)
+    }
 
     override fun hurtServer(
         level: net.minecraft.server.level.ServerLevel,
