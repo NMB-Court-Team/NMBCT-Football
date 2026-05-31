@@ -26,7 +26,9 @@ import net.astrorbits.football.client.render.FootballKeybindHintHudElement
 import net.astrorbits.football.client.render.FootballRenderer
 import net.astrorbits.football.client.render.GoalkeeperHoldLockHudElement
 import net.astrorbits.football.client.render.KickChargeHudElement
+import net.astrorbits.football.client.render.StaminaHudElement
 import net.fabricmc.api.ClientModInitializer
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry
 import net.minecraft.client.renderer.entity.EntityRenderers
 import net.minecraft.resources.Identifier
@@ -89,6 +91,15 @@ object NMBCTFootballClient : ClientModInitializer {
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "match_result_hud"),
 			MatchResultHudElement()
 		)
+
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "stamina_hud"),
+			StaminaHudElement()
+		)
+
+		ClientTickEvents.END_CLIENT_TICK.register { client ->
+			StaminaClient.tick(client)
+		}
 
 		GoalkeeperStateClient.register()
 		GoalkeeperHoldPoseClient.register()
