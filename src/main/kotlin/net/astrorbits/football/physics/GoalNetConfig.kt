@@ -23,11 +23,17 @@ object GoalNetConfig {
     /** 约束（弹簧）迭代次数。越多越硬，开销越大。 */
     const val CONSTRAINT_ITERATIONS: Int = 6
 
-    /** 松弛度默认值与范围。松弛度越大，弹簧静止长度越长，网越下垂。 */
+    /** 松弛度默认值与范围。松弛度越大，重力增益更高、约束更柔软，网越下垂。 */
     const val DEFAULT_SLACK: Double = 0.08
     const val MIN_SLACK: Double = 0.0
     const val MAX_SLACK: Double = 0.45
     const val SLACK_STEP: Double = 0.05
+    /** 松弛度对重力的增益系数。 */
+    const val SLACK_GRAVITY_GAIN: Double = 1.9
+    /** 松弛度对弹簧刚度的减弱系数。 */
+    const val SLACK_STIFFNESS_REDUCTION: Double = 0.85
+    /** 最大松弛度时约束刚度下限，避免网面失稳起皱。 */
+    const val MIN_STIFFNESS_SCALE_AT_MAX_SLACK: Double = 0.25
 
     /** 球网被扰动后保持“活跃模拟+同步”的额外 tick 数；静止后降频以省性能。 */
     const val ACTIVE_TICKS_AFTER_DISTURB: Int = 60

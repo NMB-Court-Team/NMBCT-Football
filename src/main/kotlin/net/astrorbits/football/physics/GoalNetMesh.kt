@@ -2,13 +2,15 @@ package net.astrorbits.football.physics
 
 import net.astrorbits.football.util.GoalNetGeometry.NetRectangle
 import net.minecraft.world.phys.Vec3
+import java.util.Arrays
 
 /**
  * 球网的质点-弹簧网格（服务端权威模拟）。
  *
  * - 节点排布在矩形 [rect] 张成的平面网格上，边界节点被钉死在锚框上。
- * - 内部节点用 Verlet 积分 + 基于位置的距离约束（PBD）求解，弹簧静止长度随 [slack] 放大，
- *   因此重力会让网自然下垂。
+ * - 内部节点用 Verlet 积分 + 基于位置的距离约束（PBD）求解。
+ * - [slack] 不再直接放大弹簧静长，而是通过“重力增益 + 约束柔化”表达松垮程度，
+ *   以避免大平面闭合边界下的起皱/山脊模态。
  * - 坐标全部为世界坐标（[Vec3]），同步时再转为相对实体原点的偏移。
  */
 class GoalNetMesh(
@@ -32,8 +34,17 @@ class GoalNetMesh(
     private val frameY = DoubleArray(nodeCount)
     private val frameZ = DoubleArray(nodeCount)
     private val pinned = BooleanArray(nodeCount)
+    private val corrX = DoubleArray(nodeCount)
+    private val corrY = DoubleArray(nodeCount)
+    private val corrZ = DoubleArray(nodeCount)
+    private val corrW = DoubleArray(nodeCount)
 
-    private data class Spring(val a: Int, val b: Int, val baseLength: Double)
+    private data class Spring(
+        val a: Int,
+        val b: Int,
+        val baseLength: Double,
+        val stiffness: Double,
+    )
     private val springs = ArrayList<Spring>()
 
     init {
@@ -64,23 +75,28 @@ class GoalNetMesh(
         for (j in 0 until rows) {
             for (i in 0 until cols) {
                 val a = index(i, j)
-                if (i + 1 < cols) springs.add(makeSpring(a, index(i + 1, j)))
-                if (j + 1 < rows) springs.add(makeSpring(a, index(i, j + 1)))
+                // 一阶结构弹簧（主约束）。
+                if (i + 1 < cols) springs.add(makeSpring(a, index(i + 1, j), 1.0))
+                if (j + 1 < rows) springs.add(makeSpring(a, index(i, j + 1), 1.0))
+                // 二阶结构弹簧（弱约束）：抑制条纹塌陷，但避免高松弛度下形成对称鼓包模态。
+                if (i + 2 < cols) springs.add(makeSpring(a, index(i + 2, j), 0.35))
+                if (j + 2 < rows) springs.add(makeSpring(a, index(i, j + 2), 0.35))
                 // 剪切（对角）弹簧增强稳定性，减少网面抖动。
-                if (i + 1 < cols && j + 1 < rows) springs.add(makeSpring(a, index(i + 1, j + 1)))
-                if (i + 1 < cols && j + 1 < rows) springs.add(makeSpring(index(i + 1, j), index(i, j + 1)))
+                if (i + 1 < cols && j + 1 < rows) springs.add(makeSpring(a, index(i + 1, j + 1), 0.65))
+                if (i + 1 < cols && j + 1 < rows) springs.add(makeSpring(index(i + 1, j), index(i, j + 1), 0.65))
             }
         }
     }
 
-    private fun makeSpring(a: Int, b: Int): Spring {
+    private fun makeSpring(a: Int, b: Int, stiffness: Double): Spring {
         val dx = frameX[a] - frameX[b]
         val dy = frameY[a] - frameY[b]
         val dz = frameZ[a] - frameZ[b]
-        return Spring(a, b, Math.sqrt(dx * dx + dy * dy + dz * dz))
+        return Spring(a, b, Math.sqrt(dx * dx + dy * dy + dz * dz), stiffness)
     }
 
     fun resetToFrame() {
+        val gravity = GoalNetConfig.GRAVITY * (1.0 + slack * GoalNetConfig.SLACK_GRAVITY_GAIN)
         for (k in 0 until nodeCount) {
             posX[k] = frameX[k]; posY[k] = frameY[k]; posZ[k] = frameZ[k]
             prevX[k] = frameX[k]; prevY[k] = frameY[k]; prevZ[k] = frameZ[k]
@@ -94,6 +110,7 @@ class GoalNetMesh(
     /** 推进一步模拟。返回本步内节点的总位移平方和（用于静止判定）。 */
     fun step(): Double {
         var motionSqr = 0.0
+        val gravity = GoalNetConfig.GRAVITY * (1.0 + slack * GoalNetConfig.SLACK_GRAVITY_GAIN)
         for (k in 0 until nodeCount) {
             if (pinned[k]) {
                 posX[k] = frameX[k]; posY[k] = frameY[k]; posZ[k] = frameZ[k]
@@ -105,19 +122,36 @@ class GoalNetMesh(
             val vz = (posZ[k] - prevZ[k]) * GoalNetConfig.DAMPING
             prevX[k] = posX[k]; prevY[k] = posY[k]; prevZ[k] = posZ[k]
             posX[k] += vx
-            posY[k] += vy - GoalNetConfig.GRAVITY
+            posY[k] += vy - gravity
             posZ[k] += vz
             motionSqr += vx * vx + vy * vy + vz * vz
         }
 
-        val restScale = 1.0 + slack
         repeat(GoalNetConfig.CONSTRAINT_ITERATIONS) {
-            for (s in springs) satisfy(s.a, s.b, s.baseLength * restScale)
+            accumulateSpringCorrections()
+            applyAccumulatedCorrections()
         }
         return motionSqr
     }
 
-    private fun satisfy(a: Int, b: Int, rest: Double) {
+    /**
+     * 批量累计约束修正，避免按固定遍历顺序“就地修正”带来的方向偏置。
+     * 这对水平球网的列间均匀下垂尤其关键。
+     */
+    private fun accumulateSpringCorrections() {
+        Arrays.fill(corrX, 0.0)
+        Arrays.fill(corrY, 0.0)
+        Arrays.fill(corrZ, 0.0)
+        Arrays.fill(corrW, 0.0)
+        val stiffnessScale =
+            (1.0 - slack * GoalNetConfig.SLACK_STIFFNESS_REDUCTION)
+                .coerceAtLeast(GoalNetConfig.MIN_STIFFNESS_SCALE_AT_MAX_SLACK)
+        for (s in springs) {
+            accumulateSpringCorrection(s.a, s.b, s.baseLength, s.stiffness * stiffnessScale)
+        }
+    }
+
+    private fun accumulateSpringCorrection(a: Int, b: Int, rest: Double, stiffness: Double) {
         val dx = posX[b] - posX[a]
         val dy = posY[b] - posY[a]
         val dz = posZ[b] - posZ[a]
@@ -130,8 +164,33 @@ class GoalNetMesh(
         val diff = (d - rest) / d
         val ka = wa / sum
         val kb = wb / sum
-        posX[a] += dx * diff * ka; posY[a] += dy * diff * ka; posZ[a] += dz * diff * ka
-        posX[b] -= dx * diff * kb; posY[b] -= dy * diff * kb; posZ[b] -= dz * diff * kb
+        val s = stiffness.coerceIn(0.0, 1.0)
+        if (s <= 1.0e-9) return
+        val corrDx = dx * diff * s
+        val corrDy = dy * diff * s
+        val corrDz = dz * diff * s
+        if (wa > 0.0) {
+            corrX[a] += corrDx * ka
+            corrY[a] += corrDy * ka
+            corrZ[a] += corrDz * ka
+            corrW[a] += ka * s
+        }
+        if (wb > 0.0) {
+            corrX[b] -= corrDx * kb
+            corrY[b] -= corrDy * kb
+            corrZ[b] -= corrDz * kb
+            corrW[b] += kb * s
+        }
+    }
+
+    private fun applyAccumulatedCorrections() {
+        for (k in 0 until nodeCount) {
+            val weight = corrW[k]
+            if (weight <= 1.0e-9 || pinned[k]) continue
+            posX[k] += corrX[k] / weight
+            posY[k] += corrY[k] / weight
+            posZ[k] += corrZ[k] / weight
+        }
     }
 
     /** 在 [point] 周围 [radius] 范围内对内部节点施加位移（Verlet 自动转换为速度）。 */
