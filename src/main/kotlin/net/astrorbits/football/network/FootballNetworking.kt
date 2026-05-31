@@ -6,6 +6,7 @@ import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.match.TeamSide
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
 import net.minecraft.network.RegistryFriendlyByteBuf
 import net.minecraft.server.MinecraftServer
@@ -32,6 +33,8 @@ object FootballNetworking {
 		registry.register(MatchFieldConfigSyncS2CPayload.TYPE, MatchFieldConfigSyncS2CPayload.CODEC)
 		registry.register(MatchStartS2CPayload.TYPE, MatchStartS2CPayload.CODEC)
 		registry.register(KickoffBallTouchedS2CPayload.TYPE, KickoffBallTouchedS2CPayload.CODEC)
+		registry.register(GoalNetStateS2CPayload.TYPE, GoalNetStateS2CPayload.CODEC)
+		registry.register(GoalNetConnectorSelectionS2CPayload.TYPE, GoalNetConnectorSelectionS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -99,6 +102,24 @@ object FootballNetworking {
     fun broadcastKickoffBallTouched(server: MinecraftServer) {
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, KickoffBallTouchedS2CPayload.INSTANCE)
+        }
+    }
+
+    /** 向玩家同步连接器当前已选锚点（客户端预览粒子用）。 */
+    fun sendGoalNetConnectorSelection(player: ServerPlayer, anchorBlocks: List<net.minecraft.core.BlockPos>) {
+        ServerPlayNetworking.send(player, GoalNetConnectorSelectionS2CPayload(anchorBlocks))
+    }
+
+    /** 向所有正在跟踪该球网实体的玩家同步节点形变。 */
+    fun broadcastGoalNetState(
+        entity: net.minecraft.world.entity.Entity,
+        cols: Int,
+        rows: Int,
+        relativePositions: FloatArray,
+    ) {
+        val payload = GoalNetStateS2CPayload(entity.id, cols, rows, relativePositions.copyOf())
+        for (player in PlayerLookup.tracking(entity)) {
+            ServerPlayNetworking.send(player, payload)
         }
     }
 }

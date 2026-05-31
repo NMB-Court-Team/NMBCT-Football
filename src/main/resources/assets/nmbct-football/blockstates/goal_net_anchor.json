@@ -1,0 +1,31 @@
+{
+    "variants": {
+        "position=c": {"model": "nmbct-football:block/goal_net_anchor/center"},
+        "position=n": {"model": "nmbct-football:block/goal_net_anchor/face"},
+        "position=w": {"model": "nmbct-football:block/goal_net_anchor/face", "y": -90},
+        "position=s": {"model": "nmbct-football:block/goal_net_anchor/face", "y": 180},
+        "position=e": {"model": "nmbct-football:block/goal_net_anchor/face", "y": 90},
+        "position=u": {"model": "nmbct-football:block/goal_net_anchor/face", "x": -90},
+        "position=d": {"model": "nmbct-football:block/goal_net_anchor/face", "x": 90},
+        "position=un": {"model": "nmbct-football:block/goal_net_anchor/side"},
+        "position=uw": {"model": "nmbct-football:block/goal_net_anchor/side", "y": -90},
+        "position=us": {"model": "nmbct-football:block/goal_net_anchor/side", "y": 180},
+        "position=ue": {"model": "nmbct-football:block/goal_net_anchor/side", "y": 90},
+        "position=nw": {"model": "nmbct-football:block/goal_net_anchor/side", "z": -90},
+        "position=ne": {"model": "nmbct-football:block/goal_net_anchor/side", "z": 90},
+        "position=sw": {"model": "nmbct-football:block/goal_net_anchor/side", "y": 180, "z": -90},
+        "position=se": {"model": "nmbct-football:block/goal_net_anchor/side", "y": 180, "z": 90},
+        "position=dn": {"model": "nmbct-football:block/goal_net_anchor/side", "x": 90},
+        "position=dw": {"model": "nmbct-football:block/goal_net_anchor/side", "x": 90, "y": -90},
+        "position=ds": {"model": "nmbct-football:block/goal_net_anchor/side", "x": 90, "y": 180},
+        "position=de": {"model": "nmbct-football:block/goal_net_anchor/side", "x": 90, "y": 90},
+        "position=unw": {"model": "nmbct-football:block/goal_net_anchor/corner"},
+        "position=une": {"model": "nmbct-football:block/goal_net_anchor/corner", "y": 90},
+        "position=use": {"model": "nmbct-football:block/goal_net_anchor/corner", "y": 180},
+        "position=usw": {"model": "nmbct-football:block/goal_net_anchor/corner", "y": -90},
+        "position=dnw": {"model": "nmbct-football:block/goal_net_anchor/corner", "x": 90},
+        "position=dne": {"model": "nmbct-football:block/goal_net_anchor/corner", "x": 90, "y": 90},
+        "position=dse": {"model": "nmbct-football:block/goal_net_anchor/corner", "x": 90, "y": 180},
+        "position=dsw": {"model": "nmbct-football:block/goal_net_anchor/corner", "x": 90, "y": -90}
+    }
+}

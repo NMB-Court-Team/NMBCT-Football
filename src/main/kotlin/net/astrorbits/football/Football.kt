@@ -7,6 +7,7 @@ import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.match.TeamSide
+import net.astrorbits.football.physics.FootballNetInteraction
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
 import net.astrorbits.football.util.CobwebUtil
@@ -137,6 +138,16 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         FootballParticles.playCollisionBounces(level(), blockPosition(), bounce)
 
         detectGoal(beforeMove, position())
+
+        val radius = FootballPhysicsConfig.RADIUS
+        val prevCenter = beforeMove.add(0.0, radius, 0.0)
+        val currCenter = position().add(0.0, radius, 0.0)
+        val netContact = FootballNetInteraction.apply(level(), physicsState, prevCenter, currCenter)
+        if (netContact != null) {
+            val target = netContact.restCenter.subtract(0.0, radius, 0.0)
+            setPos(target.x, target.y, target.z)
+            deltaMovement = physicsState.linearVelocity
+        }
 
         physicsState.inCobweb = false
         if (CobwebUtil.isIntersectingCobweb(level(), boundingBox)) {

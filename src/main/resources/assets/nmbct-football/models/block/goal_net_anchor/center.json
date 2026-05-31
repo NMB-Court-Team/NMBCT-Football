@@ -1,0 +1,52 @@
+{
+	"format_version": "1.21.11",
+	"credit": "Made with Blockbench",
+	"textures": {
+		"0": "nmbct-football:block/goal_net_anchor",
+		"particle": "nmbct-football:block/goal_net_anchor"
+	},
+	"elements": [
+		{
+			"from": [7, 7, 7],
+			"to": [9, 9, 9],
+			"rotation": {"angle": 0, "axis": "y", "origin": [7, 7, 7]},
+			"faces": {
+				"north": {"uv": [0, 0, 2, 2], "texture": "#0"},
+				"east": {"uv": [0, 2, 2, 4], "texture": "#0"},
+				"south": {"uv": [2, 0, 4, 2], "texture": "#0"},
+				"west": {"uv": [2, 2, 4, 4], "texture": "#0"},
+				"up": {"uv": [2, 6, 0, 4], "texture": "#0"},
+				"down": {"uv": [6, 0, 4, 2], "texture": "#0"}
+			}
+		}
+	],
+	"display": {
+		"thirdperson_righthand": {
+			"translation": [0, 0.75, 0]
+		},
+		"thirdperson_lefthand": {
+			"translation": [0, 0.75, 0]
+		},
+		"firstperson_righthand": {
+			"translation": [1.25, 0.75, 0]
+		},
+		"firstperson_lefthand": {
+			"translation": [1.25, 0.75, 0]
+		},
+		"ground": {
+			"translation": [0, -1.5, 0],
+			"scale": [0.5, 0.5, 0.5]
+		},
+		"gui": {
+			"rotation": [24.75, -32.75, 0],
+			"scale": [2, 2, 2]
+		},
+		"head": {
+			"translation": [0, 7.25, 0]
+		},
+		"on_shelf": {
+			"translation": [0, 0, -2],
+			"scale": [2, 2, 2]
+		}
+	}
+}
