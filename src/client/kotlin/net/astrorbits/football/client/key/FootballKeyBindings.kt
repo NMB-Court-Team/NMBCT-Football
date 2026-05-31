@@ -63,6 +63,15 @@ object FootballKeyBindings {
         )
     )
 
+    val OPEN_CLIENT_CONFIG: KeyMapping = KeyMappingHelper.registerKeyMapping(
+        KeyMapping(
+            "key.nmbct-football.open_client_config",
+            InputConstants.Type.KEYSYM,
+            InputConstants.UNKNOWN.value,
+            CATEGORY
+        )
+    )
+
     fun init() {
         // static init
     }

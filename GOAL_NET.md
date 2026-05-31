@@ -291,9 +291,10 @@ Fabric 事件：
 ### 球网渲染 — `GoalNetRenderer`
 
 - 注册于 `NMBCTFootballClient`。
-- 将网格的水平/竖直结构边画成 **朝向相机的细长四边形**（`submitCustomGeometry` + `RenderTypes.debugQuads()`）。
+- 将网格的水平/竖直结构边画成 **朝向相机的细长四边形**（`submitCustomGeometry` + `RenderTypes.entityTranslucent(white.png)`）。
 - 线宽：`LINE_HALF_WIDTH + 到相机距离 × LINE_WIDTH_DISTANCE_GAIN` → **世界空间固定宽度**，远近距离感变化（非屏幕像素恒定）。
 - 颜色：`GoalNetConfig.LINE_COLOR_ARGB`（默认 `0xFFEDEDED`）。
+- 客户端可在“**球网渲染模式**”中切换：`原版适配`（`RenderTypes.debugQuads()`）/ `光影适配`（当前光影友好渲染方式）。
 
 当前 **不做** 节点位置插值；同步包到达后直接更新 `clientRelative`。
 
@@ -433,7 +434,7 @@ Fabric 事件：
 
 1. **离散碰撞限制**：已使用变形网格三角形碰撞，但当前仍为离散 tick 检测；极高速、极薄擦边场景可能漏检。
 2. **无客户端插值**：节点位置在收到 S2C 包时跳变，快速形变可能略抖。
-3. **渲染类型**：使用 `RenderTypes.debugQuads()`，非专用半透明绳网材质；深度排序与光照未专门优化。
+3. **渲染表现**：当前使用实体半透明通道绘制白纹理着色绳线；深度排序与材质细节仍可继续优化。
 4. **锚点模型**：blockstate 已支持 27 种 position，但部分 block model 仍较占位；可按 `position` 进一步细化外观。
 5. **选点顺序**：建网时按点击顺序连预览线，几何校验不要求特定顺序，但四角必须能匹配长方形顶点集。
 6. **旧 `goal_net` 方块**：资源目录中可能仍残留旧条目（如 `items/goal_net.json`），与当前实现无关，可择机清理。
@@ -445,6 +446,7 @@ Fabric 事件：
 - 多球网并存时的性能 profiling（节点上限、同步频率策略）。
 - 与比赛系统（球门判定）的深度集成。
 - 锚点破坏时自动销毁关联网实体。
+- 增加可开关的高性能模式：限制单帧球网碰撞精检预算（保留穿面优先），用于多球网/高并发场景。
 
 ---
 

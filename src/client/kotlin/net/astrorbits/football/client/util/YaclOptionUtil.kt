@@ -4,6 +4,7 @@ import dev.isxander.yacl3.api.Option
 import dev.isxander.yacl3.api.OptionDescription
 import dev.isxander.yacl3.api.OptionGroup
 import dev.isxander.yacl3.api.controller.DoubleSliderControllerBuilder
+import dev.isxander.yacl3.api.controller.EnumControllerBuilder
 import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder
 import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder
 import dev.isxander.yacl3.api.controller.LongSliderControllerBuilder
@@ -92,6 +93,29 @@ object YaclOptionUtil {
                     FloatSliderControllerBuilder.create(opt)
                         .range(range.start, range.endInclusive)
                         .step(step)
+                }
+                .build(),
+        )
+    }
+
+    fun <T : Enum<T>> OptionGroup.Builder.addEnum(
+        nameKey: String,
+        descKey: String,
+        enumClass: Class<T>,
+        defaultValue: T,
+        getter: () -> T,
+        setter: (T) -> Unit,
+        valueName: (T) -> Component,
+    ) {
+        option(
+            Option.createBuilder<T>()
+                .name(Component.translatable(nameKey))
+                .description(OptionDescription.of(Component.translatable(descKey)))
+                .binding(defaultValue, getter, setter)
+                .controller { opt ->
+                    EnumControllerBuilder.create(opt)
+                        .enumClass(enumClass)
+                        .formatValue(valueName)
                 }
                 .build(),
         )

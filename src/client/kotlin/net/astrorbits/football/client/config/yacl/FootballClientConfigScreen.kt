@@ -4,8 +4,10 @@ import dev.isxander.yacl3.api.ConfigCategory
 import dev.isxander.yacl3.api.OptionGroup
 import dev.isxander.yacl3.api.YetAnotherConfigLib
 import net.astrorbits.football.NMBCTFootball
+import net.astrorbits.football.config.client.GoalNetRenderMode
 import net.astrorbits.football.config.client.FootballClientConfigHolder
 import net.astrorbits.football.client.util.YaclOptionUtil.addDouble
+import net.astrorbits.football.client.util.YaclOptionUtil.addEnum
 import net.astrorbits.football.client.util.YaclOptionUtil.addInt
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
@@ -19,6 +21,22 @@ object FootballClientConfigScreen {
             .category(
                 ConfigCategory.createBuilder()
                     .name(Component.translatable("yacl3.config.$MOD_ID.client.category.hud"))
+                    .group(
+                        OptionGroup.createBuilder()
+                            .name(Component.translatable("yacl3.config.$MOD_ID.client.group.goal_net"))
+                            .apply {
+                                addEnum(
+                                    "yacl3.config.$MOD_ID.client.goal_net_render_mode",
+                                    "yacl3.config.$MOD_ID.client.goal_net_render_mode.desc",
+                                    GoalNetRenderMode::class.java,
+                                    GoalNetRenderMode.SHADER_COMPAT,
+                                    { draft.goalNetRenderMode },
+                                    { v -> draft = draft.copy(goalNetRenderMode = v) },
+                                    { mode -> Component.translatable(mode.translationKey) },
+                                )
+                            }
+                            .build(),
+                    )
                     .group(
                         OptionGroup.createBuilder()
                             .name(Component.translatable("yacl3.config.$MOD_ID.client.group.hud"))

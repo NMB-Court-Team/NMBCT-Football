@@ -57,7 +57,7 @@ object GoalNetConfig {
     const val CONTACT_MARGIN: Double = 0.12
 
     /** 渲染：绳线在世界空间的半宽（方块）。固定世界宽度 => 视觉粗细随距离变化。 */
-    const val LINE_HALF_WIDTH: Double = 0.013
+    const val LINE_HALF_WIDTH: Double = 0.018
 
     /** 渲染：远处线宽的最小屏幕保护系数，避免过远完全消失（按距离放大半宽）。 */
     const val LINE_WIDTH_DISTANCE_GAIN: Double = 0.0016

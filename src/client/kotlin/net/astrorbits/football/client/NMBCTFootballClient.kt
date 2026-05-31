@@ -7,6 +7,7 @@ import net.astrorbits.football.client.render.GoalNetConnectorPreviewClient
 import net.astrorbits.football.client.render.GoalNetRenderer
 import net.astrorbits.football.client.render.GoalNetStateClient
 import net.astrorbits.football.client.match.MatchStateClient
+import net.astrorbits.football.client.config.FootballClientConfigKeyHandler
 import net.astrorbits.football.client.config.FootballConfigNetworking
 import net.astrorbits.football.client.config.MatchConfigNetworking
 import net.astrorbits.football.client.config.MatchFieldConfigNetworking
@@ -47,6 +48,7 @@ object NMBCTFootballClient : ClientModInitializer {
 		GoalScoredClientNetworking.register()
 
 		FootballKeyBindings.init()
+		FootballClientConfigKeyHandler.register()
 
 		HudElementRegistry.addLast(
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "match_hud"),
