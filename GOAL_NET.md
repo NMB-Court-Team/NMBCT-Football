@@ -349,8 +349,8 @@ Fabric 事件：
 | `DEFAULT_SLACK` | `0.08` | 初始松弛度 |
 | `MIN_SLACK` / `MAX_SLACK` | `0.0` / `0.45` | 松弛度范围 |
 | `SLACK_STEP` | `0.05` | 每次调节步长 |
-| `SLACK_GRAVITY_GAIN` | `1.9` | 松弛度对重力增益 |
-| `SLACK_STIFFNESS_REDUCTION` | `0.85` | 松弛度对约束刚度衰减 |
+| `SLACK_GRAVITY_GAIN` | `2.8` | 松弛度对重力增益 |
+| `SLACK_STIFFNESS_REDUCTION` | `1.5` | 松弛度对约束刚度衰减 |
 | `MIN_STIFFNESS_SCALE_AT_MAX_SLACK` | `0.25` | 高松弛下最小刚度比例 |
 | `ACTIVE_TICKS_AFTER_DISTURB` | `60` | 扰动后活跃模拟 tick 数 |
 | `SETTLE_SPEED_SQR` | `1e-7` | 静止判定阈值 |

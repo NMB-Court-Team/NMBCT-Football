@@ -29,9 +29,9 @@ object GoalNetConfig {
     const val MAX_SLACK: Double = 0.45
     const val SLACK_STEP: Double = 0.05
     /** 松弛度对重力的增益系数。 */
-    const val SLACK_GRAVITY_GAIN: Double = 1.9
+    const val SLACK_GRAVITY_GAIN: Double = 2.8
     /** 松弛度对弹簧刚度的减弱系数。 */
-    const val SLACK_STIFFNESS_REDUCTION: Double = 0.85
+    const val SLACK_STIFFNESS_REDUCTION: Double = 1.5
     /** 最大松弛度时约束刚度下限，避免网面失稳起皱。 */
     const val MIN_STIFFNESS_SCALE_AT_MAX_SLACK: Double = 0.25
 
