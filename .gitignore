@@ -27,7 +27,7 @@ bin/
 # macos
 
 *.DS_Store
-
+*.__pycache__/
 # fabric
 
 run/

@@ -54,6 +54,15 @@ object FootballKeyBindings {
         )
     )
 
+    val SLIDE_TACKLE: KeyMapping = KeyMappingHelper.registerKeyMapping(
+        KeyMapping(
+            "key.nmbct-football.slide_tackle",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_C,
+            CATEGORY
+        )
+    )
+
     fun init() {
         // static init
     }

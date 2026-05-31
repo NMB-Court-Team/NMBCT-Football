@@ -29,6 +29,7 @@ object FootballNetworking {
     private fun registerS2CPayloadType(registry: PayloadTypeRegistry<RegistryFriendlyByteBuf>) {
         registry.register(GoalkeeperRoleS2CPayload.TYPE, GoalkeeperRoleS2CPayload.CODEC)
         registry.register(GoalkeeperHoldLockS2CPayload.TYPE, GoalkeeperHoldLockS2CPayload.CODEC)
+        registry.register(SlideTackleStateS2CPayload.TYPE, SlideTackleStateS2CPayload.CODEC)
         registry.register(ServerConfigSyncS2CPayload.TYPE, ServerConfigSyncS2CPayload.CODEC)
 	        registry.register(MatchConfigSyncS2CPayload.TYPE, MatchConfigSyncS2CPayload.CODEC)
 		registry.register(MatchFieldConfigSyncS2CPayload.TYPE, MatchFieldConfigSyncS2CPayload.CODEC)
@@ -150,6 +151,14 @@ object FootballNetworking {
 
     fun sendHoldReleaseLock(player: ServerPlayer, lockTicksRemaining: Int) {
         ServerPlayNetworking.send(player, GoalkeeperHoldLockS2CPayload(lockTicksRemaining))
+    }
+
+    fun syncSlideTackleState(player: ServerPlayer, sliding: Boolean) {
+        val payload = SlideTackleStateS2CPayload(player.id, sliding)
+        val server = player.level().server
+        for (target in server.playerList.players) {
+            ServerPlayNetworking.send(target, payload)
+        }
     }
 
     fun syncGoalkeeperRole(uuid: UUID, server: MinecraftServer?) {

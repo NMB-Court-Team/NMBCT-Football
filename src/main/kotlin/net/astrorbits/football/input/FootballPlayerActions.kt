@@ -34,12 +34,51 @@ object FootballPlayerActions {
             GoalkeeperActions.handle(player, payload)
             return
         }
+        if (isBlockedBySlideState(player, payload.action)) {
+            FootballDribbleSessions.end(player)
+            return
+        }
 
         when (payload.action) {
             FootballActionType.DRIBBLE_HOLD -> handleDribbleHold(player, payload)
             FootballActionType.DRIBBLE_END -> FootballDribbleSessions.end(player)
+            FootballActionType.SLIDE_TACKLE -> handleSlideTackle(player, payload)
+            FootballActionType.SLIDE_TACKLE_END -> handleSlideTackleEnd(player)
             else -> handleKickAction(player, payload)
         }
+    }
+
+    private fun isBlockedBySlideState(player: ServerPlayer, action: FootballActionType): Boolean {
+        if (!SlideTackleSessions.isSliding(player)) {
+            return false
+        }
+        return action != FootballActionType.SLIDE_TACKLE_END
+    }
+
+    private fun handleSlideTackle(player: ServerPlayer, payload: FootballActionC2SPayload) {
+        FootballDribbleSessions.end(player)
+        if (
+            !canAct(player) ||
+            !player.isSprinting ||
+            !player.onGround() ||
+            GoalkeeperDiveSessions.isDiving(player) ||
+            SlideTackleSessions.isSliding(player)
+        ) {
+            return
+        }
+        val now = player.level().gameTime
+        val sprinting = payload.flags and FootballInputConfig.FLAG_SPRINT != 0
+        SlideTackleSessions.begin(
+            player = player,
+            now = now,
+            lookYaw = payload.lookYaw,
+            lookPitch = payload.lookPitch,
+            sprinting = sprinting,
+        )
+    }
+
+    private fun handleSlideTackleEnd(player: ServerPlayer) {
+        SlideTackleSessions.requestEnd(player, player.level().gameTime)
     }
 
     private fun handleDribbleHold(player: ServerPlayer, payload: FootballActionC2SPayload) {
@@ -143,7 +182,7 @@ object FootballPlayerActions {
             FootballActionType.DRIBBLE_HOLD, FootballActionType.DRIBBLE_END,
             FootballActionType.GK_CATCH, FootballActionType.GK_DIVE, FootballActionType.GK_PUNCH,
             FootballActionType.GK_THROW_SHORT, FootballActionType.GK_THROW_LONG, FootballActionType.GK_DROP,
-            FootballActionType.ITEM_THROW,
+            FootballActionType.ITEM_THROW, FootballActionType.SLIDE_TACKLE, FootballActionType.SLIDE_TACKLE_END,
             -> Unit
         }
     }
