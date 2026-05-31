@@ -54,9 +54,10 @@ class GoalNetRenderer(context: EntityRendererProvider.Context) :
             val camLocalX = (cameraState.pos.x - state.x).toFloat()
             val camLocalY = (cameraState.pos.y - state.y).toFloat()
             val camLocalZ = (cameraState.pos.z - state.z).toFloat()
-            val renderType = when (FootballClientConfigHolder.current.goalNetRenderMode) {
+            val renderType = when (FootballClientConfigHolder.current.goalNetRenderMode.resolveRenderMode()) {
                 GoalNetRenderMode.VANILLA_COMPAT -> RenderTypes.debugQuads()
                 GoalNetRenderMode.SHADER_COMPAT -> RenderTypes.entityTranslucentEmissive(LINE_TEXTURE)
+                GoalNetRenderMode.AUTO -> error("AUTO should be resolved before rendering")
             }
 
             collector.submitCustomGeometry(poseStack, renderType) { pose, vc ->

@@ -45,5 +45,8 @@
 		"fabric-api": "*",
 		"fabric-language-kotlin": "*",
 		"yet_another_config_lib_v3": ">=3.9.3+26.1-fabric"
+	},
+	"suggests": {
+		"iris": "*"
 	}
 }

@@ -7,12 +7,13 @@ enum class GoalNetRenderMode(
     val serializedName: String,
     val translationKey: String,
 ) {
+    AUTO("auto", "yacl3.config.nmbct-football.client.goal_net_render_mode.auto"),
     VANILLA_COMPAT("vanilla_compat", "yacl3.config.nmbct-football.client.goal_net_render_mode.vanilla_compat"),
     SHADER_COMPAT("shader_compat", "yacl3.config.nmbct-football.client.goal_net_render_mode.shader_compat");
 
     companion object {
         fun fromSerializedName(name: String): GoalNetRenderMode =
-            entries.firstOrNull { it.serializedName == name } ?: SHADER_COMPAT
+            entries.firstOrNull { it.serializedName == name } ?: AUTO
 
         val CODEC: Codec<GoalNetRenderMode> =
             Codec.STRING.xmap(::fromSerializedName, GoalNetRenderMode::serializedName)
@@ -27,7 +28,7 @@ data class FootballClientConfig(
     val renderStationarySpeedSqr: Double = 1.0e-4,
     val clientCorrectionThreshold: Double = 0.25,
     val dribbleHoldPacketInterval: Int = 2,
-    val goalNetRenderMode: GoalNetRenderMode = GoalNetRenderMode.SHADER_COMPAT,
+    val goalNetRenderMode: GoalNetRenderMode = GoalNetRenderMode.AUTO,
 ) {
     companion object {
         val CODEC: Codec<FootballClientConfig> = RecordCodecBuilder.create { instance ->
@@ -36,7 +37,7 @@ data class FootballClientConfig(
                 Codec.DOUBLE.fieldOf("render_stationary_speed_sqr").forGetter(FootballClientConfig::renderStationarySpeedSqr),
                 Codec.DOUBLE.fieldOf("client_correction_threshold").forGetter(FootballClientConfig::clientCorrectionThreshold),
                 Codec.INT.fieldOf("dribble_hold_packet_interval").forGetter(FootballClientConfig::dribbleHoldPacketInterval),
-                GoalNetRenderMode.CODEC.optionalFieldOf("goal_net_render_mode", GoalNetRenderMode.SHADER_COMPAT)
+                GoalNetRenderMode.CODEC.optionalFieldOf("goal_net_render_mode", GoalNetRenderMode.AUTO)
                     .forGetter(FootballClientConfig::goalNetRenderMode),
             ).apply(instance, ::FootballClientConfig)
         }

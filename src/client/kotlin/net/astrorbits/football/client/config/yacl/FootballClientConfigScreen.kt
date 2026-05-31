@@ -29,7 +29,7 @@ object FootballClientConfigScreen {
                                     "yacl3.config.$MOD_ID.client.goal_net_render_mode",
                                     "yacl3.config.$MOD_ID.client.goal_net_render_mode.desc",
                                     GoalNetRenderMode::class.java,
-                                    GoalNetRenderMode.SHADER_COMPAT,
+                                    GoalNetRenderMode.AUTO,
                                     { draft.goalNetRenderMode },
                                     { v -> draft = draft.copy(goalNetRenderMode = v) },
                                     { mode -> Component.translatable(mode.translationKey) },
