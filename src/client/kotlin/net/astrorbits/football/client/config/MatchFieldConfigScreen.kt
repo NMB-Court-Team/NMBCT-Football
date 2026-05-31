@@ -126,10 +126,10 @@ class MatchFieldConfigScreen(
             // nav row
             val i = idx()
             val prevBtn = Button.builder(Component.literal("<")) {
-                flushPlayerPos(players, i, plX, plY, plZ, plYw, plPt); setIdx((i - 1 + players.size) % players.size); rebuild()
+                saveAndNavigate(players, i, (i - 1 + players.size) % players.size, setIdx)
             }.bounds(IX, y, 20, EH).build()
             val nextBtn = Button.builder(Component.literal(">")) {
-                flushPlayerPos(players, i, plX, plY, plZ, plYw, plPt); setIdx((i + 1) % players.size); rebuild()
+                saveAndNavigate(players, i, (i + 1) % players.size, setIdx)
             }.bounds(IX + 22, y, 20, EH).build()
             val addBtn = Button.builder(ADD_POS) {
                 players.add(EditablePos("0", "64", "0", "0", "0")); rebuild()
@@ -141,10 +141,9 @@ class MatchFieldConfigScreen(
                 Component.literal("${i + 1}/${players.size}"), font))
             if (players.size > 1) {
                 addRenderableWidget(Button.builder(DEL_POS) {
-                    flushPlayerPos(players, i, plX, plY, plZ, plYw, plPt)
                     players.removeAt(i)
                     if (i >= players.size) setIdx(players.size - 1)
-                    rebuild()
+                    rebuildWidgets()
                 }.bounds(SX, y, 60, EH).build())
             }
             y += RH
@@ -212,9 +211,11 @@ class MatchFieldConfigScreen(
         if (i != currentTab) { currentTab = i; rebuildWidgets() }
     }
 
-    private fun rebuild() {
-        if (currentTab == 2) flushPlayerPos(saPlayers, saIdx, plX, plY, plZ, plYw, plPt)
-        if (currentTab == 3) flushPlayerPos(sbPlayers, sbIdx, plX, plY, plZ, plYw, plPt)
+    private fun rebuild() { rebuildWidgets() }
+
+    private fun saveAndNavigate(players: MutableList<EditablePos>, oldIdx: Int, newIdx: Int, setIdx: (Int) -> Unit) {
+        flushPlayerPos(players, oldIdx, plX, plY, plZ, plYw, plPt)
+        setIdx(newIdx)
         rebuildWidgets()
     }
 
