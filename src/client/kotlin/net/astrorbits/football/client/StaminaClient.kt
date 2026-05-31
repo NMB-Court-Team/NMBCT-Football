@@ -105,6 +105,31 @@ object StaminaClient {
         player.getAttribute(Attributes.MOVEMENT_SPEED)?.removeModifier(MODIFIER_ID)
     }
 
+    /** 比赛开始时回满体力 */
+    fun onMatchStart() {
+        stamina = MAX_STAMINA
+        ticksSinceConsume = 0
+        sprintAccumulator = 0
+        recoveryAccumulator = 0
+        wasOnGround = false
+    }
+
+    /** 半场切换时回复体力 */
+    fun onHalfSwitch() {
+        stamina = (stamina + 600).coerceAtMost(MAX_STAMINA)
+        ticksSinceConsume = 0
+        sprintAccumulator = 0
+        recoveryAccumulator = 0
+    }
+
+    /** 进球后回复体力 */
+    fun onGoalScored() {
+        stamina = (stamina + 150).coerceAtMost(MAX_STAMINA)
+        ticksSinceConsume = 0
+        sprintAccumulator = 0
+        recoveryAccumulator = 0
+    }
+
     fun reset() {
         stamina = MAX_STAMINA
         ticksSinceConsume = 0
