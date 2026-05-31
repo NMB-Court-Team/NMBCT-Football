@@ -1,6 +1,7 @@
 package net.astrorbits.football.match
 
 import net.astrorbits.football.Football
+import net.astrorbits.football.network.FootballNetworking
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.server.MinecraftServer
@@ -137,7 +138,7 @@ object MatchState {
         if (getPlayerTeam(player.uuid) != kt) return
         kickoffTouched = true
         val server = player.level().server ?: return
-        net.astrorbits.football.network.FootballNetworking.broadcastKickoffBallTouched(server)
+        FootballNetworking.broadcastKickoffBallTouched(server)
     }
 
     /** 清除场上所有足球并在 (8.5, -60, 8.5) 放置一个新足球。 */
@@ -159,12 +160,12 @@ object MatchState {
         for (uuid in teamAPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
             val isGk = PlayerRoleState.teamAGoalkeeper == uuid
-            net.astrorbits.football.network.FootballNetworking.sendMatchStart(player, TeamSide.A, isGk, kickoff, nameA, nameB)
+            FootballNetworking.sendMatchStart(player, TeamSide.A, isGk, kickoff, nameA, nameB)
         }
         for (uuid in teamBPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
             val isGk = PlayerRoleState.teamBGoalkeeper == uuid
-            net.astrorbits.football.network.FootballNetworking.sendMatchStart(player, TeamSide.B, isGk, kickoff, nameA, nameB)
+            FootballNetworking.sendMatchStart(player, TeamSide.B, isGk, kickoff, nameA, nameB)
         }
     }
 

@@ -2,6 +2,7 @@ package net.astrorbits.football.input
 
 import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.FootballSounds
+import net.astrorbits.football.mixinhelper.SlideTackleStateAccess
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.FootballKickUtil
@@ -204,7 +205,7 @@ object SlideTackleSessions {
     }
 
     private fun setSlideState(player: ServerPlayer, sliding: Boolean) {
-        (player as? SlideTackleStateAccess)?.nmbctFootball_setSlideTackling(sliding)
+        player.isSlideTackling = sliding
         player.refreshDimensions()
     }
 
