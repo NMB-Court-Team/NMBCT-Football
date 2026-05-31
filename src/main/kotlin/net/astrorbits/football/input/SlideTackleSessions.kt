@@ -36,11 +36,11 @@ object SlideTackleSessions {
     private const val STEP_SOUND_INTERVAL_TICKS = 4L
     private const val CONTACT_HITBOX_EXPAND = 0.6
     // 进入滑铲时略快于疾跑，先保持一小段时间，再衰减到 0。
-    private const val SLIDE_INITIAL_SPEED = 0.2
-    // 至少保持 1 秒匀速（20 ticks）。
-    private const val SLIDE_INITIAL_HOLD_TICKS = 20L
-    // 再用 3 秒（60 ticks）线性衰减到 0。
-    private const val SLIDE_DECAY_TICKS = 60L
+    private const val SLIDE_INITIAL_SPEED = 0.8
+    // 保持匀速时间。
+    private const val SLIDE_INITIAL_HOLD_TICKS = 4L
+    // 速度衰减时间。
+    private const val SLIDE_DECAY_TICKS = 10L
     private const val SLIDE_MOVE_EPSILON = 0.001
 
     private val sessions = ConcurrentHashMap<UUID, SlideTackleSession>()

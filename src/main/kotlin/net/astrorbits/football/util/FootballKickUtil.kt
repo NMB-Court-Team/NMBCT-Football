@@ -90,7 +90,7 @@ object FootballKickUtil {
     }
 
     fun resolveSlideKickParams(sprinting: Boolean): KickParams {
-        var force = FootballInputConfig.PASS_FORCE * 1.15
+        var force = FootballInputConfig.PASS_FORCE * 1.35
         if (sprinting) {
             force *= FootballInputConfig.SHOOT_SPRINT_BONUS.coerceAtMost(1.2)
         }
