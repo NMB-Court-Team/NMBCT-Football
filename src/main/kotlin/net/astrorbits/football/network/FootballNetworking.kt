@@ -86,6 +86,8 @@ object FootballNetworking {
                 player.sendSystemMessage(
                     Component.translatable("command.nmbct-football.match.config_applied"),
                 )
+                // 立即推送到所有客户端，不等下个定时同步周期
+                broadcastTimerSync(context.server())
             }
         }
         ServerPlayNetworking.registerGlobalReceiver(HalfKickoffRequestC2SPayload.TYPE) { _, context ->
