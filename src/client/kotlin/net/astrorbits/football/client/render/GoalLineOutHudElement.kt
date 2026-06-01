@@ -37,11 +37,13 @@ class GoalLineOutHudElement : HudElement {
         val typeKey = when (GoalLineOutClient.outType) {
             GoalLineOutType.CORNER_KICK -> "hud.nmbct-football.out.corner_kick"
             GoalLineOutType.GOAL_KICK -> "hud.nmbct-football.out.goal_kick"
+            GoalLineOutType.THROW_IN -> "hud.nmbct-football.out.throw_in"
         }
         val typeText = Component.translatable(typeKey).string
         val typeColor = when (GoalLineOutClient.outType) {
             GoalLineOutType.CORNER_KICK -> 0xFFFF9800.toInt()
             GoalLineOutType.GOAL_KICK -> 0xFF4CAF50.toInt()
+            GoalLineOutType.THROW_IN -> 0xFF4488FF.toInt()
         }
         drawBold(extra, font, typeText, cx - font.width(typeText) / 2, baseY, fade(typeColor))
 

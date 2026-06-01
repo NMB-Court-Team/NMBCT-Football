@@ -51,6 +51,16 @@ class MatchFieldConfigScreen(
     // ---- kickoff ----
     private var koX = f(initial.kickOff.x); private var koY = f(initial.kickOff.y); private var koZ = f(initial.kickOff.z)
 
+    // ---- sideline A ----
+    private var s1C = f(initial.sidelineA.coord)
+    private var s1Axis = initial.sidelineA.axis
+    private var s1Inside = initial.sidelineA.positiveInside
+
+    // ---- sideline B ----
+    private var s2C = f(initial.sidelineB.coord)
+    private var s2Axis = initial.sidelineB.axis
+    private var s2Inside = initial.sidelineB.positiveInside
+
     private var currentTab = 0
 
     // layout
@@ -63,8 +73,8 @@ class MatchFieldConfigScreen(
     override fun init() { buildTabBar(); buildCurrentTab(); buildBottomButtons() }
 
     private fun buildTabBar() {
-        val tw = 70; val th = 20; val total = tw * 5 + 8; val sx = (width - total) / 2
-        for (i in 0 until 5) {
+        val tw = 70; val th = 20; val total = tw * 7 + 12; val sx = (width - total) / 2
+        for (i in 0 until 7) {
             val b = Button.builder(TABS[i]) { switchTab(i) }.bounds(sx + i * (tw + 2), 28, tw, th).build()
             b.active = i != currentTab; addRenderableWidget(b)
         }
@@ -115,6 +125,32 @@ class MatchFieldConfigScreen(
                 r(y, L_KO_X, { koX }, { koX = it }, L_KO_Y, { koY }, { koY = it }); y += RH
                 r(y, L_KO_Z, { koZ }, { koZ = it }, null, null, null)
                 addBtn(y, SX, USE_POS) { fillKo(); rebuild() }
+            }
+            5 -> { // Sideline A
+                r(y, L_SL_CO, { s1C }, { s1C = it }, null, null, null)
+                addBtn(y, SX, USE_POS) { withPos { x, _, z -> s1C = if (s1Axis == "x") x else z }; rebuild() }
+                y += RH
+                addLabel(L_SL_AXIS, LX, y)
+                addRenderableWidget(Button.builder(
+                    Component.literal(if (s1Axis == "x") "X 轴" else "Z 轴")
+                ) { s1Axis = if (s1Axis == "x") "z" else "x"; rebuild() }.bounds(IX, y, IW, EH).build())
+                addLabel(L_SL_IN, RX, y)
+                addRenderableWidget(Button.builder(
+                    Component.literal(if (s1Inside) "场内 +${s1Axis.uppercase()}" else "场内 -${s1Axis.uppercase()}")
+                ) { s1Inside = !s1Inside; rebuild() }.bounds(SX, y, IW, EH).build())
+            }
+            6 -> { // Sideline B
+                r(y, L_SL_CO, { s2C }, { s2C = it }, null, null, null)
+                addBtn(y, SX, USE_POS) { withPos { x, _, z -> s2C = if (s2Axis == "x") x else z }; rebuild() }
+                y += RH
+                addLabel(L_SL_AXIS, LX, y)
+                addRenderableWidget(Button.builder(
+                    Component.literal(if (s2Axis == "x") "X 轴" else "Z 轴")
+                ) { s2Axis = if (s2Axis == "x") "z" else "x"; rebuild() }.bounds(IX, y, IW, EH).build())
+                addLabel(L_SL_IN, RX, y)
+                addRenderableWidget(Button.builder(
+                    Component.literal(if (s2Inside) "正方向内" else "负方向内")
+                ) { s2Inside = !s2Inside; rebuild() }.bounds(SX, y, IW, EH).build())
             }
         }
     }
@@ -284,6 +320,14 @@ class MatchFieldConfigScreen(
             teamASpawn = mkSpawn(saGkX, saGkY, saGkZ, saGkYaw, saGkPit, saPlayers, initial.teamASpawn),
             teamBSpawn = mkSpawn(sbGkX, sbGkY, sbGkZ, sbGkYaw, sbGkPit, sbPlayers, initial.teamBSpawn),
             kickOff = KickPosition(koX.toD(initial.kickOff.x), koY.toD(initial.kickOff.y), koZ.toD(initial.kickOff.z)),
+            sidelineA = net.astrorbits.football.match.SidelineConfig(
+                coord = s1C.toD(initial.sidelineA.coord),
+                axis = s1Axis, positiveInside = s1Inside,
+            ),
+            sidelineB = net.astrorbits.football.match.SidelineConfig(
+                coord = s2C.toD(initial.sidelineB.coord),
+                axis = s2Axis, positiveInside = s2Inside,
+            ),
         )
         if (ClientPlayNetworking.canSend(MatchConfigApplyC2SPayload.TYPE))
             ClientPlayNetworking.send(MatchConfigApplyC2SPayload(cfg))
@@ -340,7 +384,9 @@ class MatchFieldConfigScreen(
         private val TAB_SA = Component.translatable("screen.nmbct-football.field.tab.spawn_a")
         private val TAB_SB = Component.translatable("screen.nmbct-football.field.tab.spawn_b")
         private val TAB_KO = Component.translatable("screen.nmbct-football.field.tab.kick_off")
-        private val TABS = arrayOf(TAB_A, TAB_B, TAB_SA, TAB_SB, TAB_KO)
+        private val TAB_SLA = Component.translatable("screen.nmbct-football.field.tab.sideline_a")
+        private val TAB_SLB = Component.translatable("screen.nmbct-football.field.tab.sideline_b")
+        private val TABS = arrayOf(TAB_A, TAB_B, TAB_SA, TAB_SB, TAB_KO, TAB_SLA, TAB_SLB)
 
         // goal A
         private val L_GA_X1 = Component.translatable("screen.nmbct-football.field.goal_a.x1")
@@ -396,5 +442,9 @@ class MatchFieldConfigScreen(
         private val L_KO_X = Component.translatable("screen.nmbct-football.field.kick_off.x")
         private val L_KO_Y = Component.translatable("screen.nmbct-football.field.kick_off.y")
         private val L_KO_Z = Component.translatable("screen.nmbct-football.field.kick_off.z")
+        // sideline
+        private val L_SL_CO = Component.translatable("screen.nmbct-football.field.sideline.coord")
+        private val L_SL_AXIS = Component.translatable("screen.nmbct-football.field.sideline.axis")
+        private val L_SL_IN = Component.translatable("screen.nmbct-football.field.sideline.inside")
     }
 }

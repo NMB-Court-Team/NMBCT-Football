@@ -65,6 +65,45 @@ data class KickPosition(
     }
 }
 
+/**
+ * 边线：选 X 轴则坐标填 X 值，线沿 Z 延伸，场内方向沿 X 正/负。
+ * 例：axis=X, coord=50, positiveInside=false → X=50 的线，X<50 是场内。
+ */
+data class SidelineConfig(
+    val coord: Double = 0.0,
+    val axis: String = "x",
+    val positiveInside: Boolean = false,
+) {
+    companion object {
+        val CODEC: Codec<SidelineConfig> = RecordCodecBuilder.create { i ->
+            i.group(
+                Codec.DOUBLE.fieldOf("coord").forGetter(SidelineConfig::coord),
+                Codec.STRING.fieldOf("axis").forGetter(SidelineConfig::axis),
+                Codec.BOOL.fieldOf("positive_inside").forGetter(SidelineConfig::positiveInside),
+            ).apply(i, ::SidelineConfig)
+        }
+
+        val DEFAULT = SidelineConfig()
+    }
+
+    /** 场内方向：positiveInside=true 时正方向是场内，facing 指向场内 */
+    fun facing(): net.minecraft.world.phys.Vec3 {
+        val sign = if (positiveInside) 1.0 else -1.0
+        return when (axis.lowercase()) {
+            "x" -> net.minecraft.world.phys.Vec3(sign, 0.0, 0.0)
+            else -> net.minecraft.world.phys.Vec3(0.0, 0.0, sign)
+        }
+    }
+
+    /** 边线上一点：坐标填哪个轴，就在那个轴上取 coord */
+    fun origin(): net.minecraft.world.phys.Vec3 {
+        return when (axis.lowercase()) {
+            "x" -> net.minecraft.world.phys.Vec3(coord, 0.0, 0.0)
+            else -> net.minecraft.world.phys.Vec3(0.0, 0.0, coord)
+        }
+    }
+}
+
 /** 球门：两个对角 3D 点定义的垂直矩形 + 球门朝向 + 角球点/门球点 */
 data class GoalConfig(
     val x1: Double = 0.0,
@@ -113,6 +152,8 @@ data class MatchConfig(
     val enablePenaltyShootout: Boolean = false,
     val goalA: GoalConfig = GoalConfig.DEFAULT,
     val goalB: GoalConfig = GoalConfig.DEFAULT,
+    val sidelineA: SidelineConfig = SidelineConfig.DEFAULT,
+    val sidelineB: SidelineConfig = SidelineConfig.DEFAULT,
     val kickOff: KickPosition = KickPosition(8.5, -60.0, 8.5),
     val teamASpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
     val teamBSpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
@@ -133,6 +174,8 @@ data class MatchConfig(
                 Codec.BOOL.fieldOf("enable_penalty_shootout").forGetter(MatchConfig::enablePenaltyShootout),
                 GoalConfig.CODEC.optionalFieldOf("goal_a", GoalConfig.DEFAULT).forGetter(MatchConfig::goalA),
                 GoalConfig.CODEC.optionalFieldOf("goal_b", GoalConfig.DEFAULT).forGetter(MatchConfig::goalB),
+                SidelineConfig.CODEC.optionalFieldOf("sideline_a", SidelineConfig.DEFAULT).forGetter(MatchConfig::sidelineA),
+                SidelineConfig.CODEC.optionalFieldOf("sideline_b", SidelineConfig.DEFAULT).forGetter(MatchConfig::sidelineB),
                 KickPosition.CODEC.optionalFieldOf("kick_off", KickPosition(8.5, -60.0, 8.5)).forGetter(MatchConfig::kickOff),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_a_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamASpawn),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_b_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamBSpawn),
