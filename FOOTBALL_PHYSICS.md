@@ -230,6 +230,79 @@ sequenceDiagram
 
 若模型偏移或大小不对，优先调 `FootballRenderer` 内 `translate` 或 `ItemDisplayContext`；若旋转与运动不一致，应检查 `Football.tick` 中的 `integrateOrientation` 与同步，而非渲染器。
 
+## 球员输入：观察四周（Look Around）
+
+> **请勿随意修改本节描述的机制。**  
+> 下列行为是**刻意设计**的玩法约定（含「观察时扭头」与「踢球仍跟当前视角」的分离），**不是**实现遗漏或待修 bug。  
+> 若确需改版，请先与玩法设计对齐，并**同步更新本文档**；勿在代码评审中把「带球跟锁定朝向、射门跟当前视角」当成不一致而强行统一。
+
+### 功能概要
+
+默认按键为 **左 Alt**（`FootballKeyBindings.LOOK_AROUND`）。按住时可自由转动视角观察周围；松开时视角回到**按下瞬间**的 yaw / pitch。观察期间水平移动（WASD）以**按下键时**的身体朝向为基准，而非当前扭头方向。
+
+| 模块 | 路径 |
+|------|------|
+| 客户端状态 | `client/key/LookAroundClient.kt` |
+| 移动时锁定身体 yaw | `client/mixin/LocalPlayerMixin.java`（`aiStep` HEAD/RETURN + `turn` TAIL） |
+| 扭头角度上限 | `LookAroundClient`：`±90°`（相对 `lockedYaw`） |
+| 观察专用准心 | `client/render/LookAroundCrosshairHud.kt`，贴图 `textures/gui/sprites/hud/crosshair_look_around.png`（15×7） |
+| 按键提示 HUD | `client/render/FootballKeybindHintHudElement.kt`（含常亮的「观察四周」行；聊天栏打开时仍显示） |
+
+### 客户端：移动 vs 视角
+
+```mermaid
+sequenceDiagram
+    participant Input as 鼠标/键盘
+    participant LP as LocalPlayer
+    participant LAC as LookAroundClient
+
+    Note over LAC: 按下 Alt：记录 lockedYaw / lockedPitch
+    Input->>LP: WASD
+    LP->>LAC: aiStep HEAD：yRot = lockedYaw（仅本 tick 位移用）
+    LP->>LP: 原版位移
+    LP->>LAC: aiStep RETURN：yRot = 自由观察 yaw
+    Input->>LP: turn
+    LP->>LAC: TAIL：clamp 相对 lockedYaw ±90°
+    Note over LAC: 松开 Alt：恢复 lockedYaw / lockedPitch
+```
+
+- **移动基准**：`aiStep` 开头临时将 `yRot` / `yBodyRot` 设为 `lockedYaw`，位移计算结束后再恢复为自由观察朝向（`yHeadRot` 同步为观察 yaw）。
+- **扭头限制**：在 `Entity.turn` 之后将 yaw 限制在 `lockedYaw ± 90°`。
+- **其它客户端逻辑**（如带球发包前的「是否有移动输入」）使用 `LookAroundClient.movementYaw(player)`，与上述移动基准一致。
+
+### 朝向基准：带球与其它操作（刻意分离）
+
+**这是核心玩法设计，请勿改成「全部跟锁定 yaw」或「全部跟当前视角」。**
+
+| 情境 | 使用的朝向 | 说明 |
+|------|------------|------|
+| 观察四周期间 **带球**（`DRIBBLE_HOLD`） | 进入观察四周时的 yaw（`dribbleBaseYaw`） | 球的目标点、推进方向按**按下 Alt 时**的朝向计算；扭头看球时球不应滑到身侧 |
+| 观察四周期间 **传球 / 射门 / 停球 / 挑球** 等 | **当前**视角（`yHeadRot` 等） | 故意保留：可边观察边用**此刻**瞄准方向出脚 |
+| 未按观察四周 | 各操作原有逻辑 | 带球、踢球均按当前朝向 / 移动输入 |
+
+网络包约定（`FootballActionC2SPayload`）：
+
+- 带球且观察中：设置 `FLAG_LOOK_AROUND`，`lookYaw` 为锁定 yaw（客户端 `LookAroundClient.movementYaw`）。
+- 其它操作：**不**设置该标志，`lookYaw` 仍为当前头部朝向。
+
+服务端带球链路：
+
+1. `FootballDribbleSessions.beginOrRefresh`：若 `FLAG_LOOK_AROUND`，在 session 上记录 `dribbleBaseYaw`（首次进入观察时写入，观察期间保持）。
+2. `FootballKickUtil.resolveDribbleDirection(player, dribbleBaseYaw)`：有移动输入时调用 `FootballMovementInputUtil.movementInputVector(player, dribbleBaseYaw)`，将客户端移动意图从服务端当前 `yRot`（多为观察中的扭头）**换算**到 `dribbleBaseYaw` 基准。
+3. `FootballDribbleAssist.apply`：用上述方向计算球的目标位置与 PD 修正。
+
+传球 / 射门等仍走 `handleKickAction` → `applyKickToFootball` / `applyKickToFootballWithLook`，**不**传入 `dribbleBaseYaw`，方向随**当前** `lookYaw`（刻意如此）。
+
+### 修改时的自检清单
+
+若你正在改观察四周或带球相关代码，请确认未破坏下列不变量：
+
+- [ ] 松开 Alt 后视角回到按下时的 yaw / pitch。
+- [ ] 观察中扭头不超过相对 `lockedYaw` 的 ±90°。
+- [ ] 观察中 WASD 与带球方向均基于**进入观察时**的 yaw，而非当前扭头。
+- [ ] 观察中传球 / 射门等仍基于**当前**视角（未误用 `dribbleBaseYaw`）。
+- [ ] 仅 `DRIBBLE_HOLD` 路径设置 `FLAG_LOOK_AROUND` / `dribbleBaseYaw`。
+
 ---
 
-*文档版本与代码同步；修改物理逻辑时请一并更新本文档。*
+*文档版本与代码同步；修改物理或上述输入逻辑时请一并更新本文档。*

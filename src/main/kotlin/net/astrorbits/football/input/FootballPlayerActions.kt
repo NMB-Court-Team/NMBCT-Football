@@ -103,7 +103,7 @@ object FootballPlayerActions {
             return
         }
 
-        if (!FootballMovementInputUtil.hasMovementInput(player)) {
+        if (!hasDribbleMovementInput(player, payload)) {
             FootballDribbleSessions.end(player)
             return
         }
@@ -188,6 +188,13 @@ object FootballPlayerActions {
     }
 
     private fun canAct(player: Player): Boolean = player.mainHandItem.isEmpty
+
+    private fun hasDribbleMovementInput(player: ServerPlayer, payload: FootballActionC2SPayload): Boolean {
+        if (payload.flags and FootballInputConfig.FLAG_LOOK_AROUND != 0) {
+            return FootballMovementInputUtil.hasMovementInput(player, payload.lookYaw)
+        }
+        return FootballMovementInputUtil.hasMovementInput(player)
+    }
 
     private fun markKickAwayAction(player: ServerPlayer, now: Long) {
         lastActionTick[player.uuid] = now

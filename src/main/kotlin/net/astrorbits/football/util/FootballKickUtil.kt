@@ -102,7 +102,11 @@ object FootballKickUtil {
     }
 
     fun resolveDribbleDirection(player: Player, dribbleBaseYaw: Float? = null): Vec3 {
-        val movement = FootballMovementInputUtil.movementInputVector(player)
+        val movement = if (dribbleBaseYaw != null) {
+            FootballMovementInputUtil.movementInputVector(player, dribbleBaseYaw)
+        } else {
+            FootballMovementInputUtil.movementInputVector(player)
+        }
         if (movement.lengthSqr() > 1.0e-4) {
             return Vec3Math.normalizeSafe(movement)
         }
