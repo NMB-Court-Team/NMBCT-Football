@@ -37,6 +37,7 @@ object MatchStartClient {
     val isLocked: Boolean
         get() {
             if (startTimeMs == 0L) return false
+            if (kickoffTouched) return false
             if (elapsedMs < lockDurationMs) return true
             if (!isKickoffTeam && !kickoffTouched) return true
             return false

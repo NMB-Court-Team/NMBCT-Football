@@ -47,6 +47,7 @@ object FootballInputHandler {
 
     /** 基于实时时钟采样蓄力（供 HUD 每帧调用，避免仅 tick 更新导致进度条卡顿）。 */
     fun liveKickChargeDisplay(): KickChargeDisplayState? {
+        if (MatchStartClient.isLocked) return null
         syncKickPressRealtimeClock()
         val start = kickPressStartMs ?: return null
         if (!FootballKeyBindings.KICK.isDown) {
