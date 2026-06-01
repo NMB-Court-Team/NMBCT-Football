@@ -1,9 +1,11 @@
 package net.astrorbits.football.physics
 
 import net.astrorbits.football.entity.GoalNetEntity
+import net.astrorbits.football.util.FootballBlockDepenetration
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
+import kotlin.math.sqrt
 
 /**
  * 足球与实体化球网的动量交换：
@@ -39,13 +41,14 @@ object FootballNetInteraction {
         for (net in nets) {
             val rect = net.getRectangle() ?: continue
             val mesh = net.getMesh() ?: continue
-            val contact = resolve(net, rect, mesh, state, radius, prevCenter, currCenter)
+            val contact = resolve(level, net, rect, mesh, state, radius, prevCenter, currCenter)
             if (contact != null) return contact
         }
         return null
     }
 
     private fun resolve(
+        level: Level,
         net: GoalNetEntity,
         rect: net.astrorbits.football.util.GoalNetGeometry.NetRectangle,
         mesh: GoalNetMesh,
@@ -146,8 +149,22 @@ object FootballNetInteraction {
         val targetSigned = side * (radius + separation)
         val correctionAlongNormal = targetSigned - local.signedNow
         val restCenter = currCenter.add(n.scale(correctionAlongNormal))
+        val depResult = FootballBlockDepenetration.depenetrateSphere(level, restCenter, radius)
+        val depenetrated = depResult.center
+        val blockCorrection = depResult.correction
+        if (blockCorrection.lengthSqr() > EPS) {
+            val correctionLength = sqrt(blockCorrection.lengthSqr())
+            if (correctionLength > EPS) {
+                val outward = blockCorrection.scale(1.0 / correctionLength)
+                val inward = newVelocity.dot(outward)
+                if (inward < 0.0) {
+                    // 清除“朝方块内部”速度分量，防止下一帧再次被挤入。
+                    newVelocity = newVelocity.subtract(outward.scale(inward))
+                }
+            }
+        }
         state.linearVelocity = newVelocity
-        return NetContact(restCenter)
+        return NetContact(depenetrated)
     }
 
     private data class LocalContact(

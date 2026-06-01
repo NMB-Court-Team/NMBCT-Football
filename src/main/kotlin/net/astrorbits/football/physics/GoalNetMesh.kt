@@ -1,9 +1,12 @@
 package net.astrorbits.football.physics
 
 import net.astrorbits.football.util.GoalNetGeometry.NetRectangle
+import net.minecraft.core.BlockPos
+import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3
 import java.util.Arrays
 import kotlin.math.abs
+import kotlin.math.floor
 
 /**
  * 球网的质点-弹簧网格（服务端权威模拟）。
@@ -234,6 +237,63 @@ class GoalNetMesh(
             posY[k] += displacement.y * w
             posZ[k] += displacement.z * w
         }
+    }
+
+    /**
+     * 与世界方块碰撞：当节点进入方块碰撞形状时，沿 +Y 方向推出到方块表面上方。
+     * 返回是否发生过碰撞修正。
+     */
+    fun resolveBlockCollisions(level: Level): Boolean {
+        val radius = GoalNetConfig.NET_BLOCK_COLLISION_RADIUS
+        val epsilon = GoalNetConfig.NET_BLOCK_COLLISION_EPSILON
+        var corrected = false
+        for (k in 0 until nodeCount) {
+            if (pinned[k]) continue
+            val x = posX[k]
+            val y = posY[k]
+            val z = posZ[k]
+            val minX = floor(x - radius).toInt()
+            val maxX = floor(x + radius).toInt()
+            val minY = floor(y - radius).toInt()
+            val maxY = floor(y + radius).toInt()
+            val minZ = floor(z - radius).toInt()
+            val maxZ = floor(z + radius).toInt()
+
+            var pushY = y
+            for (bx in minX..maxX) {
+                for (by in minY..maxY) {
+                    for (bz in minZ..maxZ) {
+                        val blockPos = BlockPos(bx, by, bz)
+                        val state = level.getBlockState(blockPos)
+                        if (state.isAir) continue
+                        val shape = state.getCollisionShape(level, blockPos)
+                        if (shape.isEmpty) continue
+                        for (box in shape.toAabbs()) {
+                            val boxMinX = box.minX + bx
+                            val boxMinY = box.minY + by
+                            val boxMinZ = box.minZ + bz
+                            val boxMaxX = box.maxX + bx
+                            val boxMaxY = box.maxY + by
+                            val boxMaxZ = box.maxZ + bz
+                            val intersects =
+                                x >= boxMinX - radius && x <= boxMaxX + radius &&
+                                    z >= boxMinZ - radius && z <= boxMaxZ + radius &&
+                                    y >= boxMinY - radius && y <= boxMaxY + radius
+                            if (!intersects) continue
+                            pushY = maxOf(pushY, boxMaxY + radius + epsilon)
+                        }
+                    }
+                }
+            }
+
+            if (pushY > y + 1.0e-9) {
+                posY[k] = pushY
+                // 清除法向（竖直）残余速度，避免下一帧再次硬穿入。
+                prevY[k] = pushY
+                corrected = true
+            }
+        }
+        return corrected
     }
 
     fun nodeWorld(k: Int): Vec3 = Vec3(posX[k], posY[k], posZ[k])

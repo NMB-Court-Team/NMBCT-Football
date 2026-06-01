@@ -164,6 +164,7 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
         val idle = activeTicks <= 0
         if (!idle) {
             val motion = m.step()
+            m.resolveBlockCollisions(level())
             refreshServerBox(m)
             if (motion < GoalNetConfig.SETTLE_SPEED_SQR) {
                 activeTicks--

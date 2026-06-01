@@ -31,7 +31,7 @@ object GoalNetDrops {
 
     fun dropAnchorBreakLoot(level: ServerLevel, net: GoalNetEntity, breaker: Player?) {
         if (!appliesSurvivalRewards(breaker)) return
-        val lootTable = level.server.reloadableRegistries().getLootTable(ANCHOR_BREAK_LOOT_TABLE)
+        val lootTable = level.server?.reloadableRegistries()?.getLootTable(ANCHOR_BREAK_LOOT_TABLE) ?: return
         val dropPos = net.dropCenter()
         val damageSource = if (breaker is ServerPlayer) {
             level.damageSources().playerAttack(breaker)

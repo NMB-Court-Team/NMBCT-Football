@@ -94,6 +94,12 @@ object GoalNetConfig {
     /** 仅在接近极限拉伸后给额外法向反推，避免平时出现回弹感。 */
     const val STRETCH_PUSHOUT_START: Double = 0.82
 
+    /** 球网节点与方块碰撞检测的近似半径（方块）。 */
+    const val NET_BLOCK_COLLISION_RADIUS: Double = 0.06
+
+    /** 节点推出方块表面后的额外留缝，避免抖动与反复嵌入。 */
+    const val NET_BLOCK_COLLISION_EPSILON: Double = 0.005
+
     /** 渲染：绳线在世界空间的半宽（方块）。固定世界宽度 => 视觉粗细随距离变化。 */
     const val LINE_HALF_WIDTH: Double = 0.018
 

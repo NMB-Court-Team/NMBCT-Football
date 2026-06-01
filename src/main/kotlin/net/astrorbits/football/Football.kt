@@ -12,6 +12,7 @@ import net.astrorbits.football.physics.FootballNetInteraction
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
 import net.astrorbits.football.util.CobwebUtil
+import net.astrorbits.football.util.FootballBlockDepenetration
 import net.astrorbits.football.util.FootballPhysicsSimulator
 import net.astrorbits.football.util.QuaternionMath
 import net.astrorbits.football.util.GoalkeeperHoldPoseUtil
@@ -45,6 +46,7 @@ import net.minecraft.world.phys.Vec3
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector3fc
+import kotlin.math.sqrt
 
 class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     /** 最后踢球/触球玩家的 UUID，用于进球归属。 */
@@ -150,6 +152,26 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (netContact != null) {
             val target = netContact.restCenter.subtract(0.0, radius, 0.0)
             setPos(target.x, target.y, target.z)
+            deltaMovement = physicsState.linearVelocity
+        }
+
+        // 通用兜底：无论是否触网，最终位置都再做一次方块防穿透修正。
+        val blockDepenetration = FootballBlockDepenetration.depenetrateSphere(
+            level(),
+            position().add(0.0, radius, 0.0),
+            radius
+        )
+        if (blockDepenetration.correction.lengthSqr() > 1.0e-9) {
+            val target = blockDepenetration.center.subtract(0.0, radius, 0.0)
+            setPos(target.x, target.y, target.z)
+            val correctionLength = sqrt(blockDepenetration.correction.lengthSqr())
+            if (correctionLength > 1.0e-9) {
+                val outward = blockDepenetration.correction.scale(1.0 / correctionLength)
+                val inward = physicsState.linearVelocity.dot(outward)
+                if (inward < 0.0) {
+                    physicsState.linearVelocity = physicsState.linearVelocity.subtract(outward.scale(inward))
+                }
+            }
             deltaMovement = physicsState.linearVelocity
         }
 
