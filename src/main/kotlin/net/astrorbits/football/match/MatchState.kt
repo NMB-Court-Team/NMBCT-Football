@@ -134,6 +134,16 @@ object MatchState {
         }
     }
 
+    /** 检查非发球方球员是否处于开球锁定状态。
+     * 当 [kickoffTeam] 非空且 [kickoffTouched] 为 false 时，非发球方球员的所有足球操作都应被拒绝。
+     * 注意：若球员队伍未知（未加入赛事），则不阻止其操作，避免误伤。 */
+    fun isNonKickoffBlocked(player: ServerPlayer): Boolean {
+        if (kickoffTouched) return false
+        val kt = kickoffTeam ?: return false
+        val playerTeam = getPlayerTeam(player.uuid) ?: return false
+        return playerTeam != kt
+    }
+
     /** 发球方队员首次触球时调用，广播解锁非发球方。 */
     fun notifyKickoffBallTouched(player: ServerPlayer) {
         if (kickoffTouched) return

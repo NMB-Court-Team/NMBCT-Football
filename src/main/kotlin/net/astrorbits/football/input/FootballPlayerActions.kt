@@ -7,6 +7,7 @@ import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.item.FootballItem
 import net.astrorbits.football.Football
+import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.util.FootballKickUtil
 import net.astrorbits.football.util.KickChargeUtil
 import net.astrorbits.football.util.Vec3Math
@@ -24,8 +25,10 @@ object FootballPlayerActions {
     private const val DRIBBLE_RESUME_MIN_BALL_SPEED_SQR = 0.01
 
     fun handle(player: ServerPlayer, payload: FootballActionC2SPayload) {
-        // TODO: 服务端双重保险 — 开球锁定时拒绝接收此玩家的足球操作包
-        net.astrorbits.football.match.MatchState.notifyKickoffBallTouched(player)
+        // 服务端双重保险：非发球方球员在开球锁定时拒绝所有足球操作
+        if (MatchState.isNonKickoffBlocked(player)) return
+        // 发球方球员首次发送操作包时，标记开球已触球并广播解锁
+        MatchState.notifyKickoffBallTouched(player)
         if (payload.action == FootballActionType.ITEM_THROW) {
             FootballItem.tryThrowFromMainHand(player)
             return

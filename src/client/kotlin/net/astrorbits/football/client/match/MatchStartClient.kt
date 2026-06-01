@@ -62,14 +62,16 @@ object MatchStartClient {
         kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
     }
 
-    fun startPostGoalKickoff(kickoff: TeamSide) {
+    fun startPostGoalKickoff(kickoff: TeamSide, team: TeamSide) {
+        playerTeam = team
         kickoffTeam = kickoff
         kickoffTouched = false; isPostGoal = true; isGoalLineOut = false
         startTimeMs = System.currentTimeMillis()
         kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
     }
 
-    fun startGoalLineOutKickoff(kickoff: TeamSide) {
+    fun startGoalLineOutKickoff(kickoff: TeamSide, team: TeamSide) {
+        playerTeam = team
         kickoffTeam = kickoff
         kickoffTouched = false; isPostGoal = false; isGoalLineOut = true
         startTimeMs = System.currentTimeMillis()
@@ -84,7 +86,8 @@ object MatchStartClient {
     val isHalfKickoffHudActive: Boolean
         get() = halfKickoffActive && (System.currentTimeMillis() - halfKickoffStartMs) < 4000L
 
-    fun startHalfKickoff(kickoff: TeamSide, phaseKey: String, nameA: String, nameB: String) {
+    fun startHalfKickoff(kickoff: TeamSide, team: TeamSide, phaseKey: String, nameA: String, nameB: String) {
+        playerTeam = team
         kickoffTeam = kickoff; teamAName = nameA; teamBName = nameB
         kickoffTouched = false; isPostGoal = true; isGoalLineOut = false
         halfKickoffPhaseKey = phaseKey; halfKickoffActive = true

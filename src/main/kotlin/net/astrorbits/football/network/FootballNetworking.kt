@@ -127,9 +127,13 @@ object FootballNetworking {
     }
 
     fun broadcastHalfKickoff(server: MinecraftServer, kickoffTeam: TeamSide, phaseKey: String, teamAName: String, teamBName: String) {
-        val payload = HalfKickoffS2CPayload(kickoffTeam, phaseKey, teamAName, teamBName)
-        for (player in server.playerList.players) {
-            ServerPlayNetworking.send(player, payload)
+        for (uuid in MatchState.teamAPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            ServerPlayNetworking.send(player, HalfKickoffS2CPayload(kickoffTeam, TeamSide.A, phaseKey, teamAName, teamBName))
+        }
+        for (uuid in MatchState.teamBPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            ServerPlayNetworking.send(player, HalfKickoffS2CPayload(kickoffTeam, TeamSide.B, phaseKey, teamAName, teamBName))
         }
     }
 
@@ -179,9 +183,13 @@ object FootballNetworking {
     }
 
     fun broadcastPostGoalKickoff(server: MinecraftServer, kickoffTeam: TeamSide) {
-        val payload = PostGoalKickoffS2CPayload(kickoffTeam)
-        for (player in server.playerList.players) {
-            ServerPlayNetworking.send(player, payload)
+        for (uuid in MatchState.teamAPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            ServerPlayNetworking.send(player, PostGoalKickoffS2CPayload(kickoffTeam, TeamSide.A))
+        }
+        for (uuid in MatchState.teamBPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            ServerPlayNetworking.send(player, PostGoalKickoffS2CPayload(kickoffTeam, TeamSide.B))
         }
     }
 
@@ -192,9 +200,13 @@ object FootballNetworking {
     }
 
     fun broadcastGoalLineOut(server: MinecraftServer, outType: net.astrorbits.football.match.GoalLineOutType, restartTeam: TeamSide, ballX: Double, ballY: Double, ballZ: Double) {
-        val payload = GoalLineOutS2CPayload(outType, restartTeam, ballX, ballY, ballZ)
-        for (player in server.playerList.players) {
-            ServerPlayNetworking.send(player, payload)
+        for (uuid in MatchState.teamAPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            ServerPlayNetworking.send(player, GoalLineOutS2CPayload(outType, restartTeam, TeamSide.A, ballX, ballY, ballZ))
+        }
+        for (uuid in MatchState.teamBPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            ServerPlayNetworking.send(player, GoalLineOutS2CPayload(outType, restartTeam, TeamSide.B, ballX, ballY, ballZ))
         }
     }
 

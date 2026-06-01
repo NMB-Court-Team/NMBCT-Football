@@ -25,7 +25,7 @@ object MatchStartClientNetworking {
         }
         ClientPlayNetworking.registerGlobalReceiver(PostGoalKickoffS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
-                MatchStartClient.startPostGoalKickoff(payload.kickoffTeam)
+                MatchStartClient.startPostGoalKickoff(payload.kickoffTeam, payload.playerTeam)
             }
         }
         ClientPlayNetworking.registerGlobalReceiver(KickoffBallTouchedS2CPayload.TYPE) { _, _ ->
@@ -42,15 +42,15 @@ object MatchStartClientNetworking {
             Minecraft.getInstance().execute {
                 StaminaClient.onHalfSwitch()
                 MatchStartClient.startHalfKickoff(
-                    payload.kickoffTeam, payload.phaseKey,
-                    payload.teamAName, payload.teamBName,
+                    payload.kickoffTeam, payload.playerTeam,
+                    payload.phaseKey, payload.teamAName, payload.teamBName,
                 )
             }
         }
         ClientPlayNetworking.registerGlobalReceiver(GoalLineOutS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
                 GoalLineOutClient.show(payload.outType, payload.restartTeam)
-                MatchStartClient.startGoalLineOutKickoff(payload.restartTeam)
+                MatchStartClient.startGoalLineOutKickoff(payload.restartTeam, payload.playerTeam)
             }
         }
         ClientPlayNetworking.registerGlobalReceiver(MatchResultS2CPayload.TYPE) { payload, _ ->

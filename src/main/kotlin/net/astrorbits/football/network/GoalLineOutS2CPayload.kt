@@ -12,6 +12,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 data class GoalLineOutS2CPayload(
     val outType: GoalLineOutType,
     val restartTeam: TeamSide,
+    val playerTeam: TeamSide,
     val ballX: Double,
     val ballY: Double,
     val ballZ: Double,
@@ -23,6 +24,7 @@ data class GoalLineOutS2CPayload(
         val CODEC: StreamCodec<FriendlyByteBuf, GoalLineOutS2CPayload> = StreamCodec.composite(
             GoalLineOutType.STREAM_CODEC, GoalLineOutS2CPayload::outType,
             TeamSide.STREAM_CODEC, GoalLineOutS2CPayload::restartTeam,
+            TeamSide.STREAM_CODEC, GoalLineOutS2CPayload::playerTeam,
             ByteBufCodecs.DOUBLE, GoalLineOutS2CPayload::ballX,
             ByteBufCodecs.DOUBLE, GoalLineOutS2CPayload::ballY,
             ByteBufCodecs.DOUBLE, GoalLineOutS2CPayload::ballZ,

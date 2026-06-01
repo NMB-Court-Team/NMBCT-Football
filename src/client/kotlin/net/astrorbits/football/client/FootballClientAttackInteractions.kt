@@ -1,6 +1,7 @@
 package net.astrorbits.football.client
 
 import net.astrorbits.football.client.key.FootballInputHandler
+import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.item.Items
 import net.fabricmc.fabric.api.event.client.player.ClientPreAttackCallback
 
@@ -10,13 +11,16 @@ import net.fabricmc.fabric.api.event.client.player.ClientPreAttackCallback
 object FootballClientAttackInteractions {
     fun register() {
         ClientPreAttackCallback.EVENT.register(ClientPreAttackCallback { client, player, _ ->
-            if (player == null || player.mainHandItem.isEmpty || !player.mainHandItem.`is`(Items.FOOTBALL)) {
+            if (player.mainHandItem.isEmpty || !player.mainHandItem.`is`(Items.FOOTBALL)) {
                 return@ClientPreAttackCallback false
             }
             if (client.screen != null || client.isPaused) {
                 return@ClientPreAttackCallback true
             }
             if (player.cooldowns.isOnCooldown(player.mainHandItem)) {
+                return@ClientPreAttackCallback true
+            }
+            if (MatchStartClient.isLocked) {
                 return@ClientPreAttackCallback true
             }
             FootballInputHandler.sendItemThrow(player)
