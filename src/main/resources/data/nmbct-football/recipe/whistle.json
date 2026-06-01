@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "I": "minecraft:iron_nugget",
+    "B": "#minecraft:wooden_buttons"
+  },
+  "pattern": [
+    " II",
+    "IBI",
+    "II "
+  ],
+  "result": {
+    "count": 1,
+    "id": "nmbct-football:whistle"
+  }
+}
