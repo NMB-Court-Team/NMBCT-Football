@@ -39,7 +39,7 @@ object FootballKeyBindings {
     val DRIBBLE: KeyMapping = KeyMappingHelper.registerKeyMapping(
         KeyMapping(
             "key.nmbct-football.dribble",
-            InputConstants.Type.KEYSYM,
+            InputConstants.Type.MOUSE,
             GLFW.GLFW_MOUSE_BUTTON_LEFT,
             CATEGORY
         )
