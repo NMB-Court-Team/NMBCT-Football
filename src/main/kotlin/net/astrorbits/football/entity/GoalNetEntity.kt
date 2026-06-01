@@ -72,7 +72,7 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     private fun applyRectangle(rect: GoalNetGeometry.NetRectangle) {
         rectangle = rect
-        val newMesh = GoalNetMesh(rect, slack)
+        val newMesh = GoalNetMesh(level(), rect, slack)
         mesh = newMesh
         syncBuffer = FloatArray(newMesh.nodeCount * 3)
         setPos(rect.origin.x, rect.origin.y, rect.origin.z)

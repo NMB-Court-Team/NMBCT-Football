@@ -18,6 +18,7 @@ import kotlin.math.floor
  * - 坐标全部为世界坐标（[Vec3]），同步时再转为相对实体原点的偏移。
  */
 class GoalNetMesh(
+    private val level: Level,
     val rect: NetRectangle,
     slack: Double,
 ) {
@@ -160,6 +161,9 @@ class GoalNetMesh(
             accumulateSpringCorrections()
             applyAccumulatedCorrections()
         }
+        repeat(GoalNetConfig.BLOCK_COLLISION_ITERATIONS) {
+            motionSqr += resolveNodeBlockCollisions()
+        }
         return motionSqr
     }
 
@@ -222,6 +226,95 @@ class GoalNetMesh(
         }
     }
 
+    /**
+     * 网格节点与方块碰撞：把每个节点视作小球，将其从方块碰撞体内最短路径推出。
+     * 为避免推出时凭空注入能量，prev 同步平移，保持 Verlet 速度连续。
+     */
+    private fun resolveNodeBlockCollisions(): Double {
+        val r = GoalNetConfig.NODE_COLLISION_RADIUS
+        var correctedMotionSqr = 0.0
+        val mutablePos = BlockPos.MutableBlockPos()
+        for (k in 0 until nodeCount) {
+            if (pinned[k]) continue
+            var px = posX[k]
+            var py = posY[k]
+            var pz = posZ[k]
+            val minX = floor(px - r).toInt()
+            val maxX = floor(px + r).toInt()
+            val minY = floor(py - r).toInt()
+            val maxY = floor(py + r).toInt()
+            val minZ = floor(pz - r).toInt()
+            val maxZ = floor(pz + r).toInt()
+            var nodeCorrected = false
+            for (bx in minX..maxX) {
+                for (by in minY..maxY) {
+                    for (bz in minZ..maxZ) {
+                        mutablePos.set(bx, by, bz)
+                        val state = level.getBlockState(mutablePos)
+                        if (state.isAir) continue
+                        val shape = state.getCollisionShape(level, mutablePos)
+                        if (shape.isEmpty) continue
+                        for (box in shape.toAabbs()) {
+                            val minBx = bx + box.minX - r
+                            val minBy = by + box.minY - r
+                            val minBz = bz + box.minZ - r
+                            val maxBx = bx + box.maxX + r
+                            val maxBy = by + box.maxY + r
+                            val maxBz = bz + box.maxZ + r
+                            if (px <= minBx || px >= maxBx ||
+                                py <= minBy || py >= maxBy ||
+                                pz <= minBz || pz >= maxBz
+                            ) {
+                                continue
+                            }
+
+                            val toMinX = px - minBx
+                            val toMaxX = maxBx - px
+                            val toMinY = py - minBy
+                            val toMaxY = maxBy - py
+                            val toMinZ = pz - minBz
+                            val toMaxZ = maxBz - pz
+
+                            var dx = if (toMinX < toMaxX) -toMinX else toMaxX
+                            var dy = if (toMinY < toMaxY) -toMinY else toMaxY
+                            var dz = if (toMinZ < toMaxZ) -toMinZ else toMaxZ
+
+                            val ax = kotlin.math.abs(dx)
+                            val ay = kotlin.math.abs(dy)
+                            val az = kotlin.math.abs(dz)
+                            if (ay <= ax && ay <= az) {
+                                dx = 0.0
+                                dz = 0.0
+                            } else if (az <= ax && az <= ay) {
+                                dx = 0.0
+                                dy = 0.0
+                            } else {
+                                dy = 0.0
+                                dz = 0.0
+                            }
+
+                            if (dx == 0.0 && dy == 0.0 && dz == 0.0) continue
+                            px += dx
+                            py += dy
+                            pz += dz
+                            prevX[k] += dx
+                            prevY[k] += dy
+                            prevZ[k] += dz
+                            correctedMotionSqr += dx * dx + dy * dy + dz * dz
+                            nodeCorrected = true
+                        }
+                    }
+                }
+            }
+            if (nodeCorrected) {
+                posX[k] = px
+                posY[k] = py
+                posZ[k] = pz
+            }
+        }
+        return correctedMotionSqr
+    }
+
     /** 在 [point] 周围 [radius] 范围内对内部节点施加位移（Verlet 自动转换为速度）。 */
     fun applyDisplacement(point: Vec3, displacement: Vec3, radius: Double) {
         val r2 = radius * radius
@@ -237,63 +330,6 @@ class GoalNetMesh(
             posY[k] += displacement.y * w
             posZ[k] += displacement.z * w
         }
-    }
-
-    /**
-     * 与世界方块碰撞：当节点进入方块碰撞形状时，沿 +Y 方向推出到方块表面上方。
-     * 返回是否发生过碰撞修正。
-     */
-    fun resolveBlockCollisions(level: Level): Boolean {
-        val radius = GoalNetConfig.NET_BLOCK_COLLISION_RADIUS
-        val epsilon = GoalNetConfig.NET_BLOCK_COLLISION_EPSILON
-        var corrected = false
-        for (k in 0 until nodeCount) {
-            if (pinned[k]) continue
-            val x = posX[k]
-            val y = posY[k]
-            val z = posZ[k]
-            val minX = floor(x - radius).toInt()
-            val maxX = floor(x + radius).toInt()
-            val minY = floor(y - radius).toInt()
-            val maxY = floor(y + radius).toInt()
-            val minZ = floor(z - radius).toInt()
-            val maxZ = floor(z + radius).toInt()
-
-            var pushY = y
-            for (bx in minX..maxX) {
-                for (by in minY..maxY) {
-                    for (bz in minZ..maxZ) {
-                        val blockPos = BlockPos(bx, by, bz)
-                        val state = level.getBlockState(blockPos)
-                        if (state.isAir) continue
-                        val shape = state.getCollisionShape(level, blockPos)
-                        if (shape.isEmpty) continue
-                        for (box in shape.toAabbs()) {
-                            val boxMinX = box.minX + bx
-                            val boxMinY = box.minY + by
-                            val boxMinZ = box.minZ + bz
-                            val boxMaxX = box.maxX + bx
-                            val boxMaxY = box.maxY + by
-                            val boxMaxZ = box.maxZ + bz
-                            val intersects =
-                                x >= boxMinX - radius && x <= boxMaxX + radius &&
-                                    z >= boxMinZ - radius && z <= boxMaxZ + radius &&
-                                    y >= boxMinY - radius && y <= boxMaxY + radius
-                            if (!intersects) continue
-                            pushY = maxOf(pushY, boxMaxY + radius + epsilon)
-                        }
-                    }
-                }
-            }
-
-            if (pushY > y + 1.0e-9) {
-                posY[k] = pushY
-                // 清除法向（竖直）残余速度，避免下一帧再次硬穿入。
-                prevY[k] = pushY
-                corrected = true
-            }
-        }
-        return corrected
     }
 
     fun nodeWorld(k: Int): Vec3 = Vec3(posX[k], posY[k], posZ[k])

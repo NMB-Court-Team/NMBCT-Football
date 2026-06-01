@@ -1,11 +1,10 @@
 package net.astrorbits.football.physics
 
 import net.astrorbits.football.entity.GoalNetEntity
-import net.astrorbits.football.util.FootballBlockDepenetration
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
-import kotlin.math.sqrt
+import kotlin.math.ceil
 
 /**
  * 足球与实体化球网的动量交换：
@@ -41,14 +40,13 @@ object FootballNetInteraction {
         for (net in nets) {
             val rect = net.getRectangle() ?: continue
             val mesh = net.getMesh() ?: continue
-            val contact = resolve(level, net, rect, mesh, state, radius, prevCenter, currCenter)
+            val contact = resolve(net, rect, mesh, state, radius, prevCenter, currCenter)
             if (contact != null) return contact
         }
         return null
     }
 
     private fun resolve(
-        level: Level,
         net: GoalNetEntity,
         rect: net.astrorbits.football.util.GoalNetGeometry.NetRectangle,
         mesh: GoalNetMesh,
@@ -142,29 +140,39 @@ object FootballNetInteraction {
             newVelocity = newVelocity.add(n.scale(side * pushoutSpeed))
         }
 
-        // 把球留在入射侧，并与网面保留少量分离距离，减少“黏网”观感。
-        // 仅沿法线做穿透修正，避免“吸附到三角形最近点”造成边角突跳。
-        val separation = GoalNetConfig.CONTACT_SEPARATION +
-            penetration * GoalNetConfig.CONTACT_SEPARATION_FROM_PENETRATION
-        val targetSigned = side * (radius + separation)
-        val correctionAlongNormal = targetSigned - local.signedNow
-        val restCenter = currCenter.add(n.scale(correctionAlongNormal))
-        val depResult = FootballBlockDepenetration.depenetrateSphere(level, restCenter, radius)
-        val depenetrated = depResult.center
-        val blockCorrection = depResult.correction
-        if (blockCorrection.lengthSqr() > EPS) {
-            val correctionLength = sqrt(blockCorrection.lengthSqr())
-            if (correctionLength > EPS) {
-                val outward = blockCorrection.scale(1.0 / correctionLength)
-                val inward = newVelocity.dot(outward)
-                if (inward < 0.0) {
-                    // 清除“朝方块内部”速度分量，防止下一帧再次被挤入。
-                    newVelocity = newVelocity.subtract(outward.scale(inward))
+        // 仅在“确实穿透/穿面”时做最小法向推出，避免常规触网被强制吸附到网面。
+        val shouldPushOut = local.crossed || penetration > 1.0e-5
+        val restCenter = if (shouldPushOut) {
+            val separation = GoalNetConfig.CONTACT_SEPARATION +
+                penetration * GoalNetConfig.CONTACT_SEPARATION_FROM_PENETRATION
+            // 穿面优先使用“射线命中网面点”回推，避免跨帧大步进导致深穿透。
+            val candidate = local.crossingPoint?.add(n.scale(side * (radius + separation))) ?: run {
+                val minSigned = side * (radius + separation)
+                val neededOutward = (minSigned - local.signedNow) * side
+                if (neededOutward <= 1.0e-6) {
+                    null
+                } else {
+                    // 限制推出距离，防止远距离“回拉吸附”。
+                    val clampedOutward = minOf(
+                        neededOutward,
+                        penetration + radius + GoalNetConfig.CONTACT_MARGIN
+                    )
+                    currCenter.add(n.scale(side * clampedOutward))
                 }
             }
+            if (candidate != null) {
+                // 位移修正同时考虑方块碰撞，避免把球推入地下或实体方块内。
+                val correctionStart = if (local.crossed) prevCenter else currCenter
+                moveCenterWithBlockCollision(net.level(), correctionStart, candidate, radius)
+                    ?: if (isCenterNotColliding(net.level(), correctionStart, radius)) correctionStart else null
+            } else {
+                null
+            }
+        } else {
+            null
         }
         state.linearVelocity = newVelocity
-        return NetContact(depenetrated)
+        return NetContact(restCenter)
     }
 
     private data class LocalContact(
@@ -174,6 +182,7 @@ object FootballNetInteraction {
         val signedNow: Double,
         val signedPrev: Double,
         val crossed: Boolean,
+        val crossingPoint: Vec3?,
         val score: Double,
     )
 
@@ -296,12 +305,17 @@ object FootballNetInteraction {
         val signedNow = currCenter.subtract(a).dot(triNormal)
         val signedPrev = prevCenter.subtract(a).dot(triNormal)
         val touching = distNow <= contactRadius
-        val crossed = segmentCrossesTrianglePlane(prevCenter, currCenter, a, b, c, triNormal)
+        val crossingPoint = segmentTriangleIntersectionPoint(prevCenter, currCenter, a, b, c, triNormal)
+        val sweptTouch = segmentTouchesTriangleSwept(prevCenter, currCenter, a, b, c, contactRadius)
+        val crossed = crossingPoint != null || sweptTouch
         if (!touching && !crossed) return null
 
-        val score = if (crossed) {
+        val score = if (crossingPoint != null) {
             // 穿面优先级更高，避免高速球只被“附近接触”覆盖。
             10_000.0 + (contactRadius - distNow).coerceAtLeast(0.0)
+        } else if (sweptTouch) {
+            // 球体扫掠触网（中心线未命中）也要高优先级，防止高速穿网。
+            9_000.0 + (contactRadius - distNow).coerceAtLeast(0.0)
         } else {
             (contactRadius - distNow).coerceAtLeast(0.0)
         }
@@ -312,6 +326,7 @@ object FootballNetInteraction {
             signedNow = signedNow,
             signedPrev = signedPrev,
             crossed = crossed,
+            crossingPoint = crossingPoint,
             score = score,
         )
     }
@@ -372,21 +387,45 @@ object FootballNetInteraction {
         return a.add(ab.scale(v)).add(ac.scale(w))
     }
 
-    private fun segmentCrossesTrianglePlane(
+    private fun segmentTriangleIntersectionPoint(
         p0: Vec3,
         p1: Vec3,
         a: Vec3,
         b: Vec3,
         c: Vec3,
         n: Vec3,
-    ): Boolean {
+    ): Vec3? {
         val dir = p1.subtract(p0)
         val den = dir.dot(n)
-        if (kotlin.math.abs(den) < EPS) return false
+        if (kotlin.math.abs(den) < EPS) return null
         val t = a.subtract(p0).dot(n) / den
-        if (t < 0.0 || t > 1.0) return false
+        if (t < 0.0 || t > 1.0) return null
         val hit = p0.add(dir.scale(t))
-        return pointInTriangle(hit, a, b, c, n)
+        if (!pointInTriangle(hit, a, b, c, n)) return null
+        return hit
+    }
+
+    private fun segmentTouchesTriangleSwept(
+        p0: Vec3,
+        p1: Vec3,
+        a: Vec3,
+        b: Vec3,
+        c: Vec3,
+        contactRadius: Double,
+    ): Boolean {
+        val travel = p1.subtract(p0)
+        val distance = kotlin.math.sqrt(travel.lengthSqr())
+        if (distance <= EPS) return false
+        val stepLength = (contactRadius * 0.5).coerceAtLeast(0.02)
+        val steps = ceil(distance / stepLength).toInt().coerceIn(2, 32)
+        for (s in 1..steps) {
+            val t = s.toDouble() / steps.toDouble()
+            val center = p0.add(travel.scale(t))
+            val closest = closestPointOnTriangle(center, a, b, c)
+            val dSqr = center.subtract(closest).lengthSqr()
+            if (dSqr <= contactRadius * contactRadius) return true
+        }
+        return false
     }
 
     private fun pointInTriangle(p: Vec3, a: Vec3, b: Vec3, c: Vec3, n: Vec3): Boolean {
@@ -396,8 +435,41 @@ object FootballNetInteraction {
         return c0 >= -EPS && c1 >= -EPS && c2 >= -EPS
     }
 
-    /** 接触结果：球应被放置到的球心位置。 */
-    data class NetContact(val restCenter: Vec3)
+    private fun moveCenterWithBlockCollision(level: Level, from: Vec3, to: Vec3, radius: Double): Vec3? {
+        val delta = to.subtract(from)
+        val distance = kotlin.math.sqrt(delta.lengthSqr())
+        if (distance <= EPS) {
+            return if (isCenterNotColliding(level, to, radius)) to else null
+        }
+        val stepLength = (radius * 0.5).coerceAtLeast(0.02)
+        val steps = ceil(distance / stepLength).toInt().coerceIn(1, 24)
+        var lastFree: Vec3? = if (isCenterNotColliding(level, from, radius)) from else null
+        for (s in 1..steps) {
+            val t = s.toDouble() / steps.toDouble()
+            val p = from.add(delta.scale(t))
+            if (isCenterNotColliding(level, p, radius)) {
+                lastFree = p
+            } else {
+                break
+            }
+        }
+        return lastFree
+    }
+
+    private fun isCenterNotColliding(level: Level, center: Vec3, radius: Double): Boolean {
+        val box = AABB(
+            center.x - radius,
+            center.y - radius,
+            center.z - radius,
+            center.x + radius,
+            center.y + radius,
+            center.z + radius,
+        )
+        return level.noCollision(box)
+    }
+
+    /** 接触结果：若 [restCenter] 非空，球应被放置到该球心位置。 */
+    data class NetContact(val restCenter: Vec3?)
 
     private fun lerp(a: Double, b: Double, t: Double): Double = a + (b - a) * t.coerceIn(0.0, 1.0)
 

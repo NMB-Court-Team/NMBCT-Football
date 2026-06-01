@@ -155,8 +155,11 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val currCenter = position().add(0.0, radius, 0.0)
         val netContact = FootballNetInteraction.apply(level(), physicsState, prevCenter, currCenter)
         if (netContact != null) {
-            val target = netContact.restCenter.subtract(0.0, radius, 0.0)
-            setPos(target.x, target.y, target.z)
+            val restCenter = netContact.restCenter
+            if (restCenter != null) {
+                val target = restCenter.subtract(0.0, radius, 0.0)
+                setPos(target.x, target.y, target.z)
+            }
             deltaMovement = physicsState.linearVelocity
         }
 
