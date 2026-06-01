@@ -184,9 +184,7 @@ class FootballRenderer(context: EntityRendererProvider.Context) :
         private const val BILLBOARD_HALF_SIZE = 0.42f
 
         /**
-         * 远距离面片贴图。请将 PNG 放在：
-         * `src/main/resources/assets/nmbct-football/textures/entity/football_billboard.png`
-         * 建议尺寸 128×128，带透明通道，正交视角的足球图标即可。
+         * 远距离面片贴图
          */
         private val BILLBOARD_TEXTURE: Identifier = NMBCTFootball.id("textures/entity/football_billboard.png")
     }

@@ -22,8 +22,14 @@ data class DribbleSession(
     var dribbleBaseYaw: Float? = null,
 )
 
+data class DribbleCollisionGrace(
+    val footballId: Int,
+    val expiresAtTick: Long,
+)
+
 object FootballDribbleSessions {
     private val sessions = ConcurrentHashMap<UUID, DribbleSession>()
+    private val collisionGrace = ConcurrentHashMap<UUID, DribbleCollisionGrace>()
 
     fun registerEvents() {
         ServerTickEvents.END_SERVER_TICK.register(::tick)
@@ -38,6 +44,7 @@ object FootballDribbleSessions {
         }
 
         val lookAroundActive = payload.flags and FootballInputConfig.FLAG_LOOK_AROUND != 0
+        collisionGrace.remove(player.uuid)
         val existing = sessions[player.uuid]
         if (existing == null || existing.footballId != football.id) {
             val session = DribbleSession(
@@ -67,11 +74,14 @@ object FootballDribbleSessions {
     }
 
     fun end(player: ServerPlayer) {
-        sessions.remove(player.uuid)
+        val removed = sessions.remove(player.uuid) ?: return
+        val now = player.level().gameTime
+        recordCollisionGrace(player.uuid, removed.footballId, now)
     }
 
     fun end(playerId: UUID) {
         sessions.remove(playerId)
+        collisionGrace.remove(playerId)
     }
 
     fun tick(server: MinecraftServer) {
@@ -90,6 +100,7 @@ object FootballDribbleSessions {
             }
 
             if (now - session.lastHeartbeatTick > FootballInputConfig.DRIBBLE_SESSION_TIMEOUT_TICKS) {
+                recordCollisionGrace(playerId, session.footballId, now)
                 iterator.remove()
                 continue
             }
@@ -101,11 +112,49 @@ object FootballDribbleSessions {
             }
 
             if (!FootballDribbleAssist.apply(player, football, session.dribbleBaseYaw)) {
+                recordCollisionGrace(playerId, session.footballId, now)
                 iterator.remove()
                 continue
             }
 
             tryPlayDribbleSound(session, player, football, now)
+        }
+        cleanupExpiredCollisionGrace(now)
+    }
+
+    fun shouldIgnoreCollision(player: ServerPlayer, football: Football, now: Long): Boolean {
+        val session = sessions[player.uuid]
+        if (session != null && session.footballId == football.id) {
+            return true
+        }
+        val grace = collisionGrace[player.uuid] ?: return false
+        if (now > grace.expiresAtTick) {
+            collisionGrace.remove(player.uuid, grace)
+            return false
+        }
+        return grace.footballId == football.id
+    }
+
+    private fun recordCollisionGrace(playerId: UUID, footballId: Int, now: Long) {
+        val graceTicks = FootballInputConfig.DRIBBLE_COLLISION_GRACE_TICKS.coerceAtLeast(0)
+        if (graceTicks <= 0) {
+            collisionGrace.remove(playerId)
+            return
+        }
+        collisionGrace[playerId] = DribbleCollisionGrace(
+            footballId = footballId,
+            expiresAtTick = now + graceTicks,
+        )
+    }
+
+    private fun cleanupExpiredCollisionGrace(now: Long) {
+        if (collisionGrace.isEmpty()) return
+        val iterator = collisionGrace.entries.iterator()
+        while (iterator.hasNext()) {
+            val (_, entry) = iterator.next()
+            if (now > entry.expiresAtTick) {
+                iterator.remove()
+            }
         }
     }
 

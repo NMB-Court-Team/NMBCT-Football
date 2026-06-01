@@ -2,6 +2,8 @@ package net.astrorbits.football
 
 import net.astrorbits.football.input.GoalkeeperHoldLock
 import net.astrorbits.football.input.GoalkeeperInputConfig
+import net.astrorbits.football.input.FootballDribbleSessions
+import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.item.Items
 import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.match.PostGoalBallResetScheduler
@@ -46,6 +48,9 @@ import net.minecraft.world.phys.Vec3
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector3fc
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sqrt
 
 class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
@@ -175,6 +180,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             deltaMovement = physicsState.linearVelocity
         }
 
+        resolvePlayerCollisions(beforeMove, position(), movement)
+
         physicsState.inCobweb = false
         if (CobwebUtil.isIntersectingCobweb(level(), boundingBox)) {
             CobwebUtil.applyCobwebDrag(physicsState)
@@ -191,6 +198,139 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
         deltaMovement = physicsState.linearVelocity
         syncPhysicsToEntityData()
+    }
+
+    private fun resolvePlayerCollisions(beforeMove: Vec3, afterMove: Vec3, intendedMotion: Vec3) {
+        val serverLevel = level() as? ServerLevel ?: return
+        val now = serverLevel.gameTime
+        val radius = FootballPhysicsConfig.RADIUS
+        val previousCenter = beforeMove.add(0.0, radius, 0.0)
+        val currentCenter = afterMove.add(0.0, radius, 0.0)
+        val searchBox = boundingBox.expandTowards(intendedMotion).inflate(1.4, 0.9, 1.4)
+        val players = serverLevel.getEntitiesOfClass(ServerPlayer::class.java, searchBox) { player ->
+            player.isAlive && !player.isSpectator && !player.noPhysics
+        }
+
+        for (player in players) {
+            if (FootballDribbleSessions.shouldIgnoreCollision(player, this, now)) {
+                continue
+            }
+
+            val contact = resolvePlayerContact(player, previousCenter, currentCenter, radius) ?: continue
+
+            if (contact.penetration > 0.0) {
+                val corrected = position().add(contact.normal.scale(contact.penetration))
+                setPos(corrected.x, corrected.y, corrected.z)
+            }
+
+            val velocity = physicsState.linearVelocity
+            val normalVelocity = velocity.dot(contact.normal)
+            if (normalVelocity < 0.0) {
+                val restitution = FootballInputConfig.BALL_PLAYER_RESTITUTION.coerceIn(0.0, 1.25)
+                physicsState.linearVelocity = velocity.subtract(contact.normal.scale(normalVelocity * (1.0 + restitution)))
+                deltaMovement = physicsState.linearVelocity
+            }
+
+            val approachSpeed = max((-normalVelocity), -intendedMotion.dot(contact.normal)).coerceAtLeast(0.0)
+            if (approachSpeed < FootballInputConfig.BALL_PLAYER_RECOIL_MIN_SPEED) {
+                continue
+            }
+            val pushDir = Vec3Math.horizontal(contact.normal).scale(-1.0)
+            val direction = if (pushDir.lengthSqr() > 1.0e-8) Vec3Math.normalizeSafe(pushDir) else contact.normal.scale(-1.0)
+            val pushMagnitude = (approachSpeed * FootballInputConfig.BALL_PLAYER_PUSH_SCALE)
+                .coerceAtMost(FootballInputConfig.BALL_PLAYER_MAX_PUSH)
+                .coerceAtLeast(0.0)
+            if (pushMagnitude <= 1.0e-6) {
+                continue
+            }
+            player.setDeltaMovement(player.deltaMovement.add(direction.scale(pushMagnitude)))
+            player.hurtMarked = true
+        }
+    }
+
+    private data class PlayerContact(val normal: Vec3, val penetration: Double)
+
+    private fun resolvePlayerContact(
+        player: ServerPlayer,
+        previousCenter: Vec3,
+        currentCenter: Vec3,
+        radius: Double,
+    ): PlayerContact? {
+        val playerBox = player.boundingBox
+        val overlapContact = overlapContactAgainstBox(player, playerBox, currentCenter, radius)
+        if (overlapContact != null) {
+            return overlapContact
+        }
+
+        val hitT = segmentAabbHitT(previousCenter, currentCenter, playerBox.inflate(radius)) ?: return null
+        val impactPoint = previousCenter.add(currentCenter.subtract(previousCenter).scale(hitT))
+        val closest = Vec3(
+            impactPoint.x.coerceIn(playerBox.minX, playerBox.maxX),
+            impactPoint.y.coerceIn(playerBox.minY, playerBox.maxY),
+            impactPoint.z.coerceIn(playerBox.minZ, playerBox.maxZ),
+        )
+        val delta = impactPoint.subtract(closest)
+        val normal = if (delta.lengthSqr() > 1.0e-8) {
+            Vec3Math.normalizeSafe(delta)
+        } else {
+            val fallback = Vec3Math.horizontal(impactPoint.subtract(player.position()))
+            if (fallback.lengthSqr() > 1.0e-8) Vec3Math.normalizeSafe(fallback) else Vec3(1.0, 0.0, 0.0)
+        }
+        return PlayerContact(normal, 0.0)
+    }
+
+    private fun overlapContactAgainstBox(
+        player: ServerPlayer,
+        playerBox: net.minecraft.world.phys.AABB,
+        center: Vec3,
+        radius: Double,
+    ): PlayerContact? {
+        val closest = Vec3(
+            center.x.coerceIn(playerBox.minX, playerBox.maxX),
+            center.y.coerceIn(playerBox.minY, playerBox.maxY),
+            center.z.coerceIn(playerBox.minZ, playerBox.maxZ),
+        )
+        val offset = center.subtract(closest)
+        val distSqr = offset.lengthSqr()
+        if (distSqr > radius * radius) return null
+
+        val normal = if (distSqr > 1.0e-8) {
+            offset.scale(1.0 / sqrt(distSqr))
+        } else {
+            val fallback = Vec3Math.horizontal(center.subtract(player.position()))
+            if (fallback.lengthSqr() > 1.0e-8) Vec3Math.normalizeSafe(fallback) else Vec3(1.0, 0.0, 0.0)
+        }
+        val distance = sqrt(distSqr.coerceAtLeast(0.0))
+        val penetration = (radius - distance + 1.0e-3).coerceAtLeast(0.0)
+        return PlayerContact(normal, penetration)
+    }
+
+    private fun segmentAabbHitT(start: Vec3, end: Vec3, box: net.minecraft.world.phys.AABB): Double? {
+        val direction = end.subtract(start)
+        var tMin = 0.0
+        var tMax = 1.0
+
+        fun updateAxis(startValue: Double, dirValue: Double, minBound: Double, maxBound: Double): Boolean {
+            if (abs(dirValue) < 1.0e-9) {
+                return startValue >= minBound && startValue <= maxBound
+            }
+            var t1 = (minBound - startValue) / dirValue
+            var t2 = (maxBound - startValue) / dirValue
+            if (t1 > t2) {
+                val temp = t1
+                t1 = t2
+                t2 = temp
+            }
+            tMin = max(tMin, t1)
+            tMax = min(tMax, t2)
+            return tMin <= tMax
+        }
+
+        if (!updateAxis(start.x, direction.x, box.minX, box.maxX)) return null
+        if (!updateAxis(start.y, direction.y, box.minY, box.maxY)) return null
+        if (!updateAxis(start.z, direction.z, box.minZ, box.maxZ)) return null
+        if (tMax < 0.0 || tMin > 1.0) return null
+        return tMin.coerceIn(0.0, 1.0)
     }
 
     private fun detectGoal(prevPos: Vec3, currPos: Vec3) {
@@ -574,6 +714,16 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     override fun interact(player: Player, hand: InteractionHand, location: Vec3): InteractionResult {
         return handlePlayerInteract(player)
+    }
+
+    override fun push(entity: Entity) {
+        if (entity is ServerPlayer) {
+            val now = (level() as? ServerLevel)?.gameTime ?: 0L
+            if (FootballDribbleSessions.shouldIgnoreCollision(entity, this, now)) {
+                return
+            }
+        }
+        super.push(entity)
     }
 
     fun handlePlayerInteract(player: Player): InteractionResult {

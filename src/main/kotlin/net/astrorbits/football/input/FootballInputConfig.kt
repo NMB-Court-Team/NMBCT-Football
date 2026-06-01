@@ -33,6 +33,7 @@ object FootballInputConfig {
     val DRIBBLE_LATERAL_GAIN get() = FootballConfigs.server.playerInput.dribbleLateralGain
     val DRIBBLE_TOUCH_FORCE get() = FootballConfigs.server.playerInput.dribbleTouchForce
     val DRIBBLE_AIR_POSITION_SCALE get() = FootballConfigs.server.playerInput.dribbleAirPositionScale
+    val DRIBBLE_COLLISION_GRACE_TICKS get() = FootballConfigs.server.playerInput.dribbleCollisionGraceTicks
     val TAP_MAX_MS get() = FootballConfigs.server.playerInput.tapMaxMs
     val CHARGE_MIN_MS get() = FootballConfigs.server.playerInput.chargeMinMs
     val CHARGE_RISE_MS get() = FootballConfigs.server.playerInput.chargeRiseMs
@@ -48,6 +49,14 @@ object FootballInputConfig {
     val KICK_LOOK_PITCH_INFLUENCE get() = FootballConfigs.server.playerInput.kickLookPitchInfluence
     val KICK_LOOK_PITCH_ANGLE_MIN get() = FootballConfigs.server.playerInput.kickLookPitchAngleMin
     val KICK_LOOK_PITCH_ANGLE_MAX get() = FootballConfigs.server.playerInput.kickLookPitchAngleMax
+    val BALL_PLAYER_RECOIL_MIN_SPEED get() = FootballConfigs.server.playerInput.ballPlayerRecoilMinSpeed
+    val BALL_PLAYER_PUSH_SCALE get() = FootballConfigs.server.playerInput.ballPlayerPushScale
+    val BALL_PLAYER_MAX_PUSH get() = FootballConfigs.server.playerInput.ballPlayerMaxPush
+    val BALL_PLAYER_RESTITUTION get() = FootballConfigs.server.playerInput.ballPlayerRestitution
+    val SLIDE_TACKLER_SPEED_DAMP_ON_CONTACT get() = FootballConfigs.server.playerInput.slideTacklerSpeedDampOnContact
+    val SLIDE_VICTIM_PUSH_SPEED get() = FootballConfigs.server.playerInput.slideVictimPushSpeed
+    val SLIDE_VICTIM_RESISTANCE_TICKS get() = FootballConfigs.server.playerInput.slideVictimResistanceTicks
+    val SLIDE_VICTIM_RESISTANCE_FACTOR get() = FootballConfigs.server.playerInput.slideVictimResistanceFactor
     const val FLAG_SPRINT = FootballInputFlags.SPRINT
     const val FLAG_DIVE_USE_LOOK = FootballInputFlags.DIVE_USE_LOOK
     const val FLAG_LOOK_AROUND = FootballInputFlags.LOOK_AROUND

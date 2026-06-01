@@ -16,6 +16,9 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 object GoalkeeperActions {
+    private const val CATCH_RECOIL_SCALE = 0.2
+    private const val CATCH_MAX_RECOIL = 0.75
+    private const val CATCH_FORWARD_DAMP = 0.15
     private val lastActionTick = ConcurrentHashMap<UUID, Long>()
     private val diveCooldownUntil = ConcurrentHashMap<UUID, Long>()
 
@@ -140,8 +143,11 @@ object GoalkeeperActions {
             return
         }
 
+        val incoming = football.getPhysicsState().linearVelocity
         football.lastKicker = player.uuid
         football.enterHold(player)
+        val recoil = computeCatchRecoil(speed, incoming)
+        applyCatchMomentumDamping(player, player.lookAngle, recoil)
         FootballSounds.playGkCatch(player, speed)
         FootballParticles.playGkCatch(player, football, speed)
         lastActionTick[player.uuid] = now
@@ -195,28 +201,27 @@ object GoalkeeperActions {
         football.lastKicker = player.uuid
         val incoming = football.getPhysicsState().linearVelocity
         football.enterHold(player)
-
-        val clampedRecoil = if (speed < GoalkeeperInputConfig.GK_DIVE_CATCH_RECOIL_MIN_SPEED) {
-            Vec3.ZERO
-        } else {
-            val recoilImpulse = incoming.scale(GoalkeeperInputConfig.GK_DIVE_DEFLECT_FORCE_SCALE * 0.2)
-            val recoilLength = recoilImpulse.length()
-            val maxRecoil = 0.75
-            if (recoilLength > maxRecoil && recoilLength > 1.0e-8) {
-                recoilImpulse.scale(maxRecoil / recoilLength)
-            } else {
-                recoilImpulse
-            }
-        }
-        applyDiveMomentumDamping(player, diveDirection, clampedRecoil)
+        applyCatchMomentumDamping(player, diveDirection, computeCatchRecoil(speed, incoming))
 
         FootballSounds.playGkCatch(player, speed)
         FootballParticles.playGkCatch(player, football, speed)
         return true
     }
 
-    private fun applyDiveMomentumDamping(player: ServerPlayer, diveDirection: Vec3, recoil: Vec3) {
-        val horizontalDir = Vec3Math.normalizeSafe(Vec3(diveDirection.x, 0.0, diveDirection.z))
+    private fun computeCatchRecoil(speed: Double, incoming: Vec3): Vec3 {
+        if (speed < GoalkeeperInputConfig.GK_DIVE_CATCH_RECOIL_MIN_SPEED) {
+            return Vec3.ZERO
+        }
+        val recoilImpulse = incoming.scale(GoalkeeperInputConfig.GK_DIVE_DEFLECT_FORCE_SCALE * CATCH_RECOIL_SCALE)
+        val recoilLength = recoilImpulse.length()
+        if (recoilLength > CATCH_MAX_RECOIL && recoilLength > 1.0e-8) {
+            return recoilImpulse.scale(CATCH_MAX_RECOIL / recoilLength)
+        }
+        return recoilImpulse
+    }
+
+    private fun applyCatchMomentumDamping(player: ServerPlayer, moveDirection: Vec3, recoil: Vec3) {
+        val horizontalDir = Vec3Math.normalizeSafe(Vec3(moveDirection.x, 0.0, moveDirection.z))
         val current = player.deltaMovement
         val forwardComponent = if (horizontalDir.lengthSqr() > 1.0e-8) {
             horizontalDir.scale(current.dot(horizontalDir))
@@ -224,8 +229,9 @@ object GoalkeeperActions {
             Vec3.ZERO
         }
         val remaining = current.subtract(forwardComponent)
-        val dampedForward = forwardComponent.scale(0.15)
+        val dampedForward = forwardComponent.scale(CATCH_FORWARD_DAMP)
         player.setDeltaMovement(remaining.add(dampedForward).add(recoil))
+        player.hurtMarked = true
     }
 
     private fun applyLookFromPayload(player: ServerPlayer, payload: FootballActionC2SPayload) {

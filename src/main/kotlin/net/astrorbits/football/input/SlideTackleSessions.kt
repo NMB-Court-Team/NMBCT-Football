@@ -24,6 +24,12 @@ data class SlideTackleSession(
     val sprinting: Boolean,
     var touchResolved: Boolean = false,
     var endRequested: Boolean = false,
+    val playersContacted: MutableSet<UUID> = mutableSetOf(),
+)
+
+data class TackledResistance(
+    val expiresAtTick: Long,
+    val factor: Double,
 )
 
 object SlideTackleSessions {
@@ -46,6 +52,7 @@ object SlideTackleSessions {
 
     private val sessions = ConcurrentHashMap<UUID, SlideTackleSession>()
     private val cooldownUntil = ConcurrentHashMap<UUID, Long>()
+    private val tackledResistanceUntil = ConcurrentHashMap<UUID, TackledResistance>()
 
     fun registerEvents() {
         ServerTickEvents.END_SERVER_TICK.register(::tick)
@@ -111,11 +118,13 @@ object SlideTackleSessions {
     }
 
     fun tick(server: MinecraftServer) {
+        val now = server.overworld().gameTime
+        applyTackledResistance(server, now)
+
         if (sessions.isEmpty()) {
             return
         }
 
-        val now = server.overworld().gameTime
         val iterator = sessions.entries.iterator()
         while (iterator.hasNext()) {
             val (_, session) = iterator.next()
@@ -144,6 +153,7 @@ object SlideTackleSessions {
                 FootballSounds.playSlideTackle(player)
             }
             tryResolveBallContact(player, session, elapsed)
+            tryResolvePlayerContact(player, session, now)
         }
     }
 
@@ -207,6 +217,66 @@ object SlideTackleSessions {
     private fun setSlideState(player: ServerPlayer, sliding: Boolean) {
         player.isSlideTackling = sliding
         player.refreshDimensions()
+    }
+
+    private fun tryResolvePlayerContact(player: ServerPlayer, session: SlideTackleSession, now: Long) {
+        val contactBox = expandedContactBox(player)
+        val nearbyPlayers = player.level().getEntitiesOfClass(ServerPlayer::class.java, contactBox)
+            .filter { other -> other.uuid != session.playerId && other.isAlive && !other.isSpectator }
+        if (nearbyPlayers.isEmpty()) return
+
+        val pushSpeed = FootballInputConfig.SLIDE_VICTIM_PUSH_SPEED.coerceAtLeast(0.0)
+        val resistanceTicks = FootballInputConfig.SLIDE_VICTIM_RESISTANCE_TICKS.coerceAtLeast(0)
+        val resistanceFactor = FootballInputConfig.SLIDE_VICTIM_RESISTANCE_FACTOR.coerceIn(0.0, 1.0)
+        val pushDirection = Vec3Math.normalizeSafe(Vec3Math.horizontal(session.direction))
+
+        var didContact = false
+        for (other in nearbyPlayers) {
+            if (!session.playersContacted.add(other.uuid)) {
+                continue
+            }
+            val victimPush = if (pushDirection.lengthSqr() > 1.0e-8) {
+                pushDirection.scale(pushSpeed)
+            } else {
+                Vec3.ZERO
+            }
+            other.setDeltaMovement(other.deltaMovement.add(victimPush.x, 0.0, victimPush.z))
+            other.hurtMarked = true
+            if (resistanceTicks > 0 && resistanceFactor < 1.0) {
+                tackledResistanceUntil[other.uuid] = TackledResistance(
+                    expiresAtTick = now + resistanceTicks,
+                    factor = resistanceFactor,
+                )
+            }
+            didContact = true
+        }
+
+        if (!didContact) return
+        val damp = FootballInputConfig.SLIDE_TACKLER_SPEED_DAMP_ON_CONTACT.coerceIn(0.0, 1.0)
+        val current = player.deltaMovement
+        player.setDeltaMovement(current.x * damp, current.y, current.z * damp)
+        player.hurtMarked = true
+        // 保持会话方向与速度曲线不变，仅在接触帧快速降速，后续 tick 仍由滑铲逻辑接管。
+    }
+
+    private fun applyTackledResistance(server: MinecraftServer, now: Long) {
+        if (tackledResistanceUntil.isEmpty()) return
+        val iterator = tackledResistanceUntil.entries.iterator()
+        while (iterator.hasNext()) {
+            val (playerId, debuff) = iterator.next()
+            if (now > debuff.expiresAtTick) {
+                iterator.remove()
+                continue
+            }
+            val player = server.playerList.getPlayer(playerId)
+            if (player == null || !player.isAlive || player.isSpectator) {
+                iterator.remove()
+                continue
+            }
+            val velocity = player.deltaMovement
+            player.setDeltaMovement(velocity.x * debuff.factor, velocity.y, velocity.z * debuff.factor)
+            player.hurtMarked = true
+        }
     }
 
     private fun expandedContactBox(player: ServerPlayer): AABB {

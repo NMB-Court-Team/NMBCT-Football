@@ -293,6 +293,60 @@ v_new      = v_remain + v_forward * 0.15 + recoil
 - 达到阈值后，`recoil` 与来球方向一致，模拟接球冲击（后坐）。
 - 将前扑分量缩到 `15%`，显著减少接球后继续向前“滑冲”的情况（与球速无关，每次鱼跃接球都会执行）。
 
+### 站立 `X` 接球后坐力（GK_CATCH）
+
+守门员普通 `X` 接球（`GK_CATCH`）与鱼跃接球复用同一后坐力计算：
+
+- 阈值仍是 `goalkeeper.dive.dive_catch_recoil_min_speed`（默认 `0.25`）。
+- 后坐力仍由来球速度与 `goalkeeper.dive.dive_deflect_force_scale` 计算并限幅（上限 `0.75`）。
+- 接球后同样进行“前向分量衰减 + recoil 叠加”，只是前向基准方向改为当前视角水平方向。
+
+这保证了鱼跃接球与站立接球在“低速不弹、快速来球有后坐”上的手感一致。
+
+## 球员交互碰撞（新增）
+
+为提升对抗与带球体验，足球与球员新增如下服务端权威交互：
+
+1. **足球撞玩家时的双向作用**
+   - 足球在接触法线方向做反弹修正（可配置恢复系数）。
+   - 当来球法向速度达到阈值时，玩家会被沿接触方向推开一小段距离。
+   - 推力与来球速度成比例，并有最大值钳制。
+2. **带球碰撞豁免**
+   - 玩家正在带球时，自己与该球忽略碰撞。
+   - 带球结束后进入短暂 `grace` 窗口，仍忽略与“刚刚那颗球”的碰撞。
+3. **滑铲撞人**
+   - 滑铲命中其他玩家后，滑铲者当前速度会立即乘衰减系数（快速降速）。
+   - 被铲者会沿滑铲方向被推开，并进入短时高阻力状态（水平速度每 tick 额外衰减）。
+
+## 新增配置项（`player_input`）
+
+以下字段位于服务端配置 `player_input`（`nmbct-football-server.json`）：
+
+### `player_input.dribble`
+
+| 字段 | 默认值 | 说明 |
+|------|--------|------|
+| `dribble_collision_grace_ticks` | `15` | 带球结束后继续忽略与刚带球体碰撞的 tick 数 |
+
+### `player_input.collision`
+
+| 字段 | 默认值 | 说明 |
+|------|--------|------|
+| `ball_player_recoil_min_speed` | `0.25` | 球撞玩家时，触发玩家位移的最小法向速度 |
+| `ball_player_push_scale` | `0.2` | 球撞玩家推力与法向速度的比例系数 |
+| `ball_player_max_push` | `0.75` | 球撞玩家推力最大值 |
+| `ball_player_restitution` | `0.68` | 球撞玩家反弹恢复系数 |
+| `slide_tackler_speed_damp_on_contact` | `0.25` | 滑铲命中玩家后，滑铲者速度保留比例 |
+| `slide_victim_push_speed` | `0.45` | 被铲玩家瞬时推开速度 |
+| `slide_victim_resistance_ticks` | `12` | 被铲后高阻力持续 tick 数 |
+| `slide_victim_resistance_factor` | `0.35` | 高阻力期间每 tick 水平速度保留比例 |
+
+调参建议：
+
+- 若对抗过“粘”，优先降低 `slide_victim_resistance_ticks` 或提高 `slide_victim_resistance_factor`。
+- 若球撞人过“硬”，先降低 `ball_player_push_scale`，再考虑下调 `ball_player_restitution`。
+- 若带球仍偶发被自己球体挤动，可适当提高 `dribble_collision_grace_ticks`。
+
 ## 球员输入：观察四周（Look Around）
 
 > **请勿随意修改本节描述的机制。**  

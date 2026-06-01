@@ -81,6 +81,7 @@ data class PlayerDribbleSettings(
     val dribbleLateralGain: Double = 0.5,
     val dribbleTouchForce: Double = 0.08,
     val dribbleAirPositionScale: Double = 0.25,
+    val dribbleCollisionGraceTicks: Int = 15,
 ) {
     companion object {
         val CODEC: Codec<PlayerDribbleSettings> = RecordCodecBuilder.create { i ->
@@ -97,10 +98,39 @@ data class PlayerDribbleSettings(
                 Codec.DOUBLE.fieldOf("dribble_lateral_gain").forGetter(PlayerDribbleSettings::dribbleLateralGain),
                 Codec.DOUBLE.fieldOf("dribble_touch_force").forGetter(PlayerDribbleSettings::dribbleTouchForce),
                 Codec.DOUBLE.fieldOf("dribble_air_position_scale").forGetter(PlayerDribbleSettings::dribbleAirPositionScale),
+                Codec.INT.fieldOf("dribble_collision_grace_ticks").forGetter(PlayerDribbleSettings::dribbleCollisionGraceTicks),
             ).apply(i, ::PlayerDribbleSettings)
         }
 
         val DEFAULT = PlayerDribbleSettings()
+    }
+}
+
+data class PlayerCollisionSettings(
+    val ballPlayerRecoilMinSpeed: Double = 0.25,
+    val ballPlayerPushScale: Double = 0.2,
+    val ballPlayerMaxPush: Double = 0.75,
+    val ballPlayerRestitution: Double = 0.68,
+    val slideTacklerSpeedDampOnContact: Double = 0.25,
+    val slideVictimPushSpeed: Double = 0.45,
+    val slideVictimResistanceTicks: Int = 12,
+    val slideVictimResistanceFactor: Double = 0.35,
+) {
+    companion object {
+        val CODEC: Codec<PlayerCollisionSettings> = RecordCodecBuilder.create { i ->
+            i.group(
+                Codec.DOUBLE.fieldOf("ball_player_recoil_min_speed").forGetter(PlayerCollisionSettings::ballPlayerRecoilMinSpeed),
+                Codec.DOUBLE.fieldOf("ball_player_push_scale").forGetter(PlayerCollisionSettings::ballPlayerPushScale),
+                Codec.DOUBLE.fieldOf("ball_player_max_push").forGetter(PlayerCollisionSettings::ballPlayerMaxPush),
+                Codec.DOUBLE.fieldOf("ball_player_restitution").forGetter(PlayerCollisionSettings::ballPlayerRestitution),
+                Codec.DOUBLE.fieldOf("slide_tackler_speed_damp_on_contact").forGetter(PlayerCollisionSettings::slideTacklerSpeedDampOnContact),
+                Codec.DOUBLE.fieldOf("slide_victim_push_speed").forGetter(PlayerCollisionSettings::slideVictimPushSpeed),
+                Codec.INT.fieldOf("slide_victim_resistance_ticks").forGetter(PlayerCollisionSettings::slideVictimResistanceTicks),
+                Codec.DOUBLE.fieldOf("slide_victim_resistance_factor").forGetter(PlayerCollisionSettings::slideVictimResistanceFactor),
+            ).apply(i, ::PlayerCollisionSettings)
+        }
+
+        val DEFAULT = PlayerCollisionSettings()
     }
 }
 
@@ -109,6 +139,7 @@ data class PlayerInputSettings(
     val kick: PlayerKickSettings = PlayerKickSettings.DEFAULT,
     val dribble: PlayerDribbleSettings = PlayerDribbleSettings.DEFAULT,
     val charge: KickChargeSettings = KickChargeSettings.DEFAULT,
+    val collision: PlayerCollisionSettings = PlayerCollisionSettings.DEFAULT,
 ) {
     val playerKickRange get() = kick.playerKickRange
     val commandKickRange get() = kick.commandKickRange
@@ -139,6 +170,7 @@ data class PlayerInputSettings(
     val dribbleLateralGain get() = dribble.dribbleLateralGain
     val dribbleTouchForce get() = dribble.dribbleTouchForce
     val dribbleAirPositionScale get() = dribble.dribbleAirPositionScale
+    val dribbleCollisionGraceTicks get() = dribble.dribbleCollisionGraceTicks
     val tapMaxMs get() = charge.tapMaxMs
     val chargeMinMs get() = charge.chargeMinMs
     val chargeRiseMs get() = charge.chargeRiseMs
@@ -146,6 +178,14 @@ data class PlayerInputSettings(
     val chargeDecayMs get() = charge.chargeDecayMs
     val kickSpreadInaccuracy get() = charge.kickSpreadInaccuracy
     val perfectChargeForceBonus get() = charge.perfectChargeForceBonus
+    val ballPlayerRecoilMinSpeed get() = collision.ballPlayerRecoilMinSpeed
+    val ballPlayerPushScale get() = collision.ballPlayerPushScale
+    val ballPlayerMaxPush get() = collision.ballPlayerMaxPush
+    val ballPlayerRestitution get() = collision.ballPlayerRestitution
+    val slideTacklerSpeedDampOnContact get() = collision.slideTacklerSpeedDampOnContact
+    val slideVictimPushSpeed get() = collision.slideVictimPushSpeed
+    val slideVictimResistanceTicks get() = collision.slideVictimResistanceTicks
+    val slideVictimResistanceFactor get() = collision.slideVictimResistanceFactor
 
     companion object {
         val CODEC: Codec<PlayerInputSettings> = RecordCodecBuilder.create { i ->
@@ -154,6 +194,8 @@ data class PlayerInputSettings(
                 PlayerDribbleSettings.CODEC.fieldOf("dribble").forGetter(PlayerInputSettings::dribble),
                 KickChargeSettings.CODEC.optionalFieldOf("charge", KickChargeSettings.DEFAULT)
                     .forGetter(PlayerInputSettings::charge),
+                PlayerCollisionSettings.CODEC.optionalFieldOf("collision", PlayerCollisionSettings.DEFAULT)
+                    .forGetter(PlayerInputSettings::collision),
             ).apply(i, ::PlayerInputSettings)
         }
 
