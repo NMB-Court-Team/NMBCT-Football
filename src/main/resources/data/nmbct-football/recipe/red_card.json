@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "R": "minecraft:red_concrete"
+  },
+  "pattern": [
+    "RR",
+    "RR",
+    "RR"
+  ],
+  "result": {
+    "count": 4,
+    "id": "nmbct-football:red_card"
+  }
+}

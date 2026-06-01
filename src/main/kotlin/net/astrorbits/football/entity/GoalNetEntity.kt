@@ -7,7 +7,11 @@ import net.astrorbits.football.physics.GoalNetConfig
 import net.astrorbits.football.physics.GoalNetMesh
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.GoalNetAnchorLinks
+import net.astrorbits.football.util.GoalNetDrops
 import net.astrorbits.football.util.GoalNetGeometry
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.entity.player.Player
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Registry
 import net.minecraft.core.registries.BuiltInRegistries
@@ -211,6 +215,20 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
         val nearestPlayer = level().getNearestPlayer(this, 16.0) ?: return false
         return nearestPlayer.mainHandItem.`is`(Items.GOAL_NET_CONNECTOR) ||
             nearestPlayer.offhandItem.`is`(Items.GOAL_NET_CONNECTOR)
+    }
+
+    fun discardFromAnchorBreak(breaker: Player?) {
+        if (!level().isClientSide && level() is ServerLevel) {
+            GoalNetDrops.dropAnchorBreakLoot(level() as ServerLevel, this, breaker)
+        }
+        discard()
+    }
+
+    fun discardFromConnectorDestroy(player: ServerPlayer) {
+        if (!level().isClientSide) {
+            GoalNetDrops.returnConnectorDestroyString(player)
+        }
+        discard()
     }
 
     override fun remove(reason: RemovalReason) {

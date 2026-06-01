@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "S": "minecraft:string",
+    "W": "#minecraft:wool",
+    "C": "minecraft:copper_ingot",
+    "I": "minecraft:iron_ingot"
+  },
+  "pattern": [
+    " SW",
+    "CIS",
+    "IC "
+  ],
+  "result": {
+    "count": 1,
+    "id": "nmbct-football:goal_net_connector"
+  }
+}

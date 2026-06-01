@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "W": "minecraft:white_wool",
+    "B": "minecraft:black_wool",
+    "S": "minecraft:string",
+    "L": "minecraft:leather"
+  },
+  "pattern": [
+    "WBW",
+    "SLS",
+    "WBW"
+  ],
+  "result": {
+    "count": 1,
+    "id": "nmbct-football:football"
+  }
+}

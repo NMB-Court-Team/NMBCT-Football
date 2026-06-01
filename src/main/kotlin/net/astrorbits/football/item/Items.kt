@@ -31,7 +31,7 @@ object Items {
     )
     val GOAL_NET_CONNECTOR = register(
         "goal_net_connector",
-        Item.Properties().stacksTo(1),
+        Item.Properties().durability(GoalNetMaterialCost.MAX_DURABILITY),
         ::GoalNetConnectorItem,
     )
 

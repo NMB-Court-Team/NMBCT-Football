@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "I": "minecraft:iron_nugget"
+  },
+  "pattern": [
+    "II",
+    "II"
+  ],
+  "result": {
+    "count": 16,
+    "id": "nmbct-football:goal_net_anchor"
+  }
+}

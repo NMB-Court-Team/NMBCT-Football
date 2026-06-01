@@ -74,7 +74,7 @@ class GoalNetAnchorBlock(properties: Properties) : Block(properties) {
     }
 
     override fun destroy(level: LevelAccessor, pos: BlockPos, state: BlockState) {
-        if (level is Level) {
+        if (level is Level && !level.isClientSide) {
             GoalNetAnchorLinks.onAnchorRemoved(level, pos)
         }
         super.destroy(level, pos, state)

@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "Y": "minecraft:yellow_concrete"
+  },
+  "pattern": [
+    "YY",
+    "YY",
+    "YY"
+  ],
+  "result": {
+    "count": 4,
+    "id": "nmbct-football:yellow_card"
+  }
+}

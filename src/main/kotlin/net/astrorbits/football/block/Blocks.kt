@@ -7,16 +7,22 @@ import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
 import net.minecraft.world.item.BlockItem
 import net.minecraft.world.item.Item
-import net.minecraft.world.item.Rarity
 import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.SoundType
 import net.minecraft.world.level.block.state.BlockBehaviour
+import net.minecraft.world.level.material.MapColor
+import net.minecraft.world.level.material.PushReaction
 
 object Blocks {
 
     val GOAL_NET_ANCHOR = registerWithItem(
         "goal_net_anchor",
         BlockBehaviour.Properties.of()
-            .strength(0.6f)
+            .sound(SoundType.METAL)
+            .mapColor(MapColor.METAL)
+            .forceSolidOn()
+            .strength(0.5F)
+            .pushReaction(PushReaction.DESTROY)
             .noOcclusion(),
         factory = ::GoalNetAnchorBlock,
     )

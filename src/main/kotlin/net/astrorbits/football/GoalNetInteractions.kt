@@ -4,6 +4,7 @@ import net.astrorbits.football.entity.GoalNetEntity
 import net.astrorbits.football.item.GoalNetConnectorItem
 import net.astrorbits.football.item.GoalNetConnectorSounds
 import net.astrorbits.football.item.Items
+import net.astrorbits.football.util.GoalNetDrops
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback
 import net.fabricmc.fabric.api.event.player.UseEntityCallback
 import net.minecraft.network.chat.Component
@@ -23,7 +24,14 @@ object GoalNetInteractions {
             if (!player.getItemInHand(hand).`is`(Items.GOAL_NET_CONNECTOR)) {
                 return@register InteractionResult.PASS
             }
-            entity.discard()
+            if (!GoalNetDrops.canDestroyWithConnector(player)) {
+                GoalNetConnectorSounds.playNetFail(player)
+                player.sendOverlayMessage(
+                    Component.translatable("message.nmbct-football.goal_net.fail.adventure_destroy")
+                )
+                return@register InteractionResult.FAIL
+            }
+            entity.discardFromConnectorDestroy(player)
             GoalNetConnectorSounds.playNetDestroy(player, entity)
             player.sendOverlayMessage(Component.translatable("message.nmbct-football.goal_net.destroyed"))
             InteractionResult.SUCCESS
@@ -34,7 +42,7 @@ object GoalNetInteractions {
             if (entity !is GoalNetEntity || player !is ServerPlayer) return@register InteractionResult.PASS
             if (!player.getItemInHand(hand).`is`(Items.GOAL_NET_CONNECTOR)) return@register InteractionResult.PASS
             val item = player.getItemInHand(hand).item as GoalNetConnectorItem
-            val result = item.handleUse(level, player)
+            val result = item.handleUse(level, player, hand)
             if (result == InteractionResult.PASS) InteractionResult.PASS else InteractionResult.SUCCESS
         }
     }

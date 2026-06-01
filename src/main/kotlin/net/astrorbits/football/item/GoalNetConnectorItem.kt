@@ -34,7 +34,7 @@ class GoalNetConnectorItem(properties: Properties) : Item(properties) {
         val level = context.level
         if (level.isClientSide) return InteractionResult.SUCCESS
         val player = context.player as? ServerPlayer ?: return InteractionResult.PASS
-        return handleUse(level, player)
+        return handleUse(level, player, context.hand)
     }
 
     override fun use(level: Level, player: Player, hand: InteractionHand): InteractionResult {
@@ -44,15 +44,15 @@ class GoalNetConnectorItem(properties: Properties) : Item(properties) {
         if (raycastGoalNet(serverPlayer, level) != null) {
             return InteractionResult.PASS
         }
-        return handleUse(level, serverPlayer)
+        return handleUse(level, serverPlayer, hand)
     }
 
-    fun handleUse(level: Level, player: ServerPlayer): InteractionResult {
+    fun handleUse(level: Level, player: ServerPlayer, hand: InteractionHand): InteractionResult {
         val blockHit = raycastBlock(player, level)
         if (blockHit.type != HitResult.Type.MISS) {
             val pos = blockHit.blockPos
             if (level.getBlockState(pos).block is GoalNetAnchorBlock) {
-                return handleAnchorClick(level, player, pos)
+                return handleAnchorClick(level, player, pos, hand)
             }
         }
 
@@ -83,7 +83,7 @@ class GoalNetConnectorItem(properties: Properties) : Item(properties) {
         return InteractionResult.SUCCESS_SERVER
     }
 
-    private fun handleAnchorClick(level: Level, player: ServerPlayer, pos: BlockPos): InteractionResult {
+    private fun handleAnchorClick(level: Level, player: ServerPlayer, pos: BlockPos, hand: InteractionHand): InteractionResult {
         val uuid = player.uuid
         if (GoalNetConnectorState.contains(uuid, pos)) {
             GoalNetConnectorSounds.playAnchorDuplicate(player, pos)
@@ -112,8 +112,38 @@ class GoalNetConnectorItem(properties: Properties) : Item(properties) {
         }
         when (val result = GoalNetGeometry.validate(anchorPositions)) {
             is GoalNetGeometry.Result.Success -> {
+                if (GoalNetMaterialCost.requiresCost(player)) {
+                    val connectorHand = GoalNetMaterialCost.findConnectorHand(player, hand)
+                    if (connectorHand == null) {
+                        GoalNetConnectorSounds.playNetFail(player)
+                        player.sendOverlayMessage(
+                            Component.translatable("message.nmbct-football.goal_net.fail.no_connector")
+                        )
+                        return InteractionResult.SUCCESS_SERVER
+                    }
+                    val connectorStack = player.getItemInHand(connectorHand)
+                    if (!GoalNetMaterialCost.connectorHasDurability(connectorStack)) {
+                        GoalNetConnectorSounds.playNetFail(player)
+                        player.sendOverlayMessage(
+                            Component.translatable("message.nmbct-football.goal_net.fail.no_durability")
+                        )
+                        return InteractionResult.SUCCESS_SERVER
+                    }
+                    if (!GoalNetMaterialCost.hasEnoughString(player)) {
+                        GoalNetConnectorSounds.playNetFail(player)
+                        player.sendOverlayMessage(
+                            Component.translatable("message.nmbct-football.goal_net.fail.not_enough_string")
+                        )
+                        return InteractionResult.SUCCESS_SERVER
+                    }
+                }
                 val entity = GoalNetEntity(GoalNetEntity.ENTITY_TYPE, level)
                 if (entity.setup(level, points, GoalNetConfig.DEFAULT_SLACK) && level.addFreshEntity(entity)) {
+                    if (GoalNetMaterialCost.requiresCost(player)) {
+                        val connectorHand = GoalNetMaterialCost.findConnectorHand(player, hand)!!
+                        GoalNetMaterialCost.tryConsumeString(player)
+                        GoalNetMaterialCost.damageConnector(player, connectorHand)
+                    }
                     GoalNetConnectorSounds.playNetCreated(player)
                     player.sendOverlayMessage(Component.translatable("message.nmbct-football.goal_net.created"))
                 } else {
