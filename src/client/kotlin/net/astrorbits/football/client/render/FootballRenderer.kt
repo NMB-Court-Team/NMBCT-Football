@@ -30,7 +30,6 @@ class FootballRenderer(context: EntityRendererProvider.Context) :
     EntityRenderer<Football, FootballRenderState>(context) {
 
     private val itemModelResolver: ItemModelResolver = context.itemModelResolver
-    private val entityRenderDispatcher = context.entityRenderDispatcher
     private val footballStack by lazy { ItemStack(Items.FOOTBALL) }
 
     init {
@@ -182,7 +181,7 @@ class FootballRenderer(context: EntityRendererProvider.Context) :
         private const val BILLBOARD_DISTANCE_SQ = BILLBOARD_DISTANCE * BILLBOARD_DISTANCE
 
         /** 面片半宽/半高（方块），与近处模型视觉大小大致相当。 */
-        private const val BILLBOARD_HALF_SIZE = 0.36f
+        private const val BILLBOARD_HALF_SIZE = 0.42f
 
         /**
          * 远距离面片贴图。请将 PNG 放在：

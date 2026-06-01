@@ -101,7 +101,7 @@ object GoalNetConfig {
     const val NET_BLOCK_COLLISION_EPSILON: Double = 0.005
 
     /** 渲染：近距离时绳线在世界空间的半宽（方块）。 */
-    const val LINE_HALF_WIDTH: Double = 0.018
+    const val LINE_HALF_WIDTH: Double = 0.054
 
     /** 渲染：随距离增大而收细的系数（每 1 格距离减少多少半宽）。 */
     const val LINE_WIDTH_DISTANCE_SHRINK: Double = 0.00035
