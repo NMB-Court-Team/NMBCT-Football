@@ -19,6 +19,7 @@ import net.astrorbits.football.client.render.HalfKickoffHudElement
 import net.astrorbits.football.client.render.KickoffLockHudElement
 import net.astrorbits.football.client.render.MatchResultHudElement
 import net.astrorbits.football.client.render.MatchStartHudElement
+import net.astrorbits.football.client.item.GoalNetConnectorItemTooltipClient
 import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.client.key.FootballKeyBindings
 import net.astrorbits.football.client.key.LookAroundClient
@@ -42,6 +43,7 @@ object NMBCTFootballClient : ClientModInitializer {
 
 		GoalNetStateClient.register()
 		GoalNetConnectorPreviewClient.register()
+		GoalNetConnectorItemTooltipClient.register()
 		FootballConfigNetworking.register()
 		MatchConfigNetworking.register()
 		MatchFieldConfigNetworking.register()

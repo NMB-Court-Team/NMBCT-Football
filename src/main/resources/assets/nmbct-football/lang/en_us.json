@@ -6,6 +6,8 @@
     "block.nmbct-football.goal_net_anchor": "Goal Net Anchor",
     "item.nmbct-football.goal_net_anchor": "Goal Net Anchor",
     "item.nmbct-football.goal_net_connector": "Goal Net Connector",
+    "item.nmbct-football.goal_net_connector.tooltip.1": "Right-click goal net anchors to select 4 points and create a net",
+    "item.nmbct-football.goal_net_connector.tooltip.2": "Right-click a net to adjust slack; sneak + right-click air to clear points",
     "itemGroup.nmbct-football.main": "NMBCT Football",
     "entity.nmbct-football.football": "Football",
     "entity.nmbct-football.goal_net": "Goal Net",
