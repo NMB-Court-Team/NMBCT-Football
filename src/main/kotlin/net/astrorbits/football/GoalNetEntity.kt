@@ -5,7 +5,9 @@ import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.GoalNetConfig
 import net.astrorbits.football.physics.GoalNetMesh
+import net.astrorbits.football.physics.GoalNetMeshNbt
 import net.astrorbits.football.util.GoalNetAnchorLinks
+import net.astrorbits.football.util.GoalNetAnchorsNbt
 import net.astrorbits.football.util.GoalNetDrops
 import net.astrorbits.football.util.GoalNetGeometry
 import net.minecraft.core.BlockPos
@@ -123,7 +125,7 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
             computeBox(rect)
         }
         cachedBox = box
-        setBoundingBox(box)
+        boundingBox = box
     }
 
     override fun makeBoundingBox(pos: Vec3): AABB {
@@ -208,7 +210,7 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
             k += 3
         }
         cachedBox = AABB(minX - 0.5, minY - 0.5, minZ - 0.5, maxX + 0.5, maxY + 0.5, maxZ + 0.5)
-        setBoundingBox(cachedBox!!)
+        boundingBox = cachedBox!!
     }
 
     override fun isPickable(): Boolean {
@@ -245,27 +247,23 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
     ): Boolean = false
 
     override fun readAdditionalSaveData(input: ValueInput) {
-        val list = ArrayList<BlockPos>(4)
-        for (n in 0 until 4) {
-            val x = input.getIntOr("a${n}x", Int.MIN_VALUE)
-            val y = input.getIntOr("a${n}y", Int.MIN_VALUE)
-            val z = input.getIntOr("a${n}z", Int.MIN_VALUE)
-            if (x == Int.MIN_VALUE) continue
-            list.add(BlockPos(x, y, z))
-        }
         slack = input.getDoubleOr("slack", GoalNetConfig.DEFAULT_SLACK)
-        if (list.size == 4) {
-            setup(level(), list, slack)
+        val anchorBlocks = GoalNetAnchorsNbt.read(input) ?: return
+        setup(level(), anchorBlocks, slack)
+        val m = mesh ?: return
+        val restoredTicks = GoalNetMeshNbt.read(input, m, position())
+        if (restoredTicks != null) {
+            activeTicks = restoredTicks.coerceAtLeast(0)
+            refreshServerBox(m)
+            broadcastState()
         }
     }
 
     override fun addAdditionalSaveData(output: ValueOutput) {
-        anchors.forEachIndexed { n, p ->
-            output.putInt("a${n}x", p.x)
-            output.putInt("a${n}y", p.y)
-            output.putInt("a${n}z", p.z)
-        }
+        GoalNetAnchorsNbt.write(anchors, output)
         output.putDouble("slack", slack)
+        val m = mesh ?: return
+        GoalNetMeshNbt.write(m, position(), activeTicks, output)
     }
 
     companion object {

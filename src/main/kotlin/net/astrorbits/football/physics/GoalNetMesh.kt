@@ -344,4 +344,34 @@ class GoalNetMesh(
             out[k * 3 + 2] = (posZ[k] - origin.z).toFloat()
         }
     }
+
+    /** 将 Verlet 状态（相对 [origin]）写入列表，供存档序列化。 */
+    fun writeRelativeSimulationState(origin: Vec3, posOut: (Double) -> Unit, prevOut: (Double) -> Unit) {
+        for (k in 0 until nodeCount) {
+            posOut(posX[k] - origin.x)
+            posOut(posY[k] - origin.y)
+            posOut(posZ[k] - origin.z)
+            prevOut(prevX[k] - origin.x)
+            prevOut(prevY[k] - origin.y)
+            prevOut(prevZ[k] - origin.z)
+        }
+    }
+
+    /**
+     * 从相对 [origin] 的坐标列表恢复 Verlet 状态；列表长度须为 [nodeCount]×3。
+     */
+    fun restoreRelativeSimulationState(origin: Vec3, posRelative: List<Double>, prevRelative: List<Double>): Boolean {
+        val n = nodeCount * 3
+        if (posRelative.size != n || prevRelative.size != n) return false
+        for (k in 0 until nodeCount) {
+            val i = k * 3
+            posX[k] = origin.x + posRelative[i]
+            posY[k] = origin.y + posRelative[i + 1]
+            posZ[k] = origin.z + posRelative[i + 2]
+            prevX[k] = origin.x + prevRelative[i]
+            prevY[k] = origin.y + prevRelative[i + 1]
+            prevZ[k] = origin.z + prevRelative[i + 2]
+        }
+        return true
+    }
 }
