@@ -25,4 +25,11 @@ object MatchConfigHolder {
         MatchState.teamBName = Component.literal(config.teamBName)
         NMBCTFootball.LOGGER.info("Applied match config")
     }
+
+    /** 客户端接收服务端推送时使用，仅更新内存不写文件。 */
+    fun syncFromServer(config: MatchConfig) {
+        current = config
+        MatchState.teamAName = Component.literal(config.teamAName)
+        MatchState.teamBName = Component.literal(config.teamBName)
+    }
 }

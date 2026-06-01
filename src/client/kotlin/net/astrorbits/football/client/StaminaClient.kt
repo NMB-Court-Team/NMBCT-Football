@@ -11,7 +11,7 @@ object StaminaClient {
     private const val JUMP_COST = 60
     private const val SPRINT_STEP_TICKS = 2
     private const val RECOVERY_DELAY_TICKS = 20
-    private const val RECOVERY_STEP_TICKS = 2
+    private const val RECOVERY_STEP_TICKS = 1
 
     private val MODIFIER_ID = Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "stamina_speed")
 
@@ -24,11 +24,11 @@ object StaminaClient {
     private var wasOnGround: Boolean = false
 
     fun getSpeedMultiplier(): Double = when {
-        stamina <= 0   -> 0.6
-        stamina < 100  -> 0.7
-        stamina < 400  -> 0.8
-        stamina < 800  -> 0.9
-        else           -> 1.0
+        stamina <= 0   -> 0.60
+        stamina < 100  -> 0.70
+        stamina < 400  -> 0.85
+        stamina < 800  -> 0.95
+        else           -> 1.00
     }
 
     fun tick(client: Minecraft) {

@@ -1,4 +1,4 @@
-package net.astrorbits.football
+﻿package net.astrorbits.football
 
 import net.astrorbits.football.block.Blocks
 import net.astrorbits.football.entity.GoalNetEntity
@@ -51,7 +51,8 @@ object NMBCTFootball : ModInitializer {
 
 		FootballNetworking.registerPayloadType()
 		FootballNetworking.registerServerReceiver()
-		FootballEntityInteractions.register()
+			FootballNetworking.registerServerTick()
+			FootballEntityInteractions.register()
 		GoalNetInteractions.register()
 		FootballItemUseGuards.register()
 		FootballDribbleSessions.registerEvents()
@@ -61,6 +62,7 @@ object NMBCTFootball : ModInitializer {
 
 		ServerPlayConnectionEvents.JOIN.register { handler, _, _ ->
 			PlayerRoleState.syncRoleToPlayer(handler.player)
+			FootballNetworking.syncConfigToPlayer(handler.player)
 		}
 
 		LOGGER.info("NMBCT Football initialized")
