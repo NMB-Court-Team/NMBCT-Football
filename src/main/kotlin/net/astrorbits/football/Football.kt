@@ -178,17 +178,19 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val prevCenter = prevPos.add(0.0, radius, 0.0)
         val currCenter = currPos.add(0.0, radius, 0.0)
 
-        // 球门 A 由 A 队防守，球入门则 B 队得分
-        checkGoal(config.goalA, prevCenter, currCenter, TeamSide.B)
+        // 球门 A 由 A 队防守，球入门则 B 队得分；出底线则视触球方判角球/球门球
+        checkGoalOrOut(config.goalA, prevCenter, currCenter, TeamSide.A, TeamSide.B)
         // 球门 B 由 B 队防守，球入门则 A 队得分
-        checkGoal(config.goalB, prevCenter, currCenter, TeamSide.A)
+        checkGoalOrOut(config.goalB, prevCenter, currCenter, TeamSide.B, TeamSide.A)
     }
 
-    private fun checkGoal(
+    /** 检测球是否穿越门线：进球或出底线 */
+    private fun checkGoalOrOut(
         goal: net.astrorbits.football.match.GoalConfig,
         prevCenter: Vec3,
         currCenter: Vec3,
-        scoringTeam: TeamSide,
+        defendingTeam: TeamSide,
+        attackingTeam: TeamSide,
     ) {
         val facing = Vec3(goal.facingX, goal.facingY, goal.facingZ)
         val facingLenSqr = facing.lengthSqr()
@@ -197,7 +199,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val gx1 = goal.x1; val gy1 = goal.y1; val gz1 = goal.z1
         val gx2 = goal.x2; val gy2 = goal.y2; val gz2 = goal.z2
 
-        // 判定面向球门内移 1 格
         val refX = gx1 + facing.x
         val refY = gy1 + facing.y
         val refZ = gz1 + facing.z
@@ -207,14 +208,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (d1 * d2 >= 0) return
         if (d2 - d1 <= 0) return
 
-        // 穿越点
         val t = d1 / (d1 - d2)
         val movement = currCenter.subtract(prevCenter)
         val ix = prevCenter.x + movement.x * t
         val iy = prevCenter.y + movement.y * t
         val iz = prevCenter.z + movement.z * t
 
-        // 穿越点是否在门框范围内
         val minX = minOf(gx1, gx2)
         val maxX = maxOf(gx1, gx2)
         val minY = minOf(gy1, gy2)
@@ -222,30 +221,63 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val minZ = minOf(gz1, gz2)
         val maxZ = maxOf(gz1, gz2)
 
-        if (ix < minX || ix > maxX) return
-        if (iy < minY || iy > maxY) return
-        if (iz < minZ - 1.01 || iz > maxZ + 1.01) return
+        // 球门框内 → 进球
+        val inGoal = ix >= minX && ix <= maxX
+                && iy >= minY && iy <= maxY
+                && iz >= minZ - 1.01 && iz <= maxZ + 1.01
 
-        MatchState.onGoal(scoringTeam)
-        val server = (level() as? net.minecraft.server.level.ServerLevel)?.server
-        // 广播进球 HUD（含进球者、比分、是否乌龙）
-        if (server != null) {
+        val server = (level() as? net.minecraft.server.level.ServerLevel)?.server ?: return
+
+        if (inGoal) {
+            // 进球
+            MatchState.onGoal(attackingTeam)
             val scorerName = lastKicker?.let { server.playerList.getPlayer(it)?.gameProfile?.name } ?: "?"
-            val scorerTeam = lastKicker?.let { MatchState.getPlayerTeam(it) } ?: scoringTeam
-            val ownGoal = scorerTeam != scoringTeam
+            val scorerTeam = lastKicker?.let { MatchState.getPlayerTeam(it) } ?: attackingTeam
+            val ownGoal = scorerTeam != attackingTeam
             net.astrorbits.football.network.FootballNetworking.broadcastGoalScored(
-                server, scoringTeam, scorerName, scorerTeam, MatchState.teamAScore, MatchState.teamBScore, ownGoal,
+                server, attackingTeam, scorerName, scorerTeam, MatchState.teamAScore, MatchState.teamBScore, ownGoal,
             )
-        }
-        FootballParticles.playGoal(level(), FootballParticles.centerOfFootball(this))
-
-        // 失分方开球：重置足球 + 进球后开球锁定
-        if (server != null) {
-            val conceding = if (scoringTeam == TeamSide.A) TeamSide.B else TeamSide.A
+            FootballParticles.playGoal(level(), FootballParticles.centerOfFootball(this))
             MatchState.resetFootball(level() as net.minecraft.server.level.ServerLevel)
-            MatchState.kickoffTeam = conceding
+            MatchState.kickoffTeam = defendingTeam
             MatchState.kickoffTouched = false
-            net.astrorbits.football.network.FootballNetworking.broadcastPostGoalKickoff(server, conceding)
+            net.astrorbits.football.network.FootballNetworking.broadcastPostGoalKickoff(server, defendingTeam)
+        } else {
+            // 穿越门线平面但不在门框内 → 出底线
+            val lastTouchTeam = lastKicker?.let { MatchState.getPlayerTeam(it) }
+            val outType: net.astrorbits.football.match.GoalLineOutType
+            val restartTeam: TeamSide
+
+            if (lastTouchTeam == attackingTeam) {
+                // 攻方最后触球 → 球门球（守方开球）
+                outType = net.astrorbits.football.match.GoalLineOutType.GOAL_KICK
+                restartTeam = defendingTeam
+            } else {
+                // 守方最后触球（或无归属） → 角球（攻方开球）
+                outType = net.astrorbits.football.match.GoalLineOutType.CORNER_KICK
+                restartTeam = attackingTeam
+            }
+
+            // 使用配置中的开球点
+            val ballPos = if (outType == net.astrorbits.football.match.GoalLineOutType.GOAL_KICK) {
+                val gk = goal.goalKick
+                Vec3(gk.x, gk.y, gk.z)
+            } else {
+                // 角球：根据穿越点在球门哪一侧决定用左角旗还是右角旗
+                val goalCenterX = (gx1 + gx2) / 2.0
+                val goalCenterZ = (gz1 + gz2) / 2.0
+                val onRight = if (Math.abs(facing.x) > Math.abs(facing.z))
+                    iz > goalCenterZ
+                else
+                    ix > goalCenterX
+                val corner = if (onRight) goal.cornerKickRight else goal.cornerKickLeft
+                Vec3(corner.x, corner.y, corner.z)
+            }
+
+            MatchState.resetFootballAt(level() as net.minecraft.server.level.ServerLevel, ballPos)
+            MatchState.kickoffTeam = restartTeam
+            MatchState.kickoffTouched = false
+            net.astrorbits.football.network.FootballNetworking.broadcastGoalLineOut(server, outType, restartTeam)
         }
     }
 

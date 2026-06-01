@@ -6,7 +6,9 @@ object MatchStartClient {
     private const val HUD_DURATION_MS = 6000L
     private const val LOCK_DURATION_MS = 23000L
     private const val POST_GOAL_LOCK_MS = 20000L
+    private const val GOAL_LINE_OUT_LOCK_MS = 10000L
     private const val COUNTDOWN_SECONDS = 20
+    private const val GOAL_LINE_OUT_COUNTDOWN = 10
     private const val GRACE_MS = 10000L  // 宽限期 10 秒
 
     var startTimeMs: Long = 0L; private set
@@ -17,15 +19,20 @@ object MatchStartClient {
     var teamBName: String = ""; private set
     var kickoffTouched: Boolean = false; private set
     var isPostGoal: Boolean = false; private set
+    var isGoalLineOut: Boolean = false; private set
 
     private var kickoffStartMs: Long = 0L
     private var lastStoppageTickMs: Long = 0L
 
-    private val lockDurationMs: Long get() = if (isPostGoal) POST_GOAL_LOCK_MS else LOCK_DURATION_MS
+    private val lockDurationMs: Long get() = when {
+        isGoalLineOut -> GOAL_LINE_OUT_LOCK_MS
+        isPostGoal -> POST_GOAL_LOCK_MS
+        else -> LOCK_DURATION_MS
+    }
     private val allowedMs: Long get() = lockDurationMs + GRACE_MS
 
     val isHudActive: Boolean
-        get() = !isPostGoal && startTimeMs > 0 && elapsedMs < HUD_DURATION_MS
+        get() = !isPostGoal && !isGoalLineOut && startTimeMs > 0 && elapsedMs < HUD_DURATION_MS
 
     val isLocked: Boolean
         get() {
@@ -36,12 +43,13 @@ object MatchStartClient {
         }
 
     val isChoosing: Boolean
-        get() = !isPostGoal && startTimeMs > 0 && elapsedMs < 3000L
+        get() = !isPostGoal && !isGoalLineOut && startTimeMs > 0 && elapsedMs < 3000L
 
     val countdownSeconds: Int
         get() {
-            val remain = (lockDurationMs - elapsedMs + 999L) / 1000L  // 向上取整，避免最后 1 秒内显示 0
-            return remain.coerceIn(0L, COUNTDOWN_SECONDS.toLong()).toInt()
+            val remain = (lockDurationMs - elapsedMs + 999L) / 1000L
+            val cap = if (isGoalLineOut) GOAL_LINE_OUT_COUNTDOWN.toLong() else COUNTDOWN_SECONDS.toLong()
+            return remain.coerceIn(0L, cap).toInt()
         }
 
     val isKickoffTeam: Boolean get() = playerTeam == kickoffTeam
@@ -49,14 +57,21 @@ object MatchStartClient {
     fun startMatch(team: TeamSide, gk: Boolean, kickoff: TeamSide, nameA: String, nameB: String) {
         playerTeam = team; isGk = gk; kickoffTeam = kickoff
         teamAName = nameA; teamBName = nameB
-        kickoffTouched = false; isPostGoal = false
+        kickoffTouched = false; isPostGoal = false; isGoalLineOut = false
         startTimeMs = System.currentTimeMillis()
         kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
     }
 
     fun startPostGoalKickoff(kickoff: TeamSide) {
         kickoffTeam = kickoff
-        kickoffTouched = false; isPostGoal = true
+        kickoffTouched = false; isPostGoal = true; isGoalLineOut = false
+        startTimeMs = System.currentTimeMillis()
+        kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
+    }
+
+    fun startGoalLineOutKickoff(kickoff: TeamSide) {
+        kickoffTeam = kickoff
+        kickoffTouched = false; isPostGoal = false; isGoalLineOut = true
         startTimeMs = System.currentTimeMillis()
         kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
     }
@@ -71,7 +86,7 @@ object MatchStartClient {
 
     fun startHalfKickoff(kickoff: TeamSide, phaseKey: String, nameA: String, nameB: String) {
         kickoffTeam = kickoff; teamAName = nameA; teamBName = nameB
-        kickoffTouched = false; isPostGoal = true
+        kickoffTouched = false; isPostGoal = true; isGoalLineOut = false
         halfKickoffPhaseKey = phaseKey; halfKickoffActive = true
         halfKickoffStartMs = System.currentTimeMillis()
         startTimeMs = halfKickoffStartMs; kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
@@ -80,6 +95,7 @@ object MatchStartClient {
     fun onBallTouched() {
         if (kickoffTouched) return
         kickoffTouched = true
+        isGoalLineOut = false
         // 补时上限
         val maxTicks = net.astrorbits.football.match.MatchConfigHolder.current.stoppageTimeMaxMinutes * 60 * 20
         if (net.astrorbits.football.match.MatchState.dynamicStoppageTicks > maxTicks) {
@@ -114,5 +130,5 @@ object MatchStartClient {
     }
 
     val elapsedMs: Long get() = if (startTimeMs > 0) System.currentTimeMillis() - startTimeMs else 0L
-    fun reset() { startTimeMs = 0L; kickoffTouched = false; isPostGoal = false }
+    fun reset() { startTimeMs = 0L; kickoffTouched = false; isPostGoal = false; isGoalLineOut = false }
 }

@@ -1,6 +1,7 @@
 package net.astrorbits.football.client.config
 
 import net.astrorbits.football.match.GoalConfig
+import net.astrorbits.football.match.KickPosition
 import net.astrorbits.football.match.MatchConfig
 import net.astrorbits.football.match.SpawnPosition
 import net.astrorbits.football.match.TeamSpawnConfig
@@ -21,11 +22,17 @@ class MatchFieldConfigScreen(
     private var gaX1 = f(initial.goalA.x1); private var gaY1 = f(initial.goalA.y1); private var gaZ1 = f(initial.goalA.z1)
     private var gaX2 = f(initial.goalA.x2); private var gaY2 = f(initial.goalA.y2); private var gaZ2 = f(initial.goalA.z2)
     private var gaFx = f(initial.goalA.facingX); private var gaFy = f(initial.goalA.facingY); private var gaFz = f(initial.goalA.facingZ)
+    private var gaGkX = f(initial.goalA.goalKick.x); private var gaGkY = f(initial.goalA.goalKick.y); private var gaGkZ = f(initial.goalA.goalKick.z)
+    private var gaClX = f(initial.goalA.cornerKickLeft.x); private var gaClY = f(initial.goalA.cornerKickLeft.y); private var gaClZ = f(initial.goalA.cornerKickLeft.z)
+    private var gaCrX = f(initial.goalA.cornerKickRight.x); private var gaCrY = f(initial.goalA.cornerKickRight.y); private var gaCrZ = f(initial.goalA.cornerKickRight.z)
 
     // ---- goal B ----
     private var gbX1 = f(initial.goalB.x1); private var gbY1 = f(initial.goalB.y1); private var gbZ1 = f(initial.goalB.z1)
     private var gbX2 = f(initial.goalB.x2); private var gbY2 = f(initial.goalB.y2); private var gbZ2 = f(initial.goalB.z2)
     private var gbFx = f(initial.goalB.facingX); private var gbFy = f(initial.goalB.facingY); private var gbFz = f(initial.goalB.facingZ)
+    private var gbGkX = f(initial.goalB.goalKick.x); private var gbGkY = f(initial.goalB.goalKick.y); private var gbGkZ = f(initial.goalB.goalKick.z)
+    private var gbClX = f(initial.goalB.cornerKickLeft.x); private var gbClY = f(initial.goalB.cornerKickLeft.y); private var gbClZ = f(initial.goalB.cornerKickLeft.z)
+    private var gbCrX = f(initial.goalB.cornerKickRight.x); private var gbCrY = f(initial.goalB.cornerKickRight.y); private var gbCrZ = f(initial.goalB.cornerKickRight.z)
 
     // ---- spawn A ----
     private val saPlayers: MutableList<EditablePos> = initial.teamASpawn.players.map { EditablePos.from(it) }.toMutableList()
@@ -70,6 +77,10 @@ class MatchFieldConfigScreen(
                 r(y, L_GA_FX, { gaFx }, { gaFx = it }, L_GA_FY, { gaFy }, { gaFy = it }); y += RH
                 r(y, L_GA_FZ, { gaFz }, { gaFz = it }, null, null, null); y += RH
                 addBtn(y, IX, CORNER1) { setCorner1(); rebuild() }; addBtn(y, SX, CORNER2) { setCorner2(); rebuild() }
+                y += RH
+                addKickSection(y, GK_HEADER_KICK, L_GA_GK_X, { gaGkX }, { gaGkX = it }, L_GA_GK_Y, { gaGkY }, { gaGkY = it }, L_GA_GK_Z, { gaGkZ }, { gaGkZ = it }) { fillGaGk(); rebuild() }; y += RH * 3
+                addKickSection(y, CL_HEADER_KICK, L_GA_CL_X, { gaClX }, { gaClX = it }, L_GA_CL_Y, { gaClY }, { gaClY = it }, L_GA_CL_Z, { gaClZ }, { gaClZ = it }) { fillGaCl(); rebuild() }; y += RH * 3
+                addKickSection(y, CR_HEADER_KICK, L_GA_CR_X, { gaCrX }, { gaCrX = it }, L_GA_CR_Y, { gaCrY }, { gaCrY = it }, L_GA_CR_Z, { gaCrZ }, { gaCrZ = it }) { fillGaCr(); rebuild() }
             }
             1 -> { // Goal B
                 r(y, L_GB_X1, { gbX1 }, { gbX1 = it }, L_GB_Y1, { gbY1 }, { gbY1 = it }); y += RH
@@ -78,6 +89,10 @@ class MatchFieldConfigScreen(
                 r(y, L_GB_FX, { gbFx }, { gbFx = it }, L_GB_FY, { gbFy }, { gbFy = it }); y += RH
                 r(y, L_GB_FZ, { gbFz }, { gbFz = it }, null, null, null); y += RH
                 addBtn(y, IX, CORNER1) { setCorner1b(); rebuild() }; addBtn(y, SX, CORNER2) { setCorner2b(); rebuild() }
+                y += RH
+                addKickSection(y, GK_HEADER_KICK, L_GB_GK_X, { gbGkX }, { gbGkX = it }, L_GB_GK_Y, { gbGkY }, { gbGkY = it }, L_GB_GK_Z, { gbGkZ }, { gbGkZ = it }) { fillGbGk(); rebuild() }; y += RH * 3
+                addKickSection(y, CL_HEADER_KICK, L_GB_CL_X, { gbClX }, { gbClX = it }, L_GB_CL_Y, { gbClY }, { gbClY = it }, L_GB_CL_Z, { gbClZ }, { gbClZ = it }) { fillGbCl(); rebuild() }; y += RH * 3
+                addKickSection(y, CR_HEADER_KICK, L_GB_CR_X, { gbCrX }, { gbCrX = it }, L_GB_CR_Y, { gbCrY }, { gbCrY = it }, L_GB_CR_Z, { gbCrZ }, { gbCrZ = it }) { fillGbCr(); rebuild() }
             }
             2 -> buildSpawnTab(
                 y,
@@ -182,6 +197,18 @@ class MatchFieldConfigScreen(
         addRenderableWidget(Button.builder(label, { action() }).bounds(x, y, IW, EH).build())
     }
 
+    /** 添加开球点设置区：标题占一行 + 两行输入，共 3*RH 高度 */
+    private fun addKickSection(y: Int, header: Component,
+                                lx: Component, gx: () -> String, sx: (String) -> Unit,
+                                ly: Component, gy: () -> String, sy: (String) -> Unit,
+                                lz: Component, gz: () -> String, sz: (String) -> Unit,
+                                onUse: () -> Unit) {
+        addLabel(header, LX, y)
+        r(y + RH, lx, gx, sx, ly, gy, sy)
+        r(y + RH * 2, lz, gz, sz, null, null, null)
+        addBtn(y + RH * 2, SX, USE_POS, onUse)
+    }
+
     // ---- corner buttons ----
     private fun setCorner1()  { withPos { x, y, z -> gaX1 = x; gaY1 = y; gaZ1 = z } }
     private fun setCorner2()  { withPos { x, y, z -> gaX2 = x; gaY2 = y; gaZ2 = z } }
@@ -190,6 +217,12 @@ class MatchFieldConfigScreen(
 
     private fun fillGkA() { withRot { x, y, z, yw, pt -> saGkX = x; saGkY = y; saGkZ = z; saGkYaw = yw; saGkPit = pt } }
     private fun fillGkB() { withRot { x, y, z, yw, pt -> sbGkX = x; sbGkY = y; sbGkZ = z; sbGkYaw = yw; sbGkPit = pt } }
+    private fun fillGaGk() { withPos { x, y, z -> gaGkX = x; gaGkY = y; gaGkZ = z } }
+    private fun fillGaCl() { withPos { x, y, z -> gaClX = x; gaClY = y; gaClZ = z } }
+    private fun fillGaCr() { withPos { x, y, z -> gaCrX = x; gaCrY = y; gaCrZ = z } }
+    private fun fillGbGk() { withPos { x, y, z -> gbGkX = x; gbGkY = y; gbGkZ = z } }
+    private fun fillGbCl() { withPos { x, y, z -> gbClX = x; gbClY = y; gbClZ = z } }
+    private fun fillGbCr() { withPos { x, y, z -> gbCrX = x; gbCrY = y; gbCrZ = z } }
     private fun fillCurPlayer() { withRot { x, y, z, yw, pt -> plX = x; plY = y; plZ = z; plYw = yw; plPt = pt } }
 
     private fun withPos(f: (String, String, String) -> Unit) { val p = mc.player!!; f(f(p.x), f(p.y), f(p.z)) }
@@ -235,8 +268,10 @@ class MatchFieldConfigScreen(
             enableExtraTime = initial.enableExtraTime,
             extraTimeHalfMinutes = initial.extraTimeHalfMinutes,
             enablePenaltyShootout = initial.enablePenaltyShootout,
-            goalA = mkGoal(gaX1, gaY1, gaZ1, gaX2, gaY2, gaZ2, gaFx, gaFy, gaFz, initial.goalA),
-            goalB = mkGoal(gbX1, gbY1, gbZ1, gbX2, gbY2, gbZ2, gbFx, gbFy, gbFz, initial.goalB),
+            goalA = mkGoal(gaX1, gaY1, gaZ1, gaX2, gaY2, gaZ2, gaFx, gaFy, gaFz, initial.goalA,
+                gaGkX, gaGkY, gaGkZ, gaClX, gaClY, gaClZ, gaCrX, gaCrY, gaCrZ),
+            goalB = mkGoal(gbX1, gbY1, gbZ1, gbX2, gbY2, gbZ2, gbFx, gbFy, gbFz, initial.goalB,
+                gbGkX, gbGkY, gbGkZ, gbClX, gbClY, gbClZ, gbCrX, gbCrY, gbCrZ),
             teamASpawn = mkSpawn(saGkX, saGkY, saGkZ, saGkYaw, saGkPit, saPlayers, initial.teamASpawn),
             teamBSpawn = mkSpawn(sbGkX, sbGkY, sbGkZ, sbGkYaw, sbGkPit, sbPlayers, initial.teamBSpawn),
         )
@@ -246,10 +281,16 @@ class MatchFieldConfigScreen(
     }
 
     private fun mkGoal(x1: String, y1: String, z1: String, x2: String, y2: String, z2: String,
-                       fx: String, fy: String, fz: String, fb: GoalConfig) = GoalConfig(
+                       fx: String, fy: String, fz: String, fb: GoalConfig,
+                       gkx: String, gky: String, gkz: String,
+                       clx: String, cly: String, clz: String,
+                       crx: String, cry: String, crz: String) = GoalConfig(
         x1 = x1.toD(fb.x1), y1 = y1.toD(fb.y1), z1 = z1.toD(fb.z1),
         x2 = x2.toD(fb.x2), y2 = y2.toD(fb.y2), z2 = z2.toD(fb.z2),
         facingX = fx.toD(fb.facingX), facingY = fy.toD(fb.facingY), facingZ = fz.toD(fb.facingZ),
+        goalKick = KickPosition(gkx.toD(fb.goalKick.x), gky.toD(fb.goalKick.y), gkz.toD(fb.goalKick.z)),
+        cornerKickLeft = KickPosition(clx.toD(fb.cornerKickLeft.x), cly.toD(fb.cornerKickLeft.y), clz.toD(fb.cornerKickLeft.z)),
+        cornerKickRight = KickPosition(crx.toD(fb.cornerKickRight.x), cry.toD(fb.cornerKickRight.y), crz.toD(fb.cornerKickRight.z)),
     )
 
     private fun mkSpawn(gx: String, gy: String, gz: String, gyaw: String, gpit: String,
@@ -280,6 +321,9 @@ class MatchFieldConfigScreen(
         private val DEL_POS = Component.translatable("screen.nmbct-football.field.del_pos")
         private val GK_HEADER  = Component.translatable("screen.nmbct-football.field.gk_header")
         private val PLR_HEADER = Component.translatable("screen.nmbct-football.field.plr_header")
+        private val GK_HEADER_KICK  = Component.translatable("screen.nmbct-football.field.gk_kick_header")
+        private val CL_HEADER_KICK  = Component.translatable("screen.nmbct-football.field.cl_kick_header")
+        private val CR_HEADER_KICK  = Component.translatable("screen.nmbct-football.field.cr_kick_header")
 
         private val TAB_A = Component.translatable("screen.nmbct-football.field.tab.goal_a")
         private val TAB_B = Component.translatable("screen.nmbct-football.field.tab.goal_b")
@@ -297,6 +341,15 @@ class MatchFieldConfigScreen(
         private val L_GA_FX = Component.translatable("screen.nmbct-football.field.goal_a.fx")
         private val L_GA_FY = Component.translatable("screen.nmbct-football.field.goal_a.fy")
         private val L_GA_FZ = Component.translatable("screen.nmbct-football.field.goal_a.fz")
+        private val L_GA_GK_X = Component.translatable("screen.nmbct-football.field.goal_a.gk_x")
+        private val L_GA_GK_Y = Component.translatable("screen.nmbct-football.field.goal_a.gk_y")
+        private val L_GA_GK_Z = Component.translatable("screen.nmbct-football.field.goal_a.gk_z")
+        private val L_GA_CL_X = Component.translatable("screen.nmbct-football.field.goal_a.cl_x")
+        private val L_GA_CL_Y = Component.translatable("screen.nmbct-football.field.goal_a.cl_y")
+        private val L_GA_CL_Z = Component.translatable("screen.nmbct-football.field.goal_a.cl_z")
+        private val L_GA_CR_X = Component.translatable("screen.nmbct-football.field.goal_a.cr_x")
+        private val L_GA_CR_Y = Component.translatable("screen.nmbct-football.field.goal_a.cr_y")
+        private val L_GA_CR_Z = Component.translatable("screen.nmbct-football.field.goal_a.cr_z")
         // goal B
         private val L_GB_X1 = Component.translatable("screen.nmbct-football.field.goal_b.x1")
         private val L_GB_Y1 = Component.translatable("screen.nmbct-football.field.goal_b.y1")
@@ -307,6 +360,15 @@ class MatchFieldConfigScreen(
         private val L_GB_FX = Component.translatable("screen.nmbct-football.field.goal_b.fx")
         private val L_GB_FY = Component.translatable("screen.nmbct-football.field.goal_b.fy")
         private val L_GB_FZ = Component.translatable("screen.nmbct-football.field.goal_b.fz")
+        private val L_GB_GK_X = Component.translatable("screen.nmbct-football.field.goal_b.gk_x")
+        private val L_GB_GK_Y = Component.translatable("screen.nmbct-football.field.goal_b.gk_y")
+        private val L_GB_GK_Z = Component.translatable("screen.nmbct-football.field.goal_b.gk_z")
+        private val L_GB_CL_X = Component.translatable("screen.nmbct-football.field.goal_b.cl_x")
+        private val L_GB_CL_Y = Component.translatable("screen.nmbct-football.field.goal_b.cl_y")
+        private val L_GB_CL_Z = Component.translatable("screen.nmbct-football.field.goal_b.cl_z")
+        private val L_GB_CR_X = Component.translatable("screen.nmbct-football.field.goal_b.cr_x")
+        private val L_GB_CR_Y = Component.translatable("screen.nmbct-football.field.goal_b.cr_y")
+        private val L_GB_CR_Z = Component.translatable("screen.nmbct-football.field.goal_b.cr_z")
         // spawn A
         private val L_SA_X  = Component.translatable("screen.nmbct-football.field.spawn_a.gk_x")
         private val L_SA_Y  = Component.translatable("screen.nmbct-football.field.spawn_a.gk_y")

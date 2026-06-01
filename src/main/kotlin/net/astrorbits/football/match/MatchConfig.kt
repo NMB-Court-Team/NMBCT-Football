@@ -46,7 +46,26 @@ data class TeamSpawnConfig(
     }
 }
 
-/** 球门：两个对角 3D 点定义的垂直矩形 + 球门朝向 */
+/** 开球/角球/门球放置点 */
+data class KickPosition(
+    val x: Double = 0.0,
+    val y: Double = 64.0,
+    val z: Double = 0.0,
+) {
+    companion object {
+        val CODEC: Codec<KickPosition> = RecordCodecBuilder.create { i ->
+            i.group(
+                Codec.DOUBLE.fieldOf("x").forGetter(KickPosition::x),
+                Codec.DOUBLE.fieldOf("y").forGetter(KickPosition::y),
+                Codec.DOUBLE.fieldOf("z").forGetter(KickPosition::z),
+            ).apply(i, ::KickPosition)
+        }
+
+        val DEFAULT = KickPosition()
+    }
+}
+
+/** 球门：两个对角 3D 点定义的垂直矩形 + 球门朝向 + 角球点/门球点 */
 data class GoalConfig(
     val x1: Double = 0.0,
     val y1: Double = 64.0,
@@ -57,6 +76,9 @@ data class GoalConfig(
     val facingX: Double = 0.0,
     val facingY: Double = 0.0,
     val facingZ: Double = 0.0,
+    val goalKick: KickPosition = KickPosition.DEFAULT,
+    val cornerKickLeft: KickPosition = KickPosition.DEFAULT,
+    val cornerKickRight: KickPosition = KickPosition.DEFAULT,
 ) {
     companion object {
         val CODEC: Codec<GoalConfig> = RecordCodecBuilder.create { i ->
@@ -70,6 +92,9 @@ data class GoalConfig(
                 Codec.DOUBLE.fieldOf("facing_x").forGetter(GoalConfig::facingX),
                 Codec.DOUBLE.fieldOf("facing_y").forGetter(GoalConfig::facingY),
                 Codec.DOUBLE.fieldOf("facing_z").forGetter(GoalConfig::facingZ),
+                KickPosition.CODEC.optionalFieldOf("goal_kick", KickPosition.DEFAULT).forGetter(GoalConfig::goalKick),
+                KickPosition.CODEC.optionalFieldOf("corner_kick_left", KickPosition.DEFAULT).forGetter(GoalConfig::cornerKickLeft),
+                KickPosition.CODEC.optionalFieldOf("corner_kick_right", KickPosition.DEFAULT).forGetter(GoalConfig::cornerKickRight),
             ).apply(i, ::GoalConfig)
         }
 

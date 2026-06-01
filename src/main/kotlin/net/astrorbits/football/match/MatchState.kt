@@ -141,13 +141,18 @@ object MatchState {
         FootballNetworking.broadcastKickoffBallTouched(server)
     }
 
-    /** 清除场上所有足球并在 (8.5, -60, 8.5) 放置一个新足球。 */
-    fun resetFootball(level: ServerLevel) {
+    /** 清除场上所有足球并在指定位置放置一个新足球。 */
+    fun resetFootball(level: ServerLevel, pos: Vec3 = Vec3(8.5, -60.0, 8.5)) {
         val all = AABB(Vec3(-3.0E7, -3.0E7, -3.0E7), Vec3(3.0E7, 3.0E7, 3.0E7))
         level.getEntitiesOfClass(Football::class.java, all).forEach { it.discard() }
         val fb = Football(Football.ENTITY_TYPE, level)
-        fb.setPos(8.5, -60.0, 8.5)
+        fb.setPos(pos.x, pos.y, pos.z)
         level.addFreshEntity(fb)
+    }
+
+    /** 清除场上所有足球并在指定位置放置一个新足球。 */
+    fun resetFootballAt(level: ServerLevel, pos: Vec3) {
+        resetFootball(level, pos)
     }
 
     /** 向双方在线队员广播比赛开始 HUD 信息。 */

@@ -53,6 +53,7 @@ object FootballNetworking {
 		registry.register(MatchResultRequestC2SPayload.TYPE, MatchResultRequestC2SPayload.CODEC)
 		registry.register(MatchResultS2CPayload.TYPE, MatchResultS2CPayload.CODEC)
         registry.register(SlideTackleStateS2CPayload.TYPE, SlideTackleStateS2CPayload.CODEC)
+        registry.register(GoalLineOutS2CPayload.TYPE, GoalLineOutS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -187,6 +188,13 @@ object FootballNetworking {
     fun broadcastMatchReset(server: MinecraftServer) {
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, MatchResetS2CPayload.INSTANCE)
+        }
+    }
+
+    fun broadcastGoalLineOut(server: MinecraftServer, outType: net.astrorbits.football.match.GoalLineOutType, restartTeam: TeamSide) {
+        val payload = GoalLineOutS2CPayload(outType, restartTeam)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
         }
     }
 

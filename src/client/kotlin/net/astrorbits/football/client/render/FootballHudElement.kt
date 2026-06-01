@@ -64,6 +64,11 @@ class FootballHudElement : HudElement {
             extra.text(font, stTimer, stCx, stCy, ST_TIMER, true)
         }
 
+        // ── 实时补时累积（调试）──
+        val dynTicks = MatchState.dynamicStoppageTicks
+        val dynText = "补时累积: ${MatchState.formatElapsed(dynTicks)}"
+        extra.text(font, dynText, X, ST_Y + ST_H + 4, 0xFF888888.toInt(), true)
+
         // ── 阶段终止时间 ──
         if (MatchState.getPhaseTargetTicks() > 0) {
             val endTime = MatchState.formatPhaseEndTime()
