@@ -209,7 +209,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val radius = FootballPhysicsConfig.RADIUS
         val previousCenter = beforeMove.add(0.0, radius, 0.0)
         val currentCenter = afterMove.add(0.0, radius, 0.0)
-        val searchBox = boundingBox.expandTowards(intendedMotion).inflate(1.4, 0.9, 1.4)
+        val previousBallBox = boundingBox.move(beforeMove.subtract(afterMove))
+        val searchBox = previousBallBox.minmax(boundingBox).inflate(1.4, 0.9, 1.4)
         val players = serverLevel.getEntitiesOfClass(ServerPlayer::class.java, searchBox) { player ->
             player.isAlive && !player.isSpectator && !player.noPhysics
         }
@@ -219,27 +220,57 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 continue
             }
 
-            val contact = resolvePlayerContact(player, previousCenter, currentCenter, radius) ?: continue
-
-            if (contact.penetration > 0.0) {
-                val corrected = position().add(contact.normal.scale(contact.penetration))
-                setPos(corrected.x, corrected.y, corrected.z)
+            val playerBox = player.boundingBox
+            var contactNormal: Vec3? = null
+            val motion = currentCenter.subtract(previousCenter)
+            if (motion.lengthSqr() > 1.0e-12) {
+                val hit = segmentAabbHit(previousCenter, currentCenter, playerBox.inflate(radius))
+                if (hit != null) {
+                    val impactCenter = previousCenter.add(motion.scale(hit.t)).add(hit.normal.scale(PLAYER_SEPARATION_EPSILON))
+                    setPos(impactCenter.x, impactCenter.y - radius, impactCenter.z)
+                    contactNormal = hit.normal
+                }
             }
 
+            val depenetration = computeSpherePlayerDepenetration(
+                center = position().add(0.0, radius, 0.0),
+                playerBox = playerBox,
+                radius = radius,
+            )
+            if (depenetration != null) {
+                val correctedCenter = position().add(0.0, radius, 0.0).add(depenetration.push)
+                setPos(correctedCenter.x, correctedCenter.y - radius, correctedCenter.z)
+                contactNormal = depenetration.normal
+            }
+
+            val normal = contactNormal ?: continue
             val velocity = physicsState.linearVelocity
-            val normalVelocity = velocity.dot(contact.normal)
+            val normalVelocity = velocity.dot(normal)
             if (normalVelocity < 0.0) {
                 val restitution = FootballInputConfig.BALL_PLAYER_RESTITUTION.coerceIn(0.0, 1.25)
-                physicsState.linearVelocity = velocity.subtract(contact.normal.scale(normalVelocity * (1.0 + restitution)))
+                physicsState.linearVelocity = velocity.subtract(normal.scale(normalVelocity * (1.0 + restitution)))
                 deltaMovement = physicsState.linearVelocity
             }
 
-            val approachSpeed = max((-normalVelocity), -intendedMotion.dot(contact.normal)).coerceAtLeast(0.0)
+            val pushDir = Vec3Math.normalizeSafe(
+                Vec3Math.horizontal(position().subtract(player.position()))
+            )
+            if (pushDir.lengthSqr() > 1.0e-8) {
+                val ballHoriz = Vec3Math.horizontal(physicsState.linearVelocity)
+                val playerHoriz = Vec3Math.horizontal(player.deltaMovement)
+                val relativeApproach = playerHoriz.subtract(ballHoriz).dot(pushDir).coerceAtLeast(0.0)
+                if (relativeApproach >= FootballInputConfig.PLAYER_BALL_PUSH_MIN_SPEED) {
+                    FootballPhysicsSimulator.applyPlayerPush(physicsState, pushDir, relativeApproach)
+                    deltaMovement = physicsState.linearVelocity
+                }
+            }
+
+            val approachSpeed = max((-normalVelocity), -intendedMotion.dot(normal)).coerceAtLeast(0.0)
             if (approachSpeed < FootballInputConfig.BALL_PLAYER_RECOIL_MIN_SPEED) {
                 continue
             }
-            val pushDir = Vec3Math.horizontal(contact.normal).scale(-1.0)
-            val direction = if (pushDir.lengthSqr() > 1.0e-8) Vec3Math.normalizeSafe(pushDir) else contact.normal.scale(-1.0)
+            val recoilDir = Vec3Math.horizontal(normal).scale(-1.0)
+            val direction = if (recoilDir.lengthSqr() > 1.0e-8) Vec3Math.normalizeSafe(recoilDir) else normal.scale(-1.0)
             val pushMagnitude = (approachSpeed * FootballInputConfig.BALL_PLAYER_PUSH_SCALE)
                 .coerceAtMost(FootballInputConfig.BALL_PLAYER_MAX_PUSH)
                 .coerceAtLeast(0.0)
@@ -251,89 +282,101 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
     }
 
-    private data class PlayerContact(val normal: Vec3, val penetration: Double)
+    private data class PlayerDepenetration(val push: Vec3, val normal: Vec3)
 
-    private fun resolvePlayerContact(
-        player: ServerPlayer,
-        previousCenter: Vec3,
-        currentCenter: Vec3,
-        radius: Double,
-    ): PlayerContact? {
-        val playerBox = player.boundingBox
-        val overlapContact = overlapContactAgainstBox(player, playerBox, currentCenter, radius)
-        if (overlapContact != null) {
-            return overlapContact
-        }
-
-        val hitT = segmentAabbHitT(previousCenter, currentCenter, playerBox.inflate(radius)) ?: return null
-        val impactPoint = previousCenter.add(currentCenter.subtract(previousCenter).scale(hitT))
-        val closest = Vec3(
-            impactPoint.x.coerceIn(playerBox.minX, playerBox.maxX),
-            impactPoint.y.coerceIn(playerBox.minY, playerBox.maxY),
-            impactPoint.z.coerceIn(playerBox.minZ, playerBox.maxZ),
-        )
-        val delta = impactPoint.subtract(closest)
-        val normal = if (delta.lengthSqr() > 1.0e-8) {
-            Vec3Math.normalizeSafe(delta)
-        } else {
-            val fallback = Vec3Math.horizontal(impactPoint.subtract(player.position()))
-            if (fallback.lengthSqr() > 1.0e-8) Vec3Math.normalizeSafe(fallback) else Vec3(1.0, 0.0, 0.0)
-        }
-        return PlayerContact(normal, 0.0)
-    }
-
-    private fun overlapContactAgainstBox(
-        player: ServerPlayer,
-        playerBox: net.minecraft.world.phys.AABB,
+    /** 球心相对玩家 AABB 的最小平移分离，解决球心落在玩家体内时只沿水平推不够的问题。 */
+    private fun computeSpherePlayerDepenetration(
         center: Vec3,
+        playerBox: net.minecraft.world.phys.AABB,
         radius: Double,
-    ): PlayerContact? {
-        val closest = Vec3(
-            center.x.coerceIn(playerBox.minX, playerBox.maxX),
-            center.y.coerceIn(playerBox.minY, playerBox.maxY),
-            center.z.coerceIn(playerBox.minZ, playerBox.maxZ),
-        )
-        val offset = center.subtract(closest)
-        val distSqr = offset.lengthSqr()
-        if (distSqr > radius * radius) return null
-
-        val normal = if (distSqr > 1.0e-8) {
-            offset.scale(1.0 / sqrt(distSqr))
-        } else {
-            val fallback = Vec3Math.horizontal(center.subtract(player.position()))
-            if (fallback.lengthSqr() > 1.0e-8) Vec3Math.normalizeSafe(fallback) else Vec3(1.0, 0.0, 0.0)
+        epsilon: Double = PLAYER_SEPARATION_EPSILON,
+    ): PlayerDepenetration? {
+        if (center.x < playerBox.minX - radius || center.x > playerBox.maxX + radius ||
+            center.y < playerBox.minY - radius || center.y > playerBox.maxY + radius ||
+            center.z < playerBox.minZ - radius || center.z > playerBox.maxZ + radius
+        ) {
+            return null
         }
-        val distance = sqrt(distSqr.coerceAtLeast(0.0))
-        val penetration = (radius - distance + 1.0e-3).coerceAtLeast(0.0)
-        return PlayerContact(normal, penetration)
+
+        val pushLeft = (playerBox.minX - radius) - center.x - epsilon
+        val pushRight = (playerBox.maxX + radius) - center.x + epsilon
+        val pushDown = (playerBox.minY - radius) - center.y - epsilon
+        val pushUp = (playerBox.maxY + radius) - center.y + epsilon
+        val pushBack = (playerBox.minZ - radius) - center.z - epsilon
+        val pushFront = (playerBox.maxZ + radius) - center.z + epsilon
+        val candidates = arrayOf(
+            Vec3(pushLeft, 0.0, 0.0),
+            Vec3(pushRight, 0.0, 0.0),
+            Vec3(0.0, pushDown, 0.0),
+            Vec3(0.0, pushUp, 0.0),
+            Vec3(0.0, 0.0, pushBack),
+            Vec3(0.0, 0.0, pushFront),
+        )
+
+        var bestPush: Vec3? = null
+        var bestPushLenSqr = Double.MAX_VALUE
+        for (candidate in candidates) {
+            val lenSqr = candidate.lengthSqr()
+            if (lenSqr < bestPushLenSqr) {
+                bestPushLenSqr = lenSqr
+                bestPush = candidate
+            }
+        }
+        if (bestPush == null || bestPushLenSqr < 1.0e-12) {
+            return null
+        }
+        return PlayerDepenetration(bestPush, Vec3Math.normalizeSafe(bestPush))
     }
 
-    private fun segmentAabbHitT(start: Vec3, end: Vec3, box: net.minecraft.world.phys.AABB): Double? {
+    private data class SegmentAabbHit(val t: Double, val normal: Vec3)
+
+    private fun segmentAabbHit(start: Vec3, end: Vec3, box: net.minecraft.world.phys.AABB): SegmentAabbHit? {
         val direction = end.subtract(start)
         var tMin = 0.0
         var tMax = 1.0
+        var enterNormal = Vec3.ZERO
 
-        fun updateAxis(startValue: Double, dirValue: Double, minBound: Double, maxBound: Double): Boolean {
+        fun updateAxis(
+            startValue: Double,
+            dirValue: Double,
+            minBound: Double,
+            maxBound: Double,
+            negativeNormal: Vec3,
+            positiveNormal: Vec3,
+        ): Boolean {
             if (abs(dirValue) < 1.0e-9) {
                 return startValue >= minBound && startValue <= maxBound
             }
-            var t1 = (minBound - startValue) / dirValue
-            var t2 = (maxBound - startValue) / dirValue
-            if (t1 > t2) {
-                val temp = t1
-                t1 = t2
-                t2 = temp
+
+            val t1 = (minBound - startValue) / dirValue
+            val t2 = (maxBound - startValue) / dirValue
+            val axisEnterT: Double
+            val axisExitT: Double
+            val axisEnterNormal: Vec3
+
+            if (t1 <= t2) {
+                axisEnterT = t1
+                axisExitT = t2
+                axisEnterNormal = negativeNormal
+            } else {
+                axisEnterT = t2
+                axisExitT = t1
+                axisEnterNormal = positiveNormal
             }
-            tMin = max(tMin, t1)
-            tMax = min(tMax, t2)
+
+            if (axisEnterT > tMin) {
+                tMin = axisEnterT
+                enterNormal = axisEnterNormal
+            }
+            tMax = min(tMax, axisExitT)
             return tMin <= tMax
         }
 
-        if (!updateAxis(start.x, direction.x, box.minX, box.maxX)) return null
-        if (!updateAxis(start.y, direction.y, box.minY, box.maxY)) return null
-        if (!updateAxis(start.z, direction.z, box.minZ, box.maxZ)) return null
+        if (!updateAxis(start.x, direction.x, box.minX, box.maxX, Vec3(-1.0, 0.0, 0.0), Vec3(1.0, 0.0, 0.0))) return null
+        if (!updateAxis(start.y, direction.y, box.minY, box.maxY, Vec3(0.0, -1.0, 0.0), Vec3(0.0, 1.0, 0.0))) return null
+        if (!updateAxis(start.z, direction.z, box.minZ, box.maxZ, Vec3(0.0, 0.0, -1.0), Vec3(0.0, 0.0, 1.0))) return null
         if (tMax < 0.0 || tMin > 1.0) return null
-        return tMin.coerceIn(0.0, 1.0)
+        return SegmentAabbHit(t = tMin.coerceIn(0.0, 1.0), normal = enterNormal)
     }
 
     private fun detectGoal(prevPos: Vec3, currPos: Vec3) {
@@ -831,6 +874,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     companion object {
+        /** 球-玩家分离时的皮肤厚度，避免下一 tick 再次嵌入。 */
+        private const val PLAYER_SEPARATION_EPSILON = 0.015
+
         fun init() {
             // static init
         }

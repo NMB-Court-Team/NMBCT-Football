@@ -1,6 +1,7 @@
 package net.astrorbits.football.util
 
 import net.minecraft.world.phys.Vec3
+import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.physics.CollisionBounceResult
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
@@ -57,6 +58,31 @@ object FootballPhysicsSimulator {
             .scale(FootballPhysicsConfig.KICK_MOVING_LATERAL_DAMP)
         val redirected = along.add(perpendicular)
         state.linearVelocity = Vec3(redirected.x, state.linearVelocity.y, redirected.z)
+    }
+
+    /**
+     * 玩家触球：沿接触方向施加水平冲量，并按无滑滚动关系同步角速度（非纯平移）。
+     * 冲量经 [FootballPhysicsConfig.MASS] 换算为 Δv，体现惯性。
+     */
+    fun applyPlayerPush(state: FootballPhysicsState, pushDirection: Vec3, approachSpeed: Double) {
+        val dir = Vec3Math.normalizeSafe(Vec3Math.horizontal(pushDirection))
+        if (dir.lengthSqr() < FootballPhysicsConfig.EPSILON * FootballPhysicsConfig.EPSILON) {
+            return
+        }
+
+        val scale = FootballInputConfig.PLAYER_BALL_PUSH_SCALE.coerceAtLeast(0.0)
+        val maxDelta = FootballInputConfig.PLAYER_BALL_PUSH_MAX.coerceAtLeast(0.0)
+        val deltaSpeed = (approachSpeed * scale / FootballPhysicsConfig.MASS).coerceAtMost(maxDelta)
+        if (deltaSpeed <= 1.0e-6) {
+            return
+        }
+
+        state.linearVelocity = state.linearVelocity.add(dir.scale(deltaSpeed))
+        val rolling = Vec3Math.rollingAngularVelocity(
+            Vec3Math.horizontal(state.linearVelocity),
+            FootballPhysicsConfig.RADIUS,
+        )
+        state.angularVelocity = Vec3(rolling.x, state.angularVelocity.y, rolling.z)
     }
 
     fun applyAirForces(state: FootballPhysicsState) {

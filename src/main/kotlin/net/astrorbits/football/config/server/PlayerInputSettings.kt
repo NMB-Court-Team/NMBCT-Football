@@ -111,10 +111,14 @@ data class PlayerCollisionSettings(
     val ballPlayerPushScale: Double = 0.2,
     val ballPlayerMaxPush: Double = 0.75,
     val ballPlayerRestitution: Double = 0.68,
+    val playerBallPushMinSpeed: Double = 0.06,
+    val playerBallPushScale: Double = 0.35,
+    val playerBallPushMax: Double = 0.55,
     val slideTacklerSpeedDampOnContact: Double = 0.25,
-    val slideVictimPushSpeed: Double = 0.45,
+    val slideVictimPushSpeed: Double = 0.72,
     val slideVictimResistanceTicks: Int = 12,
     val slideVictimResistanceFactor: Double = 0.35,
+    val slideVictimJumpBlockTicks: Int = 14,
 ) {
     companion object {
         val CODEC: Codec<PlayerCollisionSettings> = RecordCodecBuilder.create { i ->
@@ -123,10 +127,14 @@ data class PlayerCollisionSettings(
                 Codec.DOUBLE.fieldOf("ball_player_push_scale").forGetter(PlayerCollisionSettings::ballPlayerPushScale),
                 Codec.DOUBLE.fieldOf("ball_player_max_push").forGetter(PlayerCollisionSettings::ballPlayerMaxPush),
                 Codec.DOUBLE.fieldOf("ball_player_restitution").forGetter(PlayerCollisionSettings::ballPlayerRestitution),
+                Codec.DOUBLE.optionalFieldOf("player_ball_push_min_speed", 0.06).forGetter(PlayerCollisionSettings::playerBallPushMinSpeed),
+                Codec.DOUBLE.optionalFieldOf("player_ball_push_scale", 0.35).forGetter(PlayerCollisionSettings::playerBallPushScale),
+                Codec.DOUBLE.optionalFieldOf("player_ball_push_max", 0.55).forGetter(PlayerCollisionSettings::playerBallPushMax),
                 Codec.DOUBLE.fieldOf("slide_tackler_speed_damp_on_contact").forGetter(PlayerCollisionSettings::slideTacklerSpeedDampOnContact),
                 Codec.DOUBLE.fieldOf("slide_victim_push_speed").forGetter(PlayerCollisionSettings::slideVictimPushSpeed),
                 Codec.INT.fieldOf("slide_victim_resistance_ticks").forGetter(PlayerCollisionSettings::slideVictimResistanceTicks),
                 Codec.DOUBLE.fieldOf("slide_victim_resistance_factor").forGetter(PlayerCollisionSettings::slideVictimResistanceFactor),
+                Codec.INT.optionalFieldOf("slide_victim_jump_block_ticks", 14).forGetter(PlayerCollisionSettings::slideVictimJumpBlockTicks),
             ).apply(i, ::PlayerCollisionSettings)
         }
 
@@ -182,10 +190,14 @@ data class PlayerInputSettings(
     val ballPlayerPushScale get() = collision.ballPlayerPushScale
     val ballPlayerMaxPush get() = collision.ballPlayerMaxPush
     val ballPlayerRestitution get() = collision.ballPlayerRestitution
+    val playerBallPushMinSpeed get() = collision.playerBallPushMinSpeed
+    val playerBallPushScale get() = collision.playerBallPushScale
+    val playerBallPushMax get() = collision.playerBallPushMax
     val slideTacklerSpeedDampOnContact get() = collision.slideTacklerSpeedDampOnContact
     val slideVictimPushSpeed get() = collision.slideVictimPushSpeed
     val slideVictimResistanceTicks get() = collision.slideVictimResistanceTicks
     val slideVictimResistanceFactor get() = collision.slideVictimResistanceFactor
+    val slideVictimJumpBlockTicks get() = collision.slideVictimJumpBlockTicks
 
     companion object {
         val CODEC: Codec<PlayerInputSettings> = RecordCodecBuilder.create { i ->

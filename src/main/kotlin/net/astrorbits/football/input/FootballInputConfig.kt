@@ -53,10 +53,14 @@ object FootballInputConfig {
     val BALL_PLAYER_PUSH_SCALE get() = FootballConfigs.server.playerInput.ballPlayerPushScale
     val BALL_PLAYER_MAX_PUSH get() = FootballConfigs.server.playerInput.ballPlayerMaxPush
     val BALL_PLAYER_RESTITUTION get() = FootballConfigs.server.playerInput.ballPlayerRestitution
+    val PLAYER_BALL_PUSH_MIN_SPEED get() = FootballConfigs.server.playerInput.playerBallPushMinSpeed
+    val PLAYER_BALL_PUSH_SCALE get() = FootballConfigs.server.playerInput.playerBallPushScale
+    val PLAYER_BALL_PUSH_MAX get() = FootballConfigs.server.playerInput.playerBallPushMax
     val SLIDE_TACKLER_SPEED_DAMP_ON_CONTACT get() = FootballConfigs.server.playerInput.slideTacklerSpeedDampOnContact
     val SLIDE_VICTIM_PUSH_SPEED get() = FootballConfigs.server.playerInput.slideVictimPushSpeed
     val SLIDE_VICTIM_RESISTANCE_TICKS get() = FootballConfigs.server.playerInput.slideVictimResistanceTicks
     val SLIDE_VICTIM_RESISTANCE_FACTOR get() = FootballConfigs.server.playerInput.slideVictimResistanceFactor
+    val SLIDE_VICTIM_JUMP_BLOCK_TICKS get() = FootballConfigs.server.playerInput.slideVictimJumpBlockTicks
     const val FLAG_SPRINT = FootballInputFlags.SPRINT
     const val FLAG_DIVE_USE_LOOK = FootballInputFlags.DIVE_USE_LOOK
     const val FLAG_LOOK_AROUND = FootballInputFlags.LOOK_AROUND

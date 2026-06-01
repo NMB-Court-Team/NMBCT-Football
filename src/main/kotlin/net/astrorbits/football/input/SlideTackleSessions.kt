@@ -25,6 +25,7 @@ data class SlideTackleSession(
     var touchResolved: Boolean = false,
     var endRequested: Boolean = false,
     val playersContacted: MutableSet<UUID> = mutableSetOf(),
+    var contactSpeedScale: Double = 1.0,
 )
 
 data class TackledResistance(
@@ -53,6 +54,7 @@ object SlideTackleSessions {
     private val sessions = ConcurrentHashMap<UUID, SlideTackleSession>()
     private val cooldownUntil = ConcurrentHashMap<UUID, Long>()
     private val tackledResistanceUntil = ConcurrentHashMap<UUID, TackledResistance>()
+    private val tackledJumpBlockUntil = ConcurrentHashMap<UUID, Long>()
 
     fun registerEvents() {
         ServerTickEvents.END_SERVER_TICK.register(::tick)
@@ -99,6 +101,12 @@ object SlideTackleSessions {
     @JvmStatic
     fun isSliding(playerId: UUID): Boolean = sessions.containsKey(playerId)
 
+    @JvmStatic
+    fun isTackledJumpBlocked(playerId: UUID, nowTick: Long): Boolean {
+        val expiresAtTick = tackledJumpBlockUntil[playerId] ?: return false
+        return nowTick <= expiresAtTick
+    }
+
     fun end(player: ServerPlayer) {
         if (sessions.remove(player.uuid) != null) {
             player.setDeltaMovement(0.0, player.deltaMovement.y, 0.0)
@@ -120,6 +128,7 @@ object SlideTackleSessions {
     fun tick(server: MinecraftServer) {
         val now = server.overworld().gameTime
         applyTackledResistance(server, now)
+        clearExpiredTackledJumpBlock(now)
 
         if (sessions.isEmpty()) {
             return
@@ -148,7 +157,7 @@ object SlideTackleSessions {
                 continue
             }
 
-            val speed = applySlideMovement(player, session.direction, elapsed)
+            val speed = applySlideMovement(player, session.direction, elapsed, session.contactSpeedScale)
             if (speed > SLIDE_MOVE_EPSILON && elapsed > 0L && elapsed % STEP_SOUND_INTERVAL_TICKS == 0L) {
                 FootballSounds.playSlideTackle(player)
             }
@@ -161,7 +170,7 @@ object SlideTackleSessions {
         return player.isSpectator || player.abilities.flying || player.isFallFlying
     }
 
-    private fun applySlideMovement(player: ServerPlayer, direction: Vec3, elapsed: Long): Double {
+    private fun applySlideMovement(player: ServerPlayer, direction: Vec3, elapsed: Long, contactSpeedScale: Double): Double {
         val speed = if (elapsed < SLIDE_INITIAL_HOLD_TICKS) {
             SLIDE_INITIAL_SPEED
         } else {
@@ -169,11 +178,12 @@ object SlideTackleSessions {
             val decayRatio = (decayElapsed.toDouble() / SLIDE_DECAY_TICKS.toDouble()).coerceIn(0.0, 1.0)
             SLIDE_INITIAL_SPEED * (1.0 - decayRatio)
         }
-        val horizontalVelocity = if (speed > SLIDE_MOVE_EPSILON) direction.scale(speed) else Vec3.ZERO
+        val effectiveSpeed = speed * contactSpeedScale.coerceIn(0.0, 1.0)
+        val horizontalVelocity = if (effectiveSpeed > SLIDE_MOVE_EPSILON) direction.scale(effectiveSpeed) else Vec3.ZERO
         // 滑铲期间持续写入水平速度，让下一 tick 的原版移动链路按该速度推进。
         player.setDeltaMovement(horizontalVelocity.x, player.deltaMovement.y, horizontalVelocity.z)
         player.hurtMarked = true
-        return speed
+        return effectiveSpeed
     }
 
     private fun tryResolveBallContact(player: ServerPlayer, session: SlideTackleSession, elapsed: Long) {
@@ -228,6 +238,7 @@ object SlideTackleSessions {
         val pushSpeed = FootballInputConfig.SLIDE_VICTIM_PUSH_SPEED.coerceAtLeast(0.0)
         val resistanceTicks = FootballInputConfig.SLIDE_VICTIM_RESISTANCE_TICKS.coerceAtLeast(0)
         val resistanceFactor = FootballInputConfig.SLIDE_VICTIM_RESISTANCE_FACTOR.coerceIn(0.0, 1.0)
+        val jumpBlockTicks = FootballInputConfig.SLIDE_VICTIM_JUMP_BLOCK_TICKS.coerceAtLeast(0)
         val pushDirection = Vec3Math.normalizeSafe(Vec3Math.horizontal(session.direction))
 
         var didContact = false
@@ -248,15 +259,16 @@ object SlideTackleSessions {
                     factor = resistanceFactor,
                 )
             }
+            if (jumpBlockTicks > 0) {
+                tackledJumpBlockUntil[other.uuid] = now + jumpBlockTicks
+            }
             didContact = true
         }
 
         if (!didContact) return
         val damp = FootballInputConfig.SLIDE_TACKLER_SPEED_DAMP_ON_CONTACT.coerceIn(0.0, 1.0)
-        val current = player.deltaMovement
-        player.setDeltaMovement(current.x * damp, current.y, current.z * damp)
-        player.hurtMarked = true
-        // 保持会话方向与速度曲线不变，仅在接触帧快速降速，后续 tick 仍由滑铲逻辑接管。
+        session.contactSpeedScale = (session.contactSpeedScale * damp).coerceIn(0.0, 1.0)
+        // 接触后持续降低滑铲推进速度，避免下一 tick 被滑铲速度写回。
     }
 
     private fun applyTackledResistance(server: MinecraftServer, now: Long) {
@@ -276,6 +288,17 @@ object SlideTackleSessions {
             val velocity = player.deltaMovement
             player.setDeltaMovement(velocity.x * debuff.factor, velocity.y, velocity.z * debuff.factor)
             player.hurtMarked = true
+        }
+    }
+
+    private fun clearExpiredTackledJumpBlock(now: Long) {
+        if (tackledJumpBlockUntil.isEmpty()) return
+        val iterator = tackledJumpBlockUntil.entries.iterator()
+        while (iterator.hasNext()) {
+            val (_, expiresAtTick) = iterator.next()
+            if (now > expiresAtTick) {
+                iterator.remove()
+            }
         }
     }
 
