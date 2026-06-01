@@ -128,7 +128,8 @@ class FootballRenderer(context: EntityRendererProvider.Context) :
         poseStack.use {
             translate(0f, MODEL_Y_OFFSET, 0f)
             // 与原版名牌/粒子一致：使用相机朝向，使面片始终正对玩家。
-            mulPose(entityRenderDispatcher.cameraOrientation)
+            val cameraOrientation = entityRenderDispatcher.camera?.rotation() ?: return
+            mulPose(cameraOrientation)
             collector.submitCustomGeometry(poseStack, renderType) { pose, vc ->
                 drawBillboardQuad(pose, vc, state.lightCoords)
             }
