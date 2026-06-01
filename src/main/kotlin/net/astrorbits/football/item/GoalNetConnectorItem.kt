@@ -1,6 +1,5 @@
 package net.astrorbits.football.item
 
-import net.astrorbits.football.item.GoalNetConnectorSounds
 import net.astrorbits.football.block.GoalNetAnchorBlock
 import net.astrorbits.football.entity.GoalNetEntity
 import net.astrorbits.football.network.FootballNetworking
@@ -20,7 +19,6 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.EntityHitResult
 import net.minecraft.world.phys.HitResult
-import net.minecraft.world.phys.Vec3
 
 /**
  * 球网连接器：

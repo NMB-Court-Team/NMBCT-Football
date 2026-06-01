@@ -12,7 +12,9 @@ import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.match.TeamSide
 import net.astrorbits.football.physics.FootballNetInteraction
 import net.astrorbits.football.physics.FootballPhysicsConfig
+import net.astrorbits.football.physics.FootballPhysicsNbt
 import net.astrorbits.football.physics.FootballPhysicsState
+import net.minecraft.nbt.CompoundTag
 import net.astrorbits.football.util.CobwebUtil
 import net.astrorbits.football.util.FootballBlockDepenetration
 import net.astrorbits.football.util.FootballPhysicsSimulator
@@ -659,6 +661,29 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     fun getPhysicsState(): FootballPhysicsState = physicsState
 
+    /** 将当前物理状态与 [deltaMovement] 写入 NBT（含原版 [FootballPhysicsNbt.MOTION]），供数据包序列化。 */
+    fun writePhysicsNbt(tag: CompoundTag) {
+        FootballPhysicsNbt.write(physicsState, deltaMovement, tag)
+    }
+
+    /**
+     * 从 NBT 恢复物理状态；若存在 [FootballPhysicsNbt.MOTION] 则覆盖线速度并同步 [deltaMovement]。
+     * 服务端会同步到 [SynchedEntityData]。
+     */
+    fun applyPhysicsNbt(tag: CompoundTag) {
+        val motion = FootballPhysicsNbt.read(tag, physicsState)
+        val velocity = motion ?: physicsState.linearVelocity
+        physicsState.linearVelocity = velocity
+        deltaMovement = velocity
+        previousOrientation.set(physicsState.orientation)
+        renderLinearVelocity = physicsState.linearVelocity
+        renderAngularVelocity = physicsState.angularVelocity
+        if (!level().isClientSide) {
+            syncPhysicsToEntityData()
+            syncPacketPositionCodec(x, y, z)
+        }
+    }
+
     fun getOrientation(): Quaternionf = Quaternionf(physicsState.orientation)
 
     fun getOrientation(partialTick: Float): Quaternionf {
@@ -771,28 +796,13 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     ): Boolean = false
 
     override fun readAdditionalSaveData(input: ValueInput) {
-        physicsState.linearVelocity = Vec3(
-            input.getDoubleOr("lv_x", 0.0),
-            input.getDoubleOr("lv_y", 0.0),
-            input.getDoubleOr("lv_z", 0.0)
-        )
-        physicsState.angularVelocity = Vec3(
-            input.getDoubleOr("av_x", 0.0),
-            input.getDoubleOr("av_y", 0.0),
-            input.getDoubleOr("av_z", 0.0)
-        )
-        physicsState.onGround = input.getBooleanOr("on_ground", false)
+        FootballPhysicsNbt.read(input, physicsState)
         deltaMovement = physicsState.linearVelocity
+        previousOrientation.set(physicsState.orientation)
     }
 
     override fun addAdditionalSaveData(output: ValueOutput) {
-        output.putDouble("lv_x", physicsState.linearVelocity.x)
-        output.putDouble("lv_y", physicsState.linearVelocity.y)
-        output.putDouble("lv_z", physicsState.linearVelocity.z)
-        output.putDouble("av_x", physicsState.angularVelocity.x)
-        output.putDouble("av_y", physicsState.angularVelocity.y)
-        output.putDouble("av_z", physicsState.angularVelocity.z)
-        output.putBoolean("on_ground", physicsState.onGround)
+        FootballPhysicsNbt.write(physicsState, deltaMovement, output)
     }
 
     private fun loadPhysicsFromEntityData() {
