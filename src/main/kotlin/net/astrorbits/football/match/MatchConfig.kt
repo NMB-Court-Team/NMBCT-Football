@@ -113,6 +113,7 @@ data class MatchConfig(
     val enablePenaltyShootout: Boolean = false,
     val goalA: GoalConfig = GoalConfig.DEFAULT,
     val goalB: GoalConfig = GoalConfig.DEFAULT,
+    val kickOff: KickPosition = KickPosition(8.5, -60.0, 8.5),
     val teamASpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
     val teamBSpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
 ) {
@@ -132,6 +133,7 @@ data class MatchConfig(
                 Codec.BOOL.fieldOf("enable_penalty_shootout").forGetter(MatchConfig::enablePenaltyShootout),
                 GoalConfig.CODEC.optionalFieldOf("goal_a", GoalConfig.DEFAULT).forGetter(MatchConfig::goalA),
                 GoalConfig.CODEC.optionalFieldOf("goal_b", GoalConfig.DEFAULT).forGetter(MatchConfig::goalB),
+                KickPosition.CODEC.optionalFieldOf("kick_off", KickPosition(8.5, -60.0, 8.5)).forGetter(MatchConfig::kickOff),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_a_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamASpawn),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_b_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamBSpawn),
             ).apply(i, ::MatchConfig)

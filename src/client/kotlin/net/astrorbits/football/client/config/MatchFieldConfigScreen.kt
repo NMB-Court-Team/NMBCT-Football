@@ -48,6 +48,9 @@ class MatchFieldConfigScreen(
     private var sbGkPit = f(initial.teamBSpawn.gk.pitch.toDouble())
     private var sbIdx = 0
 
+    // ---- kickoff ----
+    private var koX = f(initial.kickOff.x); private var koY = f(initial.kickOff.y); private var koZ = f(initial.kickOff.z)
+
     private var currentTab = 0
 
     // layout
@@ -60,8 +63,8 @@ class MatchFieldConfigScreen(
     override fun init() { buildTabBar(); buildCurrentTab(); buildBottomButtons() }
 
     private fun buildTabBar() {
-        val tw = 70; val th = 20; val total = tw * 4 + 6; val sx = (width - total) / 2
-        for (i in 0 until 4) {
+        val tw = 70; val th = 20; val total = tw * 5 + 8; val sx = (width - total) / 2
+        for (i in 0 until 5) {
             val b = Button.builder(TABS[i]) { switchTab(i) }.bounds(sx + i * (tw + 2), 28, tw, th).build()
             b.active = i != currentTab; addRenderableWidget(b)
         }
@@ -108,6 +111,11 @@ class MatchFieldConfigScreen(
                 sbPlayers, { sbIdx }, { sbIdx = it },
                 L_SB_X, L_SB_Y, L_SB_Z, L_SB_YW, L_SB_PT,
             ) { fillGkB(); rebuild() }
+            4 -> { // Kickoff
+                r(y, L_KO_X, { koX }, { koX = it }, L_KO_Y, { koY }, { koY = it }); y += RH
+                r(y, L_KO_Z, { koZ }, { koZ = it }, null, null, null)
+                addBtn(y, SX, USE_POS) { fillKo(); rebuild() }
+            }
         }
     }
 
@@ -223,6 +231,7 @@ class MatchFieldConfigScreen(
     private fun fillGbGk() { withPos { x, y, z -> gbGkX = x; gbGkY = y; gbGkZ = z } }
     private fun fillGbCl() { withPos { x, y, z -> gbClX = x; gbClY = y; gbClZ = z } }
     private fun fillGbCr() { withPos { x, y, z -> gbCrX = x; gbCrY = y; gbCrZ = z } }
+    private fun fillKo() { withPos { x, y, z -> koX = x; koY = y; koZ = z } }
     private fun fillCurPlayer() { withRot { x, y, z, yw, pt -> plX = x; plY = y; plZ = z; plYw = yw; plPt = pt } }
 
     private fun withPos(f: (String, String, String) -> Unit) { val p = mc.player!!; f(f(p.x), f(p.y), f(p.z)) }
@@ -274,6 +283,7 @@ class MatchFieldConfigScreen(
                 gbGkX, gbGkY, gbGkZ, gbClX, gbClY, gbClZ, gbCrX, gbCrY, gbCrZ),
             teamASpawn = mkSpawn(saGkX, saGkY, saGkZ, saGkYaw, saGkPit, saPlayers, initial.teamASpawn),
             teamBSpawn = mkSpawn(sbGkX, sbGkY, sbGkZ, sbGkYaw, sbGkPit, sbPlayers, initial.teamBSpawn),
+            kickOff = KickPosition(koX.toD(initial.kickOff.x), koY.toD(initial.kickOff.y), koZ.toD(initial.kickOff.z)),
         )
         if (ClientPlayNetworking.canSend(MatchConfigApplyC2SPayload.TYPE))
             ClientPlayNetworking.send(MatchConfigApplyC2SPayload(cfg))
@@ -329,7 +339,8 @@ class MatchFieldConfigScreen(
         private val TAB_B = Component.translatable("screen.nmbct-football.field.tab.goal_b")
         private val TAB_SA = Component.translatable("screen.nmbct-football.field.tab.spawn_a")
         private val TAB_SB = Component.translatable("screen.nmbct-football.field.tab.spawn_b")
-        private val TABS = arrayOf(TAB_A, TAB_B, TAB_SA, TAB_SB)
+        private val TAB_KO = Component.translatable("screen.nmbct-football.field.tab.kick_off")
+        private val TABS = arrayOf(TAB_A, TAB_B, TAB_SA, TAB_SB, TAB_KO)
 
         // goal A
         private val L_GA_X1 = Component.translatable("screen.nmbct-football.field.goal_a.x1")
@@ -381,5 +392,9 @@ class MatchFieldConfigScreen(
         private val L_SB_Z  = Component.translatable("screen.nmbct-football.field.spawn_b.gk_z")
         private val L_SB_YW = Component.translatable("screen.nmbct-football.field.spawn_b.gk_yaw")
         private val L_SB_PT = Component.translatable("screen.nmbct-football.field.spawn_b.gk_pitch")
+        // kickoff
+        private val L_KO_X = Component.translatable("screen.nmbct-football.field.kick_off.x")
+        private val L_KO_Y = Component.translatable("screen.nmbct-football.field.kick_off.y")
+        private val L_KO_Z = Component.translatable("screen.nmbct-football.field.kick_off.z")
     }
 }

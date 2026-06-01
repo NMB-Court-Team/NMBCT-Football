@@ -141,12 +141,13 @@ object MatchState {
         FootballNetworking.broadcastKickoffBallTouched(server)
     }
 
-    /** 清除场上所有足球并在指定位置放置一个新足球。 */
-    fun resetFootball(level: ServerLevel, pos: Vec3 = Vec3(8.5, -60.0, 8.5)) {
+    /** 清除场上所有足球并在开球点（或指定位置）放置一个新足球。 */
+    fun resetFootball(level: ServerLevel, pos: Vec3? = null) {
         val all = AABB(Vec3(-3.0E7, -3.0E7, -3.0E7), Vec3(3.0E7, 3.0E7, 3.0E7))
         level.getEntitiesOfClass(Football::class.java, all).forEach { it.discard() }
         val fb = Football(Football.ENTITY_TYPE, level)
-        fb.setPos(pos.x, pos.y, pos.z)
+        val p = pos ?: MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
+        fb.setPos(p.x, p.y, p.z)
         level.addFreshEntity(fb)
     }
 
