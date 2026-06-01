@@ -52,26 +52,28 @@ object MatchStartClient {
             return remain.coerceIn(0L, cap).toInt()
         }
 
-    val isKickoffTeam: Boolean get() = playerTeam == kickoffTeam
+    /** 服务端逐玩家计算后下发，直接决定客户端锁定逻辑，不依赖本地 playerTeam */
+    var isKickoffTeam: Boolean = false; private set
 
     fun startMatch(team: TeamSide, gk: Boolean, kickoff: TeamSide, nameA: String, nameB: String) {
         playerTeam = team; isGk = gk; kickoffTeam = kickoff
+        isKickoffTeam = team == kickoff
         teamAName = nameA; teamBName = nameB
         kickoffTouched = false; isPostGoal = false; isGoalLineOut = false
         startTimeMs = System.currentTimeMillis()
         kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
     }
 
-    fun startPostGoalKickoff(kickoff: TeamSide, team: TeamSide) {
-        playerTeam = team
+    fun startPostGoalKickoff(kickoff: TeamSide, isKickoffTeam: Boolean) {
+        this.isKickoffTeam = isKickoffTeam
         kickoffTeam = kickoff
         kickoffTouched = false; isPostGoal = true; isGoalLineOut = false
         startTimeMs = System.currentTimeMillis()
         kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
     }
 
-    fun startGoalLineOutKickoff(kickoff: TeamSide, team: TeamSide) {
-        playerTeam = team
+    fun startGoalLineOutKickoff(kickoff: TeamSide, isKickoffTeam: Boolean) {
+        this.isKickoffTeam = isKickoffTeam
         kickoffTeam = kickoff
         kickoffTouched = false; isPostGoal = false; isGoalLineOut = true
         startTimeMs = System.currentTimeMillis()
@@ -86,8 +88,8 @@ object MatchStartClient {
     val isHalfKickoffHudActive: Boolean
         get() = halfKickoffActive && (System.currentTimeMillis() - halfKickoffStartMs) < 4000L
 
-    fun startHalfKickoff(kickoff: TeamSide, team: TeamSide, phaseKey: String, nameA: String, nameB: String) {
-        playerTeam = team
+    fun startHalfKickoff(kickoff: TeamSide, isKickoffTeam: Boolean, phaseKey: String, nameA: String, nameB: String) {
+        this.isKickoffTeam = isKickoffTeam
         kickoffTeam = kickoff; teamAName = nameA; teamBName = nameB
         kickoffTouched = false; isPostGoal = true; isGoalLineOut = false
         halfKickoffPhaseKey = phaseKey; halfKickoffActive = true

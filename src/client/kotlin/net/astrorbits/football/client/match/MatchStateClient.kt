@@ -40,25 +40,7 @@ object MatchStateClient {
                 MatchState.reset()
                 finishedTicks = 0
             }
-            return
         }
-        if (phase == MatchPhase.PRE_MATCH) {
-            return
-        }
-        if (MatchState.isRunning && client.level != null && !client.isPaused) {
-            if (MatchState.isStoppagePhase()) {
-                MatchState.stoppageTimerTicks++
-            } else {
-                MatchState.timerTicks++
-            }
-            if (phase == MatchPhase.PENALTIES) return
-            val remaining = MatchState.getPhaseRemainingTicks()
-            if (remaining <= 0) {
-                val next = MatchState.getNextPhaseForAutoAdvance()
-                if (next != null) {
-                    MatchState.setPhase(next)
-                }
-            }
-        }
+        // 计时器由服务端权威驱动，客户端通过 MatchTimerSyncS2CPayload 同步
     }
 }

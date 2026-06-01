@@ -1,5 +1,8 @@
 package net.astrorbits.football.match
 
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.network.codec.StreamCodec
+
 enum class MatchPhase(val displayNameKey: String) {
     PRE_MATCH("match.phase.pre_match"),
     FIRST_HALF("match.phase.first_half"),
@@ -12,6 +15,14 @@ enum class MatchPhase(val displayNameKey: String) {
     EXTRA_SECOND_ET("match.phase.extra_second_et"),
     PENALTIES("match.phase.penalties"),
     FINISHED("match.phase.finished");
+
+    companion object {
+        val STREAM_CODEC: StreamCodec<FriendlyByteBuf, MatchPhase> =
+            StreamCodec.of(
+                { buf, phase -> buf.writeInt(phase.ordinal) },
+                { buf -> entries[buf.readInt()] },
+            )
+    }
 
     /** 下一阶段。FINISHED 没有下一阶段，返回 null。 */
     val next: MatchPhase?

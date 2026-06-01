@@ -9,6 +9,7 @@ import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.match.TeamSide
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking
@@ -54,6 +55,7 @@ object FootballNetworking {
 		registry.register(MatchResultS2CPayload.TYPE, MatchResultS2CPayload.CODEC)
         registry.register(SlideTackleStateS2CPayload.TYPE, SlideTackleStateS2CPayload.CODEC)
         registry.register(GoalLineOutS2CPayload.TYPE, GoalLineOutS2CPayload.CODEC)
+        registry.register(MatchTimerSyncS2CPayload.TYPE, MatchTimerSyncS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -104,6 +106,54 @@ object FootballNetworking {
         }
     }
 
+    private var serverTickCounter = 0
+
+    fun registerServerTick() {
+        ServerTickEvents.END_SERVER_TICK.register { server ->
+            // ── 计时器（服务端权威）──
+            if (MatchState.currentPhase != MatchPhase.PRE_MATCH
+                && MatchState.currentPhase != MatchPhase.FINISHED
+                && MatchState.isRunning
+            ) {
+                if (MatchState.isStoppagePhase()) {
+                    MatchState.stoppageTimerTicks++
+                } else {
+                    MatchState.timerTicks++
+                }
+                if (MatchState.currentPhase != MatchPhase.PENALTIES) {
+                    val remaining = MatchState.getPhaseRemainingTicks()
+                    if (remaining <= 0) {
+                        val next = MatchState.getNextPhaseForAutoAdvance()
+                        if (next != null) {
+                            MatchState.setPhase(next)
+                        }
+                    }
+                }
+            }
+
+            // ── 定时同步所有客户端 ──
+            serverTickCounter++
+            if (serverTickCounter >= 20) {
+                serverTickCounter = 0
+                broadcastTimerSync(server)
+            }
+        }
+    }
+
+    private fun broadcastTimerSync(server: MinecraftServer) {
+        val payload = MatchTimerSyncS2CPayload(
+            timerTicks = MatchState.timerTicks,
+            stoppageTimerTicks = MatchState.stoppageTimerTicks,
+            currentPhase = MatchState.currentPhase,
+            teamAScore = MatchState.teamAScore,
+            teamBScore = MatchState.teamBScore,
+            isRunning = MatchState.isRunning,
+        )
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
     private fun handleHalfKickoffRequest(level: ServerLevel, server: MinecraftServer) {
         val ms = MatchState
         val lastHalf = ms.lastHalfKickoffTeam ?: TeamSide.A
@@ -129,11 +179,11 @@ object FootballNetworking {
     fun broadcastHalfKickoff(server: MinecraftServer, kickoffTeam: TeamSide, phaseKey: String, teamAName: String, teamBName: String) {
         for (uuid in MatchState.teamAPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            ServerPlayNetworking.send(player, HalfKickoffS2CPayload(kickoffTeam, TeamSide.A, phaseKey, teamAName, teamBName))
+            ServerPlayNetworking.send(player, HalfKickoffS2CPayload(kickoffTeam, kickoffTeam == TeamSide.A, phaseKey, teamAName, teamBName))
         }
         for (uuid in MatchState.teamBPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            ServerPlayNetworking.send(player, HalfKickoffS2CPayload(kickoffTeam, TeamSide.B, phaseKey, teamAName, teamBName))
+            ServerPlayNetworking.send(player, HalfKickoffS2CPayload(kickoffTeam, kickoffTeam == TeamSide.B, phaseKey, teamAName, teamBName))
         }
     }
 
@@ -185,11 +235,11 @@ object FootballNetworking {
     fun broadcastPostGoalKickoff(server: MinecraftServer, kickoffTeam: TeamSide) {
         for (uuid in MatchState.teamAPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            ServerPlayNetworking.send(player, PostGoalKickoffS2CPayload(kickoffTeam, TeamSide.A))
+            ServerPlayNetworking.send(player, PostGoalKickoffS2CPayload(kickoffTeam, kickoffTeam == TeamSide.A))
         }
         for (uuid in MatchState.teamBPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            ServerPlayNetworking.send(player, PostGoalKickoffS2CPayload(kickoffTeam, TeamSide.B))
+            ServerPlayNetworking.send(player, PostGoalKickoffS2CPayload(kickoffTeam, kickoffTeam == TeamSide.B))
         }
     }
 
@@ -202,11 +252,11 @@ object FootballNetworking {
     fun broadcastGoalLineOut(server: MinecraftServer, outType: net.astrorbits.football.match.GoalLineOutType, restartTeam: TeamSide, ballX: Double, ballY: Double, ballZ: Double) {
         for (uuid in MatchState.teamAPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            ServerPlayNetworking.send(player, GoalLineOutS2CPayload(outType, restartTeam, TeamSide.A, ballX, ballY, ballZ))
+            ServerPlayNetworking.send(player, GoalLineOutS2CPayload(outType, restartTeam, restartTeam == TeamSide.A, ballX, ballY, ballZ))
         }
         for (uuid in MatchState.teamBPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            ServerPlayNetworking.send(player, GoalLineOutS2CPayload(outType, restartTeam, TeamSide.B, ballX, ballY, ballZ))
+            ServerPlayNetworking.send(player, GoalLineOutS2CPayload(outType, restartTeam, restartTeam == TeamSide.B, ballX, ballY, ballZ))
         }
     }
 
