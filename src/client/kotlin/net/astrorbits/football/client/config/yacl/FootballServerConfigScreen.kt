@@ -251,11 +251,63 @@ object FootballServerConfigScreen {
                         val g = getter().goalkeeper
                         setter(getter().copy(goalkeeper = g.copy(dive = t(gk()))))
                     }
+                    fun setBehavior(t: (GoalkeeperDiveBehaviorSettings) -> GoalkeeperDiveBehaviorSettings) {
+                        setGk { it.copy(behavior = t(it.behavior)) }
+                    }
+                    fun setActions(t: (GoalkeeperDiveActionsSettings) -> GoalkeeperDiveActionsSettings) {
+                        setGk { it.copy(actions = t(it.actions)) }
+                    }
 
-                    addDouble("$GK.dive_range", "$GK.dive_range.desc", { gk().diveRange }, { v -> setGk { it.copy(diveRange = v) } }, 1.0..10.0)
-                    addDouble("$GK.dive_speed", "$GK.dive_speed.desc", { gk().diveSpeed }, { v -> setGk { it.copy(diveSpeed = v) } }, 0.05..2.0)
-                    addInt("$GK.dive_cooldown", "$GK.dive_cooldown.desc", { gk().diveCooldownTicks }, { v -> setGk { it.copy(diveCooldownTicks = v) } }, 0..200)
-                    addDouble("$GK.punch_force", "$GK.punch_force.desc", { gk().punchForce }, { v -> setGk { it.copy(punchForce = v) } }, 0.1..10.0)
+                    addDouble("$GK.dive_range", "$GK.dive_range.desc", { gk().diveRange }, { v -> setBehavior { it.copy(diveRange = v) } }, 1.0..10.0)
+                    addDouble("$GK.dive_half_angle", "$GK.dive_half_angle.desc", { gk().diveHalfAngleDeg }, { v -> setBehavior { it.copy(diveHalfAngleDeg = v) } }, 15.0..90.0)
+                    addDouble("$GK.dive_speed", "$GK.dive_speed.desc", { gk().diveSpeed }, { v -> setBehavior { it.copy(diveSpeed = v) } }, 0.05..2.0)
+                    addInt("$GK.dive_duration", "$GK.dive_duration.desc", { gk().diveDurationTicks }, { v -> setBehavior { it.copy(diveDurationTicks = v) } }, 1..40)
+                    addInt("$GK.dive_cooldown", "$GK.dive_cooldown.desc", { gk().diveCooldownTicks }, { v -> setBehavior { it.copy(diveCooldownTicks = v) } }, 0..200)
+                    addDouble("$GK.dive_recoil_min_speed", "$GK.dive_recoil_min_speed.desc", { gk().diveCatchRecoilMinSpeed }, { v -> setBehavior { it.copy(diveCatchRecoilMinSpeed = v) } }, 0.0..3.0)
+                    addDouble("$GK.punch_force", "$GK.punch_force.desc", { gk().punchForce }, { v -> setActions { it.copy(punchForce = v) } }, 0.1..10.0)
+                }
+                .build(),
+        )
+        .group(
+            OptionGroup.createBuilder()
+                .name(Component.translatable("yacl3.config.$MOD_ID.server.group.gk_dive_pitch"))
+                .apply {
+                    fun gk(): GoalkeeperDiveSettings = getter().goalkeeper.dive
+                    fun setPitch(t: (GoalkeeperDivePitchSettings) -> GoalkeeperDivePitchSettings) {
+                        val g = getter().goalkeeper
+                        setter(getter().copy(goalkeeper = g.copy(dive = gk().copy(pitch = t(gk().pitch)))))
+                    }
+
+                    fun pitch(): GoalkeeperDivePitchSettings = gk().pitch
+
+                    addDouble("$GK.dive_ground_pitch", "$GK.dive_ground_pitch.desc", { pitch().groundPitchThresholdDeg }, { v -> setPitch { it.copy(groundPitchThresholdDeg = v) } }, 5.0..60.0)
+                    addDouble("$GK.dive_look_up_pitch", "$GK.dive_look_up_pitch.desc", { pitch().lookUpReferencePitchDeg }, { v -> setPitch { it.copy(lookUpReferencePitchDeg = v) } }, 10.0..90.0)
+                    addDouble("$GK.dive_look_up_height", "$GK.dive_look_up_height.desc", { pitch().lookUpMaxHeightScale }, { v -> setPitch { it.copy(lookUpMaxHeightScale = v) } }, 1.0..3.0)
+                    addDouble("$GK.dive_look_up_forward", "$GK.dive_look_up_forward.desc", { pitch().lookUpMinForwardScale }, { v -> setPitch { it.copy(lookUpMinForwardScale = v) } }, 0.1..1.0)
+                    addDouble("$GK.dive_ground_height", "$GK.dive_ground_height.desc", { pitch().groundHeightScale }, { v -> setPitch { it.copy(groundHeightScale = v) } }, 0.0..1.0)
+                    addDouble("$GK.dive_ground_forward", "$GK.dive_ground_forward.desc", { pitch().groundForwardScale }, { v -> setPitch { it.copy(groundForwardScale = v) } }, 0.1..1.0)
+                    addDouble("$GK.dive_ground_vertical", "$GK.dive_ground_vertical.desc", { pitch().groundVerticalSpeed }, { v -> setPitch { it.copy(groundVerticalSpeed = v) } }, -0.5..0.2)
+                }
+                .build(),
+        )
+        .group(
+            OptionGroup.createBuilder()
+                .name(Component.translatable("yacl3.config.$MOD_ID.server.group.gk_dive_impulse"))
+                .apply {
+                    fun gk(): GoalkeeperDiveSettings = getter().goalkeeper.dive
+                    fun setImpulse(t: (GoalkeeperDiveImpulseSettings) -> GoalkeeperDiveImpulseSettings) {
+                        val g = getter().goalkeeper
+                        setter(getter().copy(goalkeeper = g.copy(dive = gk().copy(impulse = t(gk().impulse)))))
+                    }
+
+                    fun impulse(): GoalkeeperDiveImpulseSettings = gk().impulse
+
+                    addDouble("$GK.dive_launch_fwd_min", "$GK.dive_launch_fwd_min.desc", { impulse().launchForwardMinScale }, { v -> setImpulse { it.copy(launchForwardMinScale = v) } }, 0.1..5.0)
+                    addDouble("$GK.dive_launch_fwd_max", "$GK.dive_launch_fwd_max.desc", { impulse().launchForwardMaxScale }, { v -> setImpulse { it.copy(launchForwardMaxScale = v) } }, 0.1..6.0)
+                    addDouble("$GK.dive_launch_up_min", "$GK.dive_launch_up_min.desc", { impulse().launchUpMin }, { v -> setImpulse { it.copy(launchUpMin = v) } }, 0.0..1.5)
+                    addDouble("$GK.dive_launch_up_max", "$GK.dive_launch_up_max.desc", { impulse().launchUpMax }, { v -> setImpulse { it.copy(launchUpMax = v) } }, 0.0..1.5)
+                    addDouble("$GK.dive_sustain_fwd_min", "$GK.dive_sustain_fwd_min.desc", { impulse().sustainForwardMinScale }, { v -> setImpulse { it.copy(sustainForwardMinScale = v) } }, 0.1..5.0)
+                    addDouble("$GK.dive_sustain_fwd_max", "$GK.dive_sustain_fwd_max.desc", { impulse().sustainForwardMaxScale }, { v -> setImpulse { it.copy(sustainForwardMaxScale = v) } }, 0.1..6.0)
                 }
                 .build(),
         )

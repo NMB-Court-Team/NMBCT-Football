@@ -41,14 +41,88 @@ data class GoalkeeperCatchSettings(
     }
 }
 
-data class GoalkeeperDiveSettings(
+/** 鱼跃基础参数（时长、范围、速度、后坐力阈值等）。 */
+data class GoalkeeperDiveBehaviorSettings(
     val diveDurationTicks: Int = 8,
     val diveCooldownTicks: Int = 24,
     val diveRange: Double = 4.0,
-    val diveHalfAngleDeg: Double = 45.0,
+    val diveHalfAngleDeg: Double = 60.0,
     val diveSpeed: Double = 0.35,
     val diveCatchMaxSpeed: Double = 2.2,
     val diveDeflectForceScale: Double = 0.6,
+    val diveCatchRecoilMinSpeed: Double = 0.25,
+) {
+    companion object {
+        val CODEC: Codec<GoalkeeperDiveBehaviorSettings> = RecordCodecBuilder.create { i ->
+            i.group(
+                Codec.INT.fieldOf("dive_duration_ticks").forGetter(GoalkeeperDiveBehaviorSettings::diveDurationTicks),
+                Codec.INT.fieldOf("dive_cooldown_ticks").forGetter(GoalkeeperDiveBehaviorSettings::diveCooldownTicks),
+                Codec.DOUBLE.fieldOf("dive_range").forGetter(GoalkeeperDiveBehaviorSettings::diveRange),
+                Codec.DOUBLE.fieldOf("dive_half_angle_deg").forGetter(GoalkeeperDiveBehaviorSettings::diveHalfAngleDeg),
+                Codec.DOUBLE.fieldOf("dive_speed").forGetter(GoalkeeperDiveBehaviorSettings::diveSpeed),
+                Codec.DOUBLE.fieldOf("dive_catch_max_speed").forGetter(GoalkeeperDiveBehaviorSettings::diveCatchMaxSpeed),
+                Codec.DOUBLE.fieldOf("dive_deflect_force_scale").forGetter(GoalkeeperDiveBehaviorSettings::diveDeflectForceScale),
+                Codec.DOUBLE.fieldOf("dive_catch_recoil_min_speed").forGetter(GoalkeeperDiveBehaviorSettings::diveCatchRecoilMinSpeed),
+            ).apply(i, ::GoalkeeperDiveBehaviorSettings)
+        }
+
+        val DEFAULT = GoalkeeperDiveBehaviorSettings()
+    }
+}
+
+/** 鱼跃俯仰曲线（Minecraft pitch：负=仰视，正=俯视）。 */
+data class GoalkeeperDivePitchSettings(
+    val groundPitchThresholdDeg: Double = 30.0,
+    val lookUpReferencePitchDeg: Double = 45.0,
+    val lookUpMaxHeightScale: Double = 1.45,
+    val lookUpMinForwardScale: Double = 0.55,
+    val groundHeightScale: Double = 0.0,
+    val groundForwardScale: Double = 0.38,
+    val groundVerticalSpeed: Double = -0.08,
+) {
+    companion object {
+        val CODEC: Codec<GoalkeeperDivePitchSettings> = RecordCodecBuilder.create { i ->
+            i.group(
+                Codec.DOUBLE.fieldOf("ground_pitch_threshold_deg").forGetter(GoalkeeperDivePitchSettings::groundPitchThresholdDeg),
+                Codec.DOUBLE.fieldOf("look_up_reference_pitch_deg").forGetter(GoalkeeperDivePitchSettings::lookUpReferencePitchDeg),
+                Codec.DOUBLE.fieldOf("look_up_max_height_scale").forGetter(GoalkeeperDivePitchSettings::lookUpMaxHeightScale),
+                Codec.DOUBLE.fieldOf("look_up_min_forward_scale").forGetter(GoalkeeperDivePitchSettings::lookUpMinForwardScale),
+                Codec.DOUBLE.fieldOf("ground_height_scale").forGetter(GoalkeeperDivePitchSettings::groundHeightScale),
+                Codec.DOUBLE.fieldOf("ground_forward_scale").forGetter(GoalkeeperDivePitchSettings::groundForwardScale),
+                Codec.DOUBLE.fieldOf("ground_vertical_speed").forGetter(GoalkeeperDivePitchSettings::groundVerticalSpeed),
+            ).apply(i, ::GoalkeeperDivePitchSettings)
+        }
+
+        val DEFAULT = GoalkeeperDivePitchSettings()
+    }
+}
+
+/** 鱼跃蓄力冲量倍率（× dive_speed 或独立竖直速度）。 */
+data class GoalkeeperDiveImpulseSettings(
+    val launchForwardMinScale: Double = 1.4,
+    val launchForwardMaxScale: Double = 3.2,
+    val launchUpMin: Double = 0.38,
+    val launchUpMax: Double = 0.55,
+    val sustainForwardMinScale: Double = 0.9,
+    val sustainForwardMaxScale: Double = 2.4,
+) {
+    companion object {
+        val CODEC: Codec<GoalkeeperDiveImpulseSettings> = RecordCodecBuilder.create { i ->
+            i.group(
+                Codec.DOUBLE.fieldOf("launch_forward_min_scale").forGetter(GoalkeeperDiveImpulseSettings::launchForwardMinScale),
+                Codec.DOUBLE.fieldOf("launch_forward_max_scale").forGetter(GoalkeeperDiveImpulseSettings::launchForwardMaxScale),
+                Codec.DOUBLE.fieldOf("launch_up_min").forGetter(GoalkeeperDiveImpulseSettings::launchUpMin),
+                Codec.DOUBLE.fieldOf("launch_up_max").forGetter(GoalkeeperDiveImpulseSettings::launchUpMax),
+                Codec.DOUBLE.fieldOf("sustain_forward_min_scale").forGetter(GoalkeeperDiveImpulseSettings::sustainForwardMinScale),
+                Codec.DOUBLE.fieldOf("sustain_forward_max_scale").forGetter(GoalkeeperDiveImpulseSettings::sustainForwardMaxScale),
+            ).apply(i, ::GoalkeeperDiveImpulseSettings)
+        }
+
+        val DEFAULT = GoalkeeperDiveImpulseSettings()
+    }
+}
+
+data class GoalkeeperDiveActionsSettings(
     val punchRange: Double = 3.0,
     val punchForce: Double = 1.2,
     val throwShortForce: Double = 1.2,
@@ -59,23 +133,57 @@ data class GoalkeeperDiveSettings(
     val throwSprintBonus: Double = 1.1,
 ) {
     companion object {
+        val CODEC: Codec<GoalkeeperDiveActionsSettings> = RecordCodecBuilder.create { i ->
+            i.group(
+                Codec.DOUBLE.fieldOf("punch_range").forGetter(GoalkeeperDiveActionsSettings::punchRange),
+                Codec.DOUBLE.fieldOf("punch_force").forGetter(GoalkeeperDiveActionsSettings::punchForce),
+                Codec.DOUBLE.fieldOf("throw_short_force").forGetter(GoalkeeperDiveActionsSettings::throwShortForce),
+                Codec.DOUBLE.fieldOf("throw_long_force_min").forGetter(GoalkeeperDiveActionsSettings::throwLongForceMin),
+                Codec.DOUBLE.fieldOf("throw_long_force_max").forGetter(GoalkeeperDiveActionsSettings::throwLongForceMax),
+                Codec.DOUBLE.fieldOf("throw_long_angle_min_deg").forGetter(GoalkeeperDiveActionsSettings::throwLongAngleMinDeg),
+                Codec.DOUBLE.fieldOf("throw_long_angle_max_deg").forGetter(GoalkeeperDiveActionsSettings::throwLongAngleMaxDeg),
+                Codec.DOUBLE.fieldOf("throw_sprint_bonus").forGetter(GoalkeeperDiveActionsSettings::throwSprintBonus),
+            ).apply(i, ::GoalkeeperDiveActionsSettings)
+        }
+
+        val DEFAULT = GoalkeeperDiveActionsSettings()
+    }
+}
+
+data class GoalkeeperDiveSettings(
+    val behavior: GoalkeeperDiveBehaviorSettings = GoalkeeperDiveBehaviorSettings.DEFAULT,
+    val pitch: GoalkeeperDivePitchSettings = GoalkeeperDivePitchSettings.DEFAULT,
+    val impulse: GoalkeeperDiveImpulseSettings = GoalkeeperDiveImpulseSettings.DEFAULT,
+    val actions: GoalkeeperDiveActionsSettings = GoalkeeperDiveActionsSettings.DEFAULT,
+) {
+    val diveDurationTicks get() = behavior.diveDurationTicks
+    val diveCooldownTicks get() = behavior.diveCooldownTicks
+    val diveRange get() = behavior.diveRange
+    val diveHalfAngleDeg get() = behavior.diveHalfAngleDeg
+    val diveSpeed get() = behavior.diveSpeed
+    val diveCatchMaxSpeed get() = behavior.diveCatchMaxSpeed
+    val diveDeflectForceScale get() = behavior.diveDeflectForceScale
+    val diveCatchRecoilMinSpeed get() = behavior.diveCatchRecoilMinSpeed
+    val punchRange get() = actions.punchRange
+    val punchForce get() = actions.punchForce
+    val throwShortForce get() = actions.throwShortForce
+    val throwLongForceMin get() = actions.throwLongForceMin
+    val throwLongForceMax get() = actions.throwLongForceMax
+    val throwLongAngleMinDeg get() = actions.throwLongAngleMinDeg
+    val throwLongAngleMaxDeg get() = actions.throwLongAngleMaxDeg
+    val throwSprintBonus get() = actions.throwSprintBonus
+
+    companion object {
         val CODEC: Codec<GoalkeeperDiveSettings> = RecordCodecBuilder.create { i ->
             i.group(
-                Codec.INT.fieldOf("dive_duration_ticks").forGetter(GoalkeeperDiveSettings::diveDurationTicks),
-                Codec.INT.fieldOf("dive_cooldown_ticks").forGetter(GoalkeeperDiveSettings::diveCooldownTicks),
-                Codec.DOUBLE.fieldOf("dive_range").forGetter(GoalkeeperDiveSettings::diveRange),
-                Codec.DOUBLE.fieldOf("dive_half_angle_deg").forGetter(GoalkeeperDiveSettings::diveHalfAngleDeg),
-                Codec.DOUBLE.fieldOf("dive_speed").forGetter(GoalkeeperDiveSettings::diveSpeed),
-                Codec.DOUBLE.fieldOf("dive_catch_max_speed").forGetter(GoalkeeperDiveSettings::diveCatchMaxSpeed),
-                Codec.DOUBLE.fieldOf("dive_deflect_force_scale").forGetter(GoalkeeperDiveSettings::diveDeflectForceScale),
-                Codec.DOUBLE.fieldOf("punch_range").forGetter(GoalkeeperDiveSettings::punchRange),
-                Codec.DOUBLE.fieldOf("punch_force").forGetter(GoalkeeperDiveSettings::punchForce),
-                Codec.DOUBLE.fieldOf("throw_short_force").forGetter(GoalkeeperDiveSettings::throwShortForce),
-                Codec.DOUBLE.fieldOf("throw_long_force_min").forGetter(GoalkeeperDiveSettings::throwLongForceMin),
-                Codec.DOUBLE.fieldOf("throw_long_force_max").forGetter(GoalkeeperDiveSettings::throwLongForceMax),
-                Codec.DOUBLE.fieldOf("throw_long_angle_min_deg").forGetter(GoalkeeperDiveSettings::throwLongAngleMinDeg),
-                Codec.DOUBLE.fieldOf("throw_long_angle_max_deg").forGetter(GoalkeeperDiveSettings::throwLongAngleMaxDeg),
-                Codec.DOUBLE.fieldOf("throw_sprint_bonus").forGetter(GoalkeeperDiveSettings::throwSprintBonus),
+                GoalkeeperDiveBehaviorSettings.CODEC.optionalFieldOf("behavior", GoalkeeperDiveBehaviorSettings.DEFAULT)
+                    .forGetter(GoalkeeperDiveSettings::behavior),
+                GoalkeeperDivePitchSettings.CODEC.optionalFieldOf("pitch", GoalkeeperDivePitchSettings.DEFAULT)
+                    .forGetter(GoalkeeperDiveSettings::pitch),
+                GoalkeeperDiveImpulseSettings.CODEC.optionalFieldOf("impulse", GoalkeeperDiveImpulseSettings.DEFAULT)
+                    .forGetter(GoalkeeperDiveSettings::impulse),
+                GoalkeeperDiveActionsSettings.CODEC.optionalFieldOf("actions", GoalkeeperDiveActionsSettings.DEFAULT)
+                    .forGetter(GoalkeeperDiveSettings::actions),
             ).apply(i, ::GoalkeeperDiveSettings)
         }
 
@@ -108,6 +216,9 @@ data class GoalkeeperSettings(
     val diveSpeed get() = dive.diveSpeed
     val diveCatchMaxSpeed get() = dive.diveCatchMaxSpeed
     val diveDeflectForceScale get() = dive.diveDeflectForceScale
+    val diveCatchRecoilMinSpeed get() = dive.diveCatchRecoilMinSpeed
+    val divePitch get() = dive.pitch
+    val diveImpulse get() = dive.impulse
     val punchRange get() = dive.punchRange
     val punchForce get() = dive.punchForce
     val throwShortForce get() = dive.throwShortForce

@@ -11,9 +11,10 @@ import java.util.concurrent.ConcurrentHashMap
 
 data class DiveSession(
     val playerId: UUID,
-    val direction: Vec3,
+    val forwardDirection: Vec3,
+    val chargeRatio: Float,
+    val pitchScalars: GoalkeeperUtil.DivePitchScalars,
     val startTick: Long,
-    var resolved: Boolean = false,
 )
 
 object GoalkeeperDiveSessions {
@@ -23,10 +24,16 @@ object GoalkeeperDiveSessions {
         ServerTickEvents.END_SERVER_TICK.register(::tick)
     }
 
-    fun begin(player: ServerPlayer, direction: Vec3, now: Long) {
+    fun begin(player: ServerPlayer, direction: Vec3, chargeRatio: Float, lookPitch: Float, now: Long) {
+        val clampedCharge = chargeRatio.coerceIn(0f, 1f)
+        val pitchScalars = GoalkeeperUtil.resolveDivePitchScalars(lookPitch)
+        applyDiveLaunch(player, direction, clampedCharge, pitchScalars)
+
         sessions[player.uuid] = DiveSession(
             playerId = player.uuid,
-            direction = direction,
+            forwardDirection = direction,
+            chargeRatio = clampedCharge,
+            pitchScalars = pitchScalars,
             startTick = now,
         )
     }
@@ -54,21 +61,57 @@ object GoalkeeperDiveSessions {
                 continue
             }
 
-            applyDiveMovement(player, session.direction)
-
-            if (!session.resolved) {
-                tryResolveSave(player, session)
-            }
+            applyDiveMovement(player, session)
+            tryResolveSave(player, session)
         }
     }
 
-    private fun applyDiveMovement(player: ServerPlayer, direction: Vec3) {
-        val motion = direction.scale(GoalkeeperInputConfig.GK_DIVE_SPEED)
-        player.setDeltaMovement(
-            player.deltaMovement.x + motion.x,
-            player.deltaMovement.y,
-            player.deltaMovement.z + motion.z,
-        )
+    /** 起跳瞬间：水平 + 竖直冲量（与滑铲类似，需 hurtMarked 以便客户端同步速度）。 */
+    private fun applyDiveLaunch(
+        player: ServerPlayer,
+        direction: Vec3,
+        chargeRatio: Float,
+        pitchScalars: GoalkeeperUtil.DivePitchScalars,
+    ) {
+        val charge = chargeRatio.toDouble()
+        val base = GoalkeeperInputConfig.GK_DIVE_SPEED
+        val impulse = GoalkeeperInputConfig.GK_DIVE_IMPULSE
+        val horizontalSpeed = lerp(
+            base * impulse.launchForwardMinScale,
+            base * impulse.launchForwardMaxScale,
+            charge,
+        ) * pitchScalars.forwardScale
+        val upSpeed = lerp(impulse.launchUpMin, impulse.launchUpMax, charge) * pitchScalars.heightScale
+        val horizontal = direction.scale(horizontalSpeed)
+        val vertical = if (pitchScalars.groundedDive) {
+            pitchScalars.groundVerticalSpeed
+        } else {
+            upSpeed
+        }
+        player.setDeltaMovement(horizontal.x, vertical, horizontal.z)
+        player.hurtMarked = true
+    }
+
+    /** 鱼跃持续期间每 tick 写入水平速度，避免仅一帧冲量被原版移动链路吞掉。 */
+    private fun applyDiveMovement(player: ServerPlayer, session: DiveSession) {
+        val charge = session.chargeRatio.toDouble()
+        val base = GoalkeeperInputConfig.GK_DIVE_SPEED
+        val impulse = GoalkeeperInputConfig.GK_DIVE_IMPULSE
+        val pitchScalars = session.pitchScalars
+        val horizontalSpeed = lerp(
+            base * impulse.sustainForwardMinScale,
+            base * impulse.sustainForwardMaxScale,
+            charge,
+        ) * pitchScalars.forwardScale
+        val dir = session.forwardDirection
+        val motion = player.deltaMovement
+        val vertical = if (pitchScalars.groundedDive) {
+            motion.y.coerceAtMost(pitchScalars.groundVerticalSpeed)
+        } else {
+            motion.y
+        }
+        player.setDeltaMovement(dir.x * horizontalSpeed, vertical, dir.z * horizontalSpeed)
+        player.hurtMarked = true
     }
 
     private fun tryResolveSave(player: ServerPlayer, session: DiveSession) {
@@ -79,9 +122,10 @@ object GoalkeeperDiveSessions {
         }
 
         val origin = player.position().add(0.0, player.eyeHeight * 0.5, 0.0)
+        val lookDirection = GoalkeeperUtil.resolveDiveDirection(player, useLookOnly = true)
         if (!GoalkeeperUtil.isInDirectionalSector(
                 origin,
-                session.direction,
+                lookDirection,
                 GoalkeeperUtil.ballCenter(football),
                 range,
                 GoalkeeperInputConfig.GK_DIVE_HALF_ANGLE_DEG,
@@ -90,8 +134,12 @@ object GoalkeeperDiveSessions {
             return
         }
 
-        session.resolved = true
-        GoalkeeperActions.tryResolveDiveCatch(player, football, session.direction)
+        GoalkeeperActions.tryResolveDiveCatch(player, football, session.forwardDirection)
         sessions.remove(player.uuid)
+    }
+
+    private fun lerp(min: Double, max: Double, ratio: Double): Double {
+        val t = ratio.coerceIn(0.0, 1.0)
+        return min + (max - min) * t
     }
 }
