@@ -6,6 +6,7 @@ import net.astrorbits.football.item.Items
 import net.astrorbits.football.physics.GoalNetConfig
 import net.astrorbits.football.physics.GoalNetMesh
 import net.astrorbits.football.physics.FootballPhysicsConfig
+import net.astrorbits.football.util.GoalNetAnchorLinks
 import net.astrorbits.football.util.GoalNetGeometry
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Registry
@@ -61,6 +62,7 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
         this.anchors = anchorBlocks.toList()
         this.slack = slack.coerceIn(GoalNetConfig.MIN_SLACK, GoalNetConfig.MAX_SLACK)
         applyRectangle(result.rectangle)
+        GoalNetAnchorLinks.register(this, this.anchors)
         return true
     }
 
@@ -209,6 +211,13 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
         val nearestPlayer = level().getNearestPlayer(this, 16.0) ?: return false
         return nearestPlayer.mainHandItem.`is`(Items.GOAL_NET_CONNECTOR) ||
             nearestPlayer.offhandItem.`is`(Items.GOAL_NET_CONNECTOR)
+    }
+
+    override fun remove(reason: RemovalReason) {
+        if (!level().isClientSide) {
+            GoalNetAnchorLinks.unregister(this)
+        }
+        super.remove(reason)
     }
 
     override fun hurtServer(

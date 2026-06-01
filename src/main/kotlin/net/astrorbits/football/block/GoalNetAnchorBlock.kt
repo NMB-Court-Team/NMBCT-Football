@@ -1,6 +1,7 @@
 package net.astrorbits.football.block
 
 import com.mojang.serialization.MapCodec
+import net.astrorbits.football.util.GoalNetAnchorLinks
 import net.astrorbits.football.util.VoxelShapeUtil
 import net.astrorbits.football.util.VoxelShapeUtil.generateAllFacingShapes
 import net.astrorbits.football.util.VoxelShapeUtil.generateHorizontalFacingShapes
@@ -9,6 +10,8 @@ import net.minecraft.core.Direction
 import net.minecraft.util.StringRepresentable
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.level.BlockGetter
+import net.minecraft.world.level.Level
+import net.minecraft.world.level.LevelAccessor
 import net.minecraft.world.level.block.Block
 import net.minecraft.world.level.block.state.BlockBehaviour
 import net.minecraft.world.level.block.state.BlockState
@@ -68,6 +71,13 @@ class GoalNetAnchorBlock(properties: Properties) : Block(properties) {
                 DOWN_CORNER_SHAPES[anchorPos]!!
             }
         }
+    }
+
+    override fun destroy(level: LevelAccessor, pos: BlockPos, state: BlockState) {
+        if (level is Level) {
+            GoalNetAnchorLinks.onAnchorRemoved(level, pos)
+        }
+        super.destroy(level, pos, state)
     }
 
     override fun getStateForPlacement(context: BlockPlaceContext): BlockState {

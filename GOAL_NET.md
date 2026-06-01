@@ -114,6 +114,7 @@ flowchart TB
 | 源码 | `src/main/kotlin/.../block/GoalNetAnchorBlock.kt` |
 | 状态属性 | `position` → `GoalNetAnchorPosition`（27 种） |
 | 关键 API | `getAnchorPos(pos, state): Vec3` |
+| 破坏联动 | `destroy` → `GoalNetAnchorLinks.onAnchorRemoved`，销毁关联的 `GoalNetEntity` |
 
 `GoalNetAnchorPosition` 通过方向向量组合计算偏移（±0.5 方块），支持中心、六面、十二边、八角。
 
@@ -392,6 +393,7 @@ Fabric 事件：
 | `item/Items.kt` | 注册 `GOAL_NET_CONNECTOR` |
 | `entity/GoalNetEntity.kt` | 球网实体、tick、持久化 |
 | `util/GoalNetGeometry.kt` | 锚点解析与矩形校验 |
+| `util/GoalNetAnchorLinks.kt` | 锚点 ↔ 球网实体索引；锚点破坏时销毁关联网 |
 | `physics/GoalNetMesh.kt` | 质点-弹簧模拟 |
 | `physics/GoalNetConfig.kt` | 物理与渲染常量 |
 | `physics/FootballNetInteraction.kt` | 足球-球网碰撞 |
@@ -437,7 +439,6 @@ Fabric 事件：
 3. **渲染表现**：当前使用实体半透明通道绘制白纹理着色绳线；深度排序与材质细节仍可继续优化。
 4. **锚点模型**：blockstate 已支持 27 种 position，但部分 block model 仍较占位；可按 `position` 进一步细化外观。
 5. **选点顺序**：建网时按点击顺序连预览线，几何校验不要求特定顺序，但四角必须能匹配长方形顶点集。
-6. **旧 `goal_net` 方块**：资源目录中可能仍残留旧条目（如 `items/goal_net.json`），与当前实现无关，可择机清理。
 
 ### 可考虑的增强
 
@@ -445,7 +446,7 @@ Fabric 事件：
 - 客户端节点插值与自定义 `RenderType`（带纹理的绳线）。
 - 多球网并存时的性能 profiling（节点上限、同步频率策略）。
 - 与比赛系统（球门判定）的深度集成。
-- 锚点破坏时自动销毁关联网实体。
+- ~~锚点破坏时自动销毁关联网实体。~~（已实现：`GoalNetAnchorLinks` + `GoalNetAnchorBlock.destroy`）
 - 增加可开关的高性能模式：限制单帧球网碰撞精检预算（保留穿面优先），用于多球网/高并发场景。
 
 ---
