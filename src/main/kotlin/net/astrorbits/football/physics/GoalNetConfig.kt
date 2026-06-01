@@ -100,11 +100,14 @@ object GoalNetConfig {
     /** 节点推出方块表面后的额外留缝，避免抖动与反复嵌入。 */
     const val NET_BLOCK_COLLISION_EPSILON: Double = 0.005
 
-    /** 渲染：绳线在世界空间的半宽（方块）。固定世界宽度 => 视觉粗细随距离变化。 */
+    /** 渲染：近距离时绳线在世界空间的半宽（方块）。 */
     const val LINE_HALF_WIDTH: Double = 0.018
 
-    /** 渲染：远处线宽的最小屏幕保护系数，避免过远完全消失（按距离放大半宽）。 */
-    const val LINE_WIDTH_DISTANCE_GAIN: Double = 0.0016
+    /** 渲染：随距离增大而收细的系数（每 1 格距离减少多少半宽）。 */
+    const val LINE_WIDTH_DISTANCE_SHRINK: Double = 0.00035
+
+    /** 渲染：远处线宽下限，避免球网完全消失。 */
+    const val LINE_MIN_HALF_WIDTH: Double = 0.007
 
     /** 绳线颜色（ARGB）。 */
     const val LINE_COLOR_ARGB: Int = 0xFFEDEDED.toInt()

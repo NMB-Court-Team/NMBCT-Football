@@ -19,7 +19,7 @@ import kotlin.math.sqrt
 /**
  * 球网渲染：把节点网格的结构边渲染成朝向相机的细长四边形。
  *
- * 采用固定世界宽度（叠加少量随距离增益），因此线条粗细随玩家与线之间的距离变化，
+ * 采用固定世界宽度，并在远距离时逐步收细，避免远处球网线条堆叠成团。
  * 区别于原版固定屏幕像素宽度的线段渲染。
  */
 class GoalNetRenderer(context: EntityRendererProvider.Context) :
@@ -129,7 +129,9 @@ class GoalNetRenderer(context: EntityRendererProvider.Context) :
         if (sLen < 1.0e-5f) return
         sx /= sLen; sy /= sLen; sz /= sLen
 
-        val halfWidth = (GoalNetConfig.LINE_HALF_WIDTH + cLen * GoalNetConfig.LINE_WIDTH_DISTANCE_GAIN).toFloat()
+        val halfWidth = (
+            GoalNetConfig.LINE_HALF_WIDTH - cLen * GoalNetConfig.LINE_WIDTH_DISTANCE_SHRINK
+        ).coerceAtLeast(GoalNetConfig.LINE_MIN_HALF_WIDTH).toFloat()
         sx *= halfWidth; sy *= halfWidth; sz *= halfWidth
 
         // 固定照明法线，避免“从上看暗、从下看亮”的视角亮度反转。

@@ -707,7 +707,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             ENTITY_KEY,
             EntityType.Builder.of(::Football, MobCategory.MISC)
                 .sized(0.5f, 0.5f)
-                .clientTrackingRange(64)
+                // 让客户端在“实体渲染距离=100%”时可从最远约 128 格看到足球。
+                .clientTrackingRange(128)
                 .updateInterval(1)
                 .build(ENTITY_KEY)
         )
