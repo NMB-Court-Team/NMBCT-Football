@@ -191,8 +191,8 @@ object FootballNetworking {
         }
     }
 
-    fun broadcastGoalLineOut(server: MinecraftServer, outType: net.astrorbits.football.match.GoalLineOutType, restartTeam: TeamSide) {
-        val payload = GoalLineOutS2CPayload(outType, restartTeam)
+    fun broadcastGoalLineOut(server: MinecraftServer, outType: net.astrorbits.football.match.GoalLineOutType, restartTeam: TeamSide, ballX: Double, ballY: Double, ballZ: Double) {
+        val payload = GoalLineOutS2CPayload(outType, restartTeam, ballX, ballY, ballZ)
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
         }

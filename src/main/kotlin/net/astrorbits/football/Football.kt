@@ -182,6 +182,56 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         checkGoalOrOut(config.goalA, prevCenter, currCenter, TeamSide.A, TeamSide.B)
         // 球门 B 由 B 队防守，球入门则 A 队得分
         checkGoalOrOut(config.goalB, prevCenter, currCenter, TeamSide.B, TeamSide.A)
+        // 边线出界
+        checkSidelineOut(config.sidelineA, prevCenter, currCenter)
+        checkSidelineOut(config.sidelineB, prevCenter, currCenter)
+    }
+
+    /** 检测球是否穿越边线出界 */
+    private fun checkSidelineOut(
+        sideline: net.astrorbits.football.match.SidelineConfig,
+        prevCenter: Vec3,
+        currCenter: Vec3,
+    ) {
+        val facing = sideline.facing()
+        val facingLenSqr = facing.lengthSqr()
+        if (facingLenSqr < 1e-6) return
+
+        val origin = sideline.origin()
+        val refX = origin.x
+        val refY = origin.y
+        val refZ = origin.z
+        val d1 = (prevCenter.x - refX) * facing.x + (prevCenter.y - refY) * facing.y + (prevCenter.z - refZ) * facing.z
+        val d2 = (currCenter.x - refX) * facing.x + (currCenter.y - refY) * facing.y + (currCenter.z - refZ) * facing.z
+
+        if (d1 * d2 >= 0) return
+        if (d2 - d1 >= 0) return
+
+        // 穿越点
+        val t = d1 / (d1 - d2)
+        val movement = currCenter.subtract(prevCenter)
+        val ix = prevCenter.x + movement.x * t
+        val iy = prevCenter.y + movement.y * t
+        val iz = prevCenter.z + movement.z * t
+
+        val server = (level() as? net.minecraft.server.level.ServerLevel)?.server ?: return
+
+        // 最后触球方 = 对方发球
+        val lastTouchTeam = lastKicker?.let { MatchState.getPlayerTeam(it) }
+        val restartTeam: TeamSide = when (lastTouchTeam) {
+            TeamSide.A -> TeamSide.B
+            TeamSide.B -> TeamSide.A
+            null -> TeamSide.A
+        }
+
+        // 球放在线上
+        val ballPos = Vec3(ix, iy, iz)
+        MatchState.resetFootballAt(level() as net.minecraft.server.level.ServerLevel, ballPos)
+        MatchState.kickoffTeam = restartTeam
+        MatchState.kickoffTouched = false
+        net.astrorbits.football.network.FootballNetworking.broadcastGoalLineOut(
+            server, net.astrorbits.football.match.GoalLineOutType.THROW_IN, restartTeam, ballPos.x, ballPos.y, ballPos.z,
+        )
     }
 
     /** 检测球是否穿越门线：进球或出底线 */
@@ -277,7 +327,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             MatchState.resetFootballAt(level() as net.minecraft.server.level.ServerLevel, ballPos)
             MatchState.kickoffTeam = restartTeam
             MatchState.kickoffTouched = false
-            net.astrorbits.football.network.FootballNetworking.broadcastGoalLineOut(server, outType, restartTeam)
+            net.astrorbits.football.network.FootballNetworking.broadcastGoalLineOut(server, outType, restartTeam, ballPos.x, ballPos.y, ballPos.z)
         }
     }
 
