@@ -25,6 +25,8 @@ object FootballInputHandler {
     /** 每帧捕获的抬键时长，避免仅在 tick 采样导致 1~2 tick 偏差。 */
     private var kickReleaseHeldMsOverride: Long? = null
     private var kickRealtimePrevDown = false
+    /** 按 X/V 打断鱼跃蓄力后，忽略本次 R 键松开触发的鱼跃。 */
+    private var diveChargeCancelled = false
 
     var shootChargeRatio: Float = 0f
         private set
@@ -45,6 +47,16 @@ object FootballInputHandler {
         val phase: KickChargeUtil.Phase,
     )
 
+    /** 未持球守门员正按住 R 鱼跃蓄力且尚未被 X/V 打断（供 HUD 提示用）。 */
+    fun isGoalkeeperDiveChargeActive(): Boolean {
+        syncKickPressRealtimeClock()
+        return GoalkeeperStateClient.isGoalkeeper &&
+            !GoalkeeperStateClient.isHoldingBall &&
+            FootballKeyBindings.KICK.isDown &&
+            kickPressStartMs != null &&
+            !diveChargeCancelled
+    }
+
     /** 基于实时时钟采样蓄力（供 HUD 每帧调用，避免仅 tick 更新导致进度条卡顿）。 */
     fun liveKickChargeDisplay(): KickChargeDisplayState? {
         if (MatchStartClient.isLocked) return null
@@ -53,13 +65,23 @@ object FootballInputHandler {
         if (!FootballKeyBindings.KICK.isDown) {
             return null
         }
+        val heldMs = System.currentTimeMillis() - start
+        val settings = chargeSettings()
+        val chargingDive = GoalkeeperStateClient.isGoalkeeper && !GoalkeeperStateClient.isHoldingBall
         val chargingThrow = GoalkeeperStateClient.isGoalkeeper && GoalkeeperStateClient.isHoldingBall
         val chargingShoot = !GoalkeeperStateClient.isGoalkeeper
+        if (chargingDive) {
+            if (!KickChargeUtil.isLinearCharging(heldMs, settings)) {
+                return null
+            }
+            return KickChargeDisplayState(
+                ratio = KickChargeUtil.computeLinearRatio(heldMs, settings),
+                phase = KickChargeUtil.Phase.RISING,
+            )
+        }
         if (!chargingThrow && !chargingShoot) {
             return null
         }
-        val heldMs = System.currentTimeMillis() - start
-        val settings = chargeSettings()
         val phase = KickChargeUtil.computePhase(heldMs, settings)
         if (phase == KickChargeUtil.Phase.NONE) {
             return null
@@ -148,27 +170,58 @@ object FootballInputHandler {
                 handleKickLongPressBlocked()
             }
         } else {
+            tryInterruptDiveCharge()
             handleGoalkeeperDivePress(player)
             handleTrapPress(player, FootballActionType.GK_CATCH)
             handleChipPressGoalkeeper(player)
         }
     }
 
-    /** 未持球时 R 键仅鱼跃：不蓄力，松开即扑出（长短按均可）。 */
+    /** 未持球时 R 键鱼跃：支持按住蓄力，松开后执行。 */
     private fun handleGoalkeeperDivePress(player: LocalPlayer) {
         when (getKickLongPressState()) {
             LongPressState.STARTED -> {
-                kickPressStartMs = null
-                resetChargeDisplay()
+                diveChargeCancelled = false
+                if (kickPressStartMs == null) {
+                    kickPressStartMs = System.currentTimeMillis()
+                }
             }
             LongPressState.BEING_PRESSED -> Unit
             LongPressState.FINISHED -> {
-                sendAction(player, FootballActionType.GK_DIVE, 0f, 0L, buildDiveFlags(player))
+                val heldMs = kickReleaseHeldMsOverride ?: kickPressStartMs?.let { System.currentTimeMillis() - it } ?: 0L
+                kickReleaseHeldMsOverride = null
                 kickPressStartMs = null
                 resetChargeDisplay()
+                if (diveChargeCancelled) {
+                    diveChargeCancelled = false
+                    return
+                }
+                val settings = chargeSettings()
+                val chargeRatio = KickChargeUtil.computeLinearRatio(heldMs.coerceAtLeast(0L), settings)
+                sendAction(player, FootballActionType.GK_DIVE, chargeRatio, heldMs.coerceAtLeast(0L), buildDiveFlags(player))
             }
             LongPressState.NONE -> Unit
         }
+    }
+
+    /** 鱼跃蓄力中按 X（接球）或 V（击出）时取消蓄力；同 tick 仍由接球/击出逻辑发包。 */
+    private fun tryInterruptDiveCharge() {
+        if (kickPressStartMs == null || !FootballKeyBindings.KICK.isDown) {
+            return
+        }
+        val trapEdge = FootballKeyBindings.TRAP.isDown && !trapPrevTickPressed
+        val chipEdge = FootballKeyBindings.CHIP.isDown && !chipPrevTickPressed
+        if (!trapEdge && !chipEdge) {
+            return
+        }
+        cancelDiveCharge()
+    }
+
+    private fun cancelDiveCharge() {
+        diveChargeCancelled = true
+        kickPressStartMs = null
+        kickReleaseHeldMsOverride = null
+        resetChargeDisplay()
     }
 
     /** 持球保护期间忽略开球/放下输入，并清除蓄力显示。 */
@@ -455,6 +508,7 @@ object FootballInputHandler {
         }
         kickPressStartMs = null
         kickReleaseHeldMsOverride = null
+        diveChargeCancelled = false
         resetChargeDisplay()
         dribbleTickCounter = 0
         dribbleResumeBlocked = false
@@ -463,9 +517,10 @@ object FootballInputHandler {
     private fun syncKickPressRealtimeClock() {
         val down = FootballKeyBindings.KICK.isDown
         val now = System.currentTimeMillis()
+        val chargingDive = GoalkeeperStateClient.isGoalkeeper && !GoalkeeperStateClient.isHoldingBall
         val chargingThrow = GoalkeeperStateClient.isGoalkeeper && GoalkeeperStateClient.isHoldingBall
         val chargingShoot = !GoalkeeperStateClient.isGoalkeeper
-        val canTrackCharge = chargingThrow || chargingShoot
+        val canTrackCharge = chargingDive || chargingThrow || chargingShoot
 
         if (down && !kickRealtimePrevDown && canTrackCharge && kickPressStartMs == null) {
             kickPressStartMs = now

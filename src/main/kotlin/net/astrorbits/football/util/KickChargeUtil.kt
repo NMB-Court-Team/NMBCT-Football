@@ -48,4 +48,19 @@ object KickChargeUtil {
 
     fun isCharging(heldMs: Long, settings: KickChargeSettings): Boolean =
         computePhase(heldMs, settings) != Phase.NONE
+
+    /** 守门员鱼跃等：仅线性升至满格，无完美窗口与过头衰减。 */
+    fun computeLinearRatio(heldMs: Long, settings: KickChargeSettings): Float {
+        if (heldMs < settings.chargeMinMs) {
+            return 0f
+        }
+        if (heldMs < settings.riseEndMs) {
+            val riseMs = heldMs - settings.chargeMinMs
+            return (riseMs.toFloat() / settings.chargeRiseMs.toFloat()).coerceIn(0f, 1f)
+        }
+        return 1f
+    }
+
+    fun isLinearCharging(heldMs: Long, settings: KickChargeSettings): Boolean =
+        heldMs >= settings.chargeMinMs
 }

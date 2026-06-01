@@ -44,19 +44,52 @@ object GoalkeeperUtil {
     fun ballCenter(football: Football): Vec3 =
         football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
 
-    fun isBallApproachingKeeper(football: Football, player: ServerPlayer): Boolean {
+    fun standingCatchOrigin(player: ServerPlayer): Vec3 {
+        val base = player.position()
+        if (player.isShiftKeyDown) {
+            return base.add(0.0, 0.55, 0.0)
+        }
+        return base.add(0.0, player.eyeHeight * 0.5, 0.0)
+    }
+
+    fun standingCatchDistanceSqr(player: ServerPlayer, football: Football): Double {
+        return standingCatchOrigin(player).distanceToSqr(ballCenter(football))
+    }
+
+    fun canStandingCatchBall(football: Football, player: ServerPlayer): Boolean {
         val velocity = football.getPhysicsState().linearVelocity
         if (velocity.lengthSqr() < 1.0e-6) {
             return true
         }
-        val toKeeper = player.position().add(0.0, player.eyeHeight * 0.5, 0.0).subtract(ballCenter(football))
+
+        val ballPos = ballCenter(football)
+        val catchOrigin = standingCatchOrigin(player)
+        val toKeeper = catchOrigin.subtract(ballPos)
         if (toKeeper.lengthSqr() < 1.0e-6) {
             return true
         }
-        val dot = velocity.normalize().dot(toKeeper.normalize())
+
         val minDot = cos(Math.toRadians(GoalkeeperInputConfig.GK_CATCH_ANGLE_DEG / 2.0))
+        val lowBallThreshold = catchOrigin.y - ballPos.y
+        if (lowBallThreshold > 0.35) {
+            val horizontalVelocity = Vec3Math.horizontal(velocity)
+            val horizontalToKeeper = Vec3Math.horizontal(toKeeper)
+            if (horizontalVelocity.lengthSqr() < 1.0e-6) {
+                return true
+            }
+            if (horizontalToKeeper.lengthSqr() < 1.0e-8) {
+                return true
+            }
+            val dot = horizontalVelocity.normalize().dot(Vec3Math.normalizeSafe(horizontalToKeeper))
+            return dot >= minDot
+        }
+
+        val dot = velocity.normalize().dot(Vec3Math.normalizeSafe(toKeeper))
         return dot >= minDot
     }
+
+    fun isBallApproachingKeeper(football: Football, player: ServerPlayer): Boolean =
+        canStandingCatchBall(football, player)
 
     fun isInDirectionalSector(
         origin: Vec3,
@@ -87,6 +120,69 @@ object GoalkeeperUtil {
             }
         }
         return Vec3Math.normalizeSafe(Vec3Math.horizontal(player.lookAngle))
+    }
+
+    /**
+     * 鱼跃冲量随视角俯仰（Minecraft `xRot`：负=仰视，正=俯视）的缩放。
+     * - 仰视：跳得更高、扑得更近
+     * - 平视→俯视 30°：高度与距离同步降低
+     * - 俯视 >30°：贴地前扑，距离为最短档且不再缩短
+     */
+    data class DivePitchScalars(
+        val heightScale: Double,
+        val forwardScale: Double,
+        val groundedDive: Boolean,
+        val groundVerticalSpeed: Double,
+    )
+
+    fun resolveDivePitchScalars(lookPitch: Float): DivePitchScalars {
+        val cfg = GoalkeeperInputConfig.GK_DIVE_PITCH
+        val pitch = lookPitch.toDouble()
+        val groundThreshold = cfg.groundPitchThresholdDeg.coerceAtLeast(1.0e-6)
+        if (pitch > groundThreshold) {
+            return DivePitchScalars(
+                heightScale = cfg.groundHeightScale,
+                forwardScale = cfg.groundForwardScale,
+                groundedDive = true,
+                groundVerticalSpeed = cfg.groundVerticalSpeed,
+            )
+        }
+        if (pitch >= 0.0) {
+            val t = (pitch / groundThreshold).coerceIn(0.0, 1.0)
+            return DivePitchScalars(
+                heightScale = lerp(1.0, cfg.groundHeightScale, t),
+                forwardScale = lerp(1.0, cfg.groundForwardScale, t),
+                groundedDive = false,
+                groundVerticalSpeed = cfg.groundVerticalSpeed,
+            )
+        }
+        val lookUpRef = cfg.lookUpReferencePitchDeg.coerceAtLeast(1.0e-6)
+        val t = (-pitch / lookUpRef).coerceIn(0.0, 1.0)
+        return DivePitchScalars(
+            heightScale = lerp(1.0, cfg.lookUpMaxHeightScale, t),
+            forwardScale = lerp(1.0, cfg.lookUpMinForwardScale, t),
+            groundedDive = false,
+            groundVerticalSpeed = cfg.groundVerticalSpeed,
+        )
+    }
+
+    private fun lerp(a: Double, b: Double, t: Double): Double = a + (b - a) * t.coerceIn(0.0, 1.0)
+
+    fun resolveDiveLookDirection(lookYaw: Float, lookPitch: Float): Vec3 {
+        val look = Vec3.directionFromRotation(lookPitch, lookYaw)
+        val horizontal = Vec3Math.horizontal(look)
+        if (horizontal.lengthSqr() > 1.0e-8) {
+            return Vec3Math.normalizeSafe(horizontal)
+        }
+        return Vec3Math.normalizeSafe(Vec3Math.horizontal(Vec3.directionFromRotation(0f, lookYaw)))
+    }
+
+    fun resolveDiveChargeRatio(chargeHeldMs: Long, chargeRatio: Float): Float {
+        if (chargeHeldMs > 0L) {
+            val settings = FootballInputConfig.chargeSettings()
+            return KickChargeUtil.computeLinearRatio(chargeHeldMs, settings)
+        }
+        return chargeRatio.coerceIn(0f, 1f)
     }
 
     fun resolveThrowLongParams(chargeRatio: Float, sprinting: Boolean, perfectCharge: Boolean = false): KickParams {

@@ -230,6 +230,69 @@ sequenceDiagram
 
 若模型偏移或大小不对，优先调 `FootballRenderer` 内 `translate` 或 `ItemDisplayContext`；若旋转与运动不一致，应检查 `Football.tick` 中的 `integrateOrientation` 与同步，而非渲染器。
 
+## 守门员：`R` 键蓄力鱼跃扑救
+
+该机制对应守门员未持球时的 `GK_DIVE`：
+
+- 客户端按住 `R`（踢球键）开始蓄力，松开时发送 `chargeHeldMs / chargeRatio` 与当前 `lookYaw/lookPitch`。
+- 鱼跃蓄力为**线性满格**（`KickChargeUtil.computeLinearRatio`），无完美窗口、无过头衰减；蓄力中按 `X`（接球）或 `V`（击出）可打断蓄力并照常触发对应动作。
+- 服务端以**动作瞬间视角**（`lookYaw` / `lookPitch`）计算前扑方向；前扑距离与起跳高度还随**俯仰角**变化（见下）。
+- 前扑距离与高度随蓄力提升；鱼跃期间每 tick 写入水平速度并同步客户端。
+- 鱼跃会话持续 `goalkeeper.dive.dive_duration_ticks`，期间每 tick 进行扑救判定。
+- 判定区域为玩家**当前视角前方扇形**，范围与角度使用服务端配置：
+  - `goalkeeper.dive.dive_range`
+  - `goalkeeper.dive.dive_half_angle_deg`（总角度 = `2 × half_angle`，默认 `120°`）
+- 命中后直接抱球（`enterHold`），并立刻处理“后坐力 + 前扑减速”。
+
+### 起跳速度（蓄力 × 俯仰）
+
+设蓄力比 `c ∈ [0,1]`，`GK_DIVE_SPEED = goalkeeper.dive.dive_speed`，俯仰与冲量自 `goalkeeper.dive.pitch` / `goalkeeper.dive.impulse` 读取（见 `GoalkeeperDivePitchSettings`、`GoalkeeperDiveImpulseSettings`）。
+
+`GoalkeeperUtil.resolveDivePitchScalars(lookPitch)` 得到 `heightScale`、`forwardScale`、`groundedDive`、`groundVerticalSpeed`（Minecraft 俯仰：负=仰视，正=俯视）：
+
+| 俯仰区间 | 高度系数 | 水平系数 | 模式 |
+|----------|----------|----------|------|
+| 仰视（pitch &lt; 0） | 1.0 → `look_up_max_height_scale` | 1.0 → `look_up_min_forward_scale` | 参考角 `look_up_reference_pitch_deg` |
+| 平视 → `ground_pitch_threshold_deg` | 1.0 → `ground_height_scale` | 1.0 → `ground_forward_scale` | 同步降低 |
+| 俯视 &gt; 阈值 | `ground_height_scale` | `ground_forward_scale`（最短档） | `groundedDive`，竖直 `ground_vertical_speed` |
+
+```text
+imp = goalkeeper.dive.impulse
+baseH = lerp(imp.launch_up_min, imp.launch_up_max, c) * heightScale
+baseF = lerp(GK_DIVE_SPEED * imp.launch_forward_min_scale,
+              GK_DIVE_SPEED * imp.launch_forward_max_scale, c) * forwardScale
+sustainF = lerp(GK_DIVE_SPEED * imp.sustain_forward_min_scale,
+                GK_DIVE_SPEED * imp.sustain_forward_max_scale, c) * forwardScale
+起跳竖直 = groundedDive ? pitch.ground_vertical_speed : baseH
+hurtMarked = true
+```
+
+### 接球后坐力与减速
+
+设来球线速度为 `v_ball`（`football.linearVelocity`），`|v_ball|` 为球速，接球瞬间：
+
+```text
+若 |v_ball| < GK_DIVE_CATCH_RECOIL_MIN_SPEED:
+    recoil = 0
+否则:
+    recoilRaw = v_ball * (GK_DIVE_DEFLECT_FORCE_SCALE * 0.2)
+    recoil    = clampMagnitude(recoilRaw, 0.75)
+```
+
+`GK_DIVE_CATCH_RECOIL_MIN_SPEED` 对应配置 `goalkeeper.dive.dive_catch_recoil_min_speed`（默认 `0.25` blocks/tick）。
+
+然后对守门员当前速度做分解：
+
+```text
+v_forward  = project(player.deltaMovement, diveForwardDir)
+v_remain   = player.deltaMovement - v_forward
+v_new      = v_remain + v_forward * 0.15 + recoil
+```
+
+- 低速来球不施加 `recoil`，避免静止/滚地球仍被轻微弹开。
+- 达到阈值后，`recoil` 与来球方向一致，模拟接球冲击（后坐）。
+- 将前扑分量缩到 `15%`，显著减少接球后继续向前“滑冲”的情况（与球速无关，每次鱼跃接球都会执行）。
+
 ## 球员输入：观察四周（Look Around）
 
 > **请勿随意修改本节描述的机制。**  

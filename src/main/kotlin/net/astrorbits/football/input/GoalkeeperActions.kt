@@ -128,7 +128,7 @@ object GoalkeeperActions {
         if (football.isHeld()) {
             return
         }
-        if (player.distanceToSqr(football) > range * range) {
+        if (GoalkeeperUtil.standingCatchDistanceSqr(player, football) > range * range) {
             return
         }
 
@@ -136,7 +136,7 @@ object GoalkeeperActions {
         if (speed > GoalkeeperInputConfig.GK_CATCH_MAX_SPEED) {
             return
         }
-        if (!GoalkeeperUtil.isBallApproachingKeeper(football, player)) {
+        if (!GoalkeeperUtil.canStandingCatchBall(football, player)) {
             return
         }
 
@@ -175,13 +175,16 @@ object GoalkeeperActions {
             return
         }
 
-        val useLookOnly = payload.flags and FootballInputConfig.FLAG_DIVE_USE_LOOK != 0
-        val direction = GoalkeeperUtil.resolveDiveDirection(player, useLookOnly)
+        var direction = GoalkeeperUtil.resolveDiveLookDirection(payload.lookYaw, payload.lookPitch)
+        if (direction.lengthSqr() < 1.0e-8) {
+            direction = GoalkeeperUtil.resolveDiveDirection(player, useLookOnly = true)
+        }
         if (direction.lengthSqr() < 1.0e-8) {
             return
         }
 
-        GoalkeeperDiveSessions.begin(player, direction, now)
+        val chargeRatio = GoalkeeperUtil.resolveDiveChargeRatio(payload.chargeHeldMs, payload.chargeRatio)
+        GoalkeeperDiveSessions.begin(player, direction, chargeRatio, payload.lookPitch, now)
         FootballSounds.playGkDive(player)
         FootballParticles.playGkDive(player)
         diveCooldownUntil[player.uuid] = now + GoalkeeperInputConfig.GK_DIVE_COOLDOWN_TICKS
@@ -189,34 +192,40 @@ object GoalkeeperActions {
 
     fun tryResolveDiveCatch(player: ServerPlayer, football: Football, diveDirection: Vec3): Boolean {
         val speed = GoalkeeperUtil.ballSpeed(football)
-        if (speed <= GoalkeeperInputConfig.GK_DIVE_CATCH_MAX_SPEED) {
-            football.lastKicker = player.uuid
-            football.enterHold(player)
-            FootballSounds.playGkCatch(player, speed)
-            FootballParticles.playGkCatch(player, football, speed)
-            return true
-        }
-
-        val deflectDir = applyDeflectDirection(diveDirection, player)
-        val force = speed * GoalkeeperInputConfig.GK_DIVE_DEFLECT_FORCE_SCALE
         football.lastKicker = player.uuid
-        FootballKickUtil.applyKickWithHorizontalDirection(
-            football,
-            deflectDir,
-            deflectDir.add(0.0, 0.15, 0.0),
-            net.astrorbits.football.util.KickParams(force = force, angleDegrees = 8.0, heightOffset = 0.0),
-        )
-        FootballSounds.playGkPunch(player)
-        FootballParticles.playGkPunch(player, football)
+        val incoming = football.getPhysicsState().linearVelocity
+        football.enterHold(player)
+
+        val clampedRecoil = if (speed < GoalkeeperInputConfig.GK_DIVE_CATCH_RECOIL_MIN_SPEED) {
+            Vec3.ZERO
+        } else {
+            val recoilImpulse = incoming.scale(GoalkeeperInputConfig.GK_DIVE_DEFLECT_FORCE_SCALE * 0.2)
+            val recoilLength = recoilImpulse.length()
+            val maxRecoil = 0.75
+            if (recoilLength > maxRecoil && recoilLength > 1.0e-8) {
+                recoilImpulse.scale(maxRecoil / recoilLength)
+            } else {
+                recoilImpulse
+            }
+        }
+        applyDiveMomentumDamping(player, diveDirection, clampedRecoil)
+
+        FootballSounds.playGkCatch(player, speed)
+        FootballParticles.playGkCatch(player, football, speed)
         return true
     }
 
-    private fun applyDeflectDirection(diveDirection: Vec3, player: ServerPlayer): Vec3 {
-        val spread = (player.random.nextDouble() - 0.5) * 30.0
-        val yawRad = Math.toRadians(spread)
-        val x = diveDirection.x * kotlin.math.cos(yawRad) - diveDirection.z * kotlin.math.sin(yawRad)
-        val z = diveDirection.x * kotlin.math.sin(yawRad) + diveDirection.z * kotlin.math.cos(yawRad)
-        return Vec3Math.normalizeSafe(Vec3(x, 0.0, z))
+    private fun applyDiveMomentumDamping(player: ServerPlayer, diveDirection: Vec3, recoil: Vec3) {
+        val horizontalDir = Vec3Math.normalizeSafe(Vec3(diveDirection.x, 0.0, diveDirection.z))
+        val current = player.deltaMovement
+        val forwardComponent = if (horizontalDir.lengthSqr() > 1.0e-8) {
+            horizontalDir.scale(current.dot(horizontalDir))
+        } else {
+            Vec3.ZERO
+        }
+        val remaining = current.subtract(forwardComponent)
+        val dampedForward = forwardComponent.scale(0.15)
+        player.setDeltaMovement(remaining.add(dampedForward).add(recoil))
     }
 
     private fun applyLookFromPayload(player: ServerPlayer, payload: FootballActionC2SPayload) {
