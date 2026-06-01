@@ -5,7 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer
 import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.config.client.FootballClientConfigHolder
 import net.astrorbits.football.config.client.GoalNetRenderMode
-import net.astrorbits.football.entity.GoalNetEntity
+import net.astrorbits.football.GoalNetEntity
 import net.astrorbits.football.physics.GoalNetConfig
 import net.minecraft.client.renderer.SubmitNodeCollector
 import net.minecraft.client.renderer.entity.EntityRenderer

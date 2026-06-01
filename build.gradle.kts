@@ -33,6 +33,8 @@ loom {
 			vmArgs.removeAll { it.startsWith("--sun-misc-unsafe-memory-access") }
 		}
 	}
+
+	accessWidenerPath = file("src/main/resources/nmbct-football.accesswidener")
 }
 
 dependencies {

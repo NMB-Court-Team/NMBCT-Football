@@ -1,7 +1,7 @@
 package net.astrorbits.football.util
 
 import net.astrorbits.football.NMBCTFootball
-import net.astrorbits.football.entity.GoalNetEntity
+import net.astrorbits.football.GoalNetEntity
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel

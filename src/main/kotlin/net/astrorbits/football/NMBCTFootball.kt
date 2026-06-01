@@ -1,7 +1,7 @@
 ﻿package net.astrorbits.football
 
 import net.astrorbits.football.block.Blocks
-import net.astrorbits.football.entity.GoalNetEntity
+import net.astrorbits.football.GoalNetEntity
 import net.astrorbits.football.config.client.FootballClientConfigHolder
 import net.astrorbits.football.config.server.FootballServerConfigHolder
 import net.astrorbits.football.input.FootballDribbleSessions
@@ -21,6 +21,7 @@ import net.fabricmc.api.ModInitializer
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents
 import net.minecraft.resources.Identifier
+import net.minecraft.util.ProblemReporter
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
@@ -28,6 +29,13 @@ object NMBCTFootball : ModInitializer {
 	const val MOD_ID = "nmbct-football"
 
     val LOGGER: Logger = LoggerFactory.getLogger(MOD_ID)
+
+	val ROOT_REPORTER: ProblemReporter = ProblemReporter.ScopedCollector(LOGGER)
+
+	inline fun withErrReporter(noinline path: () -> String = { "" }, block: ((errReporter: ProblemReporter) -> Unit)) {
+		val errReporter = ROOT_REPORTER.forChild(path)
+		block(errReporter)
+	}
 
 	fun id(path: String): Identifier = Identifier.fromNamespaceAndPath(MOD_ID, path)
 

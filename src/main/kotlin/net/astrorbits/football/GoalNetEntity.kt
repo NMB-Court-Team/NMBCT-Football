@@ -1,26 +1,26 @@
-package net.astrorbits.football.entity
+package net.astrorbits.football
 
-import net.astrorbits.football.NMBCTFootball
-import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.item.Items
+import net.astrorbits.football.network.FootballNetworking
+import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.GoalNetConfig
 import net.astrorbits.football.physics.GoalNetMesh
-import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.GoalNetAnchorLinks
 import net.astrorbits.football.util.GoalNetDrops
 import net.astrorbits.football.util.GoalNetGeometry
-import net.minecraft.server.level.ServerLevel
-import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.entity.player.Player
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Registry
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
 import net.minecraft.network.syncher.SynchedEntityData
 import net.minecraft.resources.ResourceKey
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.damagesource.DamageSource
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.MobCategory
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.storage.ValueInput
 import net.minecraft.world.level.storage.ValueOutput
@@ -240,7 +240,7 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     override fun hurtServer(
         level: ServerLevel,
-        source: net.minecraft.world.damagesource.DamageSource,
+        source: DamageSource,
         damage: Float,
     ): Boolean = false
 

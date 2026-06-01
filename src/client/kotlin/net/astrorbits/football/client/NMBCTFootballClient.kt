@@ -2,7 +2,7 @@ package net.astrorbits.football.client
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.NMBCTFootball
-import net.astrorbits.football.entity.GoalNetEntity
+import net.astrorbits.football.GoalNetEntity
 import net.astrorbits.football.client.render.GoalNetConnectorPreviewClient
 import net.astrorbits.football.client.render.GoalNetRenderer
 import net.astrorbits.football.client.render.GoalNetStateClient

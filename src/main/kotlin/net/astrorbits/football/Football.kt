@@ -1,48 +1,39 @@
 package net.astrorbits.football
 
-import net.astrorbits.football.input.GoalkeeperHoldLock
-import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.astrorbits.football.input.FootballDribbleSessions
 import net.astrorbits.football.input.FootballInputConfig
+import net.astrorbits.football.input.GoalkeeperHoldLock
+import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.astrorbits.football.item.Items
-import net.astrorbits.football.match.MatchConfigHolder
-import net.astrorbits.football.match.PostGoalBallResetScheduler
-import net.astrorbits.football.match.MatchPhase
-import net.astrorbits.football.match.MatchState
-import net.astrorbits.football.match.TeamSide
+import net.astrorbits.football.match.*
+import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.physics.FootballNetInteraction
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsNbt
 import net.astrorbits.football.physics.FootballPhysicsState
-import net.minecraft.nbt.CompoundTag
-import net.astrorbits.football.util.CobwebUtil
-import net.astrorbits.football.util.FootballBlockDepenetration
-import net.astrorbits.football.util.FootballPhysicsSimulator
-import net.astrorbits.football.util.QuaternionMath
-import net.astrorbits.football.util.GoalkeeperHoldPoseUtil
-import net.astrorbits.football.util.Vec3Math
+import net.astrorbits.football.util.*
+import net.minecraft.core.Registry
 import net.minecraft.core.registries.BuiltInRegistries
-import java.util.UUID
 import net.minecraft.core.registries.Registries
+import net.minecraft.nbt.CompoundTag
 import net.minecraft.network.syncher.EntityDataAccessor
 import net.minecraft.network.syncher.EntityDataSerializers
 import net.minecraft.network.syncher.SynchedEntityData
 import net.minecraft.resources.ResourceKey
-import net.minecraft.core.Registry
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.permissions.Permissions
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.sounds.SoundSource
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.damagesource.DamageSource
 import net.minecraft.world.entity.Entity
-import net.minecraft.world.entity.player.Player
-import net.minecraft.world.item.ItemStack
-import net.minecraft.sounds.SoundEvents
-import net.minecraft.sounds.SoundSource
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.MobCategory
 import net.minecraft.world.entity.MoverType
+import net.minecraft.world.entity.player.Player
+import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.storage.ValueInput
 import net.minecraft.world.level.storage.ValueOutput
@@ -50,6 +41,7 @@ import net.minecraft.world.phys.Vec3
 import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector3fc
+import java.util.*
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -279,7 +271,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             if (pushMagnitude <= 1.0e-6) {
                 continue
             }
-            player.setDeltaMovement(player.deltaMovement.add(direction.scale(pushMagnitude)))
+            player.deltaMovement = player.deltaMovement.add(direction.scale(pushMagnitude))
             player.hurtMarked = true
         }
     }
@@ -347,7 +339,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             positiveNormal: Vec3,
         ): Boolean {
             if (abs(dirValue) < 1.0e-9) {
-                return startValue >= minBound && startValue <= maxBound
+                return startValue in minBound..maxBound
             }
 
             val t1 = (minBound - startValue) / dirValue
@@ -425,7 +417,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val iy = prevCenter.y + movement.y * t
         val iz = prevCenter.z + movement.z * t
 
-        val server = (level() as? net.minecraft.server.level.ServerLevel)?.server ?: return
+        val server = (level() as? ServerLevel)?.server ?: return
 
         // 最后触球方 = 对方发球
         val lastTouchTeam = lastKicker?.let { MatchState.getPlayerTeam(it) }
@@ -437,17 +429,17 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
         // 球放在线上
         val ballPos = Vec3(ix, iy, iz)
-        MatchState.resetFootballAt(level() as net.minecraft.server.level.ServerLevel, ballPos)
+        MatchState.resetFootballAt(level() as ServerLevel, ballPos)
         MatchState.kickoffTeam = restartTeam
         MatchState.kickoffTouched = false
-        net.astrorbits.football.network.FootballNetworking.broadcastGoalLineOut(
-            server, net.astrorbits.football.match.GoalLineOutType.THROW_IN, restartTeam, ballPos.x, ballPos.y, ballPos.z,
+        FootballNetworking.broadcastGoalLineOut(
+            server, GoalLineOutType.THROW_IN, restartTeam, ballPos.x, ballPos.y, ballPos.z,
         )
     }
 
     /** 检测球是否穿越门线：进球或出底线 */
     private fun checkGoalOrOut(
-        goal: net.astrorbits.football.match.GoalConfig,
+        goal: GoalConfig,
         prevCenter: Vec3,
         currCenter: Vec3,
         defendingTeam: TeamSide,
@@ -483,11 +475,11 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val maxZ = maxOf(gz1, gz2)
 
         // 球门框内 → 进球
-        val inGoal = ix >= minX && ix <= maxX
-                && iy >= minY && iy <= maxY
-                && iz >= minZ - 1.01 && iz <= maxZ + 1.01
+        val inGoal = ix in minX..maxX
+                && iy in minY..maxY
+                && iz in minZ - 1.01..maxZ + 1.01
 
-        val server = (level() as? net.minecraft.server.level.ServerLevel)?.server ?: return
+        val server = (level() as? ServerLevel)?.server ?: return
 
         if (inGoal) {
             if (MatchState.postGoalResetPending) return
@@ -497,39 +489,39 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             val scorerName = lastKicker?.let { server.playerList.getPlayer(it)?.gameProfile?.name } ?: "?"
             val scorerTeam = lastKicker?.let { MatchState.getPlayerTeam(it) } ?: attackingTeam
             val ownGoal = scorerTeam != attackingTeam
-            net.astrorbits.football.network.FootballNetworking.broadcastGoalScored(
+            FootballNetworking.broadcastGoalScored(
                 server, attackingTeam, scorerName, scorerTeam, MatchState.teamAScore, MatchState.teamBScore, ownGoal,
             )
             FootballParticles.playGoal(level(), FootballParticles.centerOfFootball(this))
-            PostGoalBallResetScheduler.schedule(level() as net.minecraft.server.level.ServerLevel)
+            PostGoalBallResetScheduler.schedule(level() as ServerLevel)
             MatchState.kickoffTeam = defendingTeam
             MatchState.kickoffTouched = false
-            net.astrorbits.football.network.FootballNetworking.broadcastPostGoalKickoff(server, defendingTeam)
+            FootballNetworking.broadcastPostGoalKickoff(server, defendingTeam)
         } else {
             // 穿越门线平面但不在门框内 → 出底线
             val lastTouchTeam = lastKicker?.let { MatchState.getPlayerTeam(it) }
-            val outType: net.astrorbits.football.match.GoalLineOutType
+            val outType: GoalLineOutType
             val restartTeam: TeamSide
 
             if (lastTouchTeam == attackingTeam) {
                 // 攻方最后触球 → 球门球（守方开球）
-                outType = net.astrorbits.football.match.GoalLineOutType.GOAL_KICK
+                outType = GoalLineOutType.GOAL_KICK
                 restartTeam = defendingTeam
             } else {
                 // 守方最后触球（或无归属） → 角球（攻方开球）
-                outType = net.astrorbits.football.match.GoalLineOutType.CORNER_KICK
+                outType = GoalLineOutType.CORNER_KICK
                 restartTeam = attackingTeam
             }
 
             // 使用配置中的开球点
-            val ballPos = if (outType == net.astrorbits.football.match.GoalLineOutType.GOAL_KICK) {
+            val ballPos = if (outType == GoalLineOutType.GOAL_KICK) {
                 val gk = goal.goalKick
                 Vec3(gk.x, gk.y, gk.z)
             } else {
                 // 角球：根据穿越点在球门哪一侧决定用左角旗还是右角旗
                 val goalCenterX = (gx1 + gx2) / 2.0
                 val goalCenterZ = (gz1 + gz2) / 2.0
-                val onRight = if (Math.abs(facing.x) > Math.abs(facing.z))
+                val onRight = if (abs(facing.x) > abs(facing.z))
                     iz > goalCenterZ
                 else
                     ix > goalCenterX
@@ -537,10 +529,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 Vec3(corner.x, corner.y, corner.z)
             }
 
-            MatchState.resetFootballAt(level() as net.minecraft.server.level.ServerLevel, ballPos)
+            MatchState.resetFootballAt(level() as ServerLevel, ballPos)
             MatchState.kickoffTeam = restartTeam
             MatchState.kickoffTouched = false
-            net.astrorbits.football.network.FootballNetworking.broadcastGoalLineOut(server, outType, restartTeam, ballPos.x, ballPos.y, ballPos.z)
+            FootballNetworking.broadcastGoalLineOut(server, outType, restartTeam, ballPos.x, ballPos.y, ballPos.z)
         }
     }
 
@@ -706,7 +698,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     /** 将当前物理状态与 [deltaMovement] 写入 NBT（含原版 [FootballPhysicsNbt.MOTION]），供数据包序列化。 */
     fun writePhysicsNbt(tag: CompoundTag) {
-        FootballPhysicsNbt.write(physicsState, deltaMovement, tag)
+        NMBCTFootball.withErrReporter({ "FootballPhysicsNbt" }) { errReporter ->
+            val output = ValueIOUtil.createNbtOutput(errReporter, level().registryAccess(), tag)
+            FootballPhysicsNbt.write(physicsState, deltaMovement, output)
+        }
     }
 
     /**
@@ -714,16 +709,19 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
      * 服务端会同步到 [SynchedEntityData]。
      */
     fun applyPhysicsNbt(tag: CompoundTag) {
-        val motion = FootballPhysicsNbt.read(tag, physicsState)
-        val velocity = motion ?: physicsState.linearVelocity
-        physicsState.linearVelocity = velocity
-        deltaMovement = velocity
-        previousOrientation.set(physicsState.orientation)
-        renderLinearVelocity = physicsState.linearVelocity
-        renderAngularVelocity = physicsState.angularVelocity
-        if (!level().isClientSide) {
-            syncPhysicsToEntityData()
-            syncPacketPositionCodec(x, y, z)
+        NMBCTFootball.withErrReporter({ "FootballPhysicsNbt" }) { errReporter ->
+            val input = ValueIOUtil.createNbtInput(errReporter, level().registryAccess(), tag)
+            val motion = FootballPhysicsNbt.read(input, physicsState)
+            val velocity = motion ?: physicsState.linearVelocity
+            physicsState.linearVelocity = velocity
+            deltaMovement = velocity
+            previousOrientation.set(physicsState.orientation)
+            renderLinearVelocity = physicsState.linearVelocity
+            renderAngularVelocity = physicsState.angularVelocity
+            if (!level().isClientSide) {
+                syncPhysicsToEntityData()
+                syncPacketPositionCodec(x, y, z)
+            }
         }
     }
 

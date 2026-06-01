@@ -1,6 +1,6 @@
 package net.astrorbits.football.physics
 
-import net.astrorbits.football.entity.GoalNetEntity
+import net.astrorbits.football.GoalNetEntity
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3

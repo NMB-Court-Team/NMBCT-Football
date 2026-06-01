@@ -2,7 +2,7 @@ package net.astrorbits.football.item
 
 import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.block.GoalNetAnchorBlock
-import net.astrorbits.football.entity.GoalNetEntity
+import net.astrorbits.football.GoalNetEntity
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Registry
 import net.minecraft.core.registries.BuiltInRegistries

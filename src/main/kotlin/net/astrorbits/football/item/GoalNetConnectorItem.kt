@@ -1,7 +1,7 @@
 package net.astrorbits.football.item
 
 import net.astrorbits.football.block.GoalNetAnchorBlock
-import net.astrorbits.football.entity.GoalNetEntity
+import net.astrorbits.football.GoalNetEntity
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.physics.GoalNetConfig
 import net.astrorbits.football.util.GoalNetGeometry

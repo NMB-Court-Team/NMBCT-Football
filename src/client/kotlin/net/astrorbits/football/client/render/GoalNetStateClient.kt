@@ -1,6 +1,6 @@
 package net.astrorbits.football.client.render
 
-import net.astrorbits.football.entity.GoalNetEntity
+import net.astrorbits.football.GoalNetEntity
 import net.astrorbits.football.network.GoalNetStateS2CPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.Minecraft

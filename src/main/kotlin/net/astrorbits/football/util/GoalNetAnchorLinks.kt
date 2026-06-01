@@ -1,7 +1,7 @@
 package net.astrorbits.football.util
 
 import net.astrorbits.football.block.GoalNetAnchorBlock
-import net.astrorbits.football.entity.GoalNetEntity
+import net.astrorbits.football.GoalNetEntity
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceKey

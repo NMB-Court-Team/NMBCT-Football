@@ -1,6 +1,6 @@
 package net.astrorbits.football
 
-import net.astrorbits.football.entity.GoalNetEntity
+import net.astrorbits.football.GoalNetEntity
 import net.astrorbits.football.item.GoalNetConnectorItem
 import net.astrorbits.football.item.GoalNetConnectorSounds
 import net.astrorbits.football.item.Items
