@@ -336,16 +336,46 @@ v_new      = v_remain + v_forward * 0.15 + recoil
 | `ball_player_push_scale` | `0.2` | 球撞玩家推力与法向速度的比例系数 |
 | `ball_player_max_push` | `0.75` | 球撞玩家推力最大值 |
 | `ball_player_restitution` | `0.68` | 球撞玩家反弹恢复系数 |
+| `player_ball_push_min_speed` | `0.06` | 玩家推球时，相对接近速度低于该值则不施加冲量 |
+| `player_ball_push_scale` | `0.35` | 玩家推球冲量 = 相对接近速度 × 该系数 |
+| `player_ball_push_max` | `0.55` | 玩家推球单次线速度增量上限（blocks/tick） |
 | `slide_tackler_speed_damp_on_contact` | `0.25` | 滑铲命中玩家后，滑铲者速度保留比例 |
-| `slide_victim_push_speed` | `0.45` | 被铲玩家瞬时推开速度 |
+| `slide_victim_push_speed` | `0.72` | 被铲玩家瞬时推开速度 |
 | `slide_victim_resistance_ticks` | `12` | 被铲后高阻力持续 tick 数 |
 | `slide_victim_resistance_factor` | `0.35` | 高阻力期间每 tick 水平速度保留比例 |
+| `slide_victim_jump_block_ticks` | `14` | 被铲后禁止起跳持续 tick 数 |
 
 调参建议：
 
 - 若对抗过“粘”，优先降低 `slide_victim_resistance_ticks` 或提高 `slide_victim_resistance_factor`。
 - 若球撞人过“硬”，先降低 `ball_player_push_scale`，再考虑下调 `ball_player_restitution`。
 - 若带球仍偶发被自己球体挤动，可适当提高 `dribble_collision_grace_ticks`。
+- 若推球太“轻/重”，优先调 `player_ball_push_scale` 与 `player_ball_push_max`；球越“沉”可略增 `physics.mass`。
+
+### 玩家 ↔ 静止/慢速球（滚动推球）
+
+`Football.resolvePlayerCollisions` 在服务端每 tick 处理，与方块碰撞、滚动耦合共用同一套 `FootballPhysicsState`。
+
+**玩家推球（新增）**——玩家走近静止或慢速球时：
+
+```text
+pushDir = normalize(球位置 − 玩家位置) 的水平分量
+v_rel = max(0, (v_player − v_ball) · pushDir)
+Δv = min(v_rel × player_ball_push_scale / MASS, player_ball_push_max)
+v ← v + pushDir × Δv
+ω ← rollingAngularVelocity(v_horizontal, RADIUS)   // 无滑滚动，不是纯平移
+```
+
+- **惯性**：冲量除以 `MASS`（默认 `0.45`），与踢球 `Δv = F/MASS` 同一约定。
+- **滚动**：立即用 `Vec3Math.rollingAngularVelocity` 同步 `ω_x`、`ω_z`；之后每 tick 接地时 `ROLL_COUPLING` 继续维持无滑关系，并由 `GROUND_FRICTION` 衰减。
+- **分离**：MTV 把球推出玩家碰撞盒，避免嵌入。
+
+**球撞玩家（原有）**——球速朝向玩家分量足够大时：
+
+- 球沿法线反弹（`ball_player_restitution`）
+- 玩家获得水平 recoil（`ball_player_push_scale` / `ball_player_max_push`）
+
+两条链路独立：推球看玩家相对接近速度，撞人看球对玩家法向接近速度。
 
 ## 球员输入：观察四周（Look Around）
 

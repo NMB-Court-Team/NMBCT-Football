@@ -53,5 +53,8 @@
   },
   "item.goal_net_connector.destroy": {
     "sounds": ["nmbct-football:goal_net_connector/destroy"]
+  },
+  "item.whistle.use": {
+    "sounds": ["nmbct-football:whistle"]
   }
 }

@@ -48,6 +48,7 @@ object FootballSounds {
     private val FOOTBALL_SMASH_KICK_EVENT = register("entity.football.smash_kick")
     private val FOOTBALL_PALM_EVENT = register("entity.football.palm")
     private val FOOTBALL_PERFECT_KICK_EVENT = register("entity.football.perfect_kick")
+    private val WHISTLE_USE_EVENT = register("item.whistle.use")
 
     /**
      * 单次播放的音量与音高配置。
@@ -276,6 +277,13 @@ object FootballSounds {
         pitchSpread = 0.08f,
     )
 
+    val WHISTLE_USE: SoundSpec = SoundSpec(
+        event = WHISTLE_USE_EVENT,
+        source = SoundSource.PLAYERS,
+        volume = 1.0f,
+        basePitch = 1.0f,
+    )
+
     fun playGkCatch(player: ServerPlayer, incomingSpeed: Double = 0.0) {
         val reference = kotlin.math.max(GoalkeeperInputConfig.GK_CATCH_MAX_SPEED, GoalkeeperInputConfig.GK_DIVE_CATCH_MAX_SPEED)
             .coerceAtLeast(0.1)
@@ -324,6 +332,10 @@ object FootballSounds {
         val normalizedForce = normalizeKickForce(force)
         val volumeScale = 0.9f + normalizedForce * 0.2f
         play(player.level(), player.blockPosition(), SLIDE_TACKLE, player.random, volumeScale)
+    }
+
+    fun playWhistle(level: Level, pos: BlockPos, random: RandomSource) {
+        play(level, pos, WHISTLE_USE, random)
     }
 
     fun playFootballPlace(level: Level, pos: BlockPos, random: RandomSource) {

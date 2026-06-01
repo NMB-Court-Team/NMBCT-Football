@@ -16,7 +16,7 @@ object Items {
     val WHISTLE = register(
         "whistle",
         Item.Properties().stacksTo(1),
-        ::Item,
+        ::WhistleItem,
     )
     val RED_CARD = register(
         "red_card",
