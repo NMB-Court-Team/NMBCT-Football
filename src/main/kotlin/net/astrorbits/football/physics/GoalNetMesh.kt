@@ -3,6 +3,7 @@ package net.astrorbits.football.physics
 import net.astrorbits.football.util.GoalNetGeometry.NetRectangle
 import net.minecraft.world.phys.Vec3
 import java.util.Arrays
+import kotlin.math.abs
 
 /**
  * 球网的质点-弹簧网格（服务端权威模拟）。
@@ -51,6 +52,7 @@ class GoalNetMesh(
         buildFrame()
         buildSprings()
         resetToFrame()
+        applyInitialSag()
     }
 
     fun index(i: Int, j: Int): Int = j * cols + i
@@ -99,6 +101,31 @@ class GoalNetMesh(
         for (k in 0 until nodeCount) {
             posX[k] = frameX[k]; posY[k] = frameY[k]; posZ[k] = frameZ[k]
             prevX[k] = frameX[k]; prevY[k] = frameY[k]; prevZ[k] = frameZ[k]
+        }
+    }
+
+    /**
+     * 创建时根据 slack 直接给内部节点一个基础下垂，避免“刚创建先完全拉平”。
+     * 下垂在网中心最明显，靠边缘逐渐衰减到 0。
+     */
+    private fun applyInitialSag() {
+        if (slack <= 1.0e-6) return
+        val baseSag = slack * GoalNetConfig.INITIAL_SAG_PER_SLACK
+        if (baseSag <= 1.0e-6) return
+        for (j in 0 until rows) {
+            val fv = if (rows == 1) 0.0 else j.toDouble() / (rows - 1)
+            val edgeV = 1.0 - abs(fv * 2.0 - 1.0)
+            for (i in 0 until cols) {
+                val k = index(i, j)
+                if (pinned[k]) continue
+                val fu = if (cols == 1) 0.0 else i.toDouble() / (cols - 1)
+                val edgeU = 1.0 - abs(fu * 2.0 - 1.0)
+                val centerWeight = (edgeU * edgeV).coerceIn(0.0, 1.0)
+                if (centerWeight <= 1.0e-6) continue
+                val sag = baseSag * centerWeight
+                posY[k] -= sag
+                prevY[k] -= sag
+            }
         }
     }
 

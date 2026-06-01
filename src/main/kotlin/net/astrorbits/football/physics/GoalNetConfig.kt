@@ -24,16 +24,18 @@ object GoalNetConfig {
     const val CONSTRAINT_ITERATIONS: Int = 6
 
     /** 松弛度默认值与范围。松弛度越大，重力增益更高、约束更柔软，网越下垂。 */
-    const val DEFAULT_SLACK: Double = 0.08
+    const val DEFAULT_SLACK: Double = 0.62
     const val MIN_SLACK: Double = 0.0
-    const val MAX_SLACK: Double = 0.45
+    const val MAX_SLACK: Double = 0.85
     const val SLACK_STEP: Double = 0.05
+    /** 创建网时按松弛度施加的初始下垂深度系数（方块/每 1.0 slack）。 */
+    const val INITIAL_SAG_PER_SLACK: Double = 1.45
     /** 松弛度对重力的增益系数。 */
-    const val SLACK_GRAVITY_GAIN: Double = 2.8
+    const val SLACK_GRAVITY_GAIN: Double = 3.6
     /** 松弛度对弹簧刚度的减弱系数。 */
-    const val SLACK_STIFFNESS_REDUCTION: Double = 1.5
+    const val SLACK_STIFFNESS_REDUCTION: Double = 1.9
     /** 最大松弛度时约束刚度下限，避免网面失稳起皱。 */
-    const val MIN_STIFFNESS_SCALE_AT_MAX_SLACK: Double = 0.25
+    const val MIN_STIFFNESS_SCALE_AT_MAX_SLACK: Double = 0.16
 
     /** 球网被扰动后保持“活跃模拟+同步”的额外 tick 数；静止后降频以省性能。 */
     const val ACTIVE_TICKS_AFTER_DISTURB: Int = 60
@@ -42,22 +44,26 @@ object GoalNetConfig {
     const val SETTLE_SPEED_SQR: Double = 1.0e-7
 
     /** 足球与网交互：法向速度被吸收的比例（1 = 完全吸收）。 */
-    const val BALL_NORMAL_ABSORPTION: Double = 0.72
+    const val BALL_NORMAL_ABSORPTION: Double = 0.93
 
     /** 足球与网交互：常规切向速度保留比例（实现“触网减速”）。 */
-    const val BALL_TANGENT_RETENTION: Double = 0.62
+    const val BALL_TANGENT_RETENTION: Double = 0.52
 
     /** 足球与网交互：重压/极限拉伸时的切向速度保留比例。 */
-    const val BALL_TANGENT_RETENTION_HARD: Double = 0.38
+    const val BALL_TANGENT_RETENTION_HARD: Double = 0.24
 
     /** 触网回弹：基础法向反弹系数。 */
-    const val BALL_RESTITUTION_BASE: Double = 0.08
+    const val BALL_RESTITUTION_BASE: Double = 0.0
 
     /** 触网回弹：随“压入/拉伸强度”提升的法向反弹增益。 */
-    const val BALL_RESTITUTION_STRETCH_GAIN: Double = 0.52
+    const val BALL_RESTITUTION_STRETCH_GAIN: Double = 0.08
 
     /** 触网回弹：法向反弹系数上限，避免蹦网过强。 */
-    const val BALL_RESTITUTION_MAX: Double = 0.62
+    const val BALL_RESTITUTION_MAX: Double = 0.08
+    /** 回弹仅在接近极限拉伸后才生效：该阈值前视为纯阻力吸收。 */
+    const val BALL_RESTITUTION_EXTREME_START: Double = 0.9
+    /** 极限区回弹曲线指数；越大越“后置触发”。 */
+    const val BALL_RESTITUTION_EXTREME_EXPONENT: Double = 3.0
 
     /** 自旋阻尼：常规触网时保留比例。 */
     const val BALL_SPIN_RETENTION: Double = 0.78
@@ -69,10 +75,10 @@ object GoalNetConfig {
     const val HARD_CONTACT_SPEED: Double = 0.72
 
     /** 足球推动网时，冲量影响的节点半径（方块）。 */
-    const val BALL_PUSH_RADIUS: Double = 1.25
+    const val BALL_PUSH_RADIUS: Double = 1.35
 
     /** 足球把网“顶出”的最大附加位移系数，避免穿透过深。 */
-    const val BALL_PUSH_STRENGTH: Double = 0.9
+    const val BALL_PUSH_STRENGTH: Double = 1.15
 
     /** 球心到网面距离小于 (球半径 + 该值) 时判定接触。 */
     const val CONTACT_MARGIN: Double = 0.12
@@ -84,7 +90,9 @@ object GoalNetConfig {
     const val CONTACT_SEPARATION_FROM_PENETRATION: Double = 0.45
 
     /** 网接近极限拉伸时，额外法向反推速度增益（防穿透）。 */
-    const val STRETCH_PUSHOUT_VELOCITY_GAIN: Double = 0.42
+    const val STRETCH_PUSHOUT_VELOCITY_GAIN: Double = 0.22
+    /** 仅在接近极限拉伸后给额外法向反推，避免平时出现回弹感。 */
+    const val STRETCH_PUSHOUT_START: Double = 0.82
 
     /** 渲染：绳线在世界空间的半宽（方块）。固定世界宽度 => 视觉粗细随距离变化。 */
     const val LINE_HALF_WIDTH: Double = 0.018

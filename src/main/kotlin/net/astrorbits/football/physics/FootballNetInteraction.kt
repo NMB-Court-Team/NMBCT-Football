@@ -12,7 +12,7 @@ import net.minecraft.world.phys.Vec3
  */
 object FootballNetInteraction {
     private const val EPS = 1.0e-6
-    private const val STRETCH_CROSSED_BONUS = 0.85
+    private const val STRETCH_CROSSED_BONUS = 0.95
 
     /**
      * 在足球完成本 tick 位移后调用。
@@ -93,8 +93,17 @@ object FootballNetInteraction {
             stretchRatio
         )
         val retainedNormal = vNormal.scale(1.0 - GoalNetConfig.BALL_NORMAL_ABSORPTION)
+        // 回弹门控：仅在接近极限拉伸后逐步启用，常态触网只产生阻力。
+        val restitutionExtremeRatio = normalizedAbove(
+            stretchRatio,
+            GoalNetConfig.BALL_RESTITUTION_EXTREME_START
+        )
+        val restitutionWeight = Math.pow(
+            restitutionExtremeRatio,
+            GoalNetConfig.BALL_RESTITUTION_EXTREME_EXPONENT
+        )
         val restitution = (GoalNetConfig.BALL_RESTITUTION_BASE +
-            stretchRatio * GoalNetConfig.BALL_RESTITUTION_STRETCH_GAIN)
+            restitutionWeight * GoalNetConfig.BALL_RESTITUTION_STRETCH_GAIN)
             .coerceAtMost(GoalNetConfig.BALL_RESTITUTION_MAX)
         val reboundNormal = n.scale(side * speedIntoNet * restitution)
         var newVelocity = vTangent.scale(tangentRetention)
@@ -124,15 +133,19 @@ object FootballNetInteraction {
         state.angularVelocity = state.angularVelocity.scale(spinRetention)
 
         // 接近极限拉伸时给额外反推，优先避免持续嵌入/穿透。
-        val pushoutSpeed = stretchRatio * stretchRatio * GoalNetConfig.STRETCH_PUSHOUT_VELOCITY_GAIN
+        val pushoutRatio = normalizedAbove(stretchRatio, GoalNetConfig.STRETCH_PUSHOUT_START)
+        val pushoutSpeed = pushoutRatio * pushoutRatio * GoalNetConfig.STRETCH_PUSHOUT_VELOCITY_GAIN
         if (pushoutSpeed > 1.0e-4) {
             newVelocity = newVelocity.add(n.scale(side * pushoutSpeed))
         }
 
         // 把球留在入射侧，并与网面保留少量分离距离，减少“黏网”观感。
+        // 仅沿法线做穿透修正，避免“吸附到三角形最近点”造成边角突跳。
         val separation = GoalNetConfig.CONTACT_SEPARATION +
             penetration * GoalNetConfig.CONTACT_SEPARATION_FROM_PENETRATION
-        val restCenter = local.point.add(n.scale(side * (radius + separation)))
+        val targetSigned = side * (radius + separation)
+        val correctionAlongNormal = targetSigned - local.signedNow
+        val restCenter = currCenter.add(n.scale(correctionAlongNormal))
         state.linearVelocity = newVelocity
         return NetContact(restCenter)
     }
@@ -262,8 +275,9 @@ object FootballNetInteraction {
         val nowOffset = currCenter.subtract(closestNow)
         val prevOffset = prevCenter.subtract(closestPrev)
         val distNow = kotlin.math.sqrt(nowOffset.lengthSqr())
-        val signedNow = currCenter.subtract(closestNow).dot(triNormal)
-        val signedPrev = prevCenter.subtract(closestPrev).dot(triNormal)
+        // 用同一平面参考点（a）计算侧别，避免最近点在边/角跳变时符号抖动。
+        val signedNow = currCenter.subtract(a).dot(triNormal)
+        val signedPrev = prevCenter.subtract(a).dot(triNormal)
         val touching = distNow <= contactRadius
         val crossed = segmentCrossesTrianglePlane(prevCenter, currCenter, a, b, c, triNormal)
         if (!touching && !crossed) return null
@@ -369,4 +383,14 @@ object FootballNetInteraction {
     data class NetContact(val restCenter: Vec3)
 
     private fun lerp(a: Double, b: Double, t: Double): Double = a + (b - a) * t.coerceIn(0.0, 1.0)
+
+    /**
+     * 将 [value] 在 [start] 以上区间归一化到 [0, 1]：
+     * - value <= start -> 0
+     * - value >= 1.0 -> 1
+     */
+    private fun normalizedAbove(value: Double, start: Double): Double {
+        if (start >= 1.0 - EPS) return if (value >= 1.0) 1.0 else 0.0
+        return ((value - start) / (1.0 - start)).coerceIn(0.0, 1.0)
+    }
 }
