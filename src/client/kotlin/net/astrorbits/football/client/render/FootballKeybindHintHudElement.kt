@@ -14,6 +14,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.ChatScreen
 import net.minecraft.client.player.LocalPlayer
 import net.minecraft.network.chat.Component
+import net.minecraft.world.level.Level
 
 class FootballKeybindHintHudElement : HudElement {
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
@@ -26,15 +27,10 @@ class FootballKeybindHintHudElement : HudElement {
 
         val font = client.font
         val lookAroundSection = buildLookAroundSection(font, player)
-        val footballRows = if (canRenderFootballHints(player)) {
-            buildFootballHintRows(font)
+        val footballRows = if (FootballOperabilityClient.canShowFootballHints(player)) {
+            buildFootballHintRows(font, player, level)
         } else {
             emptyList()
-        }
-        val footballColors = if (FootballOperabilityClient.canOperateFootball(player, level)) {
-            RowColors.ACTIVE
-        } else {
-            RowColors.INACTIVE
         }
 
         if (footballRows.isEmpty()) {
@@ -50,13 +46,18 @@ class FootballKeybindHintHudElement : HudElement {
         }
 
         val titleKey = if (GoalkeeperStateClient.isGoalkeeper) TITLE_KEY_GK else TITLE_KEY
-        val styledRows = footballRows.map { StyledRow(it, footballColors) } + lookAroundSection
+        val titleColor = if (footballRows.any { it.colors == RowColors.ACTIVE }) {
+            RowColors.ACTIVE.titleColor
+        } else {
+            RowColors.INACTIVE.titleColor
+        }
+        val styledRows = footballRows + lookAroundSection
         renderPanel(
             extra = extra,
             font = font,
             screenW = client.window.guiScaledWidth,
             title = Component.translatable(titleKey).string,
-            titleColor = footballColors.titleColor,
+            titleColor = titleColor,
             rows = styledRows,
         )
     }
@@ -71,9 +72,6 @@ class FootballKeybindHintHudElement : HudElement {
         val screen = client.screen
         return screen == null || screen is ChatScreen
     }
-
-    private fun canRenderFootballHints(player: LocalPlayer): Boolean =
-        player.mainHandItem.isEmpty
 
     private fun buildLookAroundSection(font: Font, player: LocalPlayer): List<StyledRow> {
         val rows = mutableListOf<StyledRow>()
@@ -90,22 +88,15 @@ class FootballKeybindHintHudElement : HudElement {
         return rows
     }
 
-    private fun buildFootballHintRows(font: Font): List<HintRow> {
-        val diveInterruptPrefix = if (FootballInputHandler.isGoalkeeperDiveChargeActive()) {
-            Component.translatable(DIVE_CHARGE_INTERRUPT_PREFIX_KEY).string
-        } else {
-            ""
-        }
+    private fun buildFootballHintRows(font: Font, player: LocalPlayer, level: Level): List<StyledRow> {
         return buildFootballActionRows().map { (key, labelKey) ->
-            val prefix = if (
-                diveInterruptPrefix.isNotEmpty() &&
-                (key == FootballKeyBindings.TRAP || key == FootballKeyBindings.CHIP)
-            ) {
-                diveInterruptPrefix
+            val row = buildHintRow(font, key, labelKey)
+            val colors = if (FootballOperabilityClient.canUseFootballHint(player, level, key)) {
+                RowColors.ACTIVE
             } else {
-                ""
+                RowColors.INACTIVE
             }
-            buildHintRow(font, key, labelKey, prefix)
+            StyledRow(row, colors)
         }
     }
 
@@ -116,15 +107,19 @@ class FootballKeybindHintHudElement : HudElement {
         return if (GoalkeeperStateClient.isHoldingBall) {
             GK_HOLDING_HINT_ROWS
         } else {
-            GK_FREE_HINT_ROWS
+            val rows = GK_FREE_HINT_ROWS.toMutableList()
+            if (FootballInputHandler.isGoalkeeperDiveChargeActive()) {
+                rows += FootballKeyBindings.DRIBBLE to GK_DIVE_INTERRUPT_LABEL_KEY
+            }
+            rows
         }
     }
 
-    private fun buildHintRow(font: Font, key: KeyMapping, labelKey: String, labelPrefix: String = ""): HintRow {
+    private fun buildHintRow(font: Font, key: KeyMapping, labelKey: String): HintRow {
         val keyLabel = key.translatedKeyMessage.string
         return HintRow(
             keyLabel = keyLabel,
-            label = labelPrefix + Component.translatable(labelKey).string,
+            label = Component.translatable(labelKey).string,
             keyBoxW = keyBoxWidth(font, keyLabel),
         )
     }
@@ -213,7 +208,7 @@ class FootballKeybindHintHudElement : HudElement {
         private const val TITLE_KEY_GK = "hud.nmbct-football.hint.title_gk"
         private const val LOOK_AROUND_LABEL_KEY = "hud.nmbct-football.hint.look_around"
         private const val SLIDE_TACKLE_LABEL_KEY = "hud.nmbct-football.hint.slide_tackle"
-        private const val DIVE_CHARGE_INTERRUPT_PREFIX_KEY = "hud.nmbct-football.hint.dive_charge_interrupt_prefix"
+        private const val GK_DIVE_INTERRUPT_LABEL_KEY = "hud.nmbct-football.hint.gk_dive_interrupt"
         private const val MARGIN = 8
         private const val PAD = 8
         private const val ROW_GAP = 4

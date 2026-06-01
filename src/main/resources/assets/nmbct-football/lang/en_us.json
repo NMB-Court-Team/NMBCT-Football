@@ -39,7 +39,7 @@
     "hud.nmbct-football.hint.trap": "Trap",
     "hud.nmbct-football.hint.chip": "Chip",
     "hud.nmbct-football.hint.gk_dive": "(Chargeable) Dive save",
-    "hud.nmbct-football.hint.dive_charge_interrupt_prefix": "(Cancel charge) ",
+    "hud.nmbct-football.hint.gk_dive_interrupt": "Cancel charge",
     "hud.nmbct-football.hint.gk_catch": "Catch",
     "hud.nmbct-football.hint.gk_punch": "Punch",
     "hud.nmbct-football.hint.gk_throw": "Tap throw / Hold long throw",

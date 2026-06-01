@@ -235,7 +235,7 @@ sequenceDiagram
 该机制对应守门员未持球时的 `GK_DIVE`：
 
 - 客户端按住 `R`（踢球键）开始蓄力，松开时发送 `chargeHeldMs / chargeRatio` 与当前 `lookYaw/lookPitch`。
-- 鱼跃蓄力为**线性满格**（`KickChargeUtil.computeLinearRatio`），无完美窗口、无过头衰减；蓄力中按 `X`（接球）或 `V`（击出）可打断蓄力并照常触发对应动作。
+- 鱼跃蓄力为**线性满格**（`KickChargeUtil.computeLinearRatio`），无完美窗口、无过头衰减；蓄力中按**带球键**（与场员相同键位）可打断蓄力，且不触发带球逻辑。
 - 服务端以**动作瞬间视角**（`lookYaw` / `lookPitch`）计算前扑方向；前扑距离与起跳高度还随**俯仰角**变化（见下）。
 - 前扑距离与高度随蓄力提升；鱼跃期间每 tick 写入水平速度并同步客户端。
 - 鱼跃会话持续 `goalkeeper.dive.dive_duration_ticks`，期间每 tick 进行扑救判定。

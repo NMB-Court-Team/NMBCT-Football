@@ -25,7 +25,7 @@ object FootballInputHandler {
     /** 每帧捕获的抬键时长，避免仅在 tick 采样导致 1~2 tick 偏差。 */
     private var kickReleaseHeldMsOverride: Long? = null
     private var kickRealtimePrevDown = false
-    /** 按 X/V 打断鱼跃蓄力后，忽略本次 R 键松开触发的鱼跃。 */
+    /** 按带球键打断鱼跃蓄力后，忽略本次 R 键松开触发的鱼跃。 */
     private var diveChargeCancelled = false
 
     var shootChargeRatio: Float = 0f
@@ -47,7 +47,7 @@ object FootballInputHandler {
         val phase: KickChargeUtil.Phase,
     )
 
-    /** 未持球守门员正按住 R 鱼跃蓄力且尚未被 X/V 打断（供 HUD 提示用）。 */
+    /** 未持球守门员正按住 R 鱼跃蓄力且尚未被带球键打断（供 HUD 提示用）。 */
     fun isGoalkeeperDiveChargeActive(): Boolean {
         syncKickPressRealtimeClock()
         return GoalkeeperStateClient.isGoalkeeper &&
@@ -203,17 +203,14 @@ object FootballInputHandler {
         }
     }
 
-    /** 鱼跃蓄力中按 X（接球）或 V（击出）时取消蓄力；同 tick 仍由接球/击出逻辑发包。 */
+    /** 鱼跃蓄力中按带球键（与场员相同键位）取消蓄力，不触发带球逻辑。 */
     private fun tryInterruptDiveCharge() {
         if (kickPressStartMs == null || !FootballKeyBindings.KICK.isDown) {
             return
         }
-        val trapEdge = FootballKeyBindings.TRAP.isDown && !trapPrevTickPressed
-        val chipEdge = FootballKeyBindings.CHIP.isDown && !chipPrevTickPressed
-        if (!trapEdge && !chipEdge) {
-            return
+        if (FootballKeyBindings.DRIBBLE.isDown && !dribblePrevTickPressed) {
+            cancelDiveCharge()
         }
-        cancelDiveCharge()
     }
 
     private fun cancelDiveCharge() {
