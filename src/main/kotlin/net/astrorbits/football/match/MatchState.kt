@@ -36,6 +36,8 @@ object MatchState {
     var halfKickoffBroadcasted: Boolean = false
     /** 上一个半场的发球方，用于下一半场交替 */
     var lastHalfKickoffTeam: TeamSide? = null
+    /** 进球后已判分、等待延迟复位期间为 true，防止重复判进球。 */
+    var postGoalResetPending: Boolean = false
 
     fun getTeamName(team: TeamSide): Component = when (team) {
         TeamSide.A -> teamAName.copy().withStyle(ChatFormatting.RED)
@@ -116,6 +118,7 @@ object MatchState {
         dynamicStoppageTicks = 0
         halfKickoffBroadcasted = false
         lastHalfKickoffTeam = null
+        postGoalResetPending = false
         PlayerRoleState.reset()
     }
 
@@ -143,6 +146,8 @@ object MatchState {
 
     /** 清除场上所有足球并在开球点（或指定位置）放置一个新足球。 */
     fun resetFootball(level: ServerLevel, pos: Vec3? = null) {
+        PostGoalBallResetScheduler.cancel(level.dimension())
+        postGoalResetPending = false
         val all = AABB(Vec3(-3.0E7, -3.0E7, -3.0E7), Vec3(3.0E7, 3.0E7, 3.0E7))
         level.getEntitiesOfClass(Football::class.java, all).forEach { it.discard() }
         val fb = Football(Football.ENTITY_TYPE, level)

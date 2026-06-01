@@ -4,6 +4,7 @@ import net.astrorbits.football.input.GoalkeeperHoldLock
 import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.astrorbits.football.item.Items
 import net.astrorbits.football.match.MatchConfigHolder
+import net.astrorbits.football.match.PostGoalBallResetScheduler
 import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.match.TeamSide
@@ -279,6 +280,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val server = (level() as? net.minecraft.server.level.ServerLevel)?.server ?: return
 
         if (inGoal) {
+            if (MatchState.postGoalResetPending) return
+            MatchState.postGoalResetPending = true
             // 进球
             MatchState.onGoal(attackingTeam)
             val scorerName = lastKicker?.let { server.playerList.getPlayer(it)?.gameProfile?.name } ?: "?"
@@ -288,7 +291,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 server, attackingTeam, scorerName, scorerTeam, MatchState.teamAScore, MatchState.teamBScore, ownGoal,
             )
             FootballParticles.playGoal(level(), FootballParticles.centerOfFootball(this))
-            MatchState.resetFootball(level() as net.minecraft.server.level.ServerLevel)
+            PostGoalBallResetScheduler.schedule(level() as net.minecraft.server.level.ServerLevel)
             MatchState.kickoffTeam = defendingTeam
             MatchState.kickoffTouched = false
             net.astrorbits.football.network.FootballNetworking.broadcastPostGoalKickoff(server, defendingTeam)

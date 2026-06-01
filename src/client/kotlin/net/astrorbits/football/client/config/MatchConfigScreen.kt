@@ -20,6 +20,7 @@ class MatchConfigScreen(
     private var halfTimeMinutes = initial.halfTimeMinutes
     private var stoppageTimeMaxMinutes = initial.stoppageTimeMaxMinutes
     private var extraTimeHalfMinutes = initial.extraTimeHalfMinutes
+    private var postGoalBallResetDelaySeconds = initial.postGoalBallResetDelaySeconds
 
     private var updatingEditBox = false
 
@@ -96,6 +97,12 @@ class MatchConfigScreen(
                 addRenderableWidget(StringWidget(labelX, y, labelW, editH, STOPPAGE_TIME_MAX, font))
                 addRenderableWidget(newDigitEditBox(widgetX, y, 52, editH, stoppageTimeMaxMinutes.toString(), STOPPAGE_TIME_MAX) {
                     stoppageTimeMaxMinutes = it
+                })
+
+                y += rowH
+                addRenderableWidget(StringWidget(labelX, y, labelW, editH, POST_GOAL_BALL_RESET_DELAY, font))
+                addRenderableWidget(newDigitEditBox(widgetX, y, 52, editH, postGoalBallResetDelaySeconds.toString(), POST_GOAL_BALL_RESET_DELAY) {
+                    postGoalBallResetDelaySeconds = it
                 })
             }
             2 -> {
@@ -183,6 +190,10 @@ class MatchConfigScreen(
             enablePenaltyShootout = if (::penaltyCheck.isInitialized) penaltyCheck.selected() else initial.enablePenaltyShootout,
             goalA = initial.goalA,
             goalB = initial.goalB,
+            sidelineA = initial.sidelineA,
+            sidelineB = initial.sidelineB,
+            kickOff = initial.kickOff,
+            postGoalBallResetDelaySeconds = postGoalBallResetDelaySeconds.coerceAtLeast(0),
             teamASpawn = initial.teamASpawn,
             teamBSpawn = initial.teamBSpawn,
         )
@@ -199,6 +210,7 @@ class MatchConfigScreen(
         private val HALF_TIME = Component.translatable("screen.nmbct-football.match.half_time_minutes")
         private val STOPPAGE_TIME = Component.translatable("screen.nmbct-football.match.enable_stoppage_time")
         private val STOPPAGE_TIME_MAX = Component.translatable("screen.nmbct-football.match.stoppage_time_max")
+        private val POST_GOAL_BALL_RESET_DELAY = Component.translatable("screen.nmbct-football.match.post_goal_ball_reset_delay_seconds")
         private val EXTRA_TIME = Component.translatable("screen.nmbct-football.match.enable_extra_time")
         private val EXTRA_TIME_HALF = Component.translatable("screen.nmbct-football.match.extra_time_half")
         private val PENALTY_SHOOTOUT = Component.translatable("screen.nmbct-football.match.enable_penalty_shootout")

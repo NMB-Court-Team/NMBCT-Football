@@ -426,7 +426,6 @@ Fabric 事件：
 | `assets/.../textures/item/goal_net_connector.png` | 连接器纹理 |
 | `assets/.../sounds.json` | 连接器自定义音效条目（模板） |
 | `assets/.../lang/zh_cn.json`、`en_us.json` | 本地化 |
-| `data/.../loot_table/blocks/goal_net_anchor.json` | 锚点战利品表 |
 
 ---
 

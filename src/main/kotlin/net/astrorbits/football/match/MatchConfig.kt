@@ -155,6 +155,8 @@ data class MatchConfig(
     val sidelineA: SidelineConfig = SidelineConfig.DEFAULT,
     val sidelineB: SidelineConfig = SidelineConfig.DEFAULT,
     val kickOff: KickPosition = KickPosition(8.5, -60.0, 8.5),
+    /** 进球后延迟多少秒再将球放回开球点；0 表示立即复位。 */
+    val postGoalBallResetDelaySeconds: Int = 3,
     val teamASpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
     val teamBSpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
 ) {
@@ -177,6 +179,7 @@ data class MatchConfig(
                 SidelineConfig.CODEC.optionalFieldOf("sideline_a", SidelineConfig.DEFAULT).forGetter(MatchConfig::sidelineA),
                 SidelineConfig.CODEC.optionalFieldOf("sideline_b", SidelineConfig.DEFAULT).forGetter(MatchConfig::sidelineB),
                 KickPosition.CODEC.optionalFieldOf("kick_off", KickPosition(8.5, -60.0, 8.5)).forGetter(MatchConfig::kickOff),
+                Codec.INT.optionalFieldOf("post_goal_ball_reset_delay_seconds", 3).forGetter(MatchConfig::postGoalBallResetDelaySeconds),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_a_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamASpawn),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_b_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamBSpawn),
             ).apply(i, ::MatchConfig)

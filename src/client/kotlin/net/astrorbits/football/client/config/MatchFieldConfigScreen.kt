@@ -320,6 +320,7 @@ class MatchFieldConfigScreen(
             teamASpawn = mkSpawn(saGkX, saGkY, saGkZ, saGkYaw, saGkPit, saPlayers, initial.teamASpawn),
             teamBSpawn = mkSpawn(sbGkX, sbGkY, sbGkZ, sbGkYaw, sbGkPit, sbPlayers, initial.teamBSpawn),
             kickOff = KickPosition(koX.toD(initial.kickOff.x), koY.toD(initial.kickOff.y), koZ.toD(initial.kickOff.z)),
+            postGoalBallResetDelaySeconds = initial.postGoalBallResetDelaySeconds,
             sidelineA = net.astrorbits.football.match.SidelineConfig(
                 coord = s1C.toD(initial.sidelineA.coord),
                 axis = s1Axis, positiveInside = s1Inside,

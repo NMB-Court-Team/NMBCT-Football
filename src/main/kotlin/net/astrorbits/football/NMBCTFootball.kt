@@ -13,6 +13,7 @@ import net.astrorbits.football.item.FootballItemUseGuards
 import net.astrorbits.football.item.GoalNetConnectorSounds
 import net.astrorbits.football.match.MatchCommand
 import net.astrorbits.football.match.MatchConfigHolder
+import net.astrorbits.football.match.PostGoalBallResetScheduler
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.network.FootballNetworking
 import net.fabricmc.api.ModInitializer
@@ -56,6 +57,7 @@ object NMBCTFootball : ModInitializer {
 		FootballDribbleSessions.registerEvents()
 		GoalkeeperDiveSessions.registerEvents()
 		SlideTackleSessions.registerEvents()
+		PostGoalBallResetScheduler.register()
 
 		ServerPlayConnectionEvents.JOIN.register { handler, _, _ ->
 			PlayerRoleState.syncRoleToPlayer(handler.player)
