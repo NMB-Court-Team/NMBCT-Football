@@ -80,6 +80,17 @@ object MatchStartClientNetworking {
                 MatchState.teamAScore = payload.teamAScore
                 MatchState.teamBScore = payload.teamBScore
                 MatchState.isRunning = payload.isRunning
+                // 同步比赛配置到客户端本地（仅 timing 字段，场地字段不动）
+                net.astrorbits.football.match.MatchConfigHolder.syncFromServer(
+                    net.astrorbits.football.match.MatchConfigHolder.current.copy(
+                        halfTimeMinutes = payload.halfTimeMinutes,
+                        stoppageTimeMaxMinutes = payload.stoppageTimeMaxMinutes,
+                        extraTimeHalfMinutes = payload.extraTimeHalfMinutes,
+                        enableStoppageTime = payload.enableStoppageTime,
+                        enableExtraTime = payload.enableExtraTime,
+                        enablePenaltyShootout = payload.enablePenaltyShootout,
+                    )
+                )
             }
         }
     }

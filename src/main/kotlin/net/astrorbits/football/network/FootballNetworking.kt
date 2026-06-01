@@ -141,6 +141,7 @@ object FootballNetworking {
     }
 
     private fun broadcastTimerSync(server: MinecraftServer) {
+        val cfg = MatchConfigHolder.current
         val payload = MatchTimerSyncS2CPayload(
             timerTicks = MatchState.timerTicks,
             stoppageTimerTicks = MatchState.stoppageTimerTicks,
@@ -148,6 +149,12 @@ object FootballNetworking {
             teamAScore = MatchState.teamAScore,
             teamBScore = MatchState.teamBScore,
             isRunning = MatchState.isRunning,
+            halfTimeMinutes = cfg.halfTimeMinutes,
+            stoppageTimeMaxMinutes = cfg.stoppageTimeMaxMinutes,
+            extraTimeHalfMinutes = cfg.extraTimeHalfMinutes,
+            enableStoppageTime = cfg.enableStoppageTime,
+            enableExtraTime = cfg.enableExtraTime,
+            enablePenaltyShootout = cfg.enablePenaltyShootout,
         )
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
@@ -192,6 +199,25 @@ object FootballNetworking {
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
         }
+    }
+
+    /** 玩家加入时即时同步服务端配置，不等下个定时周期。 */
+    fun syncConfigToPlayer(player: ServerPlayer) {
+        val cfg = MatchConfigHolder.current
+        ServerPlayNetworking.send(player, MatchTimerSyncS2CPayload(
+            timerTicks = MatchState.timerTicks,
+            stoppageTimerTicks = MatchState.stoppageTimerTicks,
+            currentPhase = MatchState.currentPhase,
+            teamAScore = MatchState.teamAScore,
+            teamBScore = MatchState.teamBScore,
+            isRunning = MatchState.isRunning,
+            halfTimeMinutes = cfg.halfTimeMinutes,
+            stoppageTimeMaxMinutes = cfg.stoppageTimeMaxMinutes,
+            extraTimeHalfMinutes = cfg.extraTimeHalfMinutes,
+            enableStoppageTime = cfg.enableStoppageTime,
+            enableExtraTime = cfg.enableExtraTime,
+            enablePenaltyShootout = cfg.enablePenaltyShootout,
+        ))
     }
 
     fun sendServerConfigSync(player: ServerPlayer, config: FootballServerConfig) {

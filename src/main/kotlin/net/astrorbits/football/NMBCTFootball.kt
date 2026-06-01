@@ -62,6 +62,7 @@ object NMBCTFootball : ModInitializer {
 
 		ServerPlayConnectionEvents.JOIN.register { handler, _, _ ->
 			PlayerRoleState.syncRoleToPlayer(handler.player)
+			FootballNetworking.syncConfigToPlayer(handler.player)
 		}
 
 		LOGGER.info("NMBCT Football initialized")

@@ -7,7 +7,7 @@ import net.minecraft.network.codec.ByteBufCodecs
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 
-/** S2C: 服务端定时广播计时器与阶段，客户端 HUD 据此同步。 */
+/** S2C: 服务端定时广播计时器、阶段、比分、关键比赛配置，客户端据此同步 HUD 与本地状态。 */
 data class MatchTimerSyncS2CPayload(
     val timerTicks: Int,
     val stoppageTimerTicks: Int,
@@ -15,6 +15,12 @@ data class MatchTimerSyncS2CPayload(
     val teamAScore: Int,
     val teamBScore: Int,
     val isRunning: Boolean,
+    val halfTimeMinutes: Int,
+    val stoppageTimeMaxMinutes: Int,
+    val extraTimeHalfMinutes: Int,
+    val enableStoppageTime: Boolean,
+    val enableExtraTime: Boolean,
+    val enablePenaltyShootout: Boolean,
 ) : CustomPacketPayload {
     override fun type() = TYPE
 
@@ -27,6 +33,12 @@ data class MatchTimerSyncS2CPayload(
             ByteBufCodecs.INT, MatchTimerSyncS2CPayload::teamAScore,
             ByteBufCodecs.INT, MatchTimerSyncS2CPayload::teamBScore,
             ByteBufCodecs.BOOL, MatchTimerSyncS2CPayload::isRunning,
+            ByteBufCodecs.INT, MatchTimerSyncS2CPayload::halfTimeMinutes,
+            ByteBufCodecs.INT, MatchTimerSyncS2CPayload::stoppageTimeMaxMinutes,
+            ByteBufCodecs.INT, MatchTimerSyncS2CPayload::extraTimeHalfMinutes,
+            ByteBufCodecs.BOOL, MatchTimerSyncS2CPayload::enableStoppageTime,
+            ByteBufCodecs.BOOL, MatchTimerSyncS2CPayload::enableExtraTime,
+            ByteBufCodecs.BOOL, MatchTimerSyncS2CPayload::enablePenaltyShootout,
             ::MatchTimerSyncS2CPayload,
         )
     }
