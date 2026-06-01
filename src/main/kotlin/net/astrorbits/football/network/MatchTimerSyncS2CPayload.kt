@@ -7,13 +7,15 @@ import net.minecraft.network.codec.ByteBufCodecs
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 
-/** S2C: 服务端定时广播计时器、阶段、比分、关键比赛配置，客户端据此同步 HUD 与本地状态。 */
+/** S2C: 服务端定时广播计时器、阶段、比分、队名、关键比赛配置。 */
 data class MatchTimerSyncS2CPayload(
     val timerTicks: Int,
     val stoppageTimerTicks: Int,
     val currentPhase: MatchPhase,
     val teamAScore: Int,
     val teamBScore: Int,
+    val teamAName: String,
+    val teamBName: String,
     val isRunning: Boolean,
     val halfTimeMinutes: Int,
     val stoppageTimeMaxMinutes: Int,
@@ -26,20 +28,41 @@ data class MatchTimerSyncS2CPayload(
 
     companion object {
         val TYPE: CustomPacketPayload.Type<MatchTimerSyncS2CPayload> = CustomPacketPayload.Type(NMBCTFootball.id("match_timer_sync"))
-        val CODEC: StreamCodec<FriendlyByteBuf, MatchTimerSyncS2CPayload> = StreamCodec.composite(
-            ByteBufCodecs.INT, MatchTimerSyncS2CPayload::timerTicks,
-            ByteBufCodecs.INT, MatchTimerSyncS2CPayload::stoppageTimerTicks,
-            MatchPhase.STREAM_CODEC, MatchTimerSyncS2CPayload::currentPhase,
-            ByteBufCodecs.INT, MatchTimerSyncS2CPayload::teamAScore,
-            ByteBufCodecs.INT, MatchTimerSyncS2CPayload::teamBScore,
-            ByteBufCodecs.BOOL, MatchTimerSyncS2CPayload::isRunning,
-            ByteBufCodecs.INT, MatchTimerSyncS2CPayload::halfTimeMinutes,
-            ByteBufCodecs.INT, MatchTimerSyncS2CPayload::stoppageTimeMaxMinutes,
-            ByteBufCodecs.INT, MatchTimerSyncS2CPayload::extraTimeHalfMinutes,
-            ByteBufCodecs.BOOL, MatchTimerSyncS2CPayload::enableStoppageTime,
-            ByteBufCodecs.BOOL, MatchTimerSyncS2CPayload::enableExtraTime,
-            ByteBufCodecs.BOOL, MatchTimerSyncS2CPayload::enablePenaltyShootout,
-            ::MatchTimerSyncS2CPayload,
+        val CODEC: StreamCodec<FriendlyByteBuf, MatchTimerSyncS2CPayload> = StreamCodec.of(
+            { buf, p ->
+                buf.writeInt(p.timerTicks)
+                buf.writeInt(p.stoppageTimerTicks)
+                MatchPhase.STREAM_CODEC.encode(buf, p.currentPhase)
+                buf.writeInt(p.teamAScore)
+                buf.writeInt(p.teamBScore)
+                ByteBufCodecs.STRING_UTF8.encode(buf, p.teamAName)
+                ByteBufCodecs.STRING_UTF8.encode(buf, p.teamBName)
+                buf.writeBoolean(p.isRunning)
+                buf.writeInt(p.halfTimeMinutes)
+                buf.writeInt(p.stoppageTimeMaxMinutes)
+                buf.writeInt(p.extraTimeHalfMinutes)
+                buf.writeBoolean(p.enableStoppageTime)
+                buf.writeBoolean(p.enableExtraTime)
+                buf.writeBoolean(p.enablePenaltyShootout)
+            },
+            { buf ->
+                MatchTimerSyncS2CPayload(
+                    timerTicks = buf.readInt(),
+                    stoppageTimerTicks = buf.readInt(),
+                    currentPhase = MatchPhase.STREAM_CODEC.decode(buf),
+                    teamAScore = buf.readInt(),
+                    teamBScore = buf.readInt(),
+                    teamAName = ByteBufCodecs.STRING_UTF8.decode(buf),
+                    teamBName = ByteBufCodecs.STRING_UTF8.decode(buf),
+                    isRunning = buf.readBoolean(),
+                    halfTimeMinutes = buf.readInt(),
+                    stoppageTimeMaxMinutes = buf.readInt(),
+                    extraTimeHalfMinutes = buf.readInt(),
+                    enableStoppageTime = buf.readBoolean(),
+                    enableExtraTime = buf.readBoolean(),
+                    enablePenaltyShootout = buf.readBoolean(),
+                )
+            },
         )
     }
 }
