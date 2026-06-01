@@ -39,6 +39,7 @@
     "hud.nmbct-football.hint.trap": "停球",
     "hud.nmbct-football.hint.chip": "挑球",
     "hud.nmbct-football.hint.gk_dive": "(可蓄力) 鱼跃扑救",
+    "hud.nmbct-football.hint.dive_charge_interrupt_prefix": "(打断蓄力) ",
     "hud.nmbct-football.hint.gk_catch": "接球",
     "hud.nmbct-football.hint.gk_punch": "击出",
     "hud.nmbct-football.hint.gk_throw": "短抛 / 长按开球",

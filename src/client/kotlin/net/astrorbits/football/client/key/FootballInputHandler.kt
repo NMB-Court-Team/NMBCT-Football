@@ -47,6 +47,16 @@ object FootballInputHandler {
         val phase: KickChargeUtil.Phase,
     )
 
+    /** 未持球守门员正按住 R 鱼跃蓄力且尚未被 X/V 打断（供 HUD 提示用）。 */
+    fun isGoalkeeperDiveChargeActive(): Boolean {
+        syncKickPressRealtimeClock()
+        return GoalkeeperStateClient.isGoalkeeper &&
+            !GoalkeeperStateClient.isHoldingBall &&
+            FootballKeyBindings.KICK.isDown &&
+            kickPressStartMs != null &&
+            !diveChargeCancelled
+    }
+
     /** 基于实时时钟采样蓄力（供 HUD 每帧调用，避免仅 tick 更新导致进度条卡顿）。 */
     fun liveKickChargeDisplay(): KickChargeDisplayState? {
         syncKickPressRealtimeClock()
