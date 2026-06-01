@@ -20,6 +20,7 @@
     "message.nmbct-football.goal_net.fail.not_coplanar": "The 4 anchors are not on one horizontal or vertical plane",
     "message.nmbct-football.goal_net.fail.not_rectangle": "The 4 anchors do not form a rectangle",
     "message.nmbct-football.goal_net.fail.degenerate": "Degenerate rectangle (zero-length side)",
+    "message.nmbct-football.goal_net.fail.size_out_of_range": "Goal net size out of range (both width and height must be between 2 and 16 blocks)",
     "message.nmbct-football.goal_net.fail.spawn": "Failed to create goal net",
     "message.nmbct-football.goal_net.fail.invalid_anchor": "Selected block is not a valid goal net anchor",
     "message.nmbct-football.goal_net.fail.not_enough_string": "Not enough string; 8 required to create a goal net (1 wool counts as 4)",

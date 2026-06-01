@@ -15,6 +15,8 @@ import net.minecraft.world.phys.Vec3
 object GoalNetGeometry {
 
     private const val EPS = 1.0e-4
+    private const val MIN_SIDE_LENGTH = 2.0
+    private const val MAX_SIDE_LENGTH = 16.0
 
     /** 校验失败原因，便于在 actionbar 给出明确提示。 */
     enum class Failure(val translationKey: String) {
@@ -23,6 +25,7 @@ object GoalNetGeometry {
         NOT_COPLANAR("message.nmbct-football.goal_net.fail.not_coplanar"),
         NOT_RECTANGLE("message.nmbct-football.goal_net.fail.not_rectangle"),
         DEGENERATE("message.nmbct-football.goal_net.fail.degenerate"),
+        SIZE_OUT_OF_RANGE("message.nmbct-football.goal_net.fail.size_out_of_range"),
         INVALID_ANCHOR("message.nmbct-football.goal_net.fail.invalid_anchor"),
     }
 
@@ -141,7 +144,20 @@ object GoalNetGeometry {
         if (rect.uLength < 1.0e-3 || rect.vLength < 1.0e-3) {
             return Result.Failed(Failure.DEGENERATE)
         }
+        if (!isWithinSizeLimit(rect.uLength) || !isWithinSizeLimit(rect.vLength)) {
+            return Result.Failed(Failure.SIZE_OUT_OF_RANGE)
+        }
         return Result.Success(rect)
+    }
+
+    /**
+     * 球网尺寸限制：边长必须在 [2, 16] 范围内（含边界）。
+     * 使用 EPS 处理锚点浮点误差，避免边界值误判。
+     */
+    private fun isWithinSizeLimit(length: Double): Boolean {
+        if (length + EPS < MIN_SIDE_LENGTH) return false
+        if (length - EPS > MAX_SIDE_LENGTH) return false
+        return true
     }
 
     private fun distinctPositions(points: List<Vec3>): List<Vec3> {

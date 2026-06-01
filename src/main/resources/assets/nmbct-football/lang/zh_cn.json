@@ -20,6 +20,7 @@
     "message.nmbct-football.goal_net.fail.not_coplanar": "四个锚点不在同一水平或竖直平面上",
     "message.nmbct-football.goal_net.fail.not_rectangle": "四个锚点无法构成长方形",
     "message.nmbct-football.goal_net.fail.degenerate": "长方形退化（边长为零）",
+    "message.nmbct-football.goal_net.fail.size_out_of_range": "球网尺寸超出限制（长和宽必须在 2 到 16 格之间）",
     "message.nmbct-football.goal_net.fail.spawn": "球网创建失败",
     "message.nmbct-football.goal_net.fail.invalid_anchor": "所选方块不是有效的球网锚点",
     "message.nmbct-football.goal_net.fail.not_enough_string": "线不足，创建球网需要 8 根线（1 个羊毛计 4 根线）",
