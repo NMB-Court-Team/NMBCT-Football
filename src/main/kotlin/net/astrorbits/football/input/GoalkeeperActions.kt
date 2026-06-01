@@ -128,7 +128,7 @@ object GoalkeeperActions {
         if (football.isHeld()) {
             return
         }
-        if (player.distanceToSqr(football) > range * range) {
+        if (GoalkeeperUtil.standingCatchDistanceSqr(player, football) > range * range) {
             return
         }
 
@@ -136,7 +136,7 @@ object GoalkeeperActions {
         if (speed > GoalkeeperInputConfig.GK_CATCH_MAX_SPEED) {
             return
         }
-        if (!GoalkeeperUtil.isBallApproachingKeeper(football, player)) {
+        if (!GoalkeeperUtil.canStandingCatchBall(football, player)) {
             return
         }
 

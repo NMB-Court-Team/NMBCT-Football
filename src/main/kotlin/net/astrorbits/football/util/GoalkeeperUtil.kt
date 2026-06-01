@@ -44,19 +44,52 @@ object GoalkeeperUtil {
     fun ballCenter(football: Football): Vec3 =
         football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
 
-    fun isBallApproachingKeeper(football: Football, player: ServerPlayer): Boolean {
+    fun standingCatchOrigin(player: ServerPlayer): Vec3 {
+        val base = player.position()
+        if (player.isShiftKeyDown) {
+            return base.add(0.0, 0.55, 0.0)
+        }
+        return base.add(0.0, player.eyeHeight * 0.5, 0.0)
+    }
+
+    fun standingCatchDistanceSqr(player: ServerPlayer, football: Football): Double {
+        return standingCatchOrigin(player).distanceToSqr(ballCenter(football))
+    }
+
+    fun canStandingCatchBall(football: Football, player: ServerPlayer): Boolean {
         val velocity = football.getPhysicsState().linearVelocity
         if (velocity.lengthSqr() < 1.0e-6) {
             return true
         }
-        val toKeeper = player.position().add(0.0, player.eyeHeight * 0.5, 0.0).subtract(ballCenter(football))
+
+        val ballPos = ballCenter(football)
+        val catchOrigin = standingCatchOrigin(player)
+        val toKeeper = catchOrigin.subtract(ballPos)
         if (toKeeper.lengthSqr() < 1.0e-6) {
             return true
         }
-        val dot = velocity.normalize().dot(toKeeper.normalize())
+
         val minDot = cos(Math.toRadians(GoalkeeperInputConfig.GK_CATCH_ANGLE_DEG / 2.0))
+        val lowBallThreshold = catchOrigin.y - ballPos.y
+        if (lowBallThreshold > 0.35) {
+            val horizontalVelocity = Vec3Math.horizontal(velocity)
+            val horizontalToKeeper = Vec3Math.horizontal(toKeeper)
+            if (horizontalVelocity.lengthSqr() < 1.0e-6) {
+                return true
+            }
+            if (horizontalToKeeper.lengthSqr() < 1.0e-8) {
+                return true
+            }
+            val dot = horizontalVelocity.normalize().dot(Vec3Math.normalizeSafe(horizontalToKeeper))
+            return dot >= minDot
+        }
+
+        val dot = velocity.normalize().dot(Vec3Math.normalizeSafe(toKeeper))
         return dot >= minDot
     }
+
+    fun isBallApproachingKeeper(football: Football, player: ServerPlayer): Boolean =
+        canStandingCatchBall(football, player)
 
     fun isInDirectionalSector(
         origin: Vec3,
