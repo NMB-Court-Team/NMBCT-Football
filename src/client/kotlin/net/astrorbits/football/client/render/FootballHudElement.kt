@@ -1,5 +1,6 @@
 package net.astrorbits.football.client.render
 
+import net.astrorbits.football.client.util.FootballHudVisibility
 import net.astrorbits.football.match.MatchState
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
@@ -13,7 +14,7 @@ class FootballHudElement : HudElement {
 
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
         val client = Minecraft.getInstance()
-        if (client.debugOverlay.showDebugScreen()) {
+        if (FootballHudVisibility.isDebugOverlayOpen(client)) {
             return
         }
 
