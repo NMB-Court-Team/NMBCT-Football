@@ -388,7 +388,7 @@ v ← v + pushDir × Δv
 
 - **惯性**：冲量除以 `MASS`（默认 `0.45`），与踢球 `Δv = F/MASS` 同一约定。
 - **滚动**：立即用 `Vec3Math.rollingAngularVelocity` 同步 `ω_x`、`ω_z`；之后每 tick 接地时 `ROLL_COUPLING` 继续维持无滑关系，并由 `GROUND_FRICTION` 衰减。
-- **刻意推偏**：普通移动身体推球会根据玩家移动方向与球相对位置加入侧向偏移；越是擦着球推，方向越容易偏向侧面。这是为了让“靠身体顶球”不具备带球技能的稳定控球能力，鼓励使用带球功能。
+- **刻意推偏**：普通移动身体推球会根据玩家移动方向与球相对位置加入侧向偏移；越是擦着球推，方向越容易偏向侧面。实现上在 `Football.applyBodyPushDeflection`：`pushDir` 沿移动方向的法向分量超过 `PLAYER_PUSH_DEFLECTION_DEADZONE`（`0.02`）时，按 `sign(side) × PLAYER_PUSH_DEFLECTION_BIAS × (0.45 + glancing×0.55)` 混入侧向（`glancing` 为推球方向与移动方向的夹角因子，`BIAS=0.62`）。这是为了让“靠身体顶球”不具备带球技能的稳定控球能力，鼓励使用带球功能。
 - **分离**：MTV 把球推出玩家碰撞盒，避免嵌入。
 
 **球撞玩家（原有）**——球速朝向玩家分量足够大时：
