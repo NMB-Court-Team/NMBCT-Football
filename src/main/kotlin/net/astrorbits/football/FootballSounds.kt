@@ -293,7 +293,7 @@ object FootballSounds {
 
     private val MATCH_WHISTLE: SoundSpec = SoundSpec(
         event = WHISTLE_1_EVENT,
-        source = SoundSource.MASTER,
+        source = SoundSource.PLAYERS,
         volume = 1.15f,
         basePitch = 1.0f,
     )
