@@ -359,7 +359,8 @@ v_new      = v_remain + v_forward * 0.15 + recoil
 **玩家推球（新增）**——玩家走近静止或慢速球时：
 
 ```text
-pushDir = normalize(球位置 − 玩家位置) 的水平分量
+basePushDir = normalize(球位置 − 玩家位置) 的水平分量
+pushDir = basePushDir + 身体推球侧向偏移
 v_rel = max(0, (v_player − v_ball) · pushDir)
 Δv = min(v_rel × player_ball_push_scale / MASS, player_ball_push_max)
 v ← v + pushDir × Δv
@@ -368,6 +369,7 @@ v ← v + pushDir × Δv
 
 - **惯性**：冲量除以 `MASS`（默认 `0.45`），与踢球 `Δv = F/MASS` 同一约定。
 - **滚动**：立即用 `Vec3Math.rollingAngularVelocity` 同步 `ω_x`、`ω_z`；之后每 tick 接地时 `ROLL_COUPLING` 继续维持无滑关系，并由 `GROUND_FRICTION` 衰减。
+- **刻意推偏**：普通移动身体推球会根据玩家移动方向与球相对位置加入侧向偏移；越是擦着球推，方向越容易偏向侧面。这是为了让“靠身体顶球”不具备带球技能的稳定控球能力，鼓励使用带球功能。
 - **分离**：MTV 把球推出玩家碰撞盒，避免嵌入。
 
 **球撞玩家（原有）**——球速朝向玩家分量足够大时：

@@ -74,7 +74,7 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     private fun applyRectangle(rect: GoalNetGeometry.NetRectangle) {
         rectangle = rect
-        val newMesh = GoalNetMesh(level(), rect, slack)
+        val newMesh = GoalNetMesh(rect, slack)
         mesh = newMesh
         syncBuffer = FloatArray(newMesh.nodeCount * 3)
         setPos(rect.origin.x, rect.origin.y, rect.origin.z)
@@ -175,6 +175,7 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
         val idle = activeTicks <= 0
         if (!idle) {
             val motion = m.step()
+            m.resolveBlockCollisions(level())
             refreshServerBox(m)
             if (motion < GoalNetConfig.SETTLE_SPEED_SQR) {
                 activeTicks--
