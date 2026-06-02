@@ -37,7 +37,8 @@ object MatchState {
     private var kickoffCountdownEndHandled: Boolean = false
     private var kickoffWhistle3Played: Boolean = false
     private var kickoffWhistle5Played: Boolean = false
-    /** 当前半场动态累积的补时（tick），由客户端计算 */
+    private var lastDynamicStoppageAccumMs: Long = 0L
+    /** 本半场动态累积的补时时长（tick），由服务端根据开球拖延计算。 */
     var dynamicStoppageTicks: Int = 0
     /** 半场开球是否已广播（防重复） */
     var halfKickoffBroadcasted: Boolean = false
@@ -124,6 +125,7 @@ object MatchState {
         kickoffTouched = false
         clearKickoffWhistleTimers()
         dynamicStoppageTicks = 0
+        lastDynamicStoppageAccumMs = 0L
         halfKickoffBroadcasted = false
         lastHalfKickoffTeam = null
         postGoalResetPending = false
@@ -169,6 +171,7 @@ object MatchState {
         kickoffCountdownEndHandled = false
         kickoffWhistle3Played = false
         kickoffWhistle5Played = false
+        lastDynamicStoppageAccumMs = 0L
     }
 
     fun clearKickoffWhistleTimers() {
@@ -178,6 +181,26 @@ object MatchState {
         kickoffCountdownEndHandled = false
         kickoffWhistle3Played = false
         kickoffWhistle5Played = false
+        lastDynamicStoppageAccumMs = 0L
+    }
+
+    /**
+     * 开球锁定时长 + 10s 宽限过后仍未触球，则累积动态补时。
+     */
+    fun tickDynamicStoppageAccumulation() {
+        if (postGoalResetPending) return
+        if (kickoffTeam == null || kickoffTouched || kickoffTimerStartMs == 0L) return
+        val now = System.currentTimeMillis()
+        val graceEnd = kickoffTimerStartMs + kickoffLockMs + MatchKickoffTiming.LATE_KICKOFF_WARN_MS
+        if (now <= graceEnd) return
+        val maxTicks = MatchConfigHolder.current.stoppageTimeMaxMinutes * 60 * 20
+        if (dynamicStoppageTicks >= maxTicks) return
+        if (lastDynamicStoppageAccumMs == 0L) lastDynamicStoppageAccumMs = graceEnd
+        val delta = now - lastDynamicStoppageAccumMs
+        if (delta < 50) return
+        val ticks = (delta / 50).toInt().coerceAtMost(maxTicks - dynamicStoppageTicks)
+        dynamicStoppageTicks += ticks
+        lastDynamicStoppageAccumMs += ticks * 50L
     }
 
     /**
@@ -211,6 +234,10 @@ object MatchState {
         val kt = kickoffTeam ?: return
         if (getPlayerTeam(player.uuid) != kt) return
         kickoffTouched = true
+        val maxTicks = MatchConfigHolder.current.stoppageTimeMaxMinutes * 60 * 20
+        if (dynamicStoppageTicks > maxTicks) {
+            dynamicStoppageTicks = maxTicks
+        }
         clearKickoffWhistleTimers()
         val server = player.level().server ?: return
         FootballNetworking.broadcastKickoffBallTouched(server)
@@ -391,6 +418,7 @@ object MatchState {
         if (phase == MatchPhase.FIRST_HALF || phase == MatchPhase.SECOND_HALF ||
             phase == MatchPhase.EXTRA_FIRST || phase == MatchPhase.EXTRA_SECOND) {
             dynamicStoppageTicks = 0
+            lastDynamicStoppageAccumMs = 0L
         }
         if (phase == MatchPhase.SECOND_HALF || phase == MatchPhase.EXTRA_FIRST || phase == MatchPhase.EXTRA_SECOND) {
             halfKickoffBroadcasted = false

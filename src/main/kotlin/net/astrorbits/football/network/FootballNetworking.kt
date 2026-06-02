@@ -138,6 +138,7 @@ object FootballNetworking {
             }
 
             MatchState.tickKickoffWhistles(server)
+            MatchState.tickDynamicStoppageAccumulation()
 
             // ── 定时同步所有客户端 ──
             serverTickCounter++
@@ -165,6 +166,7 @@ object FootballNetworking {
             enableStoppageTime = cfg.enableStoppageTime,
             enableExtraTime = cfg.enableExtraTime,
             enablePenaltyShootout = cfg.enablePenaltyShootout,
+            dynamicStoppageTicks = MatchState.dynamicStoppageTicks,
         )
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
@@ -235,6 +237,7 @@ object FootballNetworking {
             enableStoppageTime = cfg.enableStoppageTime,
             enableExtraTime = cfg.enableExtraTime,
             enablePenaltyShootout = cfg.enablePenaltyShootout,
+            dynamicStoppageTicks = MatchState.dynamicStoppageTicks,
         ))
     }
 

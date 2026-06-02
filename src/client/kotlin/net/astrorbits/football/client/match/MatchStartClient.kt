@@ -116,30 +116,7 @@ object MatchStartClient {
         if (kickoffTouched) return
         kickoffTouched = true
         isGoalLineOut = false
-        // 补时上限
-        val maxTicks = net.astrorbits.football.match.MatchConfigHolder.current.stoppageTimeMaxMinutes * 60 * 20
-        if (net.astrorbits.football.match.MatchState.dynamicStoppageTicks > maxTicks) {
-            net.astrorbits.football.match.MatchState.dynamicStoppageTicks = maxTicks
-        }
         lastStoppageTickMs = 0L
-    }
-
-    /** 每客户端 tick 调用：宽限期过后未触球则持续累积动态补时 */
-    fun tickStoppage() {
-        if (startTimeMs == 0L || kickoffTouched) return
-        val now = System.currentTimeMillis()
-        val graceEnd = kickoffStartMs + allowedMs
-        if (now <= graceEnd) return
-        val maxTicks = net.astrorbits.football.match.MatchConfigHolder.current.stoppageTimeMaxMinutes * 60 * 20
-        val state = net.astrorbits.football.match.MatchState
-        if (state.dynamicStoppageTicks >= maxTicks) return
-        if (lastStoppageTickMs == 0L) lastStoppageTickMs = graceEnd
-        val delta = now - lastStoppageTickMs
-        if (delta >= 50) {
-            val ticks = (delta / 50).toInt().coerceAtMost(maxTicks - state.dynamicStoppageTicks)
-            state.dynamicStoppageTicks += ticks
-            lastStoppageTickMs += ticks * 50L
-        }
     }
 
     /** 半场切换时调用，终止当前未完成的开球计时 */

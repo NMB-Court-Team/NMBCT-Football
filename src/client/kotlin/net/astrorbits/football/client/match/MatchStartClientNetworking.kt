@@ -96,6 +96,7 @@ object MatchStartClientNetworking {
                 MatchState.teamAName = Component.literal(payload.teamAName)
                 MatchState.teamBName = Component.literal(payload.teamBName)
                 MatchState.isRunning = payload.isRunning
+                MatchState.dynamicStoppageTicks = payload.dynamicStoppageTicks
                 net.astrorbits.football.match.MatchConfigHolder.syncFromServer(
                     net.astrorbits.football.match.MatchConfigHolder.current.copy(
                         teamAName = payload.teamAName,
