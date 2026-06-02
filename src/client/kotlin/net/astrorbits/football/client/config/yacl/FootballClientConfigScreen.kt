@@ -70,6 +70,22 @@ object FootballClientConfigScreen {
                                     { v -> draft = draft.copy(clientCorrectionThreshold = v) },
                                     0.0..2.0,
                                 )
+                                addDouble(
+                                    "yacl3.config.$MOD_ID.client.ball_render_dist",
+                                    "yacl3.config.$MOD_ID.client.ball_render_dist.desc",
+                                    { draft.ballRenderDist },
+                                    { v -> draft = draft.copy(ballRenderDist = v) },
+                                    16.0..512.0,
+                                    step = 1.0,
+                                )
+                                addDouble(
+                                    "yacl3.config.$MOD_ID.client.ball_billboard_ratio",
+                                    "yacl3.config.$MOD_ID.client.ball_billboard_ratio.desc",
+                                    { draft.ballBillboardRatio },
+                                    { v -> draft = draft.copy(ballBillboardRatio = v) },
+                                    0.1..1.0,
+                                    step = 0.01,
+                                )
                             }
                             .build(),
                     )
