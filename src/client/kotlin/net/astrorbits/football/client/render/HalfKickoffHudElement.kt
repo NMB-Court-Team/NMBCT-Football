@@ -1,7 +1,7 @@
 package net.astrorbits.football.client.render
 
+import net.astrorbits.football.client.match.MatchHudTeams
 import net.astrorbits.football.client.match.MatchStartClient
-import net.astrorbits.football.match.TeamSide
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
@@ -16,7 +16,7 @@ class HalfKickoffHudElement : HudElement {
         if (client.isPaused) return
 
         val kt = MatchStartClient.kickoffTeam
-        val teamName = if (kt == TeamSide.A) MatchStartClient.teamAName else MatchStartClient.teamBName
+        val teamName = MatchHudTeams.name(kt)
         val teamColor = MatchEventBanner.teamColor(kt)
         val phaseText = Component.translatable(MatchStartClient.halfKickoffPhaseKey).string
         val kickoffLabel = Component.translatable("hud.nmbct-football.half_kickoff.kickoff").string
