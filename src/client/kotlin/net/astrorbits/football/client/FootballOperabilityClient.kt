@@ -101,7 +101,7 @@ object FootballOperabilityClient {
             Football::class.java,
             player.boundingBox.inflate(range),
         )
-            .filter { !it.isHeld() && player.distanceToSqr(it) <= range * range }
+            .filter { !it.isHeld() && !it.isPlayerBallMovementForbidden(player) && player.distanceToSqr(it) <= range * range }
             .minByOrNull { it.distanceToSqr(player) }
     }
 }

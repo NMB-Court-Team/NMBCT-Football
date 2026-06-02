@@ -13,11 +13,16 @@ import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsNbt
 import net.astrorbits.football.physics.FootballPhysicsState
 import net.astrorbits.football.util.*
+import net.fabricmc.fabric.api.`object`.builder.v1.entity.FabricEntityDataRegistry
 import net.minecraft.core.Registry
+import net.minecraft.core.UUIDUtil
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.core.registries.Registries
 import net.minecraft.nbt.CompoundTag
+import net.minecraft.network.FriendlyByteBuf
+import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.syncher.EntityDataAccessor
+import net.minecraft.network.syncher.EntityDataSerializer
 import net.minecraft.network.syncher.EntityDataSerializers
 import net.minecraft.network.syncher.SynchedEntityData
 import net.minecraft.resources.ResourceKey
@@ -45,6 +50,8 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector3fc
 import java.util.*
+import kotlin.jvm.optionals.getOrNull
+import kotlin.jvm.optionals.toSet
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -77,7 +84,34 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         entityData.define(DATA_ON_GROUND, false)
         entityData.define(DATA_HOLDER_ID, -1)
         entityData.define(DATA_IMMOVABLE, false)
+        entityData.define(DATA_IMMOVABLE_TARGET_PLAYERS, emptySet())
     }
+
+    /**
+     * 对这些玩家而言球不可被移动（踢、推、持球、运球辅助等）；[teleportBall] 不受影响
+     */
+    var immovableTargetPlayers: Set<UUID>
+        get() = entityData.get(DATA_IMMOVABLE_TARGET_PLAYERS)
+        set(value) {
+            if (level().isClientSide) {
+                return
+            }
+            val normalized = value.toSet()
+            if (entityData.get(DATA_IMMOVABLE_TARGET_PLAYERS) == normalized) {
+                return
+            }
+            entityData.set(DATA_IMMOVABLE_TARGET_PLAYERS, normalized)
+            if (holderEntityId >= 0) {
+                val holder = (level() as? ServerLevel)?.getEntity(holderEntityId) as? ServerPlayer
+                if (holder != null && normalized.contains(holder.uuid)) {
+                    releaseHold()
+                }
+            }
+        }
+
+    /** 指定玩家是否被禁止以任何方式移动此球（传送除外）。 */
+    fun isPlayerBallMovementForbidden(player: Player): Boolean =
+        immovableTargetPlayers.contains(player.uuid)
 
     /**
      * 是否固定：不可踢、不可推，物理与位置保持锚点；仅 [teleportBall] / [teleportBallCenter] 可改变位置。
@@ -118,6 +152,34 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     fun teleportBallCenter(center: Vec3) {
         val radius = FootballPhysicsConfig.RADIUS
         teleportBall(center.x, center.y - radius, center.z)
+    }
+
+    /**
+     * 使玩家无法以任何方式移动此球（踢、推、持球、运球辅助等）；[teleportBall] 不受影响。
+     */
+    fun makePlayerImmovable(player: Player) {
+        immovableTargetPlayers += player.uuid
+    }
+
+    /**
+     * 使一系列玩家无法以任何方式移动此球（踢、推、持球、运球辅助等）；[teleportBall] 不受影响。
+     */
+    fun makePlayersImmovable(players: Collection<Player>) {
+        immovableTargetPlayers += players.map { it.uuid }
+    }
+
+    /**
+     * 使玩家可以正常移动此球
+     */
+    fun makePlayerMovable(player: Player) {
+        immovableTargetPlayers -= player.uuid
+    }
+
+    /**
+     * 使一系列玩家可以正常移动此球
+     */
+    fun makePlayersMovable(players: Collection<Player>) {
+        immovableTargetPlayers = immovableTargetPlayers.filter { it !in players.map { player -> player.uuid } }.toSet()
     }
 
     override fun tick() {
@@ -331,7 +393,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
         var applied = false
         for (player in players) {
-            if (shouldSkipPlayerBodyInteraction(player, now)) {
+            if (isPlayerBallMovementForbidden(player) || shouldSkipPlayerBodyInteraction(player, now)) {
                 continue
             }
             if (!canPlayerReachBallThisTick(player, ballCenter, radius)) {
@@ -387,7 +449,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     private fun applyPlayerPushFromPlayer(player: ServerPlayer, pushDir: Vec3): Boolean {
-        if (isImmovable) {
+        if (isImmovable || isPlayerBallMovementForbidden(player)) {
             return false
         }
         val dir = Vec3Math.normalizeSafe(pushDir)
@@ -441,7 +503,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
 
         for (player in players) {
-            val suppressBodyInteraction = shouldSkipPlayerBodyInteraction(player, now)
+            val suppressBodyInteraction =
+                isPlayerBallMovementForbidden(player) || shouldSkipPlayerBodyInteraction(player, now)
 
             val playerBox = player.boundingBox
             var contactNormal: Vec3? = null
@@ -775,9 +838,18 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         return name to MatchState.getPlayerTeam(uuid)
     }
 
-    fun kick(kickPoint: Vec3, direction: Vec3) {
+    /**
+     * @param ignoreImmovableTargets 为 true 时跳过 [immovableTargetPlayers] 检查（如命令踢球）。
+     */
+    fun kick(kickPoint: Vec3, direction: Vec3, ignoreImmovableTargets: Boolean = false) {
         if (level().isClientSide || isImmovable) {
             return
+        }
+        if (!ignoreImmovableTargets) {
+            val kickerUuid = lastKicker
+            if (kickerUuid != null && kickerUuid in immovableTargetPlayers) {
+                return
+            }
         }
 
         releaseHold()
@@ -821,6 +893,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (level().isClientSide || isImmovable) {
             return
         }
+        val kickerUuid = lastKicker
+        if (kickerUuid != null && kickerUuid in immovableTargetPlayers) {
+            return
+        }
         releaseHold()
         physicsState.linearVelocity = Vec3.ZERO
         physicsState.angularVelocity = Vec3.ZERO
@@ -829,8 +905,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         syncPhysicsToEntityData()
     }
 
-    fun applyDribbleAssist(horizontalVelocity: Vec3) {
-        if (level().isClientSide || isImmovable) {
+    fun applyDribbleAssist(horizontalVelocity: Vec3, player: ServerPlayer) {
+        if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player)) {
             return
         }
 
@@ -854,7 +930,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     fun isHeldBy(player: ServerPlayer): Boolean = getHolderEntityId() == player.id
 
     fun enterHold(player: ServerPlayer) {
-        if (level().isClientSide || isImmovable) {
+        if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player)) {
             return
         }
         holderEntityId = player.id
@@ -883,7 +959,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     fun dropAt(player: ServerPlayer) {
-        if (level().isClientSide || isImmovable) {
+        if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player)) {
             return
         }
         val look = Vec3Math.normalizeSafe(Vec3Math.horizontal(player.lookAngle))
@@ -1054,7 +1130,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     override fun push(entity: Entity) {
         if (entity is ServerPlayer) {
-            if (isImmovable) {
+            if (isImmovable || isPlayerBallMovementForbidden(entity)) {
                 return
             }
             val now = (level() as? ServerLevel)?.gameTime ?: 0L
@@ -1121,7 +1197,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         deltaMovement = physicsState.linearVelocity
         previousOrientation.set(physicsState.orientation)
         val immovable = input.getBooleanOr(NBT_IMMOVABLE, false)
-        entityData.set(DATA_IMMOVABLE, immovable)
+        this.isImmovable = immovable
         if (immovable) {
             captureImmovableSnapshot()
         } else {
@@ -1178,9 +1254,15 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         private const val PLAYER_PUSH_DEFLECTION_BIAS = 0.62
         private const val PLAYER_PUSH_DEFLECTION_DEADZONE = 0.02
 
-        fun init() {
-            // static init
+        fun registerSerializers() {
+            FabricEntityDataRegistry.register(ENTITY_ID, SERIALIZER_IMMOVABLE_TARGET_PLAYERS)
         }
+
+        private val SERIALIZER_IMMOVABLE_TARGET_PLAYERS: EntityDataSerializer<Set<UUID>> =
+            EntityDataSerializer.forValueType(StreamCodec.of<FriendlyByteBuf, Set<UUID>>(
+                { buf, uuidSet -> buf.writeCollection(uuidSet, UUIDUtil.STREAM_CODEC) },
+                { buf -> buf.readCollection(::HashSet, UUIDUtil.STREAM_CODEC) }
+            ))
 
         private val DATA_LINEAR_VEL: EntityDataAccessor<Vector3fc> = SynchedEntityData.defineId(
             Football::class.java,
@@ -1201,6 +1283,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         private val DATA_IMMOVABLE: EntityDataAccessor<Boolean> = SynchedEntityData.defineId(
             Football::class.java,
             EntityDataSerializers.BOOLEAN
+        )
+        private val DATA_IMMOVABLE_TARGET_PLAYERS: EntityDataAccessor<Set<UUID>> = SynchedEntityData.defineId(
+            Football::class.java,
+            SERIALIZER_IMMOVABLE_TARGET_PLAYERS
         )
 
         private const val NBT_IMMOVABLE = "immovable"

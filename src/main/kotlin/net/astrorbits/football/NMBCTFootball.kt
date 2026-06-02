@@ -1,7 +1,6 @@
 ﻿package net.astrorbits.football
 
 import net.astrorbits.football.block.Blocks
-import net.astrorbits.football.GoalNetEntity
 import net.astrorbits.football.config.client.FootballClientConfigHolder
 import net.astrorbits.football.config.server.FootballServerConfigHolder
 import net.astrorbits.football.input.FootballDribbleSessions
@@ -47,7 +46,7 @@ object NMBCTFootball : ModInitializer {
 		Items.init()
 		Blocks.init()
 		FootballItemGroups.init()
-		Football.init()
+		Football.registerSerializers()
 		GoalNetEntity.init()
 		FootballSounds.init()
 		GoalNetConnectorSounds.init()
@@ -60,8 +59,8 @@ object NMBCTFootball : ModInitializer {
 
 		FootballNetworking.registerPayloadType()
 		FootballNetworking.registerServerReceiver()
-			FootballNetworking.registerServerTick()
-			FootballEntityInteractions.register()
+		FootballNetworking.registerServerTick()
+		FootballEntityInteractions.register()
 		GoalNetAnchorLinks.registerEvents()
 		GoalNetInteractions.register()
 		FootballItemUseGuards.register()

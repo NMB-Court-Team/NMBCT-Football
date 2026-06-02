@@ -91,6 +91,9 @@ class FootballItem(properties: Properties) : Item(properties) {
             val center = FootballParticles.centerOfFootball(football)
             val horizontal = Vec3Math.horizontal(direction)
             val kickPoint = FootballKickUtil.buildKickPoint(center, horizontal, 0.0)
+            if (player is ServerPlayer) {
+                football.lastKicker = player.uuid
+            }
             football.kick(kickPoint, direction)
             if (player is ServerPlayer) {
                 FootballSounds.playKick(player, FOOTBALL_ITEM_THROW_FORCE)

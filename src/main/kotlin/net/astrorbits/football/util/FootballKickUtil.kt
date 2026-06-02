@@ -172,7 +172,7 @@ object FootballKickUtil {
 
     /** 命令精确踢球：直接指定世界坐标踢球点与冲量向量。 */
     fun applyPreciseCommandKick(football: Football, kickPoint: Vec3, direction: Vec3) {
-        football.kick(kickPoint, direction)
+        football.kick(kickPoint, direction, ignoreImmovableTargets = true)
     }
 
     /** 命令踢球：使用显式 angle 参数，不叠加视角 pitch 偏移。 */
@@ -184,7 +184,19 @@ object FootballKickUtil {
     ) {
         val look = lookDirection(lookYaw, lookPitch)
         val horizontalLook = Vec3Math.horizontal(look)
-        applyKickWithHorizontalDirection(football, horizontalLook, look, params)
+        applyCommandKickWithHorizontalDirection(football, horizontalLook, look, params)
+    }
+
+    private fun applyCommandKickWithHorizontalDirection(
+        football: Football,
+        horizontalLook: Vec3,
+        verticalReference: Vec3,
+        params: KickParams,
+    ) {
+        val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
+        val kickPoint = buildKickPoint(ballCenter, horizontalLook, params.heightOffset)
+        val direction = buildKickDirection(horizontalLook, verticalReference, params.force, params.angleDegrees)
+        football.kick(kickPoint, direction, ignoreImmovableTargets = true)
     }
 
     /**
@@ -248,6 +260,7 @@ object FootballKickUtil {
         if (direction.lengthSqr() < 1.0e-8) {
             return
         }
+        football.lastKicker = player.uuid
         val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         val kickPoint = buildKickPoint(ballCenter, direction, 0.0)
         football.kick(kickPoint, direction.scale(FootballInputConfig.DRIBBLE_TOUCH_FORCE))

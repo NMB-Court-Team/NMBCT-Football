@@ -60,7 +60,7 @@ object FootballDribbleAssist {
         }
 
         val newHoriz = currentHoriz.add(correction)
-        football.applyDribbleAssist(newHoriz)
+        football.applyDribbleAssist(newHoriz, player)
         return true
     }
 

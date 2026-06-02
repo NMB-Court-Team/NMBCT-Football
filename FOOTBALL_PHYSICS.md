@@ -52,7 +52,8 @@ flowchart TB
 | `util/CollisionUtil.kt`                  | 地面反弹、摩擦、墙体衰减、滚动耦合         |
 | `util/CobwebUtil.kt`                     | 检测 AABB 是否与蜘蛛网相交并施加阻力     |
 | `util/Vec3Math.kt` / `QuaternionMath.kt` | 向量与旋转工具                   |
-| `Football.kt`                            | `tick`、`kick`、同步、存档       |
+| `FootballImmovableSnapshot.kt`           | 全局固定（`isImmovable`）时的位置与物理锚点 |
+| `Football.kt`                            | `tick`、`kick`、同步、存档、移动限制 API |
 
 ## 状态变量
 
@@ -68,9 +69,26 @@ flowchart TB
 
 实体初始化时设置 `setNoGravity(true)`，避免与自定义重力叠加；`requiresPrecisePosition = true` 以减少原版位置插值与自定义物理冲突。
 
+### 实体数据（`SynchedEntityData`，双端同步）
+
+除物理状态外，`Football` 还通过实体数据同步下列字段（服务端写入，客户端只读）：
+
+| 访问器 | 类型 | 默认值 | 是否写入存档 | 说明 |
+|--------|------|--------|--------------|------|
+| `DATA_LINEAR_VEL` | `Vector3f` | `0` | 是（`lv_*`） | 线速度 |
+| `DATA_ANGULAR_VEL` | `Vector3f` | `0` | 是（`av_*`） | 角速度 |
+| `DATA_ON_GROUND` | `Boolean` | `false` | 是（`on_ground`） | 接地 |
+| `DATA_HOLDER_ID` | `Int` | `-1` | 否 | 持球守门员实体 ID |
+| `DATA_IMMOVABLE` | `Boolean` | `false` | 是（`immovable`） | 全局固定，见下文 |
+| `DATA_IMMOVABLE_TARGET_PLAYERS` | `Set<UUID>` | `emptySet()` | **否** | 按玩家禁止动球名单，见下文 |
+
+`DATA_IMMOVABLE_TARGET_PLAYERS` 使用 Fabric 注册的自定义 `EntityDataSerializer<Set<UUID>>`（`FriendlyByteBuf` + `UUIDUtil.STREAM_CODEC` 读写集合），在 `NMBCTFootball.onInitialize` 中调用 `Football.registerSerializers()` 完成注册。
+
 ## 每 tick 计算流程
 
 以下顺序在 **服务端** `Football.serverTick()` 中执行；客户端每 tick 从 `SynchedEntityData` 读取线速度/角速度，仅积分 `orientation`。
+
+若 `isImmovable == true`，服务端在持球检查后直接走 `tickImmovable()`：从 `FootballImmovableSnapshot` 恢复位置与物理量、清零 `deltaMovement` 并同步，**不执行**下述位移与碰撞模拟。客户端在 `clientTick()` 开头同样若全局固定则强制渲染速度为零并提前返回。
 
 ### 1. 空气力与重力（`applyAirForces`）
 
@@ -148,6 +166,73 @@ v_z ≈  r · ω_x
 
 踢球后立即同步 `SynchedEntityData` 并调用 `syncPacketPositionCodec`。
 
+**与移动限制的关系**：若 `lastKicker` 在 `immovableTargetPlayers` 内，则 `kick` 直接返回（不施加冲量）。命令踢球（`FootballKickUtil.applyPreciseCommandKick` / `applyCommandKick`）传入 `ignoreImmovableTargets = true`，不受名单影响。停球 `trap()` 同样依据 `lastKicker` 判断。
+
+## 球体固定与按玩家移动限制
+
+模组提供两层互不替代的约束：**全局固定**影响整颗球；**按玩家名单**只禁止名单内玩家对球施力，其它玩家与物理模拟照常。
+
+```mermaid
+flowchart LR
+    subgraph global [全局 isImmovable]
+        G1[停止物理 tick]
+        G2[锚定快照]
+        G3[仅 teleportBall 改位]
+    end
+    subgraph perPlayer [immovableTargetPlayers]
+        P1[球仍可被他人踢动]
+        P2[名单内玩家无法施力]
+        P3[teleportBall 仍可用]
+    end
+```
+
+### 全局固定：`isImmovable`
+
+| 项目 | 行为 |
+|------|------|
+| 设置 | 服务端 `football.isImmovable = true`；写入 `DATA_IMMOVABLE` |
+| 物理 | 每 tick `restoreImmovableSnapshot()`，球位、线/角速度、朝向、接地、墙弹冷却回到启用瞬间的快照 |
+| 交互 | 不可踢、不可推、不可持球；`Entity.push` 对玩家无效 |
+| 改位 | **`teleportBall` / `teleportBallCenter`** 可改位置；若仍固定，会 `captureImmovableSnapshot()` 更新锚点 |
+| 存档 | `readAdditionalSaveData` / `addAdditionalSaveData` 读写 NBT 键 `immovable` |
+| 客户端 | 渲染速度强制为 0，不做朝向积分外的位移外推 |
+
+启用固定时会 `releaseHold()` 并捕获快照；关闭时丢弃快照。
+
+### 按玩家名单：`immovableTargetPlayers`
+
+| 项目 | 行为 |
+|------|------|
+| 数据 | `Set<UUID>`，经 `DATA_IMMOVABLE_TARGET_PLAYERS` **仅网络同步**，**不**写入 `AdditionalSaveData` |
+| 查询 | `isPlayerBallMovementForbidden(player)` ⇔ `player.uuid ∈ immovableTargetPlayers` |
+| 便捷 API | `makePlayerImmovable` / `makePlayersImmovable`（追加 UUID）；`makePlayerMovable` / `makePlayersMovable`（从集合移除） |
+| 物理 | **不**停止 `serverTick` 模拟；球仍受重力、碰撞、他人踢球等影响 |
+| 改位 | **`teleportBall` 不受名单限制**（与全局固定相同，属显式传送） |
+
+名单内玩家被拦截的交互（服务端）：
+
+- `kick` / `trap`（依据 `lastKicker`）
+- `applyDribbleAssist`、`enterHold`、`dropAt`
+- `applyPlayerPushesBeforeMove`、`applyPlayerPushFromPlayer`
+- `resolvePlayerCollisions` 中对该玩家的推球、碰撞修正与球速反射（`suppressBodyInteraction`）
+- `Entity.push` 来自该 `ServerPlayer`
+
+**未**拦截：其它玩家的踢球与推球；命令踢球（`ignoreImmovableTargets`）；非玩家实体；球撞向名单内玩家时，玩家仍可能获得 recoil（只禁止该玩家**使球动**）。
+
+将某 UUID 加入名单时，若其正持球（`holderEntityId` 对应该玩家），会立即 `releaseHold()`。
+
+**客户端**：`FootballOperabilityClient.nearestOperableFootball` 会过滤 `isPlayerBallMovementForbidden` 的球，避免对本地玩家显示无效按键高亮。
+
+### 二者对比
+
+| | `isImmovable` | `immovableTargetPlayers` |
+|---|----------------|---------------------------|
+| 作用对象 | 所有人 | 仅集合内 UUID 对应玩家 |
+| 球是否仍模拟 | 否（锚定） | 是 |
+| 他人能否踢球 | 否 | 是 |
+| 存档 | 是 | 否 |
+| 双端同步 | `DATA_IMMOVABLE` | `DATA_IMMOVABLE_TARGET_PLAYERS` |
+
 ## 滚动方向（`getRollingDirection`）
 
 返回**水平单位向量**（Y = 0），长度为 0 时返回 `Vec3.ZERO`。优先级如下：
@@ -173,8 +258,8 @@ sequenceDiagram
 
 | 侧       | 行为                                                                                                    |
 |---------|-------------------------------------------------------------------------------------------------------|
-| **服务端** | 权威模拟；`kick` 仅在此执行；每 tick 写入 `SynchedEntityData`                                                       |
-| **客户端** | 每 tick 读取同步速度；渲染位置用 `xOld + v·partialTick` 外推；朝向用 `ω·partialTick` 积分；不在帧内重复同步 |
+| **服务端** | 权威模拟；`kick` 仅在此执行；每 tick 写入 `SynchedEntityData`（含速度、`isImmovable`、`immovableTargetPlayers`） |
+| **客户端** | 每 tick 读取同步速度；读取 `immovableTargetPlayers` 用于操作提示过滤；`isImmovable` 时渲染速度归零；否则用 `xOld + v·partialTick` 外推位置、`ω·partialTick` 积分朝向 |
 
 `orientation` 不同步：两端各自用相同 `angularVelocity` 积分，在一般情况下与预测一致。
 
@@ -185,6 +270,25 @@ sequenceDiagram
 - `lv_x/y/z`：线速度
 - `av_x/y/z`：角速度
 - `on_ground`：接地标志
+- `immovable`：是否全局固定（`isImmovable`）
+
+**不**写入存档、仅依赖实体数据同步的字段：`immovableTargetPlayers`、`DATA_HOLDER_ID`。世界重载后名单与持球状态以服务端运行时为准；若需持久化名单，须在玩法层（如比赛状态）自行保存并在生成足球后重新设置。
+
+### 代码示例（服务端）
+
+```kotlin
+// 全局固定（开球摆位、死球等）
+football.isImmovable = true
+football.teleportBallCenter(kickoffCenter)
+football.isImmovable = false
+
+// 仅禁止某队/某球员触球（例如开球前非发球方）
+football.makePlayersImmovable(teamPlayers)
+football.makePlayerMovable(kickoffPlayer)
+
+// 或直接操作集合
+football.immovableTargetPlayers = setOf(playerA.uuid, playerB.uuid)
+```
 
 ## 参数调优
 
