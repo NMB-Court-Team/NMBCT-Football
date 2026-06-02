@@ -276,14 +276,6 @@ object FootballSounds {
         basePitch = 0.95f,
     )
 
-    val SLIDE_TACKLE: SoundSpec = SoundSpec(
-        event = SoundEvents.PLAYER_ATTACK_SWEEP,
-        source = SoundSource.PLAYERS,
-        volume = 0.62f,
-        basePitch = 0.9f,
-        pitchSpread = 0.08f,
-    )
-
     val WHISTLE_USE: SoundSpec = SoundSpec(
         event = WHISTLE_USE_EVENT,
         source = SoundSource.PLAYERS,
@@ -340,12 +332,6 @@ object FootballSounds {
             soundType.volume * 0.5f,
             soundType.pitch,
         )
-    }
-
-    fun playSlideTackleContact(player: ServerPlayer, force: Double) {
-        val normalizedForce = normalizeKickForce(force)
-        val volumeScale = 0.9f + normalizedForce * 0.2f
-        play(player.level(), player.blockPosition(), SLIDE_TACKLE, player.random, volumeScale)
     }
 
     fun playWhistle(level: Level, pos: BlockPos, random: RandomSource) {

@@ -2,9 +2,7 @@ package net.astrorbits.football.input
 
 import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.FootballSounds
-import net.astrorbits.football.mixinhelper.SlideTackleStateAccess
 import net.astrorbits.football.network.FootballNetworking
-import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.FootballKickUtil
 import net.astrorbits.football.util.Vec3Math
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
@@ -19,10 +17,6 @@ data class SlideTackleSession(
     val playerId: UUID,
     val direction: Vec3,
     val startTick: Long,
-    val lookYaw: Float,
-    val lookPitch: Float,
-    val sprinting: Boolean,
-    var touchResolved: Boolean = false,
     var endRequested: Boolean = false,
     val playersContacted: MutableSet<UUID> = mutableSetOf(),
     var contactSpeedScale: Double = 1.0,
@@ -37,10 +31,6 @@ object SlideTackleSessions {
     // how many ticks at least will stay in slide pose after pressed key
     private const val MIN_SLIDE_TICKS = 30L
     private const val SLIDE_COOLDOWN_TICKS = 14L
-    private const val TOUCH_RANGE_BONUS = 0.75
-    private const val CHIP_HEIGHT_THRESHOLD = 0.55
-    private const val CHIP_FACING_THRESHOLD = 0.3
-    private const val CONTACT_DELAY_TICKS = 3L
     private const val STEP_SOUND_INTERVAL_TICKS = 4L
     private const val CONTACT_HITBOX_EXPAND = 0.6
     // 进入滑铲时略快于疾跑，先保持一小段时间，再衰减到 0。
@@ -66,9 +56,6 @@ object SlideTackleSessions {
     fun begin(
         player: ServerPlayer,
         now: Long,
-        lookYaw: Float,
-        lookPitch: Float,
-        sprinting: Boolean,
     ): Boolean {
         if (!player.isSprinting || !player.onGround()) {
             return false
@@ -91,9 +78,6 @@ object SlideTackleSessions {
             playerId = player.uuid,
             direction = Vec3Math.normalizeSafe(direction),
             startTick = now,
-            lookYaw = lookYaw,
-            lookPitch = lookPitch,
-            sprinting = sprinting,
         )
         cooldownUntil[player.uuid] = now + SLIDE_COOLDOWN_TICKS
         setSlideState(player, sliding = true)
@@ -167,7 +151,6 @@ object SlideTackleSessions {
             if (speed > SLIDE_MOVE_EPSILON && elapsed > 0L && elapsed % STEP_SOUND_INTERVAL_TICKS == 0L) {
                 FootballSounds.playSlideTackle(player)
             }
-            tryResolveBallContact(player, session, elapsed)
             tryResolvePlayerContact(player, session, now)
         }
     }
@@ -190,47 +173,6 @@ object SlideTackleSessions {
         player.setDeltaMovement(horizontalVelocity.x, player.deltaMovement.y, horizontalVelocity.z)
         player.hurtMarked = true
         return effectiveSpeed
-    }
-
-    private fun tryResolveBallContact(player: ServerPlayer, session: SlideTackleSession, elapsed: Long) {
-        if (net.astrorbits.football.match.MatchState.isKickoffInteractionLocked(player)) {
-            return
-        }
-        if (session.touchResolved) {
-            return
-        }
-        if (elapsed < CONTACT_DELAY_TICKS) {
-            return
-        }
-        val range = FootballInputConfig.PLAYER_KICK_RANGE + TOUCH_RANGE_BONUS
-        val football = FootballKickUtil.findNearestFootball(player, range) ?: return
-        if (football.isHeld()) {
-            return
-        }
-        if (player.distanceToSqr(football) > range * range) {
-            return
-        }
-        if (!expandedContactBox(player).intersects(football.boundingBox)) {
-            return
-        }
-
-        val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
-        val toBall = Vec3(ballCenter.x - player.x, 0.0, ballCenter.z - player.z)
-        val facing = if (toBall.lengthSqr() > 1.0e-8) {
-            Vec3Math.normalizeSafe(toBall).dot(Vec3Math.normalizeSafe(session.direction))
-        } else {
-            1.0
-        }
-        val shouldChip = ballCenter.y - player.y > CHIP_HEIGHT_THRESHOLD || facing < CHIP_FACING_THRESHOLD
-        val params = if (shouldChip) {
-            FootballKickUtil.resolveChipParams(player)
-        } else {
-            FootballKickUtil.resolveSlideKickParams(session.sprinting)
-        }
-        FootballKickUtil.applyKickToFootballWithLook(football, params, session.lookYaw, session.lookPitch)
-        FootballSounds.playKick(player, params.force)
-        FootballParticles.playSlideTackleContact(player, football, params.force)
-        session.touchResolved = true
     }
 
     private fun setSlideState(player: ServerPlayer, sliding: Boolean) {

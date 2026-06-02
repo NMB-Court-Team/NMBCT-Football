@@ -78,13 +78,9 @@ object FootballPlayerActions {
             return
         }
         val now = player.level().gameTime
-        val sprinting = payload.flags and FootballInputConfig.FLAG_SPRINT != 0
         SlideTackleSessions.begin(
             player = player,
             now = now,
-            lookYaw = payload.lookYaw,
-            lookPitch = payload.lookPitch,
-            sprinting = sprinting,
         )
     }
 
