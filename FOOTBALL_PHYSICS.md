@@ -168,10 +168,7 @@ sequenceDiagram
 
   Note over S: tick: 模拟 + move + 写 SynchedEntityData
   S->>C: 同步线速度/角速度/接地
-  Note over C: tick: 相同模拟（预测）
-  alt 速度误差 > CLIENT_CORRECTION_THRESHOLD
-    C->>C: 对齐服务端速度 + lerpMotion
-  end
+  Note over C: tick: 读取同步速度并做朝向积分（不做独立预测纠偏）
 ```
 
 | 侧       | 行为                                                                                                    |
@@ -200,7 +197,6 @@ sequenceDiagram
 | 空中飞太远    | `AIR_DRAG`（减小）、`GRAVITY`（增大）                    |
 | 球门网太粘/太滑 | `COBWEB_HORIZONTAL_DRAG`、`COBWEB_VERTICAL_DRAG` |
 | 撞墙反弹太强   | `WALL_RESTITUTION`                              |
-| 高延迟下球路跳变 | `CLIENT_CORRECTION_THRESHOLD`                   |
 
 ## 与原版行为的差异
 
@@ -227,8 +223,31 @@ sequenceDiagram
 - **朝向**：`getOrientation(partialTick)` 从 `previousOrientation` 按 `ω·partialTick` 积分。
 - **矩阵栈**：`PoseStack.use { }`（`client/PoseStackExtensions.kt`）包裹平移与旋转，避免遗漏 `popPose`。
 - **管线（MC 26.1+）**：实体渲染走 `submit` + `SubmitNodeCollector`，物品层调用 `ItemStackRenderState.submit`；Y 偏移为碰撞半径 `RADIUS`（0.25），与 AABB 中心对齐。
+- **远近 LOD**：`FootballRenderer` 根据与相机距离决定绘制方式——近处 3D 物品模型，远处改为始终面向相机的面片（`football_billboard.png`），以减轻远处三角面开销。
 
 若模型偏移或大小不对，优先调 `FootballRenderer` 内 `translate` 或 `ItemDisplayContext`；若旋转与运动不一致，应检查 `Football.tick` 中的 `integrateOrientation` 与同步，而非渲染器。
+
+### 客户端渲染距离（仅本机）
+
+下列参数定义在 [`FootballClientConfig.kt`](src/main/kotlin/net/astrorbits/football/config/client/FootballClientConfig.kt)，通过 YACL 客户端配置界面调节（Mod Menu → 客户端配置 →「渲染」分组），**只影响本机绘制**，不改变服务端物理或实体同步范围。
+
+| 配置键（存档字段） | 代码字段 | 默认值 | 含义 |
+|-------------------|----------|--------|------|
+| `ball_render_dist` | `ballRenderDist` | `128` | 足球最远渲染距离（格）。相机到球心距离超过该值时，客户端不再绘制该足球。 |
+| `ball_billboard_ratio` | `ballBillboardRatio` | `0.62` | 面片切换比例（0~1）。面片切换距离 = `ball_render_dist × ball_billboard_ratio`；比例越小，越早从 3D 模型切换为面片。 |
+
+**判定逻辑**（`FootballRenderer`）：
+
+```text
+distance = 相机到球心（含 MODEL_Y_OFFSET）的距离
+若 distance > ball_render_dist → 不渲染
+若 distance > ball_render_dist × ball_billboard_ratio → 面片渲染
+否则 → 3D 物品模型渲染
+```
+
+示例：默认 `128` 格、`0.62` 时，约 **79.4** 格外开始用面片，**128** 格外完全不可见。
+
+> **注意**：服务端足球实体注册为 `clientTrackingRange(128)`（`Football.kt`）。若把 `ball_render_dist` 调得大于同步跟踪距离，远处可能仍收不到实体数据，客户端同样无法渲染。调参时建议两者大致对齐或渲染距离略小于跟踪距离。
 
 ## 守门员：`R` 键蓄力鱼跃扑救
 

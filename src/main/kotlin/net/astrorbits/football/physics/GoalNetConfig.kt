@@ -22,10 +22,6 @@ object GoalNetConfig {
 
     /** 约束（弹簧）迭代次数。越多越硬，开销越大。 */
     const val CONSTRAINT_ITERATIONS: Int = 6
-    /** 节点与方块碰撞解算迭代次数。 */
-    const val BLOCK_COLLISION_ITERATIONS: Int = 2
-    /** 网节点与方块保持的最小厚度（把节点当成小球半径）。 */
-    const val NODE_COLLISION_RADIUS: Double = 0.06
 
     /** 松弛度默认值与范围。松弛度越大，重力增益更高、约束更柔软，网越下垂。 */
     const val DEFAULT_SLACK: Double = 0.62
@@ -115,4 +111,5 @@ object GoalNetConfig {
 
     /** 绳线颜色（ARGB）。 */
     const val LINE_COLOR_ARGB: Int = 0xFFEDEDED.toInt()
+
 }

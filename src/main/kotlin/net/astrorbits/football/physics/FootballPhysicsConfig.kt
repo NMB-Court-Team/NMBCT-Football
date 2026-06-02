@@ -37,5 +37,4 @@ object FootballPhysicsConfig {
     val ORIENTATION_RESET_VELOCITY_DELTA get() = FootballConfigs.server.physics.orientationResetVelocityDelta
     val ORIENTATION_RESET_OMEGA_DELTA get() = FootballConfigs.server.physics.orientationResetOmegaDelta
     val RENDER_STATIONARY_SPEED_SQR get() = FootballConfigs.client.renderStationarySpeedSqr
-    val CLIENT_CORRECTION_THRESHOLD get() = FootballConfigs.client.clientCorrectionThreshold
 }

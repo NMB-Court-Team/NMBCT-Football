@@ -295,7 +295,7 @@ Fabric 事件：
 
 - 注册于 `NMBCTFootballClient`。
 - 将网格的水平/竖直结构边画成 **朝向相机的细长四边形**（`submitCustomGeometry` + `RenderTypes.entityTranslucent(white.png)`）。
-- 线宽：`LINE_HALF_WIDTH + 到相机距离 × LINE_WIDTH_DISTANCE_GAIN` → **世界空间固定宽度**，远近距离感变化（非屏幕像素恒定）。
+- 线宽：`LINE_HALF_WIDTH - 到相机距离 × LINE_WIDTH_DISTANCE_SHRINK`（下限 `LINE_MIN_HALF_WIDTH`）→ 世界空间固定宽度并在远距离收细。
 - 颜色：`GoalNetConfig.LINE_COLOR_ARGB`（默认 `0xFFEDEDED`）。
 - 客户端可在“**球网渲染模式**”中切换：`原版适配`（`RenderTypes.debugQuads()`）/ `光影适配`（当前光影友好渲染方式）。
 
@@ -352,12 +352,12 @@ Fabric 事件：
 | `GRAVITY` | `0.018` | 每 tick 重力（Verlet 位移量） |
 | `DAMPING` | `0.97` | 速度阻尼 |
 | `CONSTRAINT_ITERATIONS` | `6` | 弹簧约束迭代次数 |
-| `DEFAULT_SLACK` | `0.08` | 初始松弛度 |
-| `MIN_SLACK` / `MAX_SLACK` | `0.0` / `0.45` | 松弛度范围 |
+| `DEFAULT_SLACK` | `0.62` | 初始松弛度 |
+| `MIN_SLACK` / `MAX_SLACK` | `0.0` / `0.85` | 松弛度范围 |
 | `SLACK_STEP` | `0.05` | 每次调节步长 |
-| `SLACK_GRAVITY_GAIN` | `2.8` | 松弛度对重力增益 |
-| `SLACK_STIFFNESS_REDUCTION` | `1.5` | 松弛度对约束刚度衰减 |
-| `MIN_STIFFNESS_SCALE_AT_MAX_SLACK` | `0.25` | 高松弛下最小刚度比例 |
+| `SLACK_GRAVITY_GAIN` | `3.6` | 松弛度对重力增益 |
+| `SLACK_STIFFNESS_REDUCTION` | `1.9` | 松弛度对约束刚度衰减 |
+| `MIN_STIFFNESS_SCALE_AT_MAX_SLACK` | `0.16` | 高松弛下最小刚度比例 |
 | `ACTIVE_TICKS_AFTER_DISTURB` | `60` | 扰动后活跃模拟 tick 数 |
 | `SETTLE_SPEED_SQR` | `1e-7` | 静止判定阈值 |
 
@@ -365,10 +365,11 @@ Fabric 事件：
 
 | 常量 | 默认值 | 含义 |
 |------|--------|------|
-| `BALL_NORMAL_ABSORPTION` | `0.82` | 法向动量吸收比例 |
-| `BALL_TANGENT_RETENTION` | `0.7` | 切向速度保留比例 |
-| `BALL_PUSH_RADIUS` | `1.25` | 顶网影响半径 |
-| `BALL_PUSH_STRENGTH` | `0.9` | 顶网位移系数 |
+| `BALL_NORMAL_ABSORPTION` | `0.93` | 法向动量吸收比例 |
+| `BALL_TANGENT_RETENTION` | `0.52` | 常规切向速度保留比例 |
+| `BALL_TANGENT_RETENTION_HARD` | `0.24` | 重压时切向速度保留比例 |
+| `BALL_PUSH_RADIUS` | `1.35` | 顶网影响半径 |
+| `BALL_PUSH_STRENGTH` | `1.15` | 顶网位移系数 |
 | `CONTACT_MARGIN` | `0.12` | 接触判定余量 |
 
 ### 网节点-方块碰撞
@@ -382,8 +383,9 @@ Fabric 事件：
 
 | 常量 | 默认值 | 含义 |
 |------|--------|------|
-| `LINE_HALF_WIDTH` | `0.013` | 绳线半宽（方块） |
-| `LINE_WIDTH_DISTANCE_GAIN` | `0.0016` | 远距离线宽增益 |
+| `LINE_HALF_WIDTH` | `0.054` | 近距离绳线半宽（方块） |
+| `LINE_WIDTH_DISTANCE_SHRINK` | `0.00035` | 随距离增大逐步收细的系数 |
+| `LINE_MIN_HALF_WIDTH` | `0.007` | 远距离线宽下限 |
 | `LINE_COLOR_ARGB` | `0xFFEDEDED` | 绳线颜色 |
 
 ---

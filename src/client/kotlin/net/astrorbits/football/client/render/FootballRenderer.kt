@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import net.astrorbits.football.Football
 import net.astrorbits.football.NMBCTFootball
+import net.astrorbits.football.config.client.FootballClientConfigHolder
 import net.astrorbits.football.client.util.use
 import net.astrorbits.football.item.Items
 import net.astrorbits.football.util.GoalkeeperHoldPoseUtil
@@ -90,6 +91,9 @@ class FootballRenderer(context: EntityRendererProvider.Context) :
         collector: SubmitNodeCollector,
         cameraState: CameraRenderState
     ) {
+        if (!isWithinRenderDistance(state, cameraState)) {
+            return
+        }
         if (shouldUseBillboard(state, cameraState)) {
             submitBillboard(state, poseStack, collector)
         } else if (!state.item.isEmpty) {
@@ -111,11 +115,27 @@ class FootballRenderer(context: EntityRendererProvider.Context) :
     }
 
     private fun shouldUseBillboard(state: FootballRenderState, cameraState: CameraRenderState): Boolean {
+        val distanceSqr = distanceSqToCamera(state, cameraState)
+        val cfg = FootballClientConfigHolder.current
+        val maxDist = cfg.ballRenderDist.coerceAtLeast(MIN_RENDER_DISTANCE)
+        val ratio = cfg.ballBillboardRatio.coerceIn(MIN_BILLBOARD_RATIO, 1.0)
+        val billboardDistance = maxDist * ratio
+        val billboardDistanceSqr = billboardDistance * billboardDistance
+        return distanceSqr > billboardDistanceSqr
+    }
+
+    private fun isWithinRenderDistance(state: FootballRenderState, cameraState: CameraRenderState): Boolean {
+        val distanceSqr = distanceSqToCamera(state, cameraState)
+        val maxDist = FootballClientConfigHolder.current.ballRenderDist.coerceAtLeast(MIN_RENDER_DISTANCE)
+        return distanceSqr <= maxDist * maxDist
+    }
+
+    private fun distanceSqToCamera(state: FootballRenderState, cameraState: CameraRenderState): Double {
         val centerY = state.y + MODEL_Y_OFFSET
         val dx = cameraState.pos.x - state.x
         val dy = cameraState.pos.y - centerY
         val dz = cameraState.pos.z - state.z
-        return dx * dx + dy * dy + dz * dz > BILLBOARD_DISTANCE_SQ
+        return dx * dx + dy * dy + dz * dz
     }
 
     private fun submitBillboard(
@@ -176,12 +196,10 @@ class FootballRenderer(context: EntityRendererProvider.Context) :
         private const val MODEL_Y_OFFSET = 0.375f
         private const val MODEL_SCALE = 0.7f
 
-        /** 超过该距离（格）时改用面向相机的面片渲染。 */
-        private const val BILLBOARD_DISTANCE = 80.0
-        private const val BILLBOARD_DISTANCE_SQ = BILLBOARD_DISTANCE * BILLBOARD_DISTANCE
-
         /** 面片半宽/半高（方块），与近处模型视觉大小大致相当。 */
         private const val BILLBOARD_HALF_SIZE = 0.42f
+        private const val MIN_RENDER_DISTANCE = 1.0
+        private const val MIN_BILLBOARD_RATIO = 0.1
 
         /**
          * 远距离面片贴图
