@@ -7,6 +7,7 @@ import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Registry
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.sounds.SoundEvent
 import net.minecraft.sounds.SoundSource
@@ -49,6 +50,12 @@ object FootballSounds {
     private val FOOTBALL_PALM_EVENT = register("entity.football.palm")
     private val FOOTBALL_PERFECT_KICK_EVENT = register("entity.football.perfect_kick")
     private val WHISTLE_USE_EVENT = register("item.whistle.use")
+    private val WHISTLE_1_EVENT = register("whistle_1")
+    private val WHISTLE_2_EVENT = register("whistle_2")
+    private val WHISTLE_3_EVENT = register("whistle_3")
+    private val WHISTLE_4_EVENT = register("whistle_4")
+    private val WHISTLE_5_EVENT = register("whistle_5")
+    private val WHISTLE_6_EVENT = register("whistle_6")
 
     /**
      * 单次播放的音量与音高配置。
@@ -284,6 +291,13 @@ object FootballSounds {
         basePitch = 1.0f,
     )
 
+    private val MATCH_WHISTLE: SoundSpec = SoundSpec(
+        event = WHISTLE_1_EVENT,
+        source = SoundSource.MASTER,
+        volume = 1.15f,
+        basePitch = 1.0f,
+    )
+
     fun playGkCatch(player: ServerPlayer, incomingSpeed: Double = 0.0) {
         val reference = kotlin.math.max(GoalkeeperInputConfig.GK_CATCH_MAX_SPEED, GoalkeeperInputConfig.GK_DIVE_CATCH_MAX_SPEED)
             .coerceAtLeast(0.1)
@@ -336,6 +350,24 @@ object FootballSounds {
 
     fun playWhistle(level: Level, pos: BlockPos, random: RandomSource) {
         play(level, pos, WHISTLE_USE, random)
+    }
+
+    /** 比赛裁判哨（1–6 对应 assets 中 whistle_1 … whistle_6）。 */
+    fun playMatchWhistle(server: MinecraftServer, number: Int) {
+        val event = when (number) {
+            1 -> WHISTLE_1_EVENT
+            2 -> WHISTLE_2_EVENT
+            3 -> WHISTLE_3_EVENT
+            4 -> WHISTLE_4_EVENT
+            5 -> WHISTLE_5_EVENT
+            6 -> WHISTLE_6_EVENT
+            else -> return
+        }
+        val spec = MATCH_WHISTLE.copy(event = event)
+        for (player in server.playerList.players) {
+            val level = player.level()
+            play(level, player.blockPosition(), spec, level.random)
+        }
     }
 
     fun playFootballPlace(level: Level, pos: BlockPos, random: RandomSource) {

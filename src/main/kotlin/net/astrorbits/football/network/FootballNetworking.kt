@@ -2,7 +2,10 @@ package net.astrorbits.football.network
 
 import net.astrorbits.football.config.server.FootballServerConfig
 import net.astrorbits.football.config.server.FootballServerConfigHolder
+import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.input.FootballPlayerActions
+import net.astrorbits.football.match.KickoffWhistleContext
+import net.astrorbits.football.match.MatchKickoffTiming
 import net.astrorbits.football.match.MatchConfig
 import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.match.MatchPhase
@@ -134,6 +137,8 @@ object FootballNetworking {
                 }
             }
 
+            MatchState.tickKickoffWhistles(server)
+
             // ── 定时同步所有客户端 ──
             serverTickCounter++
             if (serverTickCounter >= 20) {
@@ -167,28 +172,39 @@ object FootballNetworking {
     }
 
     private fun handleHalfKickoffRequest(level: ServerLevel, server: MinecraftServer) {
+        triggerHalfKickoff(server, level)
+    }
+
+    /** 进入新半场时广播半场开球 HUD 并吹 whistle_1。上半场沿用开场选定的发球方，其余半场交替。 */
+    fun triggerHalfKickoff(server: MinecraftServer, level: ServerLevel) {
         val ms = MatchState
-        val lastHalf = ms.lastHalfKickoffTeam ?: TeamSide.A
-        val nextKickoff = if (lastHalf == TeamSide.A) TeamSide.B else TeamSide.A
-        if (!ms.halfKickoffBroadcasted) {
-            ms.halfKickoffBroadcasted = true
-            ms.lastHalfKickoffTeam = nextKickoff
-            ms.kickoffTeam = nextKickoff
-            ms.kickoffTouched = false
-            ms.resetFootball(level)
-            val nameA = ms.getTeamName(TeamSide.A).string
-            val nameB = ms.getTeamName(TeamSide.B).string
-            val phaseKey = when (ms.currentPhase) {
-                MatchPhase.SECOND_HALF -> "match.phase.second_half"
-                MatchPhase.EXTRA_FIRST -> "match.phase.extra_first"
-                MatchPhase.EXTRA_SECOND -> "match.phase.extra_second"
-                else -> return
-            }
-            broadcastHalfKickoff(server, nextKickoff, phaseKey, nameA, nameB)
+        if (ms.halfKickoffBroadcasted) return
+        val phaseKey = when (ms.currentPhase) {
+            MatchPhase.FIRST_HALF -> "match.phase.first_half"
+            MatchPhase.SECOND_HALF -> "match.phase.second_half"
+            MatchPhase.EXTRA_FIRST -> "match.phase.extra_first"
+            MatchPhase.EXTRA_SECOND -> "match.phase.extra_second"
+            else -> return
         }
+        val kickoffTeam = when (ms.currentPhase) {
+            MatchPhase.FIRST_HALF -> ms.kickoffTeam ?: ms.lastHalfKickoffTeam ?: TeamSide.A
+            else -> {
+                val lastHalf = ms.lastHalfKickoffTeam ?: TeamSide.A
+                if (lastHalf == TeamSide.A) TeamSide.B else TeamSide.A
+            }
+        }
+        ms.halfKickoffBroadcasted = true
+        ms.lastHalfKickoffTeam = kickoffTeam
+        ms.kickoffTeam = kickoffTeam
+        ms.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.HALF)
+        ms.resetFootball(level)
+        val nameA = ms.getTeamName(TeamSide.A).string
+        val nameB = ms.getTeamName(TeamSide.B).string
+        broadcastHalfKickoff(server, kickoffTeam, phaseKey, nameA, nameB)
     }
 
     fun broadcastHalfKickoff(server: MinecraftServer, kickoffTeam: TeamSide, phaseKey: String, teamAName: String, teamBName: String) {
+        FootballSounds.playMatchWhistle(server, 1)
         for (uuid in MatchState.teamAPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
             ServerPlayNetworking.send(player, HalfKickoffS2CPayload(kickoffTeam, kickoffTeam == TeamSide.A, phaseKey, teamAName, teamBName))
@@ -200,6 +216,7 @@ object FootballNetworking {
     }
 
     fun broadcastMatchResult(server: MinecraftServer, teamAScore: Int, teamBScore: Int, teamAName: String, teamBName: String, isDraw: Boolean) {
+        FootballSounds.playMatchWhistle(server, 2)
         val payload = MatchResultS2CPayload(teamAScore, teamBScore, teamAName, teamBName, isDraw)
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
@@ -292,6 +309,7 @@ object FootballNetworking {
         lastTouchPlayerName: String,
         lastTouchTeam: TeamSide?,
     ) {
+        FootballSounds.playMatchWhistle(server, 6)
         val touchCode = GoalLineOutS2CPayload.encodeTouchTeam(lastTouchTeam)
         for (uuid in MatchState.teamAPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
@@ -352,6 +370,7 @@ object FootballNetworking {
         teamBScore: Int,
         ownGoal: Boolean
     ) {
+        FootballSounds.playMatchWhistle(server, 4)
         val payload = GoalScoredS2CPayload(
             scoringTeam,
             scorerName,

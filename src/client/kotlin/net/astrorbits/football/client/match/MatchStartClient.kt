@@ -1,15 +1,16 @@
 package net.astrorbits.football.client.match
 
+import net.astrorbits.football.match.MatchKickoffTiming
 import net.astrorbits.football.match.TeamSide
 
 object MatchStartClient {
     private const val HUD_DURATION_MS = 6000L
-    private const val LOCK_DURATION_MS = 23000L
-    private const val POST_GOAL_LOCK_MS = 20000L
-    private const val GOAL_LINE_OUT_LOCK_MS = 10000L
+    private const val LOCK_DURATION_MS = MatchKickoffTiming.MATCH_START_LOCK_MS
+    private const val POST_GOAL_LOCK_MS = MatchKickoffTiming.POST_GOAL_LOCK_MS
+    private const val GOAL_LINE_OUT_LOCK_MS = MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS
     private const val COUNTDOWN_SECONDS = 20
     private const val GOAL_LINE_OUT_COUNTDOWN = 10
-    private const val GRACE_MS = 10000L  // 宽限期 10 秒
+    private const val GRACE_MS = MatchKickoffTiming.LATE_KICKOFF_WARN_MS
 
     var startTimeMs: Long = 0L; private set
     var playerTeam: TeamSide = TeamSide.A; private set

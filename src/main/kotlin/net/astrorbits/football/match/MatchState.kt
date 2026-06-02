@@ -1,6 +1,7 @@
 package net.astrorbits.football.match
 
 import net.astrorbits.football.Football
+import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.network.FootballNetworking
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
@@ -30,6 +31,12 @@ object MatchState {
     val teamBPlayers: MutableSet<UUID> = mutableSetOf()
     var kickoffTeam: TeamSide? = null
     var kickoffTouched: Boolean = false
+    private var kickoffTimerStartMs: Long = 0L
+    private var kickoffLockMs: Long = 0L
+    private var kickoffWhistleContext: KickoffWhistleContext? = null
+    private var kickoffCountdownEndHandled: Boolean = false
+    private var kickoffWhistle3Played: Boolean = false
+    private var kickoffWhistle5Played: Boolean = false
     /** 当前半场动态累积的补时（tick），由客户端计算 */
     var dynamicStoppageTicks: Int = 0
     /** 半场开球是否已广播（防重复） */
@@ -115,6 +122,7 @@ object MatchState {
         teamBPlayers.clear()
         kickoffTeam = null
         kickoffTouched = false
+        clearKickoffWhistleTimers()
         dynamicStoppageTicks = 0
         halfKickoffBroadcasted = false
         lastHalfKickoffTeam = null
@@ -144,12 +152,58 @@ object MatchState {
         return playerTeam != kt
     }
 
+    /** 进入开球锁定阶段（重置触球标记与开球哨计时）。 */
+    fun beginKickoffPhase(lockMs: Long, context: KickoffWhistleContext) {
+        kickoffTouched = false
+        kickoffTimerStartMs = System.currentTimeMillis()
+        kickoffLockMs = lockMs
+        kickoffWhistleContext = context
+        kickoffCountdownEndHandled = false
+        kickoffWhistle3Played = false
+        kickoffWhistle5Played = false
+    }
+
+    fun clearKickoffWhistleTimers() {
+        kickoffTimerStartMs = 0L
+        kickoffLockMs = 0L
+        kickoffWhistleContext = null
+        kickoffCountdownEndHandled = false
+        kickoffWhistle3Played = false
+        kickoffWhistle5Played = false
+    }
+
+    /**
+     * 倒计时结束：仅进球后开球吹 whistle_1；出界开球不吹。
+     * 倒计时结束 +10s 未触球 whistle_3；再 +10s whistle_5。
+     */
+    fun tickKickoffWhistles(server: MinecraftServer) {
+        if (kickoffTeam == null || kickoffTouched || kickoffTimerStartMs == 0L) return
+        val elapsed = System.currentTimeMillis() - kickoffTimerStartMs
+        if (!kickoffCountdownEndHandled && elapsed >= kickoffLockMs) {
+            kickoffCountdownEndHandled = true
+            if (kickoffWhistleContext == KickoffWhistleContext.POST_GOAL) {
+                FootballSounds.playMatchWhistle(server, 1)
+            }
+        }
+        val warn3At = kickoffLockMs + MatchKickoffTiming.LATE_KICKOFF_WARN_MS
+        if (!kickoffWhistle3Played && elapsed >= warn3At) {
+            kickoffWhistle3Played = true
+            FootballSounds.playMatchWhistle(server, 3)
+        }
+        val warn5At = kickoffLockMs + MatchKickoffTiming.LATE_KICKOFF_WARN_MS * 2
+        if (!kickoffWhistle5Played && elapsed >= warn5At) {
+            kickoffWhistle5Played = true
+            FootballSounds.playMatchWhistle(server, 5)
+        }
+    }
+
     /** 发球方队员首次触球时调用，广播解锁非发球方。 */
     fun notifyKickoffBallTouched(player: ServerPlayer) {
         if (kickoffTouched) return
         val kt = kickoffTeam ?: return
         if (getPlayerTeam(player.uuid) != kt) return
         kickoffTouched = true
+        clearKickoffWhistleTimers()
         val server = player.level().server ?: return
         FootballNetworking.broadcastKickoffBallTouched(server)
     }
@@ -175,7 +229,7 @@ object MatchState {
     fun broadcastMatchStart(server: MinecraftServer, kickoff: TeamSide) {
         kickoffTeam = kickoff
         lastHalfKickoffTeam = kickoff
-        kickoffTouched = false
+        beginKickoffPhase(MatchKickoffTiming.MATCH_START_LOCK_MS, KickoffWhistleContext.MATCH_START)
         val nameA = getTeamName(TeamSide.A).string
         val nameB = getTeamName(TeamSide.B).string
         for (uuid in teamAPlayers) {

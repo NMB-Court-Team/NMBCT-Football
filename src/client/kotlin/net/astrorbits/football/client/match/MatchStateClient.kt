@@ -21,7 +21,9 @@ object MatchStateClient {
         val phase = MatchState.currentPhase
         // 进入新半场时终止未完成的开球计时（防止旧计时器在下一半场继续累积）
         if (phase != prevPhase) {
-            if (phase == MatchPhase.SECOND_HALF || phase == MatchPhase.EXTRA_FIRST || phase == MatchPhase.EXTRA_SECOND) {
+            if (phase == MatchPhase.FIRST_HALF || phase == MatchPhase.SECOND_HALF ||
+                phase == MatchPhase.EXTRA_FIRST || phase == MatchPhase.EXTRA_SECOND
+            ) {
                 MatchStartClient.cancelKickoff()
                 ClientPlayNetworking.send(HalfKickoffRequestC2SPayload.INSTANCE)
             }
