@@ -24,7 +24,7 @@ import net.minecraft.world.phys.HitResult
  * 球网连接器：
  * - 右键：沿视线先做方块射线（距离 = [Player.blockInteractionRange]），首个方块为锚点则选点/建网；
  *   否则检测球网实体并调节松弛度；Shift+右键仅对空气时清空已选锚点。
- * - 左键球网销毁由 [net.astrorbits.football.GoalNetInteractions] 处理。
+ * - 左键球网交互由 [net.astrorbits.football.GoalNetInteractions] 处理（左键重置，Shift+左键销毁）。
  */
 class GoalNetConnectorItem(properties: Properties) : Item(properties) {
 

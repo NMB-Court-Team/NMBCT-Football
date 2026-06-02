@@ -13,7 +13,8 @@ import net.minecraft.world.InteractionResult
 
 /**
  * 手持球网连接器时对球网实体的交互：
- * - 左键：仅连接器可攻击并销毁
+ * - 左键：重置球网为初始状态
+ * - Shift+左键：销毁球网
  * - 右键：委托 [GoalNetConnectorItem.handleUse]（方块射线优先于实体）
  */
 object GoalNetInteractions {
@@ -23,6 +24,12 @@ object GoalNetInteractions {
             if (entity !is GoalNetEntity || player !is ServerPlayer) return@register InteractionResult.PASS
             if (!player.getItemInHand(hand).`is`(Items.GOAL_NET_CONNECTOR)) {
                 return@register InteractionResult.PASS
+            }
+            if (!player.isShiftKeyDown) {
+                entity.resetToInitialState()
+                GoalNetConnectorSounds.playNetCreated(player)
+                player.sendOverlayMessage(Component.translatable("message.nmbct-football.goal_net.reset"))
+                return@register InteractionResult.SUCCESS
             }
             if (!GoalNetDrops.canDestroyWithConnector(player)) {
                 GoalNetConnectorSounds.playNetFail(player)

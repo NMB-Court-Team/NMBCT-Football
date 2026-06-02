@@ -144,6 +144,15 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
     fun increaseSlack(): Double = changeSlack(GoalNetConfig.SLACK_STEP)
     fun decreaseSlack(): Double = changeSlack(-GoalNetConfig.SLACK_STEP)
 
+    /**
+     * 重置为创建时的初始状态：默认松弛度 + 初始网格形态。
+     */
+    fun resetToInitialState() {
+        val rect = rectangle ?: return
+        slack = GoalNetConfig.DEFAULT_SLACK
+        applyRectangle(rect)
+    }
+
     private fun changeSlack(delta: Double): Double {
         val m = mesh ?: return slack
         slack = (slack + delta).coerceIn(GoalNetConfig.MIN_SLACK, GoalNetConfig.MAX_SLACK)
