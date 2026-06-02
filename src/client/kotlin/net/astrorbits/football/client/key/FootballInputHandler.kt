@@ -112,6 +112,7 @@ object FootballInputHandler {
             }
 
             if (MatchStartClient.isLocked) {
+                handleSlideTacklePress(player)
                 updatePrevTickPressed()
                 return@reg
             }

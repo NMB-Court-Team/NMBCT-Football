@@ -25,10 +25,20 @@ object FootballPlayerActions {
     private const val DRIBBLE_RESUME_MIN_BALL_SPEED_SQR = 0.01
 
     fun handle(player: ServerPlayer, payload: FootballActionC2SPayload) {
-        // 服务端双重保险：非发球方球员在开球锁定时拒绝所有足球操作
-        if (MatchState.isNonKickoffBlocked(player)) return
-        // 发球方球员首次发送操作包时，标记开球已触球并广播解锁
-        MatchState.notifyKickoffBallTouched(player)
+        when (payload.action) {
+            FootballActionType.SLIDE_TACKLE -> {
+                handleSlideTackle(player, payload)
+                return
+            }
+            FootballActionType.SLIDE_TACKLE_END -> {
+                handleSlideTackleEnd(player)
+                return
+            }
+            else -> Unit
+        }
+
+        if (MatchState.isKickoffInteractionLocked(player)) return
+        MatchState.tryNotifyKickoffBallTouched(player)
         if (payload.action == FootballActionType.ITEM_THROW) {
             FootballItem.tryThrowFromMainHand(player)
             return
@@ -45,8 +55,6 @@ object FootballPlayerActions {
         when (payload.action) {
             FootballActionType.DRIBBLE_HOLD -> handleDribbleHold(player, payload)
             FootballActionType.DRIBBLE_END -> FootballDribbleSessions.end(player)
-            FootballActionType.SLIDE_TACKLE -> handleSlideTackle(player, payload)
-            FootballActionType.SLIDE_TACKLE_END -> handleSlideTackleEnd(player)
             else -> handleKickAction(player, payload)
         }
     }

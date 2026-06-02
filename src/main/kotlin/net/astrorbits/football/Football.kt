@@ -109,9 +109,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             }
         }
 
-    /** 指定玩家是否被禁止以任何方式移动此球（传送除外）。 */
-    fun isPlayerBallMovementForbidden(player: Player): Boolean =
-        immovableTargetPlayers.contains(player.uuid)
+    /** 指定玩家是否被禁止以任何方式移动此球（传送除外）。含开球锁定与复位延迟。 */
+    fun isPlayerBallMovementForbidden(player: Player): Boolean {
+        if (immovableTargetPlayers.contains(player.uuid)) return true
+        if (player is ServerPlayer && MatchState.isKickoffInteractionLocked(player)) return true
+        return false
+    }
 
     /**
      * 是否固定：不可踢、不可推，物理与位置保持锚点；仅 [teleportBall] / [teleportBallCenter] 可改变位置。
@@ -466,6 +469,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
         FootballPhysicsSimulator.applyPlayerPush(physicsState, dir, relativeApproach)
         deltaMovement = physicsState.linearVelocity
+        MatchState.tryNotifyKickoffBallTouched(player)
         return true
     }
 
@@ -508,6 +512,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
             val playerBox = player.boundingBox
             var contactNormal: Vec3? = null
+            var hadBodyContact = false
             val motion = currentCenter.subtract(previousCenter)
             if (!suppressBodyInteraction && motion.lengthSqr() > 1.0e-12) {
                 val hit = segmentAabbHit(previousCenter, currentCenter, playerBox.inflate(radius))
@@ -515,6 +520,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                     val impactCenter = previousCenter.add(motion.scale(hit.t)).add(hit.normal.scale(PLAYER_SEPARATION_EPSILON))
                     setCenterWithWorldContactGuards(impactCenter)
                     contactNormal = hit.normal
+                    hadBodyContact = true
                 }
             }
 
@@ -523,10 +529,11 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 playerBox = playerBox,
                 radius = radius,
             )
-            if (depenetration != null) {
+            if (depenetration != null && !suppressBodyInteraction) {
                 val correctedCenter = position().add(0.0, radius, 0.0).add(depenetration.push)
                 setCenterWithWorldContactGuards(correctedCenter)
                 contactNormal = depenetration.normal
+                hadBodyContact = true
             }
 
             val normal = contactNormal ?: continue
@@ -543,8 +550,14 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                     Vec3Math.horizontal(position().subtract(player.position()))
                 )
                 if (allowPlayerPush && pushDir.lengthSqr() > 1.0e-8) {
-                    applyPlayerPushFromPlayer(player, pushDir)
+                    if (applyPlayerPushFromPlayer(player, pushDir)) {
+                        hadBodyContact = true
+                    }
                 }
+            }
+
+            if (!suppressBodyInteraction && hadBodyContact) {
+                MatchState.tryNotifyKickoffBallTouched(player)
             }
 
             val velocity = physicsState.linearVelocity

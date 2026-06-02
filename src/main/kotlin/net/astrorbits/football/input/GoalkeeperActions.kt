@@ -24,8 +24,8 @@ object GoalkeeperActions {
 
     fun handle(player: ServerPlayer, payload: FootballActionC2SPayload) {
         // 服务端双重保险：非发球方球员在开球锁定时拒绝所有足球操作
-        if (net.astrorbits.football.match.MatchState.isNonKickoffBlocked(player)) return
-        net.astrorbits.football.match.MatchState.notifyKickoffBallTouched(player)
+        if (net.astrorbits.football.match.MatchState.isKickoffInteractionLocked(player)) return
+        net.astrorbits.football.match.MatchState.tryNotifyKickoffBallTouched(player)
         FootballDribbleSessions.end(player)
 
         if (!canAct(player)) {

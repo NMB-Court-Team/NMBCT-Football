@@ -187,6 +187,9 @@ object SlideTackleSessions {
     }
 
     private fun tryResolveBallContact(player: ServerPlayer, session: SlideTackleSession, elapsed: Long) {
+        if (net.astrorbits.football.match.MatchState.isKickoffInteractionLocked(player)) {
+            return
+        }
         if (session.touchResolved) {
             return
         }

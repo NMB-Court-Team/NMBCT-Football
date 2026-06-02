@@ -3,6 +3,7 @@ package net.astrorbits.football.input
 import net.astrorbits.football.Football
 import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.FootballParticles
+import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.network.FootballActionC2SPayload
 import net.astrorbits.football.util.FootballKickUtil
@@ -39,6 +40,9 @@ object FootballDribbleSessions {
      * 更新运球 session 心跳；按 [FootballInputConfig.DRIBBLE_SOUND_INTERVAL_TICKS] 尝试播放触球音效。
      */
     fun beginOrRefresh(player: ServerPlayer, football: Football, now: Long, payload: FootballActionC2SPayload) {
+        if (MatchState.isKickoffInteractionLocked(player)) {
+            return
+        }
         if (PlayerRoleState.isGoalkeeper(player)) {
             return
         }
@@ -95,6 +99,12 @@ object FootballDribbleSessions {
             val (playerId, session) = iterator.next()
             val player = server.playerList.getPlayer(playerId)
             if (player == null) {
+                iterator.remove()
+                continue
+            }
+
+            if (MatchState.isKickoffInteractionLocked(player)) {
+                recordCollisionGrace(playerId, session.footballId, now)
                 iterator.remove()
                 continue
             }

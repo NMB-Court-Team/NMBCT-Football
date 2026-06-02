@@ -1,6 +1,8 @@
 package net.astrorbits.football.client.match
 
+import net.astrorbits.football.match.KickoffLock
 import net.astrorbits.football.match.MatchKickoffTiming
+import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.match.TeamSide
 
 object MatchStartClient {
@@ -36,13 +38,14 @@ object MatchStartClient {
         get() = !isPostGoal && !isGoalLineOut && startTimeMs > 0 && elapsedMs < HUD_DURATION_MS
 
     val isLocked: Boolean
-        get() {
-            if (startTimeMs == 0L) return false
-            if (kickoffTouched) return false
-            if (elapsedMs < lockDurationMs) return true
-            if (!isKickoffTeam && !kickoffTouched) return true
-            return false
-        }
+        get() = KickoffLock.isPlayerLocked(
+            postGoalResetPending = MatchState.postGoalResetPending,
+            kickoffPhaseActive = startTimeMs > 0L && !kickoffTouched,
+            playerTeam = playerTeam,
+            kickoffTeam = kickoffTeam,
+            kickoffElapsedMs = elapsedMs,
+            kickoffLockMs = lockDurationMs,
+        )
 
     val isChoosing: Boolean
         get() = !isPostGoal && !isGoalLineOut && startTimeMs > 0 && elapsedMs < 3000L

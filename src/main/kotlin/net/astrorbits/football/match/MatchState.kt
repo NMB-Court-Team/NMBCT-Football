@@ -142,15 +142,22 @@ object MatchState {
         }
     }
 
-    /** 检查非发球方球员是否处于开球锁定状态。
-     * 当 [kickoffTeam] 非空且 [kickoffTouched] 为 false 时，非发球方球员的所有足球操作都应被拒绝。
-     * 注意：若球员队伍未知（未加入赛事），则不阻止其操作，避免误伤。 */
-    fun isNonKickoffBlocked(player: ServerPlayer): Boolean {
-        if (kickoffTimerStartMs == 0L) return false
-        if (kickoffTouched) return false
-        val kt = kickoffTeam ?: return false
-        val playerTeam = getPlayerTeam(player.uuid) ?: return false
-        return playerTeam != kt
+    fun isKickoffInteractionLocked(player: ServerPlayer): Boolean {
+        val phaseActive = KickoffLock.isKickoffPhaseActive(kickoffTeam, kickoffTouched, kickoffTimerStartMs)
+        val elapsed = if (phaseActive) System.currentTimeMillis() - kickoffTimerStartMs else 0L
+        return KickoffLock.isPlayerLocked(
+            postGoalResetPending = postGoalResetPending,
+            kickoffPhaseActive = phaseActive,
+            playerTeam = getPlayerTeam(player.uuid),
+            kickoffTeam = kickoffTeam,
+            kickoffElapsedMs = elapsed,
+            kickoffLockMs = kickoffLockMs,
+        )
+    }
+
+    fun tryNotifyKickoffBallTouched(player: ServerPlayer) {
+        if (isKickoffInteractionLocked(player)) return
+        notifyKickoffBallTouched(player)
     }
 
     /** 进入开球锁定阶段（重置触球标记与开球哨计时）。 */
@@ -198,7 +205,7 @@ object MatchState {
         }
     }
 
-    /** 发球方队员首次触球时调用，广播解锁非发球方。 */
+    /** 发球方已触球：广播解锁非发球方（由 [tryNotifyKickoffBallTouched] 在通过锁判定后调用）。 */
     fun notifyKickoffBallTouched(player: ServerPlayer) {
         if (kickoffTouched) return
         val kt = kickoffTeam ?: return
