@@ -602,7 +602,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     private fun detectGoal(prevPos: Vec3, currPos: Vec3) {
         if (MatchState.currentPhase == MatchPhase.PRE_MATCH || MatchState.currentPhase == MatchPhase.FINISHED) return
-        if (MatchState.postGoalResetPending) return
 
         val config = MatchConfigHolder.current
         val radius = FootballPhysicsConfig.RADIUS
@@ -638,6 +637,13 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (d1 * d2 >= 0) return
         if (d2 - d1 >= 0) return
 
+        // 穿越点
+        val t = d1 / (d1 - d2)
+        val movement = currCenter.subtract(prevCenter)
+        val ix = prevCenter.x + movement.x * t
+        val iy = prevCenter.y + movement.y * t
+        val iz = prevCenter.z + movement.z * t
+
         val server = (level() as? ServerLevel)?.server ?: return
 
         // 最后触球方 = 对方发球
@@ -648,22 +654,14 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             null -> TeamSide.A
         }
 
-        val level = level() as ServerLevel
-        MatchState.postGoalResetPending = true
-        PostGoalBallResetScheduler.schedule(level)
+        // 球放在线上
+        val ballPos = Vec3(ix, iy, iz)
+        MatchState.resetFootballAt(level() as ServerLevel, ballPos)
         MatchState.kickoffTeam = restartTeam
         MatchState.beginKickoffPhase(MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS, KickoffWhistleContext.GOAL_LINE_OUT)
         val (touchName, touchTeam) = resolveLastTouch(server)
-        val kickOff = MatchConfigHolder.current.kickOff
         FootballNetworking.broadcastGoalLineOut(
-            server,
-            GoalLineOutType.THROW_IN,
-            restartTeam,
-            kickOff.x,
-            kickOff.y,
-            kickOff.z,
-            touchName,
-            touchTeam,
+            server, GoalLineOutType.THROW_IN, restartTeam, ballPos.x, ballPos.y, ballPos.z, touchName, touchTeam,
         )
     }
 

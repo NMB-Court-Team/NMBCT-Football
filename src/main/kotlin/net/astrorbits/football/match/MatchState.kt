@@ -43,7 +43,7 @@ object MatchState {
     var halfKickoffBroadcasted: Boolean = false
     /** 上一个半场的发球方，用于下一半场交替 */
     var lastHalfKickoffTeam: TeamSide? = null
-    /** 进球或边线出界后、延迟复位至开球点期间为 true，防止重复判例。 */
+    /** 进球后已判分、等待延迟复位期间为 true，防止重复判进球。 */
     var postGoalResetPending: Boolean = false
 
     fun getTeamName(team: TeamSide): Component = when (team) {

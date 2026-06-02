@@ -7,8 +7,7 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.Level
 
 /**
- * 进球或边线出界后，延迟将足球复位至开球点（赛场中心）。
- * 延迟秒数见 [MatchConfig.postGoalBallResetDelaySeconds]。
+ * 进球后延迟将足球复位至开球点（赛场中心）。
  */
 object PostGoalBallResetScheduler {
     private data class Pending(
