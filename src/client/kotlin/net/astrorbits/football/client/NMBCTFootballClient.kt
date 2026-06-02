@@ -46,6 +46,7 @@ object NMBCTFootballClient : ClientModInitializer {
 		GoalNetConnectorPreviewClient.register()
 		GoalNetConnectorItemTooltipClient.register()
 		FootballConfigNetworking.register()
+		StaminaClientNetworking.register()
 		MatchConfigNetworking.register()
 		MatchFieldConfigNetworking.register()
 		MatchStartClientNetworking.register()

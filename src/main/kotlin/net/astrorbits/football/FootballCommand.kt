@@ -44,7 +44,7 @@ object FootballCommand {
                     context.source.sendFailure(Component.translatable("command.nmbct-football.config.player_only"))
                     return@executes 0
                 }
-                FootballNetworking.sendServerConfigSync(player, FootballServerConfigHolder.current)
+                FootballNetworking.sendServerConfigSync(player, FootballServerConfigHolder.current, openEditor = true)
                 context.source.sendSuccess(
                     { Component.translatable("command.nmbct-football.config.opened") },
                     true,

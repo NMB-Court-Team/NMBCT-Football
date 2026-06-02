@@ -1,84 +1,52 @@
 package net.astrorbits.football.client
 
 import net.astrorbits.football.NMBCTFootball
+import net.astrorbits.football.config.FootballConfigs
 import net.minecraft.client.Minecraft
 import net.minecraft.resources.Identifier
 import net.minecraft.world.entity.ai.attributes.AttributeModifier
 import net.minecraft.world.entity.ai.attributes.Attributes
 
+/**
+ * 客户端体力展示与移速修正：数值由服务端 [net.astrorbits.football.stamina.StaminaState] 同步。
+ */
 object StaminaClient {
-    const val MAX_STAMINA = 1000
-    private const val JUMP_COST = 60
-    private const val SPRINT_STEP_TICKS = 2
-    private const val RECOVERY_DELAY_TICKS = 20
-    private const val RECOVERY_STEP_TICKS = 1
-
     private val MODIFIER_ID = Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "stamina_speed")
 
-    var stamina: Int = MAX_STAMINA
+    var stamina: Float = 0f
         private set
 
-    private var ticksSinceConsume: Int = 0
-    private var sprintAccumulator: Int = 0
-    private var recoveryAccumulator: Int = 0
-    private var wasOnGround: Boolean = false
+    var maxStamina: Float = 1000f
+        private set
 
-    fun getSpeedMultiplier(): Double = when {
-        stamina <= 0   -> 0.60
-        stamina < 100  -> 0.70
-        stamina < 400  -> 0.85
-        stamina < 800  -> 0.95
-        else           -> 1.00
+    fun applySync(stamina: Float, maxStamina: Float) {
+        this.stamina = stamina.coerceAtLeast(0f)
+        this.maxStamina = maxStamina.coerceAtLeast(1f)
     }
+
+    fun getSpeedMultiplier(): Double {
+        val cfg = FootballConfigs.server.staminaMechanism
+        return cfg.speedMultiplierForStamina(stamina).toDouble()
+    }
+
+    /** 移速档位阈值（0..1），用于 HUD 刻度；不含隐式 100%。 */
+    fun hudTierFractions(): List<Float> =
+        FootballConfigs.server.staminaMechanism.sortedSpeedTiers()
+            .map { it.staminaFraction }
+            .filter { it > 0f && it < 1f }
+            .distinct()
+            .sortedDescending()
 
     fun tick(client: Minecraft) {
         val player = client.player ?: return
 
         if (player.isSpectator || player.isCreative) {
-            reset()
+            val max = FootballConfigs.server.staminaMechanism.maxStamina
+            applySync(max, max)
             clearSpeedModifier(player)
             return
         }
 
-        var consumed = false
-
-        // 疾跑消耗
-        if (player.isSprinting && player.input.hasForwardImpulse()) {
-            sprintAccumulator++
-            while (sprintAccumulator >= SPRINT_STEP_TICKS) {
-                sprintAccumulator -= SPRINT_STEP_TICKS
-                stamina = (stamina - 1).coerceAtLeast(0)
-                consumed = true
-            }
-        } else {
-            sprintAccumulator = 0
-        }
-
-        // 跳跃消耗：在 END_CLIENT_TICK 时玩家已离地，用上一 tick 的 onGround 检测起跳
-        val onGround = player.onGround()
-        val jumpDown = player.input.keyPresses.jump()
-        if (jumpDown && wasOnGround && !onGround) {
-            stamina = (stamina - JUMP_COST).coerceAtLeast(0)
-            consumed = true
-        }
-        wasOnGround = onGround
-
-        // 回复
-        if (consumed) {
-            ticksSinceConsume = 0
-            recoveryAccumulator = 0
-        } else {
-            ticksSinceConsume++
-            if (ticksSinceConsume > RECOVERY_DELAY_TICKS) {
-                recoveryAccumulator++
-                while (recoveryAccumulator >= RECOVERY_STEP_TICKS) {
-                    recoveryAccumulator -= RECOVERY_STEP_TICKS
-                    stamina = (stamina + 1).coerceAtMost(MAX_STAMINA)
-                }
-            }
-        }
-
-        // 每 tick 确保速度 modifier 存在且数值正确（不用 lastMultiplier 缓存，因为服务端同步可能清掉）
         applySpeedModifier(player)
     }
 
@@ -96,45 +64,12 @@ object StaminaClient {
         if (existing == null || existing.amount != needed) {
             attr.removeModifier(MODIFIER_ID)
             attr.addTransientModifier(
-                AttributeModifier(MODIFIER_ID, needed, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL)
+                AttributeModifier(MODIFIER_ID, needed, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL),
             )
         }
     }
 
     private fun clearSpeedModifier(player: net.minecraft.client.player.LocalPlayer) {
         player.getAttribute(Attributes.MOVEMENT_SPEED)?.removeModifier(MODIFIER_ID)
-    }
-
-    /** 比赛开始时回满体力 */
-    fun onMatchStart() {
-        stamina = MAX_STAMINA
-        ticksSinceConsume = 0
-        sprintAccumulator = 0
-        recoveryAccumulator = 0
-        wasOnGround = false
-    }
-
-    /** 半场切换时回复体力 */
-    fun onHalfSwitch() {
-        stamina = (stamina + 600).coerceAtMost(MAX_STAMINA)
-        ticksSinceConsume = 0
-        sprintAccumulator = 0
-        recoveryAccumulator = 0
-    }
-
-    /** 进球后回复体力 */
-    fun onGoalScored() {
-        stamina = (stamina + 150).coerceAtMost(MAX_STAMINA)
-        ticksSinceConsume = 0
-        sprintAccumulator = 0
-        recoveryAccumulator = 0
-    }
-
-    fun reset() {
-        stamina = MAX_STAMINA
-        ticksSinceConsume = 0
-        sprintAccumulator = 0
-        recoveryAccumulator = 0
-        wasOnGround = false
     }
 }

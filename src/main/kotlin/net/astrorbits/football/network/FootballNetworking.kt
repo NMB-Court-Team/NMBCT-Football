@@ -12,6 +12,7 @@ import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.match.TeamSide
+import net.astrorbits.football.stamina.StaminaState
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup
@@ -60,6 +61,7 @@ object FootballNetworking {
         registry.register(GoalLineOutS2CPayload.TYPE, GoalLineOutS2CPayload.CODEC)
         registry.register(MatchHudDebugS2CPayload.TYPE, MatchHudDebugS2CPayload.CODEC)
         registry.register(MatchTimerSyncS2CPayload.TYPE, MatchTimerSyncS2CPayload.CODEC)
+        registry.register(StaminaSyncS2CPayload.TYPE, StaminaSyncS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -75,6 +77,7 @@ object FootballNetworking {
                     return@execute
                 }
                 FootballServerConfigHolder.apply(payload.config)
+                broadcastServerConfig(context.server(), openEditor = false)
                 player.sendSystemMessage(
                     Component.translatable("command.nmbct-football.config.applied"),
                 )
@@ -153,6 +156,7 @@ object FootballNetworking {
 
             MatchState.tickKickoffWhistles(server)
             MatchState.tickDynamicStoppageAccumulation()
+            StaminaState.tickServer(server)
 
             // ── 定时同步所有客户端 ──
             serverTickCounter++
@@ -210,6 +214,7 @@ object FootballNetworking {
         ms.resetFootball(level)
         val nameA = ms.getTeamName(TeamSide.A).string
         val nameB = ms.getTeamName(TeamSide.B).string
+        StaminaState.onHalfSwitch(server)
         broadcastHalfKickoff(server, kickoffTeam, phaseKey, nameA, nameB)
     }
 
@@ -255,8 +260,25 @@ object FootballNetworking {
         ))
     }
 
-    fun sendServerConfigSync(player: ServerPlayer, config: FootballServerConfig) {
-        ServerPlayNetworking.send(player, ServerConfigSyncS2CPayload(config))
+    fun sendServerConfigSync(player: ServerPlayer, config: FootballServerConfig, openEditor: Boolean = false) {
+        ServerPlayNetworking.send(player, ServerConfigSyncS2CPayload(config, openEditor))
+    }
+
+    fun broadcastServerConfig(server: MinecraftServer, openEditor: Boolean = false) {
+        val payload = ServerConfigSyncS2CPayload(FootballServerConfigHolder.current, openEditor)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun sendStaminaSync(player: ServerPlayer, stamina: Float, maxStamina: Float) {
+        ServerPlayNetworking.send(player, StaminaSyncS2CPayload(stamina, maxStamina))
+    }
+
+    /** 玩家加入时同步服务端配置与体力。 */
+    fun syncPlayerJoin(player: ServerPlayer) {
+        sendServerConfigSync(player, FootballServerConfigHolder.current, openEditor = false)
+        StaminaState.syncToPlayer(player)
     }
 
     fun sendMatchConfigSync(player: ServerPlayer, config: MatchConfig) {
@@ -399,6 +421,7 @@ object FootballNetworking {
             MatchState.getTeamName(TeamSide.A).string,
             MatchState.getTeamName(TeamSide.B).string,
         )
+        StaminaState.onGoalScored(server)
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
         }

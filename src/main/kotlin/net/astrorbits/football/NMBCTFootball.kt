@@ -13,6 +13,7 @@ import net.astrorbits.football.item.GoalNetConnectorSounds
 import net.astrorbits.football.match.MatchCommand
 import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.match.PostGoalBallResetScheduler
+import net.astrorbits.football.stamina.StaminaState
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.util.GoalNetAnchorLinks
@@ -72,6 +73,10 @@ object NMBCTFootball : ModInitializer {
 		ServerPlayConnectionEvents.JOIN.register { handler, _, _ ->
 			PlayerRoleState.syncRoleToPlayer(handler.player)
 			FootballNetworking.syncConfigToPlayer(handler.player)
+			FootballNetworking.syncPlayerJoin(handler.player)
+		}
+		ServerPlayConnectionEvents.DISCONNECT.register { handler, _ ->
+			StaminaState.removePlayer(handler.player.uuid)
 		}
 
 		LOGGER.info("NMBCT Football initialized")

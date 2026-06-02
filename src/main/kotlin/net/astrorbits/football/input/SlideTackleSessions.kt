@@ -97,7 +97,7 @@ object SlideTackleSessions {
     /** 本 tick 滑铲推进水平速度（与 [applySlideMovement] 一致，供球碰撞在实体 tick 前使用）。 */
     fun effectiveHorizontalVelocity(player: ServerPlayer): Vec3? {
         val session = sessions[player.uuid] ?: return null
-        val now = (player.level() as? ServerLevel)?.gameTime ?: return null
+        val now = player.level()?.gameTime ?: return null
         val speed = slideSpeedAtTick(now - session.startTick, session.contactSpeedScale)
         return if (speed > SLIDE_MOVE_EPSILON) session.direction.scale(speed) else null
     }

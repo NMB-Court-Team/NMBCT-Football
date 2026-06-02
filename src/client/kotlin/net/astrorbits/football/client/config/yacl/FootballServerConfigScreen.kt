@@ -1,11 +1,16 @@
 package net.astrorbits.football.client.config.yacl
 
 import dev.isxander.yacl3.api.ConfigCategory
+import dev.isxander.yacl3.api.ListOption
+import dev.isxander.yacl3.api.OptionDescription
 import dev.isxander.yacl3.api.OptionGroup
 import dev.isxander.yacl3.api.YetAnotherConfigLib
+import net.astrorbits.football.config.server.StaminaMechanismSettings
+import net.astrorbits.football.config.server.StaminaSpeedTier
 import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.config.server.*
 import net.astrorbits.football.client.util.YaclOptionUtil.addDouble
+import net.astrorbits.football.client.util.YaclOptionUtil.addFloat
 import net.astrorbits.football.client.util.YaclOptionUtil.addInt
 import net.astrorbits.football.client.util.YaclOptionUtil.addLong
 import net.astrorbits.football.network.ServerConfigApplyC2SPayload
@@ -23,6 +28,7 @@ object FootballServerConfigScreen {
             .category(playerCategory({ draft }, { draft = it }))
             .category(goalkeeperCategory({ draft }, { draft = it }))
             .category(particlesCategory({ draft }, { draft = it }))
+            .category(staminaMechanismCategory({ draft }, { draft = it }))
             .save {
                 if (ClientPlayNetworking.canSend(ServerConfigApplyC2SPayload.TYPE)) {
                     ClientPlayNetworking.send(ServerConfigApplyC2SPayload(draft))
@@ -320,6 +326,92 @@ object FootballServerConfigScreen {
         )
         .build()
 
+    private fun staminaMechanismCategory(
+        getter: () -> FootballServerConfig,
+        setter: (FootballServerConfig) -> Unit,
+    ): ConfigCategory = ConfigCategory.createBuilder()
+        .name(Component.translatable("yacl3.config.$MOD_ID.server.category.stamina"))
+        .group(
+            OptionGroup.createBuilder()
+                .name(Component.translatable("yacl3.config.$MOD_ID.server.group.stamina_core"))
+                .apply { addStaminaCoreOptions(getter, setter) }
+                .build(),
+        )
+        .group(
+            OptionGroup.createBuilder()
+                .name(Component.translatable("yacl3.config.$MOD_ID.server.group.stamina_match_events"))
+                .apply { addStaminaMatchEventOptions(getter, setter) }
+                .build(),
+        )
+        .group(
+            ListOption.createBuilder<StaminaSpeedTier>()
+                .name(Component.translatable("yacl3.config.$MOD_ID.server.stamina.speed_tiers"))
+                .description(
+                    OptionDescription.of(
+                        Component.translatable("yacl3.config.$MOD_ID.server.stamina.speed_tiers.desc"),
+                    ),
+                )
+                .binding(
+                    STAMINA_DEF.speedTiers,
+                    { getter().staminaMechanism.speedTiers },
+                    { tiers ->
+                        val optimized = StaminaMechanismSettings.optimizeSpeedTiers(tiers)
+                        if (StaminaMechanismSettings.validateSpeedTiers(optimized).error().isPresent) {
+                            return@binding
+                        }
+                        val sm = getter().staminaMechanism
+                        setter(getter().copy(staminaMechanism = sm.copy(speedTiers = optimized)))
+                    },
+                )
+                .customController { opt -> StaminaSpeedTierDualSliderController.create(opt) }
+                .initial(StaminaSpeedTier(0.5f, 0.9f))
+                .build(),
+        )
+        .build()
+
+    private fun OptionGroup.Builder.addStaminaCoreOptions(
+        cfg: () -> FootballServerConfig,
+        setCfg: (FootballServerConfig) -> Unit,
+    ) {
+        fun sm(): StaminaMechanismSettings = cfg().staminaMechanism
+        fun setSm(t: (StaminaMechanismSettings) -> StaminaMechanismSettings) {
+            setCfg(cfg().copy(staminaMechanism = t(sm())))
+        }
+
+        addFloat("$STAMINA.max_stamina", "$STAMINA.max_stamina.desc", STAMINA_DEF.maxStamina, { sm().maxStamina }, { v: Float ->
+            setSm { it.copy(maxStamina = v) }
+        }, 50f..5000f, 5f)
+        addFloat("$STAMINA.jump_cost", "$STAMINA.jump_cost.desc", STAMINA_DEF.jumpCost, { sm().jumpCost }, { v: Float ->
+            setSm { it.copy(jumpCost = v) }
+        }, 0f..200f, 1f)
+        addFloat("$STAMINA.sprint_drain_per_second", "$STAMINA.sprint_drain_per_second.desc", STAMINA_DEF.sprintDrainPerSecond, { sm().sprintDrainPerSecond }, { v: Float ->
+            setSm { it.copy(sprintDrainPerSecond = v) }
+        }, 0f..50f, 0.5f)
+        addFloat("$STAMINA.recovery_delay_seconds", "$STAMINA.recovery_delay_seconds.desc", STAMINA_DEF.recoveryDelaySeconds, { sm().recoveryDelaySeconds }, { v: Float ->
+            setSm { it.copy(recoveryDelaySeconds = v) }
+        }, 0.05f..5f, 0.05f)
+        addFloat("$STAMINA.recovery_per_second", "$STAMINA.recovery_per_second.desc", STAMINA_DEF.recoveryPerSecond, { sm().recoveryPerSecond }, { v: Float ->
+            setSm { it.copy(recoveryPerSecond = v) }
+        }, 0f..100f, 0.5f)
+    }
+
+    private fun OptionGroup.Builder.addStaminaMatchEventOptions(
+        cfg: () -> FootballServerConfig,
+        setCfg: (FootballServerConfig) -> Unit,
+    ) {
+        fun sm(): StaminaMechanismSettings = cfg().staminaMechanism
+        fun setSm(t: (StaminaMechanismSettings) -> StaminaMechanismSettings) {
+            setCfg(cfg().copy(staminaMechanism = t(sm())))
+        }
+
+        addFloat("$STAMINA.half_time_recovery_fraction", "$STAMINA.half_time_recovery_fraction.desc", STAMINA_DEF.halfTimeRecoveryFraction, { sm().halfTimeRecoveryFraction }, { v: Float ->
+            setSm { it.copy(halfTimeRecoveryFraction = v) }
+        }, 0f..1f, 0.01f)
+        addFloat("$STAMINA.goal_recovery_fraction", "$STAMINA.goal_recovery_fraction.desc", STAMINA_DEF.goalRecoveryFraction, { sm().goalRecoveryFraction }, { v: Float ->
+            setSm { it.copy(goalRecoveryFraction = v) }
+        }, 0f..1f, 0.01f)
+    }
+
     private fun particlesCategory(
         getter: () -> FootballServerConfig,
         setter: (FootballServerConfig) -> Unit,
@@ -351,6 +443,7 @@ object FootballServerConfigScreen {
     private const val PI = "yacl3.config.$MOD_ID.server.player"
     private const val GK = "yacl3.config.$MOD_ID.server.goalkeeper"
     private const val PT = "yacl3.config.$MOD_ID.server.particles"
+    private const val STAMINA = "yacl3.config.$MOD_ID.server.stamina"
 
     private val DEF = FootballServerConfig.DEFAULT
     private val PHY_CORE = DEF.physics.core
@@ -366,4 +459,5 @@ object FootballServerConfigScreen {
     private val GK_DIVE_ACT = DEF.goalkeeper.dive.actions
     private val PT_COUNTS = DEF.particles.counts
     private val PT_DRAG = DEF.particles.highSpeedDrag
+    private val STAMINA_DEF = DEF.staminaMechanism
 }

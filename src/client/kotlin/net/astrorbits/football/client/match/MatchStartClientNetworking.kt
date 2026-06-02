@@ -5,7 +5,6 @@ import net.astrorbits.football.network.KickoffBallTouchedS2CPayload
 import net.astrorbits.football.network.MatchStartS2CPayload
 import net.astrorbits.football.network.HalfKickoffS2CPayload
 import net.astrorbits.football.network.MatchResetS2CPayload
-import net.astrorbits.football.client.StaminaClient
 import net.astrorbits.football.client.match.GoalLineOutClient
 import net.astrorbits.football.network.GoalLineOutS2CPayload
 import net.astrorbits.football.network.MatchResultS2CPayload
@@ -20,7 +19,6 @@ object MatchStartClientNetworking {
     fun register() {
         ClientPlayNetworking.registerGlobalReceiver(MatchStartS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
-                StaminaClient.onMatchStart()
                 MatchState.teamAName = Component.literal(payload.teamAName)
                 MatchState.teamBName = Component.literal(payload.teamBName)
                 MatchState.teamAScore = 0
@@ -53,7 +51,6 @@ object MatchStartClientNetworking {
         }
         ClientPlayNetworking.registerGlobalReceiver(HalfKickoffS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
-                StaminaClient.onHalfSwitch()
                 MatchState.teamAName = Component.literal(payload.teamAName)
                 MatchState.teamBName = Component.literal(payload.teamBName)
                 MatchStartClient.startHalfKickoff(

@@ -59,6 +59,72 @@ flowchart TB
 | `client/match/MatchStateClient.kt` | 阶段切换、半场/结算请求 |
 | `client/match/MatchStartClient.kt` | 开球倒计时、客户端补时累积 |
 | `client/render/*HudElement.kt` | 比赛 HUD、进球/出界 Banner 等 |
+| `stamina/StaminaState.kt` | 服务端权威体力：消耗、回复、比赛事件 |
+| `client/StaminaClient.kt` | 客户端体力同步展示与移速修正 |
+| `config/server/StaminaMechanismSettings.kt` | 体力机制配置（`stamina_mechanism`） |
+
+## 体力机制
+
+比赛中的**体力**与**移速 debuff** 由服务端 [`StaminaState`](src/main/kotlin/net/astrorbits/football/stamina/StaminaState.kt) 每 tick 计算，经 `StaminaSyncS2CPayload` 同步到客户端；客户端 [`StaminaClient`](src/client/kotlin/net/astrorbits/football/client/StaminaClient.kt) 只负责 HUD 与 `Attributes.MOVEMENT_SPEED` 修正，不再本地模拟消耗。
+
+### 配置：`FootballServerConfig.stamina_mechanism`
+
+配置文件：`config/nmbct-football-server.json`（字段 `stamina_mechanism`）。可通过 `/football config`（YACL）或 OP 保存后广播到所有在线玩家。玩家进服时也会收到当前服务端配置与体力同步。
+
+| 字段（JSON） | 类型 | 范围 / 步进 | 默认 | 说明 |
+|--------------|------|-------------|------|------|
+| `max_stamina` | float | 50..5000，步进 5 | 1000 | 体力上限 |
+| `jump_cost` | float | 0..200，步进 1 | 60 | 每次起跳扣除 |
+| `sprint_drain_per_second` | float | 0..50 /s，步进 0.5 | 10 | 疾跑且向前移动时每秒消耗 |
+| `recovery_delay_seconds` | float | 0.05..5 s，步进 0.05 | 1.0 | 超过该秒数（×20 为 tick）且未再消耗后开始回复 |
+| `recovery_per_second` | float | 0..100 /s，步进 0.5 | 20 | 延迟结束后每秒回复 |
+| `half_time_recovery_fraction` | float | 0..1，步进 0.01 | 0.6 | 半场切换时回复 `max × 比例` |
+| `goal_recovery_fraction` | float | 0..1，步进 0.01 | 0.15 | 进球后回复 `max × 比例` |
+| `speed_tiers` | 数组 | 见下 | 见下 | 移速档位列表，可增删 |
+
+**移速档位** `speed_tiers[]` 每项：
+
+| 子字段 | 范围 | 说明 |
+|--------|------|------|
+| `stamina_fraction` | 0..1 | **上限阈值**：当前体力比例 `stamina / max` **严格小于** 该值时采用本档 `speed_multiplier` |
+| `speed_multiplier` | 0.1..2.0，步进 0.05 | 移速倍率（`ADD_MULTIPLIED_TOTAL`） |
+
+- 列表可为空：全程隐含移速倍率 **1.0**。
+- 若无 `stamina_fraction = 1.0` 的项，满体力隐含 **1.0**。
+- `stamina_fraction` 不可重复；按阈值升序时 `speed_multiplier` 必须**单调不降**（体力越少，倍率越低或相等）。
+- 保存或加载配置时，相邻且移速倍率相同的档位会自动合并为一档（保留同组中最大的 `stamina_fraction`）。
+- 默认档位：0→0.6，0.1→0.7，0.4→0.85，0.8→0.95（100% 隐含 1.0）。
+
+加载 JSON 时 Codec 会校验上述规则；非法配置会回退为默认整段 `stamina_mechanism`。
+
+### 运行时行为
+
+**消耗（服务端每 tick）**
+
+1. **疾跑**：`isSprinting` 且水平移动意图在朝向方向上的投影 > 0.1（`FootballMovementInputUtil` + `lastClientMoveIntent`）时，按 `sprint_drain_per_second / 20` 累加，每满 1 扣 1 点体力。
+2. **跳跃**：上一 tick 在地面、本 tick 离地且 `deltaMovement.y > 0.2` 时，扣除 `jump_cost`（近似起跳，非按键包）。
+
+**回复**
+
+- 任意消耗会重置「距上次消耗」计时与回复累加器。
+- 当 `ticksSinceConsume > recovery_delay_seconds × 20`（即严格大于延迟 tick 数）时，按 `recovery_per_second / 20` 累加回复，每满 1 加 1 点，上限 `max_stamina`。
+
+**比赛事件（服务端，不写进配置）**
+
+| 事件 | 体力 |
+|------|------|
+| 比赛开始（`MatchState.broadcastMatchStart`） | 全员回满 `max_stamina` |
+| 半场切换（`triggerHalfKickoff`） | 全员 `+ max × half_time_recovery_fraction`（封顶 max） |
+| 进球（`broadcastGoalScored`） | 全员 `+ max × goal_recovery_fraction`（封顶 max） |
+
+创造模式 / 旁观者：每 tick 视为满体力并清除移速修正。
+
+**移速查表**（[`StaminaMechanismSettings.speedMultiplierForStamina`](src/main/kotlin/net/astrorbits/football/config/server/StaminaMechanismSettings.kt)）
+
+- `stamina <= 0` 时，若存在 `stamina_fraction == 0` 的档位则用其倍率，否则进入比例查表。
+- 否则取当前比例 `stamina / max`，找**最小**的 `stamina_fraction` 使得 `比例 < stamina_fraction`，返回对应倍率；若无则 1.0（或显式 100% 档）。
+
+**客户端 HUD**（`StaminaHudElement`）：体力未满时显示在快捷栏上方；刻度线为配置中 `0 < fraction < 1` 的阈值；颜色仍按 10% / 40% / 80% 分段（与默认档位一致）。
 
 ## 核心状态：`MatchState`
 
@@ -308,8 +374,10 @@ flowchart TB
 | `MatchResetS2CPayload` | S→C | 重置客户端 UI 状态 |
 | `MatchConfigSyncS2CPayload` / `MatchFieldConfigSyncS2CPayload` | S→C | 打开 GUI 时下发配置 |
 | `MatchConfigApplyC2SPayload` | C→S | 保存配置 |
+| `StaminaSyncS2CPayload` | S→C | 同步当前体力与 `max_stamina` |
+| `ServerConfigSyncS2CPayload` | S→C | 同步 `FootballServerConfig`（`openEditor=true` 时打开 YACL） |
 
-玩家加入服务器时会 `syncConfigToPlayer` 推送当前计时与配置。
+玩家加入服务器时会 `syncConfigToPlayer` 推送比赛计时，并 `syncPlayerJoin` 推送服务端配置（含 `stamina_mechanism`）与体力。OP 在 YACL 保存服务端配置后会 `broadcastServerConfig` 给所有在线玩家。
 
 ## 客户端 HUD
 
@@ -322,6 +390,7 @@ flowchart TB
 | `GoalLineOutHudElement` | 出界类型 Banner |
 | `HalfKickoffHudElement` | 半场开球 Banner（约 4s） |
 | `MatchResultHudElement` | 终场结果 |
+| `StaminaHudElement` | 体力条（未满时显示，刻度为移速档位阈值） |
 
 开球/补时 UI 状态集中在 `MatchStartClient`；阶段边沿逻辑在 `MatchStateClient`。
 

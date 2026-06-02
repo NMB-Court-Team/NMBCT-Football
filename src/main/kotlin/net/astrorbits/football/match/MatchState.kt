@@ -3,6 +3,7 @@ package net.astrorbits.football.match
 import net.astrorbits.football.Football
 import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.network.FootballNetworking
+import net.astrorbits.football.stamina.StaminaState
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
 import net.minecraft.server.MinecraftServer
@@ -266,6 +267,7 @@ object MatchState {
         lastHalfKickoffTeam = kickoff
         beginKickoffPhase(MatchKickoffTiming.MATCH_START_LOCK_MS, KickoffWhistleContext.MATCH_START)
         FootballSounds.playMatchWhistle(server, 1)
+        StaminaState.onMatchStart(server)
         val nameA = getTeamName(TeamSide.A).string
         val nameB = getTeamName(TeamSide.B).string
         for (uuid in teamAPlayers) {
