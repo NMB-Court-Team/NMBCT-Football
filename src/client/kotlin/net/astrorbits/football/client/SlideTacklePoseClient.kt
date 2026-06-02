@@ -20,10 +20,6 @@ object SlideTacklePoseClient {
         model.head.xRot = SlideTacklePoseTuning.headX
         model.head.yRot = SlideTacklePoseTuning.headY
         model.head.zRot = SlideTacklePoseTuning.headZ
-        model.hat.xRot = SlideTacklePoseTuning.headX
-        model.hat.yRot = SlideTacklePoseTuning.headY
-        model.hat.zRot = SlideTacklePoseTuning.headZ
-
         model.leftArm.xRot = SlideTacklePoseTuning.leftArmX
         model.leftArm.yRot = SlideTacklePoseTuning.leftArmY
         model.leftArm.zRot = SlideTacklePoseTuning.leftArmZ
