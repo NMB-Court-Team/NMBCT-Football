@@ -55,6 +55,9 @@ object SlideTackleSessions {
     private val cooldownUntil = ConcurrentHashMap<UUID, Long>()
     private val tackledResistanceUntil = ConcurrentHashMap<UUID, TackledResistance>()
     private val tackledJumpBlockUntil = ConcurrentHashMap<UUID, Long>()
+    private val sprintTickState = ConcurrentHashMap<UUID, SprintTickState>()
+
+    private data class SprintTickState(var consecutiveTicks: Int, var lastUpdatedTick: Long)
 
     fun registerEvents() {
         ServerTickEvents.END_SERVER_TICK.register(::tick)
@@ -68,6 +71,9 @@ object SlideTackleSessions {
         sprinting: Boolean,
     ): Boolean {
         if (!player.isSprinting || !player.onGround()) {
+            return false
+        }
+        if (consecutiveSprintTicks(player) < FootballInputConfig.SLIDE_MIN_SPRINT_TICKS) {
             return false
         }
         val cooldown = cooldownUntil[player.uuid] ?: 0L
@@ -308,5 +314,20 @@ object SlideTackleSessions {
     private fun expandedContactBox(player: ServerPlayer): AABB {
         val box = player.boundingBox
         return box.inflate(CONTACT_HITBOX_EXPAND, 0.0, CONTACT_HITBOX_EXPAND)
+    }
+
+    private fun consecutiveSprintTicks(player: ServerPlayer): Int {
+        val now = player.level().gameTime
+        val state = sprintTickState.compute(player.uuid) { _, existing ->
+            if (!player.isSprinting) {
+                return@compute null
+            }
+            when {
+                existing == null || existing.lastUpdatedTick < now - 1 -> SprintTickState(1, now)
+                existing.lastUpdatedTick == now -> existing
+                else -> SprintTickState(existing.consecutiveTicks + 1, now)
+            }
+        }
+        return state?.consecutiveTicks ?: 0
     }
 }

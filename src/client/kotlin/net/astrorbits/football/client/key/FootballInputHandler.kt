@@ -20,6 +20,7 @@ object FootballInputHandler {
     private var chipPrevTickPressed = false
     private var dribblePrevTickPressed = false
     private var slidePrevTickPressed = false
+    private var consecutiveSprintTicks = 0
 
     private var kickPressStartMs: Long? = null
     /** 每帧捕获的抬键时长，避免仅在 tick 采样导致 1~2 tick 偏差。 */
@@ -102,8 +103,11 @@ object FootballInputHandler {
             val level = client.level
             if (player == null || level == null) {
                 resetTransientState(notifyDribbleEnd = false)
+                consecutiveSprintTicks = 0
                 return@reg
             }
+
+            tickSprintCounter(player)
 
             if (client.screen != null || client.isPaused) {
                 resetTransientState(player)
@@ -369,12 +373,23 @@ object FootballInputHandler {
 
     private fun handleSlideTacklePress(player: LocalPlayer) {
         val down = FootballKeyBindings.SLIDE_TACKLE.isDown
-        if (down && !slidePrevTickPressed && player.isSprinting) {
+        if (down && !slidePrevTickPressed && player.isSprinting && canSlideTackle()) {
             sendAction(player, FootballActionType.SLIDE_TACKLE, 0f, 0L, buildFlags(player))
             return
         }
         if (!down && slidePrevTickPressed) {
             sendAction(player, FootballActionType.SLIDE_TACKLE_END, 0f, 0L, 0)
+        }
+    }
+
+    fun canSlideTackle(): Boolean =
+        consecutiveSprintTicks >= FootballInputConfig.SLIDE_MIN_SPRINT_TICKS
+
+    private fun tickSprintCounter(player: LocalPlayer) {
+        consecutiveSprintTicks = if (player.isSprinting) {
+            consecutiveSprintTicks + 1
+        } else {
+            0
         }
     }
 
@@ -510,6 +525,7 @@ object FootballInputHandler {
         resetChargeDisplay()
         dribbleTickCounter = 0
         dribbleResumeBlocked = false
+        consecutiveSprintTicks = 0
     }
 
     private fun syncKickPressRealtimeClock() {
