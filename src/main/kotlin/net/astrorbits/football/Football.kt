@@ -39,6 +39,7 @@ import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
 import net.minecraft.world.level.storage.ValueInput
 import net.minecraft.world.level.storage.ValueOutput
+import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import org.joml.Quaternionf
 import org.joml.Vector3f
@@ -61,6 +62,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     private var fieldsInitialized = false
     private var holderEntityId: Int = -1
     private var holdStartTick: Long = 0L
+    private var immovableSnapshot: FootballImmovableSnapshot? = null
 
     init {
         isNoGravity = true
@@ -74,6 +76,48 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         entityData.define(DATA_ANGULAR_VEL, Vector3f())
         entityData.define(DATA_ON_GROUND, false)
         entityData.define(DATA_HOLDER_ID, -1)
+        entityData.define(DATA_IMMOVABLE, false)
+    }
+
+    /**
+     * 是否固定：不可踢、不可推，物理与位置保持锚点；仅 [teleportBall] / [teleportBallCenter] 可改变位置。
+     */
+    var isImmovable: Boolean
+        get() = entityData.get(DATA_IMMOVABLE)
+        set(value) {
+            if (level().isClientSide) {
+                return
+            }
+            if (entityData.get(DATA_IMMOVABLE) == value) {
+                return
+            }
+            entityData.set(DATA_IMMOVABLE, value)
+            if (value) {
+                if (holderEntityId >= 0) {
+                    releaseHold()
+                }
+                captureImmovableSnapshot()
+            } else {
+                immovableSnapshot = null
+            }
+        }
+
+    /** 传送足球实体脚点位置；固定状态下会更新锚点。 */
+    fun teleportBall(x: Double, y: Double, z: Double) {
+        if (level().isClientSide) {
+            return
+        }
+        setPos(x, y, z)
+        syncPacketPositionCodec(x, y, z)
+        if (isImmovable) {
+            captureImmovableSnapshot()
+        }
+    }
+
+    /** 传送足球球心到世界坐标。 */
+    fun teleportBallCenter(center: Vec3) {
+        val radius = FootballPhysicsConfig.RADIUS
+        teleportBall(center.x, center.y - radius, center.z)
     }
 
     override fun tick() {
@@ -92,6 +136,13 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             loadPhysicsFromEntityData()
         } else {
             applySyncedPhysicsFromEntityData()
+        }
+
+        if (isImmovable) {
+            renderLinearVelocity = Vec3.ZERO
+            renderAngularVelocity = Vec3.ZERO
+            deltaMovement = Vec3.ZERO
+            return
         }
 
         renderLinearVelocity = physicsState.linearVelocity
@@ -121,7 +172,16 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
 
         if (holderEntityId >= 0) {
-            tickHeld()
+            if (isImmovable) {
+                releaseHold()
+            } else {
+                tickHeld()
+                return
+            }
+        }
+
+        if (isImmovable) {
+            tickImmovable()
             return
         }
 
@@ -150,6 +210,43 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         deltaMovement = physicsState.linearVelocity
         syncPhysicsToEntityData()
         FootballKickPushGrace.cleanupExpired((level() as? ServerLevel)?.gameTime ?: 0L)
+    }
+
+    private fun tickImmovable() {
+        restoreImmovableSnapshot()
+        deltaMovement = Vec3.ZERO
+        syncPhysicsToEntityData()
+        syncPacketPositionCodec(x, y, z)
+    }
+
+    private fun captureImmovableSnapshot() {
+        immovableSnapshot = FootballImmovableSnapshot(
+            x = x,
+            y = y,
+            z = z,
+            linearVelocity = physicsState.linearVelocity,
+            angularVelocity = physicsState.angularVelocity,
+            orientation = Quaternionf(physicsState.orientation),
+            onGround = physicsState.onGround,
+            wallBounceCooldown = physicsState.wallBounceCooldown,
+        )
+    }
+
+    private fun restoreImmovableSnapshot() {
+        val snapshot = immovableSnapshot ?: run {
+            captureImmovableSnapshot()
+            return
+        }
+        if (x != snapshot.x || y != snapshot.y || z != snapshot.z) {
+            setPos(snapshot.x, snapshot.y, snapshot.z)
+        }
+        physicsState.linearVelocity = snapshot.linearVelocity
+        physicsState.angularVelocity = snapshot.angularVelocity
+        physicsState.orientation.set(snapshot.orientation)
+        physicsState.onGround = snapshot.onGround
+        physicsState.wallBounceCooldown = snapshot.wallBounceCooldown
+        physicsState.inCobweb = false
+        previousOrientation.set(physicsState.orientation)
     }
 
     private data class WorldMotionResult(val beforeMove: Vec3, val actualMotion: Vec3)
@@ -220,6 +317,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     private fun applyPlayerPushesBeforeMove(): Boolean {
+        if (isImmovable) {
+            return false
+        }
         val serverLevel = level() as? ServerLevel ?: return false
         val now = serverLevel.gameTime
         val radius = FootballPhysicsConfig.RADIUS
@@ -287,6 +387,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     private fun applyPlayerPushFromPlayer(player: ServerPlayer, pushDir: Vec3): Boolean {
+        if (isImmovable) {
+            return false
+        }
         val dir = Vec3Math.normalizeSafe(pushDir)
         if (dir.lengthSqr() <= 1.0e-8) {
             return false
@@ -323,6 +426,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         intendedMotion: Vec3,
         allowPlayerPush: Boolean
     ) {
+        if (isImmovable) {
+            return
+        }
         val serverLevel = level() as? ServerLevel ?: return
         val now = serverLevel.gameTime
         val radius = FootballPhysicsConfig.RADIUS
@@ -402,7 +508,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     /** 球心相对玩家 AABB 的最小平移分离，解决球心落在玩家体内时只沿水平推不够的问题。 */
     private fun computeSpherePlayerDepenetration(
         center: Vec3,
-        playerBox: net.minecraft.world.phys.AABB,
+        playerBox: AABB,
         radius: Double,
         epsilon: Double = PLAYER_SEPARATION_EPSILON,
     ): PlayerDepenetration? {
@@ -445,7 +551,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     private data class SegmentAabbHit(val t: Double, val normal: Vec3)
 
-    private fun segmentAabbHit(start: Vec3, end: Vec3, box: net.minecraft.world.phys.AABB): SegmentAabbHit? {
+    private fun segmentAabbHit(start: Vec3, end: Vec3, box: AABB): SegmentAabbHit? {
         val direction = end.subtract(start)
         var tMin = 0.0
         var tMax = 1.0
@@ -513,7 +619,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     /** 检测球是否穿越边线出界 */
     private fun checkSidelineOut(
-        sideline: net.astrorbits.football.match.SidelineConfig,
+        sideline: SidelineConfig,
         prevCenter: Vec3,
         currCenter: Vec3,
     ) {
@@ -668,7 +774,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     fun kick(kickPoint: Vec3, direction: Vec3) {
-        if (level().isClientSide) {
+        if (level().isClientSide || isImmovable) {
             return
         }
 
@@ -680,7 +786,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val serverLevel = level() as? ServerLevel
         if (serverLevel != null) {
             val kickerUuid = lastKicker
-            val kicker = kickerUuid?.let { serverLevel.server.playerList.getPlayer(it) }
+            val kicker = kickerUuid?.let { serverLevel.server?.playerList?.getPlayer(it) }
             if (kicker != null) {
                 FootballKickPushGrace.record(kicker, this, serverLevel.gameTime)
                 separateBallFromKicker(kicker, direction)
@@ -710,7 +816,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     fun trap() {
-        if (level().isClientSide) {
+        if (level().isClientSide || isImmovable) {
             return
         }
         releaseHold()
@@ -722,7 +828,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     fun applyDribbleAssist(horizontalVelocity: Vec3) {
-        if (level().isClientSide) {
+        if (level().isClientSide || isImmovable) {
             return
         }
 
@@ -746,7 +852,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     fun isHeldBy(player: ServerPlayer): Boolean = getHolderEntityId() == player.id
 
     fun enterHold(player: ServerPlayer) {
-        if (level().isClientSide) {
+        if (level().isClientSide || isImmovable) {
             return
         }
         holderEntityId = player.id
@@ -775,7 +881,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     fun dropAt(player: ServerPlayer) {
-        if (level().isClientSide) {
+        if (level().isClientSide || isImmovable) {
             return
         }
         val look = Vec3Math.normalizeSafe(Vec3Math.horizontal(player.lookAngle))
@@ -946,6 +1052,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     override fun push(entity: Entity) {
         if (entity is ServerPlayer) {
+            if (isImmovable) {
+                return
+            }
             val now = (level() as? ServerLevel)?.gameTime ?: 0L
             if (shouldSkipPlayerBodyInteraction(entity, now)) {
                 return
@@ -1009,10 +1118,18 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         FootballPhysicsNbt.read(input, physicsState)
         deltaMovement = physicsState.linearVelocity
         previousOrientation.set(physicsState.orientation)
+        val immovable = input.getBooleanOr(NBT_IMMOVABLE, false)
+        entityData.set(DATA_IMMOVABLE, immovable)
+        if (immovable) {
+            captureImmovableSnapshot()
+        } else {
+            immovableSnapshot = null
+        }
     }
 
     override fun addAdditionalSaveData(output: ValueOutput) {
         FootballPhysicsNbt.write(physicsState, deltaMovement, output)
+        output.putBoolean(NBT_IMMOVABLE, isImmovable)
     }
 
     private fun loadPhysicsFromEntityData() {
@@ -1079,6 +1196,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             Football::class.java,
             EntityDataSerializers.INT
         )
+        private val DATA_IMMOVABLE: EntityDataAccessor<Boolean> = SynchedEntityData.defineId(
+            Football::class.java,
+            EntityDataSerializers.BOOLEAN
+        )
+
+        private const val NBT_IMMOVABLE = "immovable"
 
         private val ENTITY_ID = NMBCTFootball.id("football")
         private val ENTITY_KEY: ResourceKey<EntityType<*>> = ResourceKey.create(Registries.ENTITY_TYPE, ENTITY_ID)
@@ -1097,5 +1220,3 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         private fun Vector3fc.toVec3(): Vec3 = Vec3(x().toDouble(), y().toDouble(), z().toDouble())
     }
 }
-
-private data class SegmentAabbHit(val t: Double, val normal: Vec3)
