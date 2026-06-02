@@ -22,7 +22,6 @@ object MatchCommand {
 			val kickoff = TeamSide.entries.random()
 			MatchState.broadcastMatchStart(it.source.server, kickoff)
 			MatchState.advancePhase()
-			FootballNetworking.triggerHalfKickoff(it.source.server, it.source.level)
 			1
 		})
 

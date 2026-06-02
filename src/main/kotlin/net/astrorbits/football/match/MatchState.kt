@@ -230,6 +230,7 @@ object MatchState {
         kickoffTeam = kickoff
         lastHalfKickoffTeam = kickoff
         beginKickoffPhase(MatchKickoffTiming.MATCH_START_LOCK_MS, KickoffWhistleContext.MATCH_START)
+        FootballSounds.playMatchWhistle(server, 1)
         val nameA = getTeamName(TeamSide.A).string
         val nameB = getTeamName(TeamSide.B).string
         for (uuid in teamAPlayers) {
@@ -382,7 +383,9 @@ object MatchState {
         if (phase == MatchPhase.FIRST_HALF || phase == MatchPhase.SECOND_HALF ||
             phase == MatchPhase.EXTRA_FIRST || phase == MatchPhase.EXTRA_SECOND) {
             dynamicStoppageTicks = 0
-            halfKickoffBroadcasted = false  // 进入新半场，允许下次开球广播
+        }
+        if (phase == MatchPhase.SECOND_HALF || phase == MatchPhase.EXTRA_FIRST || phase == MatchPhase.EXTRA_SECOND) {
+            halfKickoffBroadcasted = false
         }
         timerTicks = when (phase) {
             MatchPhase.PRE_MATCH -> 0

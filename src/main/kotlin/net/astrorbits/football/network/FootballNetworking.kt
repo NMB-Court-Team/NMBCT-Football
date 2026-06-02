@@ -175,24 +175,18 @@ object FootballNetworking {
         triggerHalfKickoff(server, level)
     }
 
-    /** 进入新半场时广播半场开球 HUD 并吹 whistle_1。上半场沿用开场选定的发球方，其余半场交替。 */
+    /** 进入新半场时广播半场开球 HUD 并吹 whistle_1（不含上半场——上半场走开场开球 MatchStart）。 */
     fun triggerHalfKickoff(server: MinecraftServer, level: ServerLevel) {
         val ms = MatchState
         if (ms.halfKickoffBroadcasted) return
         val phaseKey = when (ms.currentPhase) {
-            MatchPhase.FIRST_HALF -> "match.phase.first_half"
             MatchPhase.SECOND_HALF -> "match.phase.second_half"
             MatchPhase.EXTRA_FIRST -> "match.phase.extra_first"
             MatchPhase.EXTRA_SECOND -> "match.phase.extra_second"
             else -> return
         }
-        val kickoffTeam = when (ms.currentPhase) {
-            MatchPhase.FIRST_HALF -> ms.kickoffTeam ?: ms.lastHalfKickoffTeam ?: TeamSide.A
-            else -> {
-                val lastHalf = ms.lastHalfKickoffTeam ?: TeamSide.A
-                if (lastHalf == TeamSide.A) TeamSide.B else TeamSide.A
-            }
-        }
+        val lastHalf = ms.lastHalfKickoffTeam ?: TeamSide.A
+        val kickoffTeam = if (lastHalf == TeamSide.A) TeamSide.B else TeamSide.A
         ms.halfKickoffBroadcasted = true
         ms.lastHalfKickoffTeam = kickoffTeam
         ms.kickoffTeam = kickoffTeam
