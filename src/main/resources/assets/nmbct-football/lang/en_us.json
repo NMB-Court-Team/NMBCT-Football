@@ -299,7 +299,7 @@
     "screen.nmbct-football.match.half_time_minutes": "Half time (minutes)",
     "screen.nmbct-football.match.enable_stoppage_time": "Enable stoppage time",
     "screen.nmbct-football.match.stoppage_time_max": "Stoppage time max (minutes)",
-    "screen.nmbct-football.match.post_goal_ball_reset_delay_seconds": "Ball reset delay after goal (seconds)",
+    "screen.nmbct-football.match.post_goal_ball_reset_delay_seconds": "Ball reset delay after goal/out (seconds)",
     "screen.nmbct-football.match.enable_extra_time": "Enable extra time",
     "screen.nmbct-football.match.extra_time_half": "Extra time half (minutes)",
     "screen.nmbct-football.match.enable_penalty_shootout": "Enable penalty shootout",

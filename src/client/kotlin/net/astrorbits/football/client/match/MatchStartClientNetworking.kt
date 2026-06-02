@@ -33,7 +33,11 @@ object MatchStartClientNetworking {
         }
         ClientPlayNetworking.registerGlobalReceiver(PostGoalKickoffS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
-                MatchStartClient.startPostGoalKickoff(payload.kickoffTeam, payload.isKickoffTeam)
+                if (payload.goalLineOut) {
+                    MatchStartClient.startGoalLineOutKickoff(payload.kickoffTeam, payload.isKickoffTeam)
+                } else {
+                    MatchStartClient.startPostGoalKickoff(payload.kickoffTeam, payload.isKickoffTeam)
+                }
             }
         }
         ClientPlayNetworking.registerGlobalReceiver(KickoffBallTouchedS2CPayload.TYPE) { _, _ ->
@@ -66,7 +70,6 @@ object MatchStartClientNetworking {
                     payload.lastTouchPlayerName,
                     payload.lastTouchTeam,
                 )
-                MatchStartClient.startGoalLineOutKickoff(payload.restartTeam, payload.isKickoffTeam)
             }
         }
         ClientPlayNetworking.registerGlobalReceiver(MatchResultS2CPayload.TYPE) { payload, _ ->

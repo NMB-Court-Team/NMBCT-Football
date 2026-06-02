@@ -299,7 +299,7 @@
     "screen.nmbct-football.match.half_time_minutes": "半场时间（分钟）",
     "screen.nmbct-football.match.enable_stoppage_time": "启用补时",
     "screen.nmbct-football.match.stoppage_time_max": "补时上限（分钟）",
-    "screen.nmbct-football.match.post_goal_ball_reset_delay_seconds": "进球后复位延迟（秒）",
+    "screen.nmbct-football.match.post_goal_ball_reset_delay_seconds": "进球/出界后复位延迟（秒）",
     "screen.nmbct-football.match.enable_extra_time": "启用加时赛",
     "screen.nmbct-football.match.extra_time_half": "加时半场时间（分钟）",
     "screen.nmbct-football.match.enable_penalty_shootout": "启用点球大战",

@@ -155,7 +155,7 @@ data class MatchConfig(
     val sidelineA: SidelineConfig = SidelineConfig.DEFAULT,
     val sidelineB: SidelineConfig = SidelineConfig.DEFAULT,
     val kickOff: KickPosition = KickPosition(8.5, -60.0, 8.5),
-    /** 进球后延迟多少秒再将球放回开球点；0 表示立即复位。 */
+    /** 进球或出界后，延迟多少秒再将球放到复位点；0 表示立即复位。进球复位至开球点，出界复位至判定点。 */
     val postGoalBallResetDelaySeconds: Int = 3,
     val teamASpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
     val teamBSpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
