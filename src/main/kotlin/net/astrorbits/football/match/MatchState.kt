@@ -43,7 +43,7 @@ object MatchState {
     var halfKickoffBroadcasted: Boolean = false
     /** 上一个半场的发球方，用于下一半场交替 */
     var lastHalfKickoffTeam: TeamSide? = null
-    /** 进球或边线出界后、延迟复位至开球点期间为 true，防止重复判例。 */
+    /** 进球或出界后、等待延迟复位期间为 true，防止重复判例。 */
     var postGoalResetPending: Boolean = false
 
     fun getTeamName(team: TeamSide): Component = when (team) {
@@ -146,6 +146,7 @@ object MatchState {
      * 当 [kickoffTeam] 非空且 [kickoffTouched] 为 false 时，非发球方球员的所有足球操作都应被拒绝。
      * 注意：若球员队伍未知（未加入赛事），则不阻止其操作，避免误伤。 */
     fun isNonKickoffBlocked(player: ServerPlayer): Boolean {
+        if (kickoffTimerStartMs == 0L) return false
         if (kickoffTouched) return false
         val kt = kickoffTeam ?: return false
         val playerTeam = getPlayerTeam(player.uuid) ?: return false

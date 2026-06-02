@@ -701,6 +701,13 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (d1 * d2 >= 0) return
         if (d2 - d1 >= 0) return
 
+        // 穿越点
+        val t = d1 / (d1 - d2)
+        val movement = currCenter.subtract(prevCenter)
+        val ix = prevCenter.x + movement.x * t
+        val iy = prevCenter.y + movement.y * t
+        val iz = prevCenter.z + movement.z * t
+
         val server = (level() as? ServerLevel)?.server ?: return
 
         // 最后触球方 = 对方发球
@@ -711,23 +718,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             null -> TeamSide.A
         }
 
-        val level = level() as ServerLevel
-        MatchState.postGoalResetPending = true
-        PostGoalBallResetScheduler.schedule(level)
-        MatchState.kickoffTeam = restartTeam
-        MatchState.beginKickoffPhase(MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS, KickoffWhistleContext.GOAL_LINE_OUT)
-        val (touchName, touchTeam) = resolveLastTouch(server)
-        val kickOff = MatchConfigHolder.current.kickOff
-        FootballNetworking.broadcastGoalLineOut(
-            server,
-            GoalLineOutType.THROW_IN,
-            restartTeam,
-            kickOff.x,
-            kickOff.y,
-            kickOff.z,
-            touchName,
-            touchTeam,
-        )
+        val ballPos = Vec3(ix, iy, iz)
+        scheduleOutOfBoundsRestart(level() as ServerLevel, server, ballPos, restartTeam, GoalLineOutType.THROW_IN)
     }
 
     /** 检测球是否穿越门线：进球或出底线 */
@@ -786,10 +778,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 server, attackingTeam, scorerName, scorerTeam, MatchState.teamAScore, MatchState.teamBScore, ownGoal,
             )
             FootballParticles.playGoal(level(), FootballParticles.centerOfFootball(this))
-            PostGoalBallResetScheduler.schedule(level() as ServerLevel)
-            MatchState.kickoffTeam = defendingTeam
-            MatchState.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.POST_GOAL)
-            FootballNetworking.broadcastPostGoalKickoff(server, defendingTeam)
+            PostGoalBallResetScheduler.schedule(
+                level() as ServerLevel,
+                afterReset = PendingAfterReset.PostGoal(defendingTeam),
+            )
         } else {
             // 穿越门线平面但不在门框内 → 出底线
             val lastTouchTeam = lastKicker?.let { MatchState.getPlayerTeam(it) }
@@ -822,14 +814,24 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 Vec3(corner.x, corner.y, corner.z)
             }
 
-            MatchState.resetFootballAt(level() as ServerLevel, ballPos)
-            MatchState.kickoffTeam = restartTeam
-            MatchState.beginKickoffPhase(MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS, KickoffWhistleContext.GOAL_LINE_OUT)
-            val (touchName, touchTeam) = resolveLastTouch(server)
-            FootballNetworking.broadcastGoalLineOut(
-                server, outType, restartTeam, ballPos.x, ballPos.y, ballPos.z, touchName, touchTeam,
-            )
+            scheduleOutOfBoundsRestart(level() as ServerLevel, server, ballPos, restartTeam, outType)
         }
+    }
+
+    private fun scheduleOutOfBoundsRestart(
+        level: ServerLevel,
+        server: MinecraftServer,
+        ballPos: Vec3,
+        restartTeam: TeamSide,
+        outType: GoalLineOutType,
+    ) {
+        if (MatchState.postGoalResetPending) return
+        MatchState.postGoalResetPending = true
+        PostGoalBallResetScheduler.schedule(level, ballPos, PendingAfterReset.GoalLineOut(restartTeam))
+        val (touchName, touchTeam) = resolveLastTouch(server)
+        FootballNetworking.broadcastGoalLineOut(
+            server, outType, restartTeam, ballPos.x, ballPos.y, ballPos.z, touchName, touchTeam,
+        )
     }
 
     private fun resolveLastTouch(server: MinecraftServer): Pair<String, TeamSide?> {

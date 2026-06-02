@@ -276,14 +276,14 @@ object FootballNetworking {
         PlayerRoleState.syncRoleToPlayer(player)
     }
 
-    fun broadcastPostGoalKickoff(server: MinecraftServer, kickoffTeam: TeamSide) {
+    fun broadcastRestartKickoff(server: MinecraftServer, kickoffTeam: TeamSide, goalLineOut: Boolean) {
         for (uuid in MatchState.teamAPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            ServerPlayNetworking.send(player, PostGoalKickoffS2CPayload(kickoffTeam, kickoffTeam == TeamSide.A))
+            ServerPlayNetworking.send(player, PostGoalKickoffS2CPayload(kickoffTeam, kickoffTeam == TeamSide.A, goalLineOut))
         }
         for (uuid in MatchState.teamBPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            ServerPlayNetworking.send(player, PostGoalKickoffS2CPayload(kickoffTeam, kickoffTeam == TeamSide.B))
+            ServerPlayNetworking.send(player, PostGoalKickoffS2CPayload(kickoffTeam, kickoffTeam == TeamSide.B, goalLineOut))
         }
     }
 
