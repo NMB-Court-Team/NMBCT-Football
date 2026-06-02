@@ -19,7 +19,11 @@ object GoalNetAnchorLinks {
     private val anchorToNets = HashMap<AnchorKey, MutableSet<UUID>>()
     private val netToAnchors = HashMap<UUID, List<BlockPos>>()
 
-    /** 玩家破坏锚点时记录破坏者，实际销毁在 [GoalNetAnchorBlock.destroy] 中执行，避免 BEFORE 与 destroy 重复处理导致索引被提前清空。 */
+    /**
+     * 玩家破坏锚点时记录破坏者；实际销毁在 [PlayerBlockBreakEvents.AFTER] 或 [GoalNetAnchorBlock.destroy] 中执行。
+     * 专用服务器上玩家破坏方块通常不会调用 [net.minecraft.world.level.block.Block.destroy]（仅客户端效果），
+     * 因此必须以 AFTER 作为服务端权威路径。
+     */
     private val pendingBreakers = HashMap<AnchorKey, Player>()
 
     fun registerEvents() {
@@ -29,9 +33,14 @@ object GoalNetAnchorLinks {
             }
             true
         }
+        PlayerBlockBreakEvents.AFTER.register { world, _, pos, state, _ ->
+            if (!world.isClientSide && state.block is GoalNetAnchorBlock) {
+                onAnchorRemoved(world, pos)
+            }
+        }
     }
 
-    private fun takePendingBreaker(level: Level, pos: BlockPos): Player? =
+    fun takePendingBreaker(level: Level, pos: BlockPos): Player? =
         pendingBreakers.remove(AnchorKey(level.dimension(), pos))
 
     fun register(net: GoalNetEntity, anchorBlocks: List<BlockPos>) {

@@ -1,5 +1,6 @@
 package net.astrorbits.football
 
+import net.astrorbits.football.block.Blocks
 import net.astrorbits.football.item.Items
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.physics.FootballPhysicsConfig
@@ -165,6 +166,15 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (level().isClientSide) {
             return
         }
+        if (anchors.isNotEmpty() && tickCount % ANCHOR_CHECK_INTERVAL == 0) {
+            val level = level()
+            for (pos in anchors) {
+                if (!level.getBlockState(pos).`is`(Blocks.GOAL_NET_ANCHOR)) {
+                    discardFromAnchorBreak(GoalNetAnchorLinks.takePendingBreaker(level, pos))
+                    return
+                }
+            }
+        }
         val m = mesh
         if (m == null) {
             // 数据缺失（异常情况），移除以免占用。
@@ -282,6 +292,8 @@ class GoalNetEntity(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
 
         private const val IDLE_SYNC_INTERVAL = 20
+        /** 锚点方块完整性检查间隔（20 tick = 1 秒）。 */
+        private const val ANCHOR_CHECK_INTERVAL = 20
 
         private val ENTITY_ID = NMBCTFootball.id("goal_net")
         private val ENTITY_KEY: ResourceKey<EntityType<*>> = ResourceKey.create(Registries.ENTITY_TYPE, ENTITY_ID)
