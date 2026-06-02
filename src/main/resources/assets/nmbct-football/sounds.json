@@ -56,5 +56,26 @@
   },
   "item.whistle.use": {
     "sounds": ["nmbct-football:whistle"]
+  },
+  "whistle_1": {
+    "sounds": ["nmbct-football:shrill_whistle1"]
+  },
+  "whistle_2": {
+    "sounds": ["nmbct-football:shrill_whistle2"]
+  },
+  "whistle_3": {
+    "sounds": ["nmbct-football:shrill_whistle3"]
+  },
+  "whistle_4": {
+    "sounds": ["nmbct-football:shrill_whistle4"]
+  },
+  "whistle_5": {
+    "sounds": ["nmbct-football:shrill_whistle5"]
+  },
+  "whistle_6": {
+    "sounds": ["nmbct-football:shrill_whistle6"]
+  },
+  "soccer_sliding": {
+    "sounds": ["nmbct-football:soccer_sliding"]
   }
 }
