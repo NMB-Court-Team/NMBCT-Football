@@ -15,9 +15,14 @@ object GoalScoredClientNetworking {
                 MatchState.teamAScore = payload.teamAScore
                 MatchState.teamBScore = payload.teamBScore
                 GoalScoredClient.show(
-                    payload.scoringTeam, payload.scorerName, payload.scorerTeam,
-                    payload.teamAScore, payload.teamBScore,
+                    payload.scoringTeam,
+                    payload.scorerName,
+                    payload.scorerTeam,
+                    payload.teamAScore,
+                    payload.teamBScore,
                     payload.ownGoal,
+                    payload.teamAName,
+                    payload.teamBName,
                 )
             }
         }

@@ -55,6 +55,7 @@ object FootballNetworking {
 		registry.register(MatchResultS2CPayload.TYPE, MatchResultS2CPayload.CODEC)
         registry.register(SlideTackleStateS2CPayload.TYPE, SlideTackleStateS2CPayload.CODEC)
         registry.register(GoalLineOutS2CPayload.TYPE, GoalLineOutS2CPayload.CODEC)
+        registry.register(MatchHudDebugS2CPayload.TYPE, MatchHudDebugS2CPayload.CODEC)
         registry.register(MatchTimerSyncS2CPayload.TYPE, MatchTimerSyncS2CPayload.CODEC)
     }
 
@@ -281,15 +282,41 @@ object FootballNetworking {
         }
     }
 
-    fun broadcastGoalLineOut(server: MinecraftServer, outType: net.astrorbits.football.match.GoalLineOutType, restartTeam: TeamSide, ballX: Double, ballY: Double, ballZ: Double) {
+    fun broadcastGoalLineOut(
+        server: MinecraftServer,
+        outType: net.astrorbits.football.match.GoalLineOutType,
+        restartTeam: TeamSide,
+        ballX: Double,
+        ballY: Double,
+        ballZ: Double,
+        lastTouchPlayerName: String,
+        lastTouchTeam: TeamSide?,
+    ) {
+        val touchCode = GoalLineOutS2CPayload.encodeTouchTeam(lastTouchTeam)
         for (uuid in MatchState.teamAPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            ServerPlayNetworking.send(player, GoalLineOutS2CPayload(outType, restartTeam, restartTeam == TeamSide.A, ballX, ballY, ballZ))
+            ServerPlayNetworking.send(
+                player,
+                GoalLineOutS2CPayload(
+                    outType, restartTeam, restartTeam == TeamSide.A,
+                    ballX, ballY, ballZ, lastTouchPlayerName, touchCode,
+                ),
+            )
         }
         for (uuid in MatchState.teamBPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            ServerPlayNetworking.send(player, GoalLineOutS2CPayload(outType, restartTeam, restartTeam == TeamSide.B, ballX, ballY, ballZ))
+            ServerPlayNetworking.send(
+                player,
+                GoalLineOutS2CPayload(
+                    outType, restartTeam, restartTeam == TeamSide.B,
+                    ballX, ballY, ballZ, lastTouchPlayerName, touchCode,
+                ),
+            )
         }
+    }
+
+    fun sendMatchHudDebugPreview(player: ServerPlayer) {
+        ServerPlayNetworking.send(player, MatchHudDebugS2CPayload.INSTANCE)
     }
 
     fun broadcastKickoffBallTouched(server: MinecraftServer) {
@@ -325,7 +352,16 @@ object FootballNetworking {
         teamBScore: Int,
         ownGoal: Boolean
     ) {
-        val payload = GoalScoredS2CPayload(scoringTeam, scorerName, scorerTeam, teamAScore, teamBScore, ownGoal)
+        val payload = GoalScoredS2CPayload(
+            scoringTeam,
+            scorerName,
+            scorerTeam,
+            teamAScore,
+            teamBScore,
+            ownGoal,
+            MatchState.getTeamName(TeamSide.A).string,
+            MatchState.getTeamName(TeamSide.B).string,
+        )
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
         }

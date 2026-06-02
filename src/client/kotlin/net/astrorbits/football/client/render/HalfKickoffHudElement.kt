@@ -20,21 +20,19 @@ class HalfKickoffHudElement : HudElement {
         val teamColor = MatchEventBanner.teamColor(kt)
         val phaseText = Component.translatable(MatchStartClient.halfKickoffPhaseKey).string
         val kickoffLabel = Component.translatable("hud.nmbct-football.half_kickoff.kickoff").string
-
         val elapsed = System.currentTimeMillis() - MatchStartClient.halfKickoffStartMs
+        val combined = "$phaseText · $teamName $kickoffLabel"
 
-        MatchEventBanner.render(
+        MatchEventBanner.renderHalf(
             extra = extra,
             font = client.font,
             screenW = client.window.guiScaledWidth,
             screenH = client.window.guiScaledHeight,
             elapsedMs = elapsed,
             durationMs = 4000L,
-            accentColor = teamColor,
-            headline = MatchEventBanner.Line(phaseText, 0xFFFFFFFF.toInt(), bold = true, scale = 1.75f),
-            lines = listOf(
-                MatchEventBanner.Line("$teamName · $kickoffLabel", teamColor, bold = true),
-            ),
+            combinedText = combined,
+            phaseColor = 0xFFFFFFFF.toInt(),
+            kickoffColor = teamColor,
         )
     }
 }

@@ -9,6 +9,7 @@ import net.astrorbits.football.client.StaminaClient
 import net.astrorbits.football.client.match.GoalLineOutClient
 import net.astrorbits.football.network.GoalLineOutS2CPayload
 import net.astrorbits.football.network.MatchResultS2CPayload
+import net.astrorbits.football.network.MatchHudDebugS2CPayload
 import net.astrorbits.football.network.MatchTimerSyncS2CPayload
 import net.astrorbits.football.network.PostGoalKickoffS2CPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
@@ -59,7 +60,12 @@ object MatchStartClientNetworking {
         }
         ClientPlayNetworking.registerGlobalReceiver(GoalLineOutS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
-                GoalLineOutClient.show(payload.outType, payload.restartTeam)
+                GoalLineOutClient.show(
+                    payload.outType,
+                    payload.restartTeam,
+                    payload.lastTouchPlayerName,
+                    payload.lastTouchTeam,
+                )
                 MatchStartClient.startGoalLineOutKickoff(payload.restartTeam, payload.isKickoffTeam)
             }
         }
@@ -70,6 +76,11 @@ object MatchStartClientNetworking {
                     payload.teamAName, payload.teamBName,
                     payload.isDraw,
                 )
+            }
+        }
+        ClientPlayNetworking.registerGlobalReceiver(MatchHudDebugS2CPayload.TYPE) { _, _ ->
+            Minecraft.getInstance().execute {
+                MatchHudDebugClient.scheduleAllPreviews()
             }
         }
         ClientPlayNetworking.registerGlobalReceiver(MatchTimerSyncS2CPayload.TYPE) { payload, _ ->

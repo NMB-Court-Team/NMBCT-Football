@@ -15,6 +15,8 @@ data class GoalScoredS2CPayload(
     val teamAScore: Int,
     val teamBScore: Int,
     val ownGoal: Boolean,
+    val teamAName: String,
+    val teamBName: String,
 ) : CustomPacketPayload {
     override fun type() = TYPE
 
@@ -27,6 +29,8 @@ data class GoalScoredS2CPayload(
             ByteBufCodecs.INT, GoalScoredS2CPayload::teamAScore,
             ByteBufCodecs.INT, GoalScoredS2CPayload::teamBScore,
             ByteBufCodecs.BOOL, GoalScoredS2CPayload::ownGoal,
+            ByteBufCodecs.STRING_UTF8, GoalScoredS2CPayload::teamAName,
+            ByteBufCodecs.STRING_UTF8, GoalScoredS2CPayload::teamBName,
             ::GoalScoredS2CPayload,
         )
     }

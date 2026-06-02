@@ -6,6 +6,7 @@ import net.astrorbits.football.GoalNetEntity
 import net.astrorbits.football.client.render.GoalNetConnectorPreviewClient
 import net.astrorbits.football.client.render.GoalNetRenderer
 import net.astrorbits.football.client.render.GoalNetStateClient
+import net.astrorbits.football.client.match.MatchHudDebugClient
 import net.astrorbits.football.client.match.MatchStateClient
 import net.astrorbits.football.client.config.FootballClientConfigKeyHandler
 import net.astrorbits.football.client.config.FootballConfigNetworking
@@ -109,6 +110,7 @@ object NMBCTFootballClient : ClientModInitializer {
 
 		ClientTickEvents.END_CLIENT_TICK.register { client ->
 			StaminaClient.tick(client)
+			MatchHudDebugClient.tick()
 		}
 
 		GoalkeeperStateClient.register()

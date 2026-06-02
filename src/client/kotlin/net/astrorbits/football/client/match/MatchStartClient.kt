@@ -98,6 +98,16 @@ object MatchStartClient {
         startTimeMs = halfKickoffStartMs; kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
     }
 
+    /** 仅预览半场 Banner，不启动开球锁定流程。 */
+    fun previewHalfKickoffHud(phaseKey: String, kickoff: TeamSide, nameA: String, nameB: String) {
+        kickoffTeam = kickoff
+        teamAName = nameA
+        teamBName = nameB
+        halfKickoffPhaseKey = phaseKey
+        halfKickoffActive = true
+        halfKickoffStartMs = System.currentTimeMillis()
+    }
+
     fun onBallTouched() {
         if (kickoffTouched) return
         kickoffTouched = true

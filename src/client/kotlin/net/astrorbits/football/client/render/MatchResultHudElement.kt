@@ -1,5 +1,6 @@
 package net.astrorbits.football.client.render
 
+import net.astrorbits.football.client.match.MatchHudTeams
 import net.astrorbits.football.client.match.MatchResultClient
 import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.match.TeamSide
@@ -17,11 +18,13 @@ class MatchResultHudElement : HudElement {
         if (client.isPaused) return
 
         val myTeam = MatchStartClient.playerTeam
+        val otherTeam = if (myTeam == TeamSide.A) TeamSide.B else TeamSide.A
         val myScore = if (myTeam == TeamSide.A) MatchResultClient.teamAScore else MatchResultClient.teamBScore
         val otherScore = if (myTeam != TeamSide.A) MatchResultClient.teamAScore else MatchResultClient.teamBScore
-        val myName = if (myTeam == TeamSide.A) MatchResultClient.teamAName else MatchResultClient.teamBName
-        val otherName = if (myTeam != TeamSide.A) MatchResultClient.teamAName else MatchResultClient.teamBName
-        val otherTeam = if (myTeam == TeamSide.A) TeamSide.B else TeamSide.A
+        val myName = (if (myTeam == TeamSide.A) MatchResultClient.teamAName else MatchResultClient.teamBName)
+            .ifBlank { MatchHudTeams.name(myTeam) }
+        val otherName = (if (myTeam != TeamSide.A) MatchResultClient.teamAName else MatchResultClient.teamBName)
+            .ifBlank { MatchHudTeams.name(otherTeam) }
 
         val (resultKey, resultColor, accent) = when {
             MatchResultClient.isDraw -> Triple(
@@ -41,21 +44,16 @@ class MatchResultHudElement : HudElement {
             )
         }
 
-        MatchEventBanner.render(
+        MatchEventBanner.renderResult(
             extra = extra,
             font = client.font,
             screenW = client.window.guiScaledWidth,
             screenH = client.window.guiScaledHeight,
             elapsedMs = MatchResultClient.elapsedMs,
             durationMs = 10000L,
+            resultText = Component.translatable(resultKey).string,
+            resultColor = resultColor,
             accentColor = accent,
-            headline = MatchEventBanner.Line(
-                Component.translatable(resultKey).string,
-                resultColor,
-                bold = true,
-                scale = 1.75f,
-            ),
-            lines = emptyList(),
             scoreRow = MatchEventBanner.ScoreRow(
                 nameA = myName,
                 scoreA = myScore,

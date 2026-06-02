@@ -27,25 +27,38 @@ class GoalLineOutHudElement : HudElement {
             GoalLineOutType.GOAL_KICK -> 0xFF4CAF50.toInt()
             GoalLineOutType.THROW_IN -> 0xFF4488FF.toInt()
         }
-        val teamName = if (GoalLineOutClient.restartTeam == TeamSide.A) {
+        val restartName = if (GoalLineOutClient.restartTeam == TeamSide.A) {
             MatchStartClient.teamAName
         } else {
             MatchStartClient.teamBName
         }
-        val prefix = Component.translatable("hud.nmbct-football.out.kick_by").string
 
-        MatchEventBanner.render(
+        val touchLine = if (GoalLineOutClient.lastTouchPlayerName.isNotBlank()) {
+            val team = GoalLineOutClient.lastTouchTeam
+            val touchColor = if (team != null) MatchEventBanner.teamColor(team) else 0xFFCCCCCC.toInt()
+            Component.translatable(
+                "hud.nmbct-football.out.kicked_by",
+                GoalLineOutClient.lastTouchPlayerName,
+            ).string to touchColor
+        } else {
+            Component.translatable("hud.nmbct-football.out.kicked_by_unknown").string to 0xFFAAAAAA.toInt()
+        }
+
+        val restartLine = Component.translatable("hud.nmbct-football.out.restart", restartName).string
+
+        MatchEventBanner.renderOut(
             extra = extra,
             font = client.font,
             screenW = client.window.guiScaledWidth,
             screenH = client.window.guiScaledHeight,
             elapsedMs = GoalLineOutClient.elapsedMs,
             durationMs = 4000L,
-            accentColor = typeColor,
-            headline = MatchEventBanner.Line(Component.translatable(typeKey).string, typeColor, bold = true, scale = 1.75f),
-            lines = listOf(
-                MatchEventBanner.Line("$prefix $teamName", MatchEventBanner.teamColor(GoalLineOutClient.restartTeam), bold = true),
-            ),
+            typeText = Component.translatable(typeKey).string,
+            typeColor = typeColor,
+            touchLine = touchLine.first,
+            touchColor = touchLine.second,
+            restartLine = restartLine,
+            restartColor = MatchEventBanner.teamColor(GoalLineOutClient.restartTeam),
         )
     }
 }

@@ -45,7 +45,7 @@ class MatchStartHudElement : HudElement {
             MatchEventBanner.Line(Component.translatable(key).string, color, bold = true)
         }
 
-        MatchEventBanner.render(
+        MatchEventBanner.renderDefault(
             extra = extra,
             font = client.font,
             screenW = client.window.guiScaledWidth,

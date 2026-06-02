@@ -9,15 +9,24 @@ object GoalLineOutClient {
     var startTimeMs: Long = 0L; private set
     var outType: GoalLineOutType = GoalLineOutType.GOAL_KICK; private set
     var restartTeam: TeamSide = TeamSide.A; private set
+    var lastTouchPlayerName: String = ""; private set
+    var lastTouchTeam: TeamSide? = null; private set
 
     val isActive: Boolean
         get() = startTimeMs > 0 && (System.currentTimeMillis() - startTimeMs) < DURATION_MS
 
     val elapsedMs: Long get() = if (startTimeMs > 0) System.currentTimeMillis() - startTimeMs else 0L
 
-    fun show(type: GoalLineOutType, team: TeamSide) {
+    fun show(
+        type: GoalLineOutType,
+        team: TeamSide,
+        touchName: String,
+        touchTeam: TeamSide?,
+    ) {
         outType = type
         restartTeam = team
+        lastTouchPlayerName = touchName
+        lastTouchTeam = touchTeam
         startTimeMs = System.currentTimeMillis()
     }
 }

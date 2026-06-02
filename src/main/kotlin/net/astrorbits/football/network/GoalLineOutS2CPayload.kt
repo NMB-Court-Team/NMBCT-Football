@@ -16,8 +16,18 @@ data class GoalLineOutS2CPayload(
     val ballX: Double,
     val ballY: Double,
     val ballZ: Double,
+    val lastTouchPlayerName: String,
+    /** -1 = 未知；0 = A；1 = B */
+    val lastTouchTeamCode: Int,
 ) : CustomPacketPayload {
     override fun type() = TYPE
+
+    val lastTouchTeam: TeamSide?
+        get() = when (lastTouchTeamCode) {
+            0 -> TeamSide.A
+            1 -> TeamSide.B
+            else -> null
+        }
 
     companion object {
         val TYPE: CustomPacketPayload.Type<GoalLineOutS2CPayload> = CustomPacketPayload.Type(NMBCTFootball.id("goal_line_out"))
@@ -28,7 +38,15 @@ data class GoalLineOutS2CPayload(
             ByteBufCodecs.DOUBLE, GoalLineOutS2CPayload::ballX,
             ByteBufCodecs.DOUBLE, GoalLineOutS2CPayload::ballY,
             ByteBufCodecs.DOUBLE, GoalLineOutS2CPayload::ballZ,
+            ByteBufCodecs.STRING_UTF8, GoalLineOutS2CPayload::lastTouchPlayerName,
+            ByteBufCodecs.INT, GoalLineOutS2CPayload::lastTouchTeamCode,
             ::GoalLineOutS2CPayload,
         )
+
+        fun encodeTouchTeam(team: TeamSide?): Int = when (team) {
+            TeamSide.A -> 0
+            TeamSide.B -> 1
+            null -> -1
+        }
     }
 }

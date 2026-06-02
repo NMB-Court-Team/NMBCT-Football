@@ -20,6 +20,7 @@ import net.minecraft.network.syncher.EntityDataAccessor
 import net.minecraft.network.syncher.EntityDataSerializers
 import net.minecraft.network.syncher.SynchedEntityData
 import net.minecraft.resources.ResourceKey
+import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.server.permissions.Permissions
@@ -432,8 +433,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         MatchState.resetFootballAt(level() as ServerLevel, ballPos)
         MatchState.kickoffTeam = restartTeam
         MatchState.kickoffTouched = false
+        val (touchName, touchTeam) = resolveLastTouch(server)
         FootballNetworking.broadcastGoalLineOut(
-            server, GoalLineOutType.THROW_IN, restartTeam, ballPos.x, ballPos.y, ballPos.z,
+            server, GoalLineOutType.THROW_IN, restartTeam, ballPos.x, ballPos.y, ballPos.z, touchName, touchTeam,
         )
     }
 
@@ -532,8 +534,17 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             MatchState.resetFootballAt(level() as ServerLevel, ballPos)
             MatchState.kickoffTeam = restartTeam
             MatchState.kickoffTouched = false
-            FootballNetworking.broadcastGoalLineOut(server, outType, restartTeam, ballPos.x, ballPos.y, ballPos.z)
+            val (touchName, touchTeam) = resolveLastTouch(server)
+            FootballNetworking.broadcastGoalLineOut(
+                server, outType, restartTeam, ballPos.x, ballPos.y, ballPos.z, touchName, touchTeam,
+            )
         }
+    }
+
+    private fun resolveLastTouch(server: MinecraftServer): Pair<String, TeamSide?> {
+        val uuid = lastKicker ?: return "" to null
+        val name = server.playerList.getPlayer(uuid)?.gameProfile?.name ?: "?"
+        return name to MatchState.getPlayerTeam(uuid)
     }
 
     fun kick(kickPoint: Vec3, direction: Vec3) {

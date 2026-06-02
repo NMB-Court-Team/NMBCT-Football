@@ -123,6 +123,17 @@ object MatchCommand {
 		registerTeamCommands(root)
 		registerGoalkeeperCommands(root)
 
+		root.then(Commands.literal("debugHud").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes { ctx ->
+			val player = ctx.source.player
+			if (player == null) {
+				ctx.source.sendFailure(Component.translatable("command.nmbct-football.config.player_only"))
+				return@executes 0
+			}
+			FootballNetworking.sendMatchHudDebugPreview(player)
+			ctx.source.sendSuccess({ Component.translatable("command.nmbct-football.match.debug_hud") }, true)
+			1
+		})
+
 		dispatcher.register(root)
 	}
 
