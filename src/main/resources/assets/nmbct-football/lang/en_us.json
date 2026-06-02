@@ -63,6 +63,8 @@
     "hud.nmbct-football.kickoff_lock.wait_touch": "⚠ Kicks locked. Waiting for kickoff touch.",
     "hud.nmbct-football.goal.goal": "Goal!",
     "hud.nmbct-football.goal.own_goal": "Own goal!",
+    "hud.nmbct-football.goal.headline": "GOAL",
+    "hud.nmbct-football.goal.headline_own": "OWN GOAL",
     "hud.nmbct-football.half_kickoff.kickoff": "Kickoff",
     "hud.nmbct-football.result.win": "Victory!",
     "hud.nmbct-football.result.loss": "Match Result",
