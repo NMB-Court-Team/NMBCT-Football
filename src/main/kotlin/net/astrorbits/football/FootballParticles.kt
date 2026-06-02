@@ -327,14 +327,6 @@ object FootballParticles {
         emitBurst(player.level(), center, dustPuffBurst(7))
     }
 
-    fun playSlideTackleContact(player: ServerPlayer, football: Football, force: Double) {
-        val center = centerOfFootball(football)
-        emitBurst(player.level(), center, poofBurst(5, 0.03))
-        if (force >= FootballInputConfig.SHOOT_FORCE_MAX) {
-            emitBurst(player.level(), center, critBurst(6, 0.08))
-        }
-    }
-
     private fun emitBurst(level: Level, center: Vec3, burst: ParticleBurst) {
         val server = level as? ServerLevel ?: return
         if (burst.count <= 0) {

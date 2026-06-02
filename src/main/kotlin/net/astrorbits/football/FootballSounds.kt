@@ -38,8 +38,9 @@ import net.minecraft.sounds.SoundEvents
  * | [GK_CATCH] | 守门员接球 / 鱼跃接住 / 脚下放球 | 羊毛脚步 |
  * | [GK_DIVE] | 守门员鱼跃扑救 | 横扫攻击 |
  * | [GK_PUNCH] | 守门员拳击解围 / 鱼跃挡出 | 击退攻击 |
- * | [GK_THROW] | 守门员手抛球（短抛 / 长抛） | 强力攻击 |
- */
+     * | [GK_THROW] | 守门员手抛球（短抛 / 长抛） | 强力攻击 |
+     * | [KICK] | 滑铲铲到球 | 同传球/射门踢球 |
+     */
 object FootballSounds {
     private const val MAX_PITCH = 2.0f
     private const val KICK_PITCH_MIN_SCALE = 0.95f
@@ -141,6 +142,9 @@ object FootballSounds {
         volume = 0.8f,
         basePitch = 1.0f,
     )
+
+    private const val SLIDE_BALL_HIT_MIN_SPEED = 0.06
+    private const val SLIDE_BALL_HIT_REFERENCE_SPEED = 0.8
 
     /**
      * **落地反弹**：球以足够速度砸向地面并弹起（[playGroundBounce] / [playCollisionBounces]）。
@@ -276,14 +280,6 @@ object FootballSounds {
         basePitch = 0.95f,
     )
 
-    val SLIDE_TACKLE: SoundSpec = SoundSpec(
-        event = SoundEvents.PLAYER_ATTACK_SWEEP,
-        source = SoundSource.PLAYERS,
-        volume = 0.62f,
-        basePitch = 0.9f,
-        pitchSpread = 0.08f,
-    )
-
     val WHISTLE_USE: SoundSpec = SoundSpec(
         event = WHISTLE_USE_EVENT,
         source = SoundSource.PLAYERS,
@@ -342,10 +338,22 @@ object FootballSounds {
         )
     }
 
-    fun playSlideTackleContact(player: ServerPlayer, force: Double) {
-        val normalizedForce = normalizeKickForce(force)
-        val volumeScale = 0.9f + normalizedForce * 0.2f
-        play(player.level(), player.blockPosition(), SLIDE_TACKLE, player.random, volumeScale)
+    /** 滑铲触球：与 [playKick] 相同踢球音效，在球位置播放，力度随滑铲速度缩放。 */
+    fun playSlideTackleBallHit(level: Level, ballPos: BlockPos, impactSpeed: Double, random: RandomSource) {
+        if (impactSpeed < SLIDE_BALL_HIT_MIN_SPEED) {
+            return
+        }
+        val t = ((impactSpeed - SLIDE_BALL_HIT_MIN_SPEED) / SLIDE_BALL_HIT_REFERENCE_SPEED)
+            .coerceIn(0.0, 1.0)
+        val pitchScale = KICK_PITCH_MIN_SCALE +
+            (KICK_PITCH_MAX_SCALE - KICK_PITCH_MIN_SCALE) * t.toFloat()
+        val pitch = (KICK.resolvePitch(random) * pitchScale).coerceAtMost(MAX_PITCH)
+        val volume = (KICK.volume * (0.75f + 0.25f * t.toFloat())).coerceAtLeast(0f)
+        level.playSound(null, ballPos, KICK.event, KICK.source, volume, pitch)
+    }
+
+    fun playSlideTackleBallHit(player: ServerPlayer, ballPos: BlockPos, impactSpeed: Double) {
+        playSlideTackleBallHit(player.level(), ballPos, impactSpeed, player.random)
     }
 
     fun playWhistle(level: Level, pos: BlockPos, random: RandomSource) {

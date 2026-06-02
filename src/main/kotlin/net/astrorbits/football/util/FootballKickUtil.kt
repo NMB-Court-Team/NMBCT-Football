@@ -89,18 +89,6 @@ object FootballKickUtil {
         )
     }
 
-    fun resolveSlideKickParams(sprinting: Boolean): KickParams {
-        var force = FootballInputConfig.PASS_FORCE * 1.35
-        if (sprinting) {
-            force *= FootballInputConfig.SHOOT_SPRINT_BONUS.coerceAtMost(1.2)
-        }
-        return KickParams(
-            force = force,
-            angleDegrees = 6.0,
-            heightOffset = 0.0,
-        )
-    }
-
     fun resolveDribbleDirection(player: Player, dribbleBaseYaw: Float? = null): Vec3 {
         val movement = if (dribbleBaseYaw != null) {
             FootballMovementInputUtil.movementInputVector(player, dribbleBaseYaw)

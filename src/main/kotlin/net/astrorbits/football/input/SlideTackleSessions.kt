@@ -2,13 +2,12 @@ package net.astrorbits.football.input
 
 import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.FootballSounds
-import net.astrorbits.football.mixinhelper.SlideTackleStateAccess
 import net.astrorbits.football.network.FootballNetworking
-import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.FootballKickUtil
 import net.astrorbits.football.util.Vec3Math
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.server.MinecraftServer
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
@@ -19,10 +18,6 @@ data class SlideTackleSession(
     val playerId: UUID,
     val direction: Vec3,
     val startTick: Long,
-    val lookYaw: Float,
-    val lookPitch: Float,
-    val sprinting: Boolean,
-    var touchResolved: Boolean = false,
     var endRequested: Boolean = false,
     val playersContacted: MutableSet<UUID> = mutableSetOf(),
     var contactSpeedScale: Double = 1.0,
@@ -37,10 +32,6 @@ object SlideTackleSessions {
     // how many ticks at least will stay in slide pose after pressed key
     private const val MIN_SLIDE_TICKS = 30L
     private const val SLIDE_COOLDOWN_TICKS = 14L
-    private const val TOUCH_RANGE_BONUS = 0.75
-    private const val CHIP_HEIGHT_THRESHOLD = 0.55
-    private const val CHIP_FACING_THRESHOLD = 0.3
-    private const val CONTACT_DELAY_TICKS = 3L
     private const val STEP_SOUND_INTERVAL_TICKS = 4L
     private const val CONTACT_HITBOX_EXPAND = 0.6
     // 进入滑铲时略快于疾跑，先保持一小段时间，再衰减到 0。
@@ -55,6 +46,9 @@ object SlideTackleSessions {
     private val cooldownUntil = ConcurrentHashMap<UUID, Long>()
     private val tackledResistanceUntil = ConcurrentHashMap<UUID, TackledResistance>()
     private val tackledJumpBlockUntil = ConcurrentHashMap<UUID, Long>()
+    private val sprintTickState = ConcurrentHashMap<UUID, SprintTickState>()
+
+    private data class SprintTickState(var consecutiveTicks: Int, var lastUpdatedTick: Long)
 
     fun registerEvents() {
         ServerTickEvents.END_SERVER_TICK.register(::tick)
@@ -63,11 +57,12 @@ object SlideTackleSessions {
     fun begin(
         player: ServerPlayer,
         now: Long,
-        lookYaw: Float,
-        lookPitch: Float,
-        sprinting: Boolean,
     ): Boolean {
         if (!player.isSprinting || !player.onGround()) {
+            return false
+        }
+        advanceSprintTick(player, now)
+        if (getSprintTicks(player) < FootballInputConfig.SLIDE_MIN_SPRINT_TICKS) {
             return false
         }
         val cooldown = cooldownUntil[player.uuid] ?: 0L
@@ -81,13 +76,11 @@ object SlideTackleSessions {
         }
 
         end(player)
+        resetSprintTicks(player.uuid)
         sessions[player.uuid] = SlideTackleSession(
             playerId = player.uuid,
             direction = Vec3Math.normalizeSafe(direction),
             startTick = now,
-            lookYaw = lookYaw,
-            lookPitch = lookPitch,
-            sprinting = sprinting,
         )
         cooldownUntil[player.uuid] = now + SLIDE_COOLDOWN_TICKS
         setSlideState(player, sliding = true)
@@ -101,6 +94,14 @@ object SlideTackleSessions {
     @JvmStatic
     fun isSliding(playerId: UUID): Boolean = sessions.containsKey(playerId)
 
+    /** 本 tick 滑铲推进水平速度（与 [applySlideMovement] 一致，供球碰撞在实体 tick 前使用）。 */
+    fun effectiveHorizontalVelocity(player: ServerPlayer): Vec3? {
+        val session = sessions[player.uuid] ?: return null
+        val now = (player.level() as? ServerLevel)?.gameTime ?: return null
+        val speed = slideSpeedAtTick(now - session.startTick, session.contactSpeedScale)
+        return if (speed > SLIDE_MOVE_EPSILON) session.direction.scale(speed) else null
+    }
+
     @JvmStatic
     fun isTackledJumpBlocked(playerId: UUID, nowTick: Long): Boolean {
         val expiresAtTick = tackledJumpBlockUntil[playerId] ?: return false
@@ -112,6 +113,7 @@ object SlideTackleSessions {
             player.setDeltaMovement(0.0, player.deltaMovement.y, 0.0)
             setSlideState(player, sliding = false)
             FootballNetworking.syncSlideTackleState(player, sliding = false)
+            resetSprintTicks(player.uuid)
         }
     }
 
@@ -123,10 +125,14 @@ object SlideTackleSessions {
             return
         }
         session.endRequested = true
+        resetSprintTicks(player.uuid)
     }
 
     fun tick(server: MinecraftServer) {
         val now = server.overworld().gameTime
+        for (player in server.playerList.players) {
+            advanceSprintTick(player, now)
+        }
         applyTackledResistance(server, now)
         clearExpiredTackledJumpBlock(now)
 
@@ -143,17 +149,15 @@ object SlideTackleSessions {
                 continue
             }
             if (shouldForceEndSlide(player)) {
+                finishSlideSession(player)
                 iterator.remove()
-                setSlideState(player, sliding = false)
-                FootballNetworking.syncSlideTackleState(player, sliding = false)
                 continue
             }
 
             val elapsed = now - session.startTick
             if (session.endRequested && elapsed >= MIN_SLIDE_TICKS) {
+                finishSlideSession(player)
                 iterator.remove()
-                setSlideState(player, sliding = false)
-                FootballNetworking.syncSlideTackleState(player, sliding = false)
                 continue
             }
 
@@ -161,16 +165,21 @@ object SlideTackleSessions {
             if (speed > SLIDE_MOVE_EPSILON && elapsed > 0L && elapsed % STEP_SOUND_INTERVAL_TICKS == 0L) {
                 FootballSounds.playSlideTackle(player)
             }
-            tryResolveBallContact(player, session, elapsed)
             tryResolvePlayerContact(player, session, now)
         }
+    }
+
+    private fun finishSlideSession(player: ServerPlayer) {
+        setSlideState(player, sliding = false)
+        FootballNetworking.syncSlideTackleState(player, sliding = false)
+        resetSprintTicks(player.uuid)
     }
 
     private fun shouldForceEndSlide(player: ServerPlayer): Boolean {
         return player.isSpectator || player.abilities.flying || player.isFallFlying
     }
 
-    private fun applySlideMovement(player: ServerPlayer, direction: Vec3, elapsed: Long, contactSpeedScale: Double): Double {
+    private fun slideSpeedAtTick(elapsed: Long, contactSpeedScale: Double): Double {
         val speed = if (elapsed < SLIDE_INITIAL_HOLD_TICKS) {
             SLIDE_INITIAL_SPEED
         } else {
@@ -178,53 +187,16 @@ object SlideTackleSessions {
             val decayRatio = (decayElapsed.toDouble() / SLIDE_DECAY_TICKS.toDouble()).coerceIn(0.0, 1.0)
             SLIDE_INITIAL_SPEED * (1.0 - decayRatio)
         }
-        val effectiveSpeed = speed * contactSpeedScale.coerceIn(0.0, 1.0)
+        return speed * contactSpeedScale.coerceIn(0.0, 1.0)
+    }
+
+    private fun applySlideMovement(player: ServerPlayer, direction: Vec3, elapsed: Long, contactSpeedScale: Double): Double {
+        val effectiveSpeed = slideSpeedAtTick(elapsed, contactSpeedScale)
         val horizontalVelocity = if (effectiveSpeed > SLIDE_MOVE_EPSILON) direction.scale(effectiveSpeed) else Vec3.ZERO
         // 滑铲期间持续写入水平速度，让下一 tick 的原版移动链路按该速度推进。
         player.setDeltaMovement(horizontalVelocity.x, player.deltaMovement.y, horizontalVelocity.z)
         player.hurtMarked = true
         return effectiveSpeed
-    }
-
-    private fun tryResolveBallContact(player: ServerPlayer, session: SlideTackleSession, elapsed: Long) {
-        if (net.astrorbits.football.match.MatchState.isKickoffInteractionLocked(player)) {
-            return
-        }
-        if (session.touchResolved) {
-            return
-        }
-        if (elapsed < CONTACT_DELAY_TICKS) {
-            return
-        }
-        val range = FootballInputConfig.PLAYER_KICK_RANGE + TOUCH_RANGE_BONUS
-        val football = FootballKickUtil.findNearestFootball(player, range) ?: return
-        if (football.isHeld()) {
-            return
-        }
-        if (player.distanceToSqr(football) > range * range) {
-            return
-        }
-        if (!expandedContactBox(player).intersects(football.boundingBox)) {
-            return
-        }
-
-        val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
-        val toBall = Vec3(ballCenter.x - player.x, 0.0, ballCenter.z - player.z)
-        val facing = if (toBall.lengthSqr() > 1.0e-8) {
-            Vec3Math.normalizeSafe(toBall).dot(Vec3Math.normalizeSafe(session.direction))
-        } else {
-            1.0
-        }
-        val shouldChip = ballCenter.y - player.y > CHIP_HEIGHT_THRESHOLD || facing < CHIP_FACING_THRESHOLD
-        val params = if (shouldChip) {
-            FootballKickUtil.resolveChipParams(player)
-        } else {
-            FootballKickUtil.resolveSlideKickParams(session.sprinting)
-        }
-        FootballKickUtil.applyKickToFootballWithLook(football, params, session.lookYaw, session.lookPitch)
-        FootballSounds.playKick(player, params.force)
-        FootballParticles.playSlideTackleContact(player, football, params.force)
-        session.touchResolved = true
     }
 
     private fun setSlideState(player: ServerPlayer, sliding: Boolean) {
@@ -308,5 +280,30 @@ object SlideTackleSessions {
     private fun expandedContactBox(player: ServerPlayer): AABB {
         val box = player.boundingBox
         return box.inflate(CONTACT_HITBOX_EXPAND, 0.0, CONTACT_HITBOX_EXPAND)
+    }
+
+    private fun advanceSprintTick(player: ServerPlayer, now: Long) {
+        if (isSliding(player)) {
+            resetSprintTicks(player.uuid)
+            return
+        }
+        sprintTickState.compute(player.uuid) { _, existing ->
+            if (!player.isSprinting) {
+                return@compute null
+            }
+            when {
+                existing == null -> SprintTickState(1, now)
+                existing.lastUpdatedTick == now -> existing
+                existing.lastUpdatedTick == now - 1 -> SprintTickState(existing.consecutiveTicks + 1, now)
+                else -> SprintTickState(1, now)
+            }
+        }
+    }
+
+    private fun getSprintTicks(player: ServerPlayer): Int =
+        sprintTickState[player.uuid]?.consecutiveTicks ?: 0
+
+    private fun resetSprintTicks(playerId: UUID) {
+        sprintTickState.remove(playerId)
     }
 }

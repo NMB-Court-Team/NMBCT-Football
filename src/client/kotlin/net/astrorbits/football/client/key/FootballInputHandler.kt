@@ -20,6 +20,8 @@ object FootballInputHandler {
     private var chipPrevTickPressed = false
     private var dribblePrevTickPressed = false
     private var slidePrevTickPressed = false
+    private var consecutiveSprintTicks = 0
+    private var wasSlidingLastTick = false
 
     private var kickPressStartMs: Long? = null
     /** 每帧捕获的抬键时长，避免仅在 tick 采样导致 1~2 tick 偏差。 */
@@ -102,8 +104,12 @@ object FootballInputHandler {
             val level = client.level
             if (player == null || level == null) {
                 resetTransientState(notifyDribbleEnd = false)
+                resetSlideSprintTicks()
+                wasSlidingLastTick = false
                 return@reg
             }
+
+            tickSprintCounter(player)
 
             if (client.screen != null || client.isPaused) {
                 resetTransientState(player)
@@ -369,12 +375,39 @@ object FootballInputHandler {
 
     private fun handleSlideTacklePress(player: LocalPlayer) {
         val down = FootballKeyBindings.SLIDE_TACKLE.isDown
-        if (down && !slidePrevTickPressed && player.isSprinting) {
+        if (down && !slidePrevTickPressed && player.isSprinting && canSlideTackle()) {
+            resetSlideSprintTicks()
             sendAction(player, FootballActionType.SLIDE_TACKLE, 0f, 0L, buildFlags(player))
             return
         }
         if (!down && slidePrevTickPressed) {
+            resetSlideSprintTicks()
             sendAction(player, FootballActionType.SLIDE_TACKLE_END, 0f, 0L, 0)
+        }
+    }
+
+    fun canSlideTackle(): Boolean =
+        consecutiveSprintTicks >= FootballInputConfig.SLIDE_MIN_SPRINT_TICKS
+
+    fun resetSlideSprintTicks() {
+        consecutiveSprintTicks = 0
+    }
+
+    private fun tickSprintCounter(player: LocalPlayer) {
+        val sliding = SlideTackleStateClient.isSliding(player.id)
+        if (sliding) {
+            resetSlideSprintTicks()
+            wasSlidingLastTick = true
+            return
+        }
+        if (wasSlidingLastTick) {
+            resetSlideSprintTicks()
+            wasSlidingLastTick = false
+        }
+        consecutiveSprintTicks = if (player.isSprinting) {
+            consecutiveSprintTicks + 1
+        } else {
+            0
         }
     }
 
@@ -510,6 +543,8 @@ object FootballInputHandler {
         resetChargeDisplay()
         dribbleTickCounter = 0
         dribbleResumeBlocked = false
+        resetSlideSprintTicks()
+        wasSlidingLastTick = false
     }
 
     private fun syncKickPressRealtimeClock() {

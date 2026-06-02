@@ -61,28 +61,45 @@ object FootballPhysicsSimulator {
     }
 
     /**
-     * 玩家触球：沿接触方向施加水平冲量，并按无滑滚动关系同步角速度（非纯平移）。
-     * 冲量经 [FootballPhysicsConfig.MASS] 换算为 Δv，体现惯性。
+     * 身体触球（走路/跑步/滑铲）：将球员水平速度叠加到球上，并同步无滑滚动角速度与朝向。
+     *
+     * @param velocityTransfer 速度传递比例（滑铲一般为 1.0）
      */
-    fun applyPlayerPush(state: FootballPhysicsState, pushDirection: Vec3, approachSpeed: Double) {
-        val dir = Vec3Math.normalizeSafe(Vec3Math.horizontal(pushDirection))
-        if (dir.lengthSqr() < FootballPhysicsConfig.EPSILON * FootballPhysicsConfig.EPSILON) {
-            return
+    fun applyPlayerBodyBallPush(
+        state: FootballPhysicsState,
+        playerHorizontalVelocity: Vec3,
+        velocityTransfer: Double = 1.0,
+    ): Boolean {
+        val player = Vec3Math.horizontal(playerHorizontalVelocity)
+        if (player.lengthSqr() < FootballPhysicsConfig.EPSILON * FootballPhysicsConfig.EPSILON) {
+            return false
+        }
+        if (player.lengthSqr() < FootballInputConfig.PLAYER_BALL_PUSH_MIN_SPEED * FootballInputConfig.PLAYER_BALL_PUSH_MIN_SPEED) {
+            return false
         }
 
-        val scale = FootballInputConfig.PLAYER_BALL_PUSH_SCALE.coerceAtLeast(0.0)
-        val maxDelta = FootballInputConfig.PLAYER_BALL_PUSH_MAX.coerceAtLeast(0.0)
-        val deltaSpeed = (approachSpeed * scale / FootballPhysicsConfig.MASS).coerceAtMost(maxDelta)
-        if (deltaSpeed <= 1.0e-6) {
-            return
-        }
-
-        state.linearVelocity = state.linearVelocity.add(dir.scale(deltaSpeed))
+        val transfer = velocityTransfer.coerceIn(0.0, 1.25)
+        val ballHorizontal = Vec3Math.horizontal(state.linearVelocity)
+        val merged = ballHorizontal.add(player.scale(transfer))
+        state.linearVelocity = Vec3(merged.x, state.linearVelocity.y, merged.z)
+        resetRollingOrientation(state)
         val rolling = Vec3Math.rollingAngularVelocity(
             Vec3Math.horizontal(state.linearVelocity),
             FootballPhysicsConfig.RADIUS,
         )
         state.angularVelocity = Vec3(rolling.x, state.angularVelocity.y, rolling.z)
+        return true
+    }
+
+    /** 将接触法线翻转为沿「球员脚点 → 球心」方向，保证推球离开球员。 */
+    fun orientContactNormalTowardBall(contactNormal: Vec3, playerFeetPosition: Vec3, ballCenter: Vec3): Vec3 {
+        val towardBall = Vec3Math.horizontal(ballCenter.subtract(playerFeetPosition))
+        val fallback = Vec3Math.normalizeSafe(towardBall)
+        val raw = Vec3Math.normalizeSafe(Vec3Math.horizontal(contactNormal), fallback)
+        if (towardBall.lengthSqr() < FootballPhysicsConfig.EPSILON * FootballPhysicsConfig.EPSILON) {
+            return raw
+        }
+        return if (raw.dot(towardBall) >= 0.0) raw else raw.scale(-1.0)
     }
 
     fun applyAirForces(state: FootballPhysicsState) {

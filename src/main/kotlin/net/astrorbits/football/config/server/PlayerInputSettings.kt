@@ -119,6 +119,9 @@ data class PlayerCollisionSettings(
     val slideVictimResistanceTicks: Int = 12,
     val slideVictimResistanceFactor: Double = 0.35,
     val slideVictimJumpBlockTicks: Int = 14,
+    val slideMinSprintTicks: Int = 5,
+    val playerBallContactGraceTicks: Int = 3,
+    val slideBallContactGraceTicks: Int = 14,
 ) {
     companion object {
         val CODEC: Codec<PlayerCollisionSettings> = RecordCodecBuilder.create { i ->
@@ -135,6 +138,9 @@ data class PlayerCollisionSettings(
                 Codec.INT.fieldOf("slide_victim_resistance_ticks").forGetter(PlayerCollisionSettings::slideVictimResistanceTicks),
                 Codec.DOUBLE.fieldOf("slide_victim_resistance_factor").forGetter(PlayerCollisionSettings::slideVictimResistanceFactor),
                 Codec.INT.optionalFieldOf("slide_victim_jump_block_ticks", 14).forGetter(PlayerCollisionSettings::slideVictimJumpBlockTicks),
+                Codec.INT.optionalFieldOf("slide_min_sprint_ticks", 5).forGetter(PlayerCollisionSettings::slideMinSprintTicks),
+                Codec.INT.optionalFieldOf("player_ball_contact_grace_ticks", 8).forGetter(PlayerCollisionSettings::playerBallContactGraceTicks),
+                Codec.INT.optionalFieldOf("slide_ball_contact_grace_ticks", 14).forGetter(PlayerCollisionSettings::slideBallContactGraceTicks),
             ).apply(i, ::PlayerCollisionSettings)
         }
 
@@ -198,6 +204,9 @@ data class PlayerInputSettings(
     val slideVictimResistanceTicks get() = collision.slideVictimResistanceTicks
     val slideVictimResistanceFactor get() = collision.slideVictimResistanceFactor
     val slideVictimJumpBlockTicks get() = collision.slideVictimJumpBlockTicks
+    val slideMinSprintTicks get() = collision.slideMinSprintTicks
+    val playerBallContactGraceTicks get() = collision.playerBallContactGraceTicks
+    val slideBallContactGraceTicks get() = collision.slideBallContactGraceTicks
 
     companion object {
         val CODEC: Codec<PlayerInputSettings> = RecordCodecBuilder.create { i ->

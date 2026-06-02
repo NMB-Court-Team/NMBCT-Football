@@ -78,7 +78,7 @@ class FootballKeybindHintHudElement : HudElement {
         if (!GoalkeeperStateClient.isGoalkeeper) {
             rows += StyledRow(
                 buildHintRow(font, FootballKeyBindings.SLIDE_TACKLE, SLIDE_TACKLE_LABEL_KEY),
-                if (player.isSprinting) RowColors.ACTIVE else RowColors.INACTIVE,
+                if (FootballInputHandler.canSlideTackle()) RowColors.ACTIVE else RowColors.INACTIVE,
             )
         }
         rows += StyledRow(
