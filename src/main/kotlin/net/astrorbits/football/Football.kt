@@ -436,6 +436,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val slideBallImpactSpeed = if (sliding) playerHorizontal.horizontalDistance() else 0.0
         if (applied) {
             deltaMovement = physicsState.linearVelocity
+            recordPlayerBodyTouch(player)
             MatchState.tryNotifyKickoffBallTouched(player)
             if (sliding) {
                 FootballSounds.playSlideTackleBallHit(player, blockPosition(), slideBallImpactSpeed)
@@ -444,6 +445,11 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             FootballPlayerBallContactGrace.record(player, this, now, sliding)
         }
         return applied
+    }
+
+    /** 身体触球（含滑铲推球、贴身分离）时更新最后触球者，供出界/进球归属使用。 */
+    private fun recordPlayerBodyTouch(player: ServerPlayer) {
+        lastKicker = player.uuid
     }
 
     private fun shouldSkipPlayerBodyInteraction(player: ServerPlayer, now: Long): Boolean {
@@ -539,6 +545,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             }
 
             if (!suppressBodyInteraction && hadBodyContact) {
+                recordPlayerBodyTouch(player)
                 MatchState.tryNotifyKickoffBallTouched(player)
                 FootballPlayerBallContactGrace.record(
                     player,
