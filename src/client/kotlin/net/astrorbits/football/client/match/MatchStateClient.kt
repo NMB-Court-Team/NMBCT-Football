@@ -10,7 +10,6 @@ import net.minecraft.client.Minecraft
 
 object MatchStateClient {
     private var prevPhase: MatchPhase = MatchPhase.PRE_MATCH
-    private var finishedTicks: Int = 0
 
     fun registerTickEvent() {
         ClientTickEvents.END_CLIENT_TICK.register { tick(it) }
@@ -26,20 +25,11 @@ object MatchStateClient {
             }
             // 比赛结算：取消所有锁定
             if (phase == MatchPhase.FINISHED) {
-                finishedTicks = 0
                 MatchStartClient.reset()
                 ClientPlayNetworking.send(MatchResultRequestC2SPayload.INSTANCE)
             }
             prevPhase = phase
         }
-        // 结算后 16 秒自动回到开赛前
-        if (phase == MatchPhase.FINISHED && client.level != null && !client.isPaused) {
-            finishedTicks++
-            if (finishedTicks >= 320) {
-                MatchState.reset()
-                finishedTicks = 0
-            }
-        }
-        // 计时器由服务端权威驱动，客户端通过 MatchTimerSyncS2CPayload 同步
+        // 阶段与「未开始」由服务端在结算约 16s 后 reset + MatchResetS2CPayload / MatchTimerSync 同步
     }
 }

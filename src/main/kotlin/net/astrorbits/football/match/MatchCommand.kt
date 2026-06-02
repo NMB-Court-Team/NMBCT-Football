@@ -35,9 +35,7 @@ object MatchCommand {
 		registerPhaseCommands(root)
 
 		root.then(Commands.literal("reset").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes {
-			MatchState.clearScoreboardTeams(it.source.server)
-			MatchState.reset()
-			FootballNetworking.broadcastMatchReset(it.source.server)
+			FootballNetworking.resetMatchToPreMatch(it.source.server)
 			it.source.sendSuccess({ Component.translatable("command.nmbct-football.match.reset") }, true)
 			1
 		})

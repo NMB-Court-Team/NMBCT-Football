@@ -113,9 +113,23 @@ object FootballNetworking {
     }
 
     private var serverTickCounter = 0
+    private var finishedPhaseTicks = 0
+
+    /** 结算阶段展示结束后，自动回到未开始（与客户端原 16s 一致）。 */
+    private const val FINISHED_TO_PRE_MATCH_TICKS = 320
 
     fun registerServerTick() {
         ServerTickEvents.END_SERVER_TICK.register { server ->
+            if (MatchState.currentPhase == MatchPhase.FINISHED) {
+                finishedPhaseTicks++
+                if (finishedPhaseTicks >= FINISHED_TO_PRE_MATCH_TICKS) {
+                    resetMatchToPreMatch(server)
+                    finishedPhaseTicks = 0
+                }
+            } else {
+                finishedPhaseTicks = 0
+            }
+
             // ── 计时器（服务端权威）──
             if (MatchState.currentPhase != MatchPhase.PRE_MATCH
                 && MatchState.currentPhase != MatchPhase.FINISHED
@@ -288,6 +302,13 @@ object FootballNetworking {
             val player = server.playerList.getPlayer(uuid) ?: continue
             ServerPlayNetworking.send(player, PostGoalKickoffS2CPayload(kickoffTeam, kickoffTeam == TeamSide.B, goalLineOut))
         }
+    }
+
+    fun resetMatchToPreMatch(server: MinecraftServer) {
+        MatchState.clearScoreboardTeams(server)
+        MatchState.reset()
+        broadcastMatchReset(server)
+        broadcastTimerSync(server)
     }
 
     fun broadcastMatchReset(server: MinecraftServer) {
