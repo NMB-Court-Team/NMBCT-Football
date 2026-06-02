@@ -168,10 +168,7 @@ sequenceDiagram
 
   Note over S: tick: 模拟 + move + 写 SynchedEntityData
   S->>C: 同步线速度/角速度/接地
-  Note over C: tick: 相同模拟（预测）
-  alt 速度误差 > CLIENT_CORRECTION_THRESHOLD
-    C->>C: 对齐服务端速度 + lerpMotion
-  end
+  Note over C: tick: 读取同步速度并做朝向积分（不做独立预测纠偏）
 ```
 
 | 侧       | 行为                                                                                                    |
@@ -200,7 +197,6 @@ sequenceDiagram
 | 空中飞太远    | `AIR_DRAG`（减小）、`GRAVITY`（增大）                    |
 | 球门网太粘/太滑 | `COBWEB_HORIZONTAL_DRAG`、`COBWEB_VERTICAL_DRAG` |
 | 撞墙反弹太强   | `WALL_RESTITUTION`                              |
-| 高延迟下球路跳变 | `CLIENT_CORRECTION_THRESHOLD`                   |
 
 ## 与原版行为的差异
 
