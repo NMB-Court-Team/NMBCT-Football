@@ -3,6 +3,8 @@ package net.astrorbits.football
 import net.astrorbits.football.input.FootballDribbleSessions
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.FootballKickPushGrace
+import net.astrorbits.football.input.FootballPlayerBallContactGrace
+import net.astrorbits.football.input.SlideTackleSessions
 import net.astrorbits.football.input.GoalkeeperHoldLock
 import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.astrorbits.football.item.Items
@@ -251,12 +253,17 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
 
         FootballPhysicsSimulator.applyAirForces(physicsState)
-        val playerPushApplied = applyPlayerPushesBeforeMove()
+        val pushedPlayersThisTick = hashSetOf<UUID>()
 
         val movement = physicsState.linearVelocity
         val worldMotion = advanceWithWorldCollisions(movement)
 
-        resolvePlayerCollisions(worldMotion.beforeMove, position(), movement, allowPlayerPush = !playerPushApplied)
+        resolvePlayerCollisions(
+            worldMotion.beforeMove,
+            position(),
+            movement,
+            pushedPlayersThisTick,
+        )
 
         physicsState.inCobweb = false
         if (CobwebUtil.isIntersectingCobweb(level(), boundingBox)) {
@@ -274,7 +281,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
         deltaMovement = physicsState.linearVelocity
         syncPhysicsToEntityData()
-        FootballKickPushGrace.cleanupExpired((level() as? ServerLevel)?.gameTime ?: 0L)
+        val now = (level() as? ServerLevel)?.gameTime ?: 0L
+        FootballKickPushGrace.cleanupExpired(now)
+        FootballPlayerBallContactGrace.cleanupExpired(now)
     }
 
     private fun tickImmovable() {
@@ -381,52 +390,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         applyWorldContactGuards(beforeCorrection, position())
     }
 
-    private fun applyPlayerPushesBeforeMove(): Boolean {
-        if (isImmovable) {
-            return false
-        }
-        val serverLevel = level() as? ServerLevel ?: return false
-        val now = serverLevel.gameTime
-        val radius = FootballPhysicsConfig.RADIUS
-        val ballCenter = position().add(0.0, radius, 0.0)
-        val searchBox = boundingBox.inflate(1.4, 0.9, 1.4)
-        val players = serverLevel.getEntitiesOfClass(ServerPlayer::class.java, searchBox) { player ->
-            player.isAlive && !player.isSpectator && !player.noPhysics
-        }
-
-        var applied = false
-        for (player in players) {
-            if (isPlayerBallMovementForbidden(player) || shouldSkipPlayerBodyInteraction(player, now)) {
-                continue
-            }
-            if (!canPlayerReachBallThisTick(player, ballCenter, radius)) {
-                continue
-            }
-
-            val pushDir = playerBallPushDirection(player, ballCenter)
-            if (pushDir.lengthSqr() <= 1.0e-8) {
-                continue
-            }
-
-            applied = applyPlayerPushFromPlayer(player, pushDir) || applied
-        }
-
-        if (applied) {
-            deltaMovement = physicsState.linearVelocity
-        }
-        return applied
-    }
-
-    private fun canPlayerReachBallThisTick(player: ServerPlayer, ballCenter: Vec3, radius: Double): Boolean {
-        val playerMotion = Vec3(player.x - player.xOld, player.y - player.yOld, player.z - player.zOld)
-        val currentBox = player.boundingBox
-        val previousBox = currentBox.move(playerMotion.scale(-1.0))
-        val sweptBox = currentBox.minmax(previousBox).inflate(radius + PLAYER_PUSH_CONTACT_MARGIN)
-        return ballCenter.x in sweptBox.minX..sweptBox.maxX &&
-            ballCenter.y in sweptBox.minY..sweptBox.maxY &&
-            ballCenter.z in sweptBox.minZ..sweptBox.maxZ
-    }
-
     private fun playerBallPushDirection(player: ServerPlayer, ballCenter: Vec3): Vec3 {
         val fromPlayer = Vec3Math.horizontal(ballCenter.subtract(player.position()))
         val fallback = Vec3Math.normalizeSafe(effectivePlayerHorizontalMotion(player))
@@ -451,46 +414,61 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         return Vec3Math.normalizeSafe(pushDir.add(lateral.scale(kotlin.math.sign(side) * bias)), pushDir)
     }
 
-    private fun applyPlayerPushFromPlayer(player: ServerPlayer, pushDir: Vec3): Boolean {
+    private fun applyPlayerPushFromPlayer(
+        player: ServerPlayer,
+        contactNormal: Vec3,
+        ballCenter: Vec3 = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0),
+    ): Boolean {
         if (isImmovable || isPlayerBallMovementForbidden(player)) {
             return false
         }
-        val dir = Vec3Math.normalizeSafe(pushDir)
-        if (dir.lengthSqr() <= 1.0e-8) {
+        if (contactNormal.lengthSqr() <= 1.0e-8) {
             return false
         }
 
-        val ballHoriz = Vec3Math.horizontal(physicsState.linearVelocity)
-        val playerHoriz = effectivePlayerHorizontalMotion(player)
-        val relativeApproach = playerHoriz.subtract(ballHoriz).dot(dir).coerceAtLeast(0.0)
-        if (relativeApproach < FootballInputConfig.PLAYER_BALL_PUSH_MIN_SPEED) {
-            return false
+        val sliding = SlideTackleSessions.isSliding(player)
+        val playerHorizontal = effectivePlayerHorizontalMotion(player)
+        val applied = FootballPhysicsSimulator.applyPlayerBodyBallPush(
+            physicsState,
+            playerHorizontal,
+            velocityTransfer = 1.0,
+        )
+        val slideBallImpactSpeed = if (sliding) playerHorizontal.horizontalDistance() else 0.0
+        if (applied) {
+            deltaMovement = physicsState.linearVelocity
+            MatchState.tryNotifyKickoffBallTouched(player)
+            if (sliding) {
+                FootballSounds.playSlideTackleBallHit(player, blockPosition(), slideBallImpactSpeed)
+            }
+            val now = (level() as? ServerLevel)?.gameTime ?: 0L
+            FootballPlayerBallContactGrace.record(player, this, now, sliding)
         }
-
-        FootballPhysicsSimulator.applyPlayerPush(physicsState, dir, relativeApproach)
-        deltaMovement = physicsState.linearVelocity
-        MatchState.tryNotifyKickoffBallTouched(player)
-        return true
+        return applied
     }
 
     private fun shouldSkipPlayerBodyInteraction(player: ServerPlayer, now: Long): Boolean {
         if (FootballDribbleSessions.shouldIgnoreCollision(player, this, now)) {
             return true
         }
-        return FootballKickPushGrace.shouldSuppressPlayerPush(player, this, now)
+        if (FootballKickPushGrace.shouldSuppressPlayerPush(player, this, now)) {
+            return true
+        }
+        return FootballPlayerBallContactGrace.shouldIgnoreBodyCollision(player, this, now)
     }
 
     private fun effectivePlayerHorizontalMotion(player: ServerPlayer): Vec3 {
         val deltaMovement = Vec3Math.horizontal(player.deltaMovement)
         val positionDelta = Vec3(player.x - player.xOld, 0.0, player.z - player.zOld)
-        return if (positionDelta.lengthSqr() > deltaMovement.lengthSqr()) positionDelta else deltaMovement
+        val measured = if (positionDelta.lengthSqr() > deltaMovement.lengthSqr()) positionDelta else deltaMovement
+        val slide = SlideTackleSessions.effectiveHorizontalVelocity(player) ?: return measured
+        return if (slide.lengthSqr() >= measured.lengthSqr()) slide else measured
     }
 
     private fun resolvePlayerCollisions(
         beforeMove: Vec3,
         afterMove: Vec3,
         intendedMotion: Vec3,
-        allowPlayerPush: Boolean
+        pushedPlayersThisTick: MutableSet<UUID>,
     ) {
         if (isImmovable) {
             return
@@ -514,13 +492,23 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             var contactNormal: Vec3? = null
             var hadBodyContact = false
             val motion = currentCenter.subtract(previousCenter)
-            if (!suppressBodyInteraction && motion.lengthSqr() > 1.0e-12) {
-                val hit = segmentAabbHit(previousCenter, currentCenter, playerBox.inflate(radius))
-                if (hit != null) {
-                    val impactCenter = previousCenter.add(motion.scale(hit.t)).add(hit.normal.scale(PLAYER_SEPARATION_EPSILON))
-                    setCenterWithWorldContactGuards(impactCenter)
-                    contactNormal = hit.normal
-                    hadBodyContact = true
+            if (!suppressBodyInteraction) {
+                val segmentEnd = if (motion.lengthSqr() > 1.0e-12) {
+                    currentCenter
+                } else {
+                    val playerStep = Vec3(player.x - player.xOld, player.y - player.yOld, player.z - player.zOld)
+                    if (playerStep.lengthSqr() > 1.0e-12) previousCenter.add(playerStep) else currentCenter
+                }
+                if (segmentEnd.distanceToSqr(previousCenter) > 1.0e-12) {
+                    val hit = segmentAabbHit(previousCenter, segmentEnd, playerBox.inflate(radius))
+                    if (hit != null) {
+                        val segment = segmentEnd.subtract(previousCenter)
+                        val impactCenter = previousCenter.add(segment.scale(hit.t))
+                            .add(hit.normal.scale(PLAYER_SEPARATION_EPSILON))
+                        setCenterWithWorldContactGuards(impactCenter)
+                        contactNormal = hit.normal
+                        hadBodyContact = true
+                    }
                 }
             }
 
@@ -537,37 +525,37 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             }
 
             val normal = contactNormal ?: continue
-            if (!suppressBodyInteraction) {
-                val velocity = physicsState.linearVelocity
-                val normalVelocity = velocity.dot(normal)
-                if (normalVelocity < 0.0) {
-                    val restitution = FootballInputConfig.BALL_PLAYER_RESTITUTION.coerceIn(0.0, 1.25)
-                    physicsState.linearVelocity = velocity.subtract(normal.scale(normalVelocity * (1.0 + restitution)))
-                    deltaMovement = physicsState.linearVelocity
-                }
-
-                val pushDir = Vec3Math.normalizeSafe(
-                    Vec3Math.horizontal(position().subtract(player.position()))
-                )
-                if (allowPlayerPush && pushDir.lengthSqr() > 1.0e-8) {
-                    if (applyPlayerPushFromPlayer(player, pushDir)) {
-                        hadBodyContact = true
-                    }
+            val impactBallCenter = position().add(0.0, radius, 0.0)
+            val pushNormal = FootballPhysicsSimulator.orientContactNormalTowardBall(
+                normal,
+                player.position(),
+                impactBallCenter,
+            )
+            if (!suppressBodyInteraction && player.uuid !in pushedPlayersThisTick) {
+                if (applyPlayerPushFromPlayer(player, pushNormal, impactBallCenter)) {
+                    pushedPlayersThisTick.add(player.uuid)
+                    hadBodyContact = true
                 }
             }
 
             if (!suppressBodyInteraction && hadBodyContact) {
                 MatchState.tryNotifyKickoffBallTouched(player)
+                FootballPlayerBallContactGrace.record(
+                    player,
+                    this,
+                    now,
+                    SlideTackleSessions.isSliding(player),
+                )
             }
 
             val velocity = physicsState.linearVelocity
-            val normalVelocity = velocity.dot(normal)
-            val approachSpeed = max((-normalVelocity), -intendedMotion.dot(normal)).coerceAtLeast(0.0)
+            val normalVelocity = velocity.dot(pushNormal)
+            val approachSpeed = max((-normalVelocity), -intendedMotion.dot(pushNormal)).coerceAtLeast(0.0)
             if (approachSpeed < FootballInputConfig.BALL_PLAYER_RECOIL_MIN_SPEED) {
                 continue
             }
-            val recoilDir = Vec3Math.horizontal(normal).scale(-1.0)
-            val direction = if (recoilDir.lengthSqr() > 1.0e-8) Vec3Math.normalizeSafe(recoilDir) else normal.scale(-1.0)
+            val recoilDir = Vec3Math.horizontal(pushNormal).scale(-1.0)
+            val direction = if (recoilDir.lengthSqr() > 1.0e-8) Vec3Math.normalizeSafe(recoilDir) else pushNormal.scale(-1.0)
             val pushMagnitude = (approachSpeed * FootballInputConfig.BALL_PLAYER_PUSH_SCALE)
                 .coerceAtMost(FootballInputConfig.BALL_PLAYER_MAX_PUSH)
                 .coerceAtLeast(0.0)

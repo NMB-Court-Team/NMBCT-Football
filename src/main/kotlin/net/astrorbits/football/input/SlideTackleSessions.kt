@@ -7,6 +7,7 @@ import net.astrorbits.football.util.FootballKickUtil
 import net.astrorbits.football.util.Vec3Math
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.server.MinecraftServer
+import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
@@ -60,7 +61,8 @@ object SlideTackleSessions {
         if (!player.isSprinting || !player.onGround()) {
             return false
         }
-        if (consecutiveSprintTicks(player) < FootballInputConfig.SLIDE_MIN_SPRINT_TICKS) {
+        advanceSprintTick(player, now)
+        if (getSprintTicks(player) < FootballInputConfig.SLIDE_MIN_SPRINT_TICKS) {
             return false
         }
         val cooldown = cooldownUntil[player.uuid] ?: 0L
@@ -74,6 +76,7 @@ object SlideTackleSessions {
         }
 
         end(player)
+        resetSprintTicks(player.uuid)
         sessions[player.uuid] = SlideTackleSession(
             playerId = player.uuid,
             direction = Vec3Math.normalizeSafe(direction),
@@ -91,6 +94,14 @@ object SlideTackleSessions {
     @JvmStatic
     fun isSliding(playerId: UUID): Boolean = sessions.containsKey(playerId)
 
+    /** 本 tick 滑铲推进水平速度（与 [applySlideMovement] 一致，供球碰撞在实体 tick 前使用）。 */
+    fun effectiveHorizontalVelocity(player: ServerPlayer): Vec3? {
+        val session = sessions[player.uuid] ?: return null
+        val now = (player.level() as? ServerLevel)?.gameTime ?: return null
+        val speed = slideSpeedAtTick(now - session.startTick, session.contactSpeedScale)
+        return if (speed > SLIDE_MOVE_EPSILON) session.direction.scale(speed) else null
+    }
+
     @JvmStatic
     fun isTackledJumpBlocked(playerId: UUID, nowTick: Long): Boolean {
         val expiresAtTick = tackledJumpBlockUntil[playerId] ?: return false
@@ -102,6 +113,7 @@ object SlideTackleSessions {
             player.setDeltaMovement(0.0, player.deltaMovement.y, 0.0)
             setSlideState(player, sliding = false)
             FootballNetworking.syncSlideTackleState(player, sliding = false)
+            resetSprintTicks(player.uuid)
         }
     }
 
@@ -113,10 +125,14 @@ object SlideTackleSessions {
             return
         }
         session.endRequested = true
+        resetSprintTicks(player.uuid)
     }
 
     fun tick(server: MinecraftServer) {
         val now = server.overworld().gameTime
+        for (player in server.playerList.players) {
+            advanceSprintTick(player, now)
+        }
         applyTackledResistance(server, now)
         clearExpiredTackledJumpBlock(now)
 
@@ -133,17 +149,15 @@ object SlideTackleSessions {
                 continue
             }
             if (shouldForceEndSlide(player)) {
+                finishSlideSession(player)
                 iterator.remove()
-                setSlideState(player, sliding = false)
-                FootballNetworking.syncSlideTackleState(player, sliding = false)
                 continue
             }
 
             val elapsed = now - session.startTick
             if (session.endRequested && elapsed >= MIN_SLIDE_TICKS) {
+                finishSlideSession(player)
                 iterator.remove()
-                setSlideState(player, sliding = false)
-                FootballNetworking.syncSlideTackleState(player, sliding = false)
                 continue
             }
 
@@ -155,11 +169,17 @@ object SlideTackleSessions {
         }
     }
 
+    private fun finishSlideSession(player: ServerPlayer) {
+        setSlideState(player, sliding = false)
+        FootballNetworking.syncSlideTackleState(player, sliding = false)
+        resetSprintTicks(player.uuid)
+    }
+
     private fun shouldForceEndSlide(player: ServerPlayer): Boolean {
         return player.isSpectator || player.abilities.flying || player.isFallFlying
     }
 
-    private fun applySlideMovement(player: ServerPlayer, direction: Vec3, elapsed: Long, contactSpeedScale: Double): Double {
+    private fun slideSpeedAtTick(elapsed: Long, contactSpeedScale: Double): Double {
         val speed = if (elapsed < SLIDE_INITIAL_HOLD_TICKS) {
             SLIDE_INITIAL_SPEED
         } else {
@@ -167,7 +187,11 @@ object SlideTackleSessions {
             val decayRatio = (decayElapsed.toDouble() / SLIDE_DECAY_TICKS.toDouble()).coerceIn(0.0, 1.0)
             SLIDE_INITIAL_SPEED * (1.0 - decayRatio)
         }
-        val effectiveSpeed = speed * contactSpeedScale.coerceIn(0.0, 1.0)
+        return speed * contactSpeedScale.coerceIn(0.0, 1.0)
+    }
+
+    private fun applySlideMovement(player: ServerPlayer, direction: Vec3, elapsed: Long, contactSpeedScale: Double): Double {
+        val effectiveSpeed = slideSpeedAtTick(elapsed, contactSpeedScale)
         val horizontalVelocity = if (effectiveSpeed > SLIDE_MOVE_EPSILON) direction.scale(effectiveSpeed) else Vec3.ZERO
         // 滑铲期间持续写入水平速度，让下一 tick 的原版移动链路按该速度推进。
         player.setDeltaMovement(horizontalVelocity.x, player.deltaMovement.y, horizontalVelocity.z)
@@ -258,18 +282,28 @@ object SlideTackleSessions {
         return box.inflate(CONTACT_HITBOX_EXPAND, 0.0, CONTACT_HITBOX_EXPAND)
     }
 
-    private fun consecutiveSprintTicks(player: ServerPlayer): Int {
-        val now = player.level().gameTime
-        val state = sprintTickState.compute(player.uuid) { _, existing ->
+    private fun advanceSprintTick(player: ServerPlayer, now: Long) {
+        if (isSliding(player)) {
+            resetSprintTicks(player.uuid)
+            return
+        }
+        sprintTickState.compute(player.uuid) { _, existing ->
             if (!player.isSprinting) {
                 return@compute null
             }
             when {
-                existing == null || existing.lastUpdatedTick < now - 1 -> SprintTickState(1, now)
+                existing == null -> SprintTickState(1, now)
                 existing.lastUpdatedTick == now -> existing
-                else -> SprintTickState(existing.consecutiveTicks + 1, now)
+                existing.lastUpdatedTick == now - 1 -> SprintTickState(existing.consecutiveTicks + 1, now)
+                else -> SprintTickState(1, now)
             }
         }
-        return state?.consecutiveTicks ?: 0
+    }
+
+    private fun getSprintTicks(player: ServerPlayer): Int =
+        sprintTickState[player.uuid]?.consecutiveTicks ?: 0
+
+    private fun resetSprintTicks(playerId: UUID) {
+        sprintTickState.remove(playerId)
     }
 }
