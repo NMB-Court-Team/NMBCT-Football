@@ -541,7 +541,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val ballPos = Vec3(ix, iy, iz)
         MatchState.resetFootballAt(level() as ServerLevel, ballPos)
         MatchState.kickoffTeam = restartTeam
-        MatchState.kickoffTouched = false
+        MatchState.beginKickoffPhase(MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS, KickoffWhistleContext.GOAL_LINE_OUT)
         val (touchName, touchTeam) = resolveLastTouch(server)
         FootballNetworking.broadcastGoalLineOut(
             server, GoalLineOutType.THROW_IN, restartTeam, ballPos.x, ballPos.y, ballPos.z, touchName, touchTeam,
@@ -606,7 +606,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             FootballParticles.playGoal(level(), FootballParticles.centerOfFootball(this))
             PostGoalBallResetScheduler.schedule(level() as ServerLevel)
             MatchState.kickoffTeam = defendingTeam
-            MatchState.kickoffTouched = false
+            MatchState.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.POST_GOAL)
             FootballNetworking.broadcastPostGoalKickoff(server, defendingTeam)
         } else {
             // 穿越门线平面但不在门框内 → 出底线
@@ -642,7 +642,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
             MatchState.resetFootballAt(level() as ServerLevel, ballPos)
             MatchState.kickoffTeam = restartTeam
-            MatchState.kickoffTouched = false
+            MatchState.beginKickoffPhase(MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS, KickoffWhistleContext.GOAL_LINE_OUT)
             val (touchName, touchTeam) = resolveLastTouch(server)
             FootballNetworking.broadcastGoalLineOut(
                 server, outType, restartTeam, ballPos.x, ballPos.y, ballPos.z, touchName, touchTeam,
@@ -1058,3 +1058,5 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         private fun Vector3fc.toVec3(): Vec3 = Vec3(x().toDouble(), y().toDouble(), z().toDouble())
     }
 }
+
+private data class SegmentAabbHit(val t: Double, val normal: Vec3)
