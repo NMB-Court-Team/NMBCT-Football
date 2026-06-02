@@ -4,8 +4,9 @@ import dev.isxander.yacl3.api.ConfigCategory
 import dev.isxander.yacl3.api.OptionGroup
 import dev.isxander.yacl3.api.YetAnotherConfigLib
 import net.astrorbits.football.NMBCTFootball
-import net.astrorbits.football.config.client.GoalNetRenderMode
+import net.astrorbits.football.config.client.FootballClientConfig
 import net.astrorbits.football.config.client.FootballClientConfigHolder
+import net.astrorbits.football.config.client.GoalNetRenderMode
 import net.astrorbits.football.client.util.YaclOptionUtil.addDouble
 import net.astrorbits.football.client.util.YaclOptionUtil.addEnum
 import net.astrorbits.football.client.util.YaclOptionUtil.addInt
@@ -15,6 +16,7 @@ import net.minecraft.network.chat.Component
 object FootballClientConfigScreen {
     fun create(parent: Screen?): Screen {
         var draft = FootballClientConfigHolder.current
+        val def = FootballClientConfig.DEFAULT
 
         return YetAnotherConfigLib.createBuilder()
             .title(Component.translatable("yacl3.config.$MOD_ID.client.title"))
@@ -44,6 +46,7 @@ object FootballClientConfigScreen {
                                 addDouble(
                                     "yacl3.config.$MOD_ID.client.hint_hide_extra_range",
                                     "yacl3.config.$MOD_ID.client.hint_hide_extra_range.desc",
+                                    def.hintHideExtraRange,
                                     { draft.hintHideExtraRange },
                                     { v -> draft = draft.copy(hintHideExtraRange = v) },
                                     0.0..2.0,
@@ -58,6 +61,7 @@ object FootballClientConfigScreen {
                                 addDouble(
                                     "yacl3.config.$MOD_ID.client.render_stationary_speed_sqr",
                                     "yacl3.config.$MOD_ID.client.render_stationary_speed_sqr.desc",
+                                    def.renderStationarySpeedSqr,
                                     { draft.renderStationarySpeedSqr },
                                     { v -> draft = draft.copy(renderStationarySpeedSqr = v) },
                                     0.0..0.01,
@@ -66,6 +70,7 @@ object FootballClientConfigScreen {
                                 addDouble(
                                     "yacl3.config.$MOD_ID.client.client_correction_threshold",
                                     "yacl3.config.$MOD_ID.client.client_correction_threshold.desc",
+                                    def.clientCorrectionThreshold,
                                     { draft.clientCorrectionThreshold },
                                     { v -> draft = draft.copy(clientCorrectionThreshold = v) },
                                     0.0..2.0,
@@ -73,6 +78,7 @@ object FootballClientConfigScreen {
                                 addDouble(
                                     "yacl3.config.$MOD_ID.client.ball_render_dist",
                                     "yacl3.config.$MOD_ID.client.ball_render_dist.desc",
+                                    def.ballRenderDist,
                                     { draft.ballRenderDist },
                                     { v -> draft = draft.copy(ballRenderDist = v) },
                                     16.0..512.0,
@@ -81,6 +87,7 @@ object FootballClientConfigScreen {
                                 addDouble(
                                     "yacl3.config.$MOD_ID.client.ball_billboard_ratio",
                                     "yacl3.config.$MOD_ID.client.ball_billboard_ratio.desc",
+                                    def.ballBillboardRatio,
                                     { draft.ballBillboardRatio },
                                     { v -> draft = draft.copy(ballBillboardRatio = v) },
                                     0.1..1.0,
@@ -96,6 +103,7 @@ object FootballClientConfigScreen {
                                 addInt(
                                     "yacl3.config.$MOD_ID.client.dribble_hold_packet_interval",
                                     "yacl3.config.$MOD_ID.client.dribble_hold_packet_interval.desc",
+                                    def.dribbleHoldPacketInterval,
                                     { draft.dribbleHoldPacketInterval },
                                     { v -> draft = draft.copy(dribbleHoldPacketInterval = v) },
                                     1..20,

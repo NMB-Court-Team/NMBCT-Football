@@ -14,6 +14,7 @@ object YaclOptionUtil {
     fun OptionGroup.Builder.addDouble(
         nameKey: String,
         descKey: String,
+        defaultValue: Double,
         getter: () -> Double,
         setter: (Double) -> Unit,
         range: ClosedFloatingPointRange<Double>,
@@ -23,7 +24,7 @@ object YaclOptionUtil {
             Option.createBuilder<Double>()
                 .name(Component.translatable(nameKey))
                 .description(OptionDescription.of(Component.translatable(descKey)))
-                .binding(range.start, getter, setter)
+                .binding(defaultValue, getter, setter)
                 .controller { opt ->
                     DoubleSliderControllerBuilder.create(opt)
                         .range(range.start, range.endInclusive)
@@ -36,6 +37,7 @@ object YaclOptionUtil {
     fun OptionGroup.Builder.addInt(
         nameKey: String,
         descKey: String,
+        defaultValue: Int,
         getter: () -> Int,
         setter: (Int) -> Unit,
         range: IntRange,
@@ -44,7 +46,7 @@ object YaclOptionUtil {
             Option.createBuilder<Int>()
                 .name(Component.translatable(nameKey))
                 .description(OptionDescription.of(Component.translatable(descKey)))
-                .binding(range.first, getter, setter)
+                .binding(defaultValue, getter, setter)
                 .controller { opt ->
                     IntegerSliderControllerBuilder.create(opt)
                         .range(range.first, range.last)
@@ -57,6 +59,7 @@ object YaclOptionUtil {
     fun OptionGroup.Builder.addLong(
         nameKey: String,
         descKey: String,
+        defaultValue: Long,
         getter: () -> Long,
         setter: (Long) -> Unit,
         range: LongRange,
@@ -66,7 +69,7 @@ object YaclOptionUtil {
             Option.createBuilder<Long>()
                 .name(Component.translatable(nameKey))
                 .description(OptionDescription.of(Component.translatable(descKey)))
-                .binding(range.first, getter, setter)
+                .binding(defaultValue, getter, setter)
                 .controller { opt ->
                     LongSliderControllerBuilder.create(opt)
                         .range(range.first, range.last)
@@ -79,6 +82,7 @@ object YaclOptionUtil {
     fun OptionGroup.Builder.addFloat(
         nameKey: String,
         descKey: String,
+        defaultValue: Float,
         getter: () -> Float,
         setter: (Float) -> Unit,
         range: ClosedFloatingPointRange<Float>,
@@ -88,7 +92,7 @@ object YaclOptionUtil {
             Option.createBuilder<Float>()
                 .name(Component.translatable(nameKey))
                 .description(OptionDescription.of(Component.translatable(descKey)))
-                .binding(range.start, getter, setter)
+                .binding(defaultValue, getter, setter)
                 .controller { opt ->
                     FloatSliderControllerBuilder.create(opt)
                         .range(range.start, range.endInclusive)
