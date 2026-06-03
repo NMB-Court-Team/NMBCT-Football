@@ -97,7 +97,9 @@ object GoalkeeperActions {
                 val params = GoalkeeperUtil.resolveThrowShortParams()
                 FootballParticles.playGkThrow(player, football)
                 football.releaseHold()
-                football.lastKicker = player.uuid
+                FootballKickUtil.recordActiveKickForPlayerLook(
+                    player, football, payload.lookYaw, payload.lookPitch, params,
+                )
                 FootballKickUtil.applyKickToFootballWithLook(
                     football,
                     params,
@@ -117,7 +119,9 @@ object GoalkeeperActions {
                 val params = GoalkeeperUtil.resolveThrowLongParams(chargeRatio, sprinting, perfect)
                 FootballParticles.playGkThrow(player, football)
                 football.releaseHold()
-                football.lastKicker = player.uuid
+                FootballKickUtil.recordActiveKickForPlayerLook(
+                    player, football, payload.lookYaw, payload.lookPitch, params,
+                )
                 FootballKickUtil.applyKickToFootballWithLook(
                     football,
                     params,
@@ -130,7 +134,7 @@ object GoalkeeperActions {
                 lastActionTick[player.uuid] = now
             }
             FootballActionType.GK_DROP -> {
-                football.lastKicker = player.uuid
+                football.recordActiveKick(player, null)
                 FootballParticles.playGkCatch(player, football, 0.0)
                 football.dropAt(player)
                 FootballSounds.playGkCatch(player, 0.0)
@@ -164,7 +168,7 @@ object GoalkeeperActions {
         }
 
         val incoming = football.getPhysicsState().linearVelocity
-        football.lastKicker = player.uuid
+        football.recordActiveKick(player, null)
         football.enterHold(player)
         val recoil = computeCatchRecoil(speed, incoming)
         applyCatchMomentumDamping(player, player.lookAngle, recoil)
@@ -221,7 +225,7 @@ object GoalkeeperActions {
         if (speed > GoalkeeperInputConfig.GK_DIVE_CATCH_MAX_SPEED) {
             return false
         }
-        football.lastKicker = player.uuid
+        football.recordActiveKick(player, diveDirection)
         val incoming = football.getPhysicsState().linearVelocity
         football.enterHold(player)
         applyCatchMomentumDamping(player, diveDirection, computeCatchRecoil(speed, incoming))

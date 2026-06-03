@@ -104,7 +104,9 @@ object FootballKickUtil {
     }
 
     fun applyKickToFootball(player: Player, football: Football, params: KickParams, applySpread: Boolean = false) {
-        football.lastKicker = player.uuid
+        if (player is net.minecraft.server.level.ServerPlayer) {
+            recordActiveKickForPlayerLook(player, football, player.yRot, player.xRot, params)
+        }
         applyKickToFootballWithLook(
             football = football,
             params = params,
@@ -113,6 +115,21 @@ object FootballKickUtil {
             random = if (applySpread) player.random else null,
             spreadInaccuracy = if (applySpread) FootballInputConfig.KICK_SPREAD_INACCURACY else 0.0,
         )
+    }
+
+    fun recordActiveKickForPlayerLook(
+        player: net.minecraft.server.level.ServerPlayer,
+        football: Football,
+        lookYaw: Float,
+        lookPitch: Float,
+        params: KickParams,
+    ) {
+        val look = lookDirection(lookYaw, lookPitch)
+        val horizontalLook = Vec3Math.horizontal(look)
+        val pitchOffset = lookPitchAngleOffset(lookPitch)
+        val adjustedParams = params.copy(angleDegrees = params.angleDegrees + pitchOffset)
+        val direction = buildKickDirection(horizontalLook, look, adjustedParams.force, adjustedParams.angleDegrees)
+        football.recordActiveKick(player, direction)
     }
 
     fun applyKickToFootballWithLook(
@@ -137,8 +154,12 @@ object FootballKickUtil {
         elevation: Double,
         lookYaw: Float,
         lookPitch: Float,
+        executor: net.minecraft.server.level.ServerPlayer? = null,
     ) {
         val params = KickParams(force = power, angleDegrees = elevation, heightOffset = 0.0)
+        if (executor != null) {
+            recordActiveKickForPlayerLook(executor, football, lookYaw, lookPitch, params)
+        }
         applyCommandKick(football, params, lookYaw, lookPitch)
     }
 
@@ -159,7 +180,15 @@ object FootballKickUtil {
     }
 
     /** 命令精确踢球：直接指定世界坐标踢球点与冲量向量。 */
-    fun applyPreciseCommandKick(football: Football, kickPoint: Vec3, direction: Vec3) {
+    fun applyPreciseCommandKick(
+        football: Football,
+        kickPoint: Vec3,
+        direction: Vec3,
+        executor: net.minecraft.server.level.ServerPlayer? = null,
+    ) {
+        if (executor != null) {
+            football.recordActiveKick(executor, direction)
+        }
         football.kick(kickPoint, direction, ignoreImmovableTargets = true)
     }
 
@@ -248,7 +277,9 @@ object FootballKickUtil {
         if (direction.lengthSqr() < 1.0e-8) {
             return
         }
-        football.lastKicker = player.uuid
+        if (player is net.minecraft.server.level.ServerPlayer) {
+            football.recordDribbleTouch(player)
+        }
         val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         val kickPoint = buildKickPoint(ballCenter, direction, 0.0)
         football.kick(kickPoint, direction.scale(FootballInputConfig.DRIBBLE_TOUCH_FORCE))

@@ -204,7 +204,8 @@ object FootballCommand {
         val source = context.source
         val football = resolveFootball(context) ?: return 0
         val rotation = source.rotation
-        FootballKickUtil.applySimpleCommandKick(football, power, elevation, rotation.y, rotation.x)
+        val executor = source.player as? net.minecraft.server.level.ServerPlayer
+        FootballKickUtil.applySimpleCommandKick(football, power, elevation, rotation.y, rotation.x, executor)
         source.sendSuccess({
             Component.translatable(
                 "command.nmbct-football.kick.simple.success",
@@ -226,7 +227,8 @@ object FootballCommand {
         val football = resolveFootball(context) ?: return 0
         val direction = FootballKickUtil.buildPreciseKickDirection(kickPoint, towardPoint, power)
             ?: throw ZERO_DIRECTION.create()
-        FootballKickUtil.applyPreciseCommandKick(football, kickPoint, direction)
+        val executor = source.player as? net.minecraft.server.level.ServerPlayer
+        FootballKickUtil.applyPreciseCommandKick(football, kickPoint, direction, executor)
         source.sendSuccess({
             Component.translatable(
                 "command.nmbct-football.kick.precise.success",

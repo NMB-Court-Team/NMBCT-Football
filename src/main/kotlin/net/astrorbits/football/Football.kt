@@ -52,8 +52,12 @@ import kotlin.math.min
 import kotlin.math.sqrt
 
 class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
-    /** 最后踢球/触球玩家的 UUID，用于进球归属。 */
-    var lastKicker: UUID? = null
+    /** 最后物理触球玩家，用于出界/角球/门球/掷界外球。 */
+    var lastPhysicalTouch: UUID? = null
+    /** 当前进球应归属的玩家；被动触球时可能不同于 [lastPhysicalTouch]。 */
+    var goalAttributionPlayer: UUID? = null
+    /** 最近一次主动踢球是否大致朝向对方球门（调试用）。 */
+    var lastActiveKickTowardGoal: Boolean = false
     private val physicsState = FootballPhysicsState()
     private val previousOrientation = Quaternionf()
     /** 本 tick 渲染用的速度快照，避免帧内同步改动导致位置/朝向抖动。 */
@@ -428,7 +432,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val slideBallImpactSpeed = if (sliding) playerHorizontal.horizontalDistance() else 0.0
         if (applied) {
             deltaMovement = physicsState.linearVelocity
-            recordPlayerBodyTouch(player)
             MatchState.tryNotifyKickoffBallTouched(player)
             if (sliding) {
                 FootballSounds.playSlideTackleBallHit(player, blockPosition(), slideBallImpactSpeed)
@@ -439,10 +442,43 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         return applied
     }
 
-    /** 身体触球（含滑铲推球、贴身分离）时更新最后触球者，供出界/进球归属使用。 */
-    private fun recordPlayerBodyTouch(player: ServerPlayer) {
-        lastKicker = player.uuid
+    /** 主动踢球：重置进球归属链（含滑铲推球）。 */
+    fun recordActiveKick(player: ServerPlayer, kickDirection: Vec3?) {
+        lastPhysicalTouch = player.uuid
+        goalAttributionPlayer = player.uuid
+        val ballCenter = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
+        lastActiveKickTowardGoal = kickDirection != null &&
+            GoalCrossingUtil.isKickTowardOpponentGoal(player, ballCenter, kickDirection)
     }
+
+    /** 带球触球：仅更新最后物理触球，不重置进球归属链。 */
+    fun recordDribbleTouch(player: ServerPlayer) {
+        lastPhysicalTouch = player.uuid
+    }
+
+    /**
+     * 被动身体触球：始终更新最后物理触球；仅当球路预测显示本不会进门时，
+     * 才将进球归属改为触球者。
+     */
+    fun recordPassiveBodyTouch(
+        player: ServerPlayer,
+        preTouchPhysics: FootballPhysicsState,
+        preTouchBottomPos: Vec3,
+    ) {
+        lastPhysicalTouch = player.uuid
+        val serverLevel = level() as? ServerLevel ?: return
+        val prediction = FootballTrajectoryPredictor.predictWouldScore(
+            serverLevel,
+            preTouchBottomPos,
+            preTouchPhysics,
+            MatchConfigHolder.current,
+        )
+        if (!prediction.wouldScore) {
+            goalAttributionPlayer = player.uuid
+        }
+    }
+
+    private fun resolveGoalScorerUuid(): UUID? = goalAttributionPlayer ?: lastPhysicalTouch
 
     private fun shouldSkipPlayerBodyInteraction(player: ServerPlayer, now: Long): Boolean {
         if (FootballDribbleSessions.shouldIgnoreCollision(player, this, now)) {
@@ -529,21 +565,31 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 player.position(),
                 impactBallCenter,
             )
+            val sliding = SlideTackleSessions.isSliding(player)
+            val preTouchBottomPos = position()
+            val preTouchPhysics = FootballTrajectoryPredictor.copyState(physicsState)
+            var slidePushApplied = false
             if (!suppressBodyInteraction && player.uuid !in pushedPlayersThisTick) {
                 if (applyPlayerPushFromPlayer(player, pushNormal, impactBallCenter)) {
                     pushedPlayersThisTick.add(player.uuid)
                     hadBodyContact = true
+                    slidePushApplied = sliding
+                    if (sliding) {
+                        recordActiveKick(player, effectivePlayerHorizontalMotion(player))
+                    }
                 }
             }
 
             if (!suppressBodyInteraction && hadBodyContact) {
-                recordPlayerBodyTouch(player)
+                if (!slidePushApplied) {
+                    recordPassiveBodyTouch(player, preTouchPhysics, preTouchBottomPos)
+                }
                 MatchState.tryNotifyKickoffBallTouched(player)
                 FootballPlayerBallContactGrace.record(
                     player,
                     this,
                     now,
-                    SlideTackleSessions.isSliding(player),
+                    sliding,
                 )
             }
 
@@ -711,7 +757,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val server = (level() as? ServerLevel)?.server ?: return
 
         // 最后触球方 = 对方发球
-        val lastTouchTeam = lastKicker?.let { MatchState.getPlayerTeam(it) }
+        val lastTouchTeam = lastPhysicalTouch?.let { MatchState.getPlayerTeam(it) }
         val restartTeam: TeamSide = when (lastTouchTeam) {
             TeamSide.A -> TeamSide.B
             TeamSide.B -> TeamSide.A
@@ -730,49 +776,26 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         defendingTeam: TeamSide,
         attackingTeam: TeamSide,
     ) {
-        val facing = Vec3(goal.facingX, goal.facingY, goal.facingZ)
-        val facingLenSqr = facing.lengthSqr()
-        if (facingLenSqr < 1e-6) return
-
-        val gx1 = goal.x1; val gy1 = goal.y1; val gz1 = goal.z1
-        val gx2 = goal.x2; val gy2 = goal.y2; val gz2 = goal.z2
-
-        val refX = gx1 + facing.x
-        val refY = gy1 + facing.y
-        val refZ = gz1 + facing.z
-        val d1 = (prevCenter.x - refX) * facing.x + (prevCenter.y - refY) * facing.y + (prevCenter.z - refZ) * facing.z
-        val d2 = (currCenter.x - refX) * facing.x + (currCenter.y - refY) * facing.y + (currCenter.z - refZ) * facing.z
-
-        if (d1 * d2 >= 0) return
-        if (d2 - d1 <= 0) return
-
-        val t = d1 / (d1 - d2)
-        val movement = currCenter.subtract(prevCenter)
-        val ix = prevCenter.x + movement.x * t
-        val iy = prevCenter.y + movement.y * t
-        val iz = prevCenter.z + movement.z * t
-
-        val minX = minOf(gx1, gx2)
-        val maxX = maxOf(gx1, gx2)
-        val minY = minOf(gy1, gy2)
-        val maxY = maxOf(gy1, gy2)
-        val minZ = minOf(gz1, gz2)
-        val maxZ = maxOf(gz1, gz2)
-
-        // 球门框内 → 进球
-        val inGoal = ix in minX..maxX
-                && iy in minY..maxY
-                && iz in minZ - 1.01..maxZ + 1.01
+        val crossing = GoalCrossingUtil.segmentCrossesGoalLine(
+            goal,
+            prevCenter,
+            currCenter,
+            defendingTeam,
+            attackingTeam,
+        ) ?: return
 
         val server = (level() as? ServerLevel)?.server ?: return
+        val ix = crossing.intersection.x
+        val iz = crossing.intersection.z
+        val facing = Vec3(goal.facingX, goal.facingY, goal.facingZ)
 
-        if (inGoal) {
+        if (crossing.inGoal) {
             if (MatchState.postGoalResetPending) return
             MatchState.postGoalResetPending = true
-            // 进球
             MatchState.onGoal(attackingTeam)
-            val scorerName = lastKicker?.let { server.playerList.getPlayer(it)?.gameProfile?.name } ?: "?"
-            val scorerTeam = lastKicker?.let { MatchState.getPlayerTeam(it) } ?: attackingTeam
+            val scorerUuid = resolveGoalScorerUuid()
+            val scorerName = scorerUuid?.let { server.playerList.getPlayer(it)?.gameProfile?.name } ?: "?"
+            val scorerTeam = scorerUuid?.let { MatchState.getPlayerTeam(it) } ?: attackingTeam
             val ownGoal = scorerTeam != attackingTeam
             FootballNetworking.broadcastGoalScored(
                 server, attackingTeam, scorerName, scorerTeam, MatchState.teamAScore, MatchState.teamBScore, ownGoal,
@@ -783,35 +806,23 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 afterReset = PendingAfterReset.PostGoal(defendingTeam),
             )
         } else {
-            // 穿越门线平面但不在门框内 → 出底线
-            val lastTouchTeam = lastKicker?.let { MatchState.getPlayerTeam(it) }
+            val lastTouchTeam = lastPhysicalTouch?.let { MatchState.getPlayerTeam(it) }
             val outType: GoalLineOutType
             val restartTeam: TeamSide
 
             if (lastTouchTeam == attackingTeam) {
-                // 攻方最后触球 → 球门球（守方开球）
                 outType = GoalLineOutType.GOAL_KICK
                 restartTeam = defendingTeam
             } else {
-                // 守方最后触球（或无归属） → 角球（攻方开球）
                 outType = GoalLineOutType.CORNER_KICK
                 restartTeam = attackingTeam
             }
 
-            // 使用配置中的开球点
             val ballPos = if (outType == GoalLineOutType.GOAL_KICK) {
                 val gk = goal.goalKick
                 Vec3(gk.x, gk.y, gk.z)
             } else {
-                // 角球：根据穿越点在球门哪一侧决定用左角旗还是右角旗
-                val goalCenterX = (gx1 + gx2) / 2.0
-                val goalCenterZ = (gz1 + gz2) / 2.0
-                val onRight = if (abs(facing.x) > abs(facing.z))
-                    iz > goalCenterZ
-                else
-                    ix > goalCenterX
-                val corner = if (onRight) goal.cornerKickRight else goal.cornerKickLeft
-                Vec3(corner.x, corner.y, corner.z)
+                GoalCrossingUtil.cornerKickPosition(goal, facing, ix, iz)
             }
 
             scheduleOutOfBoundsRestart(level() as ServerLevel, server, ballPos, restartTeam, outType)
@@ -835,7 +846,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     private fun resolveLastTouch(server: MinecraftServer): Pair<String, TeamSide?> {
-        val uuid = lastKicker ?: return "" to null
+        val uuid = lastPhysicalTouch ?: return "" to null
         val name = server.playerList.getPlayer(uuid)?.gameProfile?.name ?: "?"
         return name to MatchState.getPlayerTeam(uuid)
     }
@@ -848,7 +859,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return
         }
         if (!ignoreImmovableTargets) {
-            val kickerUuid = lastKicker
+            val kickerUuid = lastPhysicalTouch
             if (kickerUuid != null && kickerUuid in immovableTargetPlayers) {
                 return
             }
@@ -861,7 +872,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         deltaMovement = physicsState.linearVelocity
         val serverLevel = level() as? ServerLevel
         if (serverLevel != null) {
-            val kickerUuid = lastKicker
+            val kickerUuid = lastPhysicalTouch
             val kicker = kickerUuid?.let { serverLevel.server?.playerList?.getPlayer(it) }
             if (kicker != null) {
                 FootballKickPushGrace.record(kicker, this, serverLevel.gameTime)
@@ -895,7 +906,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (level().isClientSide || isImmovable) {
             return
         }
-        val kickerUuid = lastKicker
+        val kickerUuid = lastPhysicalTouch
         if (kickerUuid != null && kickerUuid in immovableTargetPlayers) {
             return
         }
@@ -912,6 +923,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return
         }
 
+        val previousHoriz = Vec3Math.horizontal(physicsState.linearVelocity)
+        val newHoriz = Vec3Math.horizontal(horizontalVelocity)
         physicsState.linearVelocity = Vec3(
             horizontalVelocity.x,
             physicsState.linearVelocity.y,
@@ -920,6 +933,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val rolling = Vec3Math.rollingAngularVelocity(horizontalVelocity, FootballPhysicsConfig.RADIUS)
         physicsState.angularVelocity = Vec3(rolling.x, 0.0, rolling.z)
         deltaMovement = physicsState.linearVelocity
+        if (newHoriz.subtract(previousHoriz).lengthSqr() > 1.0e-8) {
+            recordDribbleTouch(player)
+        }
         syncPhysicsToEntityData()
     }
 

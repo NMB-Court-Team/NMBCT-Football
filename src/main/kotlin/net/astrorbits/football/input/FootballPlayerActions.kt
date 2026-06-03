@@ -139,7 +139,6 @@ object FootballPlayerActions {
             return
         }
 
-        football.lastKicker = player.uuid
         FootballDribbleSessions.beginOrRefresh(player, football, now, payload)
     }
 
@@ -187,7 +186,7 @@ object FootballPlayerActions {
                 markKickAwayAction(player, now)
             }
             FootballActionType.TRAP -> {
-                football.lastKicker = player.uuid
+                football.recordActiveKick(player, null)
                 football.trap()
                 FootballSounds.playTrap(player)
                 FootballParticles.playTrap(player, football)

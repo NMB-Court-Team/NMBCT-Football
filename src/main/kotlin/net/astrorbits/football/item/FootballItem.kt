@@ -92,7 +92,7 @@ class FootballItem(properties: Properties) : Item(properties) {
             val horizontal = Vec3Math.horizontal(direction)
             val kickPoint = FootballKickUtil.buildKickPoint(center, horizontal, 0.0)
             if (player is ServerPlayer) {
-                football.lastKicker = player.uuid
+                football.recordActiveKick(player, direction)
             }
             football.kick(kickPoint, direction)
             if (player is ServerPlayer) {
