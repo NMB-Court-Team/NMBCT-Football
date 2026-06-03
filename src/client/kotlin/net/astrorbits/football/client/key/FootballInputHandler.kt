@@ -386,7 +386,9 @@ object FootballInputHandler {
             return
         }
 
-        if (!FootballMovementInputUtil.hasMovementInput(player, LookAroundClient.movementYaw(player))) {
+        if (!SlideTackleStateClient.isSliding(player.id) &&
+            !FootballMovementInputUtil.hasMovementInput(player, LookAroundClient.movementYaw(player))
+        ) {
             return
         }
 

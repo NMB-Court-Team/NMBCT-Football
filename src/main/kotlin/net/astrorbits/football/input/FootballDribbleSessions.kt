@@ -33,7 +33,8 @@ object FootballDribbleSessions {
     private val collisionGrace = ConcurrentHashMap<UUID, DribbleCollisionGrace>()
 
     fun registerEvents() {
-        ServerTickEvents.END_SERVER_TICK.register(::tick)
+        // 在实体 tick 之前更新球速，避免 END tick 设置速度导致整 tick 滞后（滑铲高速下尤其明显）
+        ServerTickEvents.START_SERVER_TICK.register(::tick)
     }
 
     /**

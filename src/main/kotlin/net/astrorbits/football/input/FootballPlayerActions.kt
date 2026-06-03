@@ -216,6 +216,9 @@ object FootballPlayerActions {
     private fun canAct(player: Player): Boolean = player.mainHandItem.isEmpty
 
     private fun hasDribbleMovementInput(player: ServerPlayer, payload: FootballActionC2SPayload): Boolean {
+        if (SlideTackleSessions.isSliding(player)) {
+            return true
+        }
         if (payload.flags and FootballInputConfig.FLAG_LOOK_AROUND != 0) {
             return FootballMovementInputUtil.hasMovementInput(player, payload.lookYaw)
         }

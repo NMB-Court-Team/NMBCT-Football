@@ -47,7 +47,7 @@ object SlideTackleSessions {
     private data class SprintTickState(var consecutiveTicks: Int, var lastUpdatedTick: Long)
 
     fun registerEvents() {
-        ServerTickEvents.END_SERVER_TICK.register(::tick)
+        ServerTickEvents.START_SERVER_TICK.register(::tick)
     }
 
     fun begin(
