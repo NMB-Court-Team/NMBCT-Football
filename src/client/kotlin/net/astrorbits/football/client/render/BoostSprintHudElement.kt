@@ -54,14 +54,12 @@ class BoostSprintHudElement : HudElement {
             return
         }
         val outer = purpleWithAlpha(maxAlpha)
-        val innerTop = edge
-        val innerBottom = height - edge
 
         // 上 / 下：垂直线性渐变
         extra.fillGradient(0, 0, width, edge, outer, 0)
-        extra.fillGradient(0, innerBottom, width, height, 0, outer)
+        extra.fillGradient(0, height - edge, width, height, 0, outer)
 
-        // 左 / 右：水平渐变（按列插值，避免 fillGradient 仅支持纵向）
+        // 左 / 右：水平渐变（按列插值，避免 fillGradient 仅支持纵向）；贯通全高，避免四角缺段
         for (i in 0 until edge) {
             val t = (i + 0.5f) / edge
             val fade = (1f - t).let { it * it }
@@ -72,8 +70,8 @@ class BoostSprintHudElement : HudElement {
             val color = purpleWithAlpha(alpha)
             val x0 = i
             val x1 = i + 1
-            extra.fill(x0, innerTop, x1, innerBottom, color)
-            extra.fill(width - x1, innerTop, width - x0, innerBottom, color)
+            extra.fill(x0, 0, x1, height, color)
+            extra.fill(width - x1, 0, width - x0, height, color)
         }
     }
 
