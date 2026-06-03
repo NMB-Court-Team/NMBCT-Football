@@ -101,7 +101,7 @@ object MatchCommand {
 			}
 		)
 
-		root.then(Commands.literal("setting")
+		root.then(Commands.literal("config")
 			.requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 			.executes { ctx ->
 				val player = ctx.source.player
@@ -111,7 +111,7 @@ object MatchCommand {
 				}
 				FootballNetworking.sendMatchFieldConfigSync(player, MatchConfigHolder.current)
 				ctx.source.sendSuccess(
-					{ Component.translatable("command.nmbct-football.match.setting_opened") },
+					{ Component.translatable("command.nmbct-football.match.config_opened") },
 					true,
 				)
 				1

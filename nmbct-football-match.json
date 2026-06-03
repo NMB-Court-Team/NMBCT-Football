@@ -7,7 +7,6 @@
   "enable_extra_time": true,
   "extra_time_half_minutes": 1,
   "enable_penalty_shootout": true,
-  "enable_goal_detection": true,
   "goal_a": {
     "x1": 12.8,
     "y1": -60.0,
@@ -17,7 +16,22 @@
     "z2": 81.3,
     "facing_x": 0.0,
     "facing_y": 0.0,
-    "facing_z": 1.0
+    "facing_z": 1.0,
+    "goal_kick": {
+      "x": 8.5,
+      "y": -60.0,
+      "z": 80.3
+    },
+    "corner_kick_left": {
+      "x": 12.8,
+      "y": -60.0,
+      "z": 81.3
+    },
+    "corner_kick_right": {
+      "x": 4.2,
+      "y": -60.0,
+      "z": 81.3
+    }
   },
   "goal_b": {
     "x1": 4.2,
@@ -28,6 +42,57 @@
     "z2": -64.3,
     "facing_x": 0.0,
     "facing_y": 0.0,
-    "facing_z": -1.0
+    "facing_z": -1.0,
+    "goal_kick": {
+      "x": 8.5,
+      "y": -60.0,
+      "z": -63.3
+    },
+    "corner_kick_left": {
+      "x": 4.2,
+      "y": -60.0,
+      "z": -64.3
+    },
+    "corner_kick_right": {
+      "x": 12.8,
+      "y": -60.0,
+      "z": -64.3
+    }
+  },
+  "sideline_a": {
+    "coord": 4.2,
+    "axis": "x",
+    "positive_inside": true
+  },
+  "sideline_b": {
+    "coord": 12.8,
+    "axis": "x",
+    "positive_inside": false
+  },
+  "kick_off": {
+    "x": 8.5,
+    "y": -60.0,
+    "z": 8.5
+  },
+  "post_goal_ball_reset_delay_seconds": 3,
+  "team_a_spawn": {
+    "gk": {
+      "x": 8.5,
+      "y": -60.0,
+      "z": 78.0,
+      "yaw": 180.0,
+      "pitch": 0.0
+    },
+    "players": []
+  },
+  "team_b_spawn": {
+    "gk": {
+      "x": 8.5,
+      "y": -60.0,
+      "z": -62.0,
+      "yaw": 0.0,
+      "pitch": 0.0
+    },
+    "players": []
   }
 }

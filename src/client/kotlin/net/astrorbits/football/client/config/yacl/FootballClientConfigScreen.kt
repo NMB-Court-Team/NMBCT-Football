@@ -11,6 +11,7 @@ import net.astrorbits.football.config.client.GoalNetRenderMode
 import net.astrorbits.football.client.util.YaclOptionUtil.addDouble
 import net.astrorbits.football.client.util.YaclOptionUtil.addEnum
 import net.astrorbits.football.client.util.YaclOptionUtil.addInt
+import net.astrorbits.football.client.util.YaclOptionUtil.addString
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 

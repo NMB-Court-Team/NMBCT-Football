@@ -1,5 +1,6 @@
 package net.astrorbits.football.client.config
 
+import net.astrorbits.football.client.config.yacl.MatchSetupConfigScreen
 import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.network.MatchConfigSyncS2CPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
@@ -12,7 +13,7 @@ object MatchConfigNetworking {
                 MatchConfigHolder.syncFromServer(payload.config)
                 val parent = Minecraft.getInstance().screen
                 Minecraft.getInstance().setScreen(
-                    MatchConfigScreen(parent, payload.config),
+                    MatchSetupConfigScreen.create(parent, payload.config),
                 )
             }
         }

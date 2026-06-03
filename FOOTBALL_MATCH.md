@@ -344,7 +344,7 @@ flowchart TB
 
 **`TeamSpawnConfig`**：`gk` 单个门将点；`players` 为场上队员坐标列表（可含 `yaw`/`pitch`）。
 
-管理员可用 `/match setup`（规则 GUI）与 `/match setting`（赛场几何 GUI）编辑；应用后通过 `MatchConfigApplyC2SPayload` 写回服务端并持久化。
+管理员可用 `/match setup`（规则 GUI）与 `/match config`（赛场几何 GUI）编辑；应用后通过 `MatchConfigApplyC2SPayload` 写回服务端并持久化。
 
 > 示例 JSON 中的 `enable_goal_detection` **不在**当前 `MatchConfig.CODEC 中，会被忽略；只要比赛阶段已开始，判定即生效。
 
@@ -364,7 +364,7 @@ flowchart TB
 | `leave` | 玩家 | 离开队伍 |
 | `clear` / `clear A\|B` | GM | 清空队员 |
 | `setGk` / `clearGk` / `gk on\|off` | 见上文 | 守门员管理 |
-| `setup` / `setting` | GM | 打开配置界面 |
+| `setup` / `config` | GM | 打开配置界面 |
 | `debugHud` | GM | 预览 HUD |
 
 另有 `/match` 未列出的子命令以 `MatchCommand.kt` 为准。
