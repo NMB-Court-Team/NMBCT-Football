@@ -8,7 +8,7 @@ object StaminaClientNetworking {
     fun register() {
         ClientPlayNetworking.registerGlobalReceiver(StaminaSyncS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
-                StaminaClient.applySync(payload.stamina, payload.maxStamina)
+                StaminaClient.applySync(payload.stamina, payload.maxStamina, payload.boostSprintActive)
             }
         }
     }

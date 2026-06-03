@@ -30,6 +30,8 @@ import net.astrorbits.football.client.render.FootballKeybindHintHudElement
 import net.astrorbits.football.client.render.FootballRenderer
 import net.astrorbits.football.client.render.GoalkeeperHoldLockHudElement
 import net.astrorbits.football.client.render.KickChargeHudElement
+import net.astrorbits.football.client.render.BoostSprintHudElement
+import net.astrorbits.football.client.render.DribbleBallOffscreenHudElement
 import net.astrorbits.football.client.render.StaminaHudElement
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
@@ -107,6 +109,14 @@ object NMBCTFootballClient : ClientModInitializer {
 		HudElementRegistry.addLast(
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "stamina_hud"),
 			StaminaHudElement()
+		)
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "boost_sprint_hud"),
+			BoostSprintHudElement()
+		)
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "dribble_ball_offscreen_hud"),
+			DribbleBallOffscreenHudElement()
 		)
 
 		ClientTickEvents.END_CLIENT_TICK.register { client ->

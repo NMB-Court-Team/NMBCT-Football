@@ -5,6 +5,7 @@ import dev.isxander.yacl3.api.ListOption
 import dev.isxander.yacl3.api.OptionDescription
 import dev.isxander.yacl3.api.OptionGroup
 import dev.isxander.yacl3.api.YetAnotherConfigLib
+import net.astrorbits.football.config.server.StaminaActionCostsSettings
 import net.astrorbits.football.config.server.StaminaMechanismSettings
 import net.astrorbits.football.config.server.StaminaSpeedTier
 import net.astrorbits.football.NMBCTFootball
@@ -231,6 +232,12 @@ object FootballServerConfigScreen {
                 }
                 .build(),
         )
+        .group(
+            OptionGroup.createBuilder()
+                .name(Component.translatable("yacl3.config.$MOD_ID.server.group.player_slide"))
+                .apply { addPlayerSlideOptions(getter, setter) }
+                .build(),
+        )
         .build()
 
     private fun goalkeeperCategory(
@@ -339,6 +346,12 @@ object FootballServerConfigScreen {
         )
         .group(
             OptionGroup.createBuilder()
+                .name(Component.translatable("yacl3.config.$MOD_ID.server.group.stamina_actions"))
+                .apply { addStaminaActionOptions(getter, setter) }
+                .build(),
+        )
+        .group(
+            OptionGroup.createBuilder()
                 .name(Component.translatable("yacl3.config.$MOD_ID.server.group.stamina_match_events"))
                 .apply { addStaminaMatchEventOptions(getter, setter) }
                 .build(),
@@ -393,6 +406,85 @@ object FootballServerConfigScreen {
         addFloat("$STAMINA.recovery_per_second", "$STAMINA.recovery_per_second.desc", STAMINA_DEF.recoveryPerSecond, { sm().recoveryPerSecond }, { v: Float ->
             setSm { it.copy(recoveryPerSecond = v) }
         }, 0f..100f, 0.5f)
+    }
+
+    private fun OptionGroup.Builder.addStaminaActionOptions(
+        cfg: () -> FootballServerConfig,
+        setCfg: (FootballServerConfig) -> Unit,
+    ) {
+        fun sm(): StaminaMechanismSettings = cfg().staminaMechanism
+        fun setSm(t: (StaminaMechanismSettings) -> StaminaMechanismSettings) {
+            setCfg(cfg().copy(staminaMechanism = t(sm())))
+        }
+        fun ac(): StaminaActionCostsSettings = sm().actionCosts
+        fun setAc(t: (StaminaActionCostsSettings) -> StaminaActionCostsSettings) {
+            setSm { it.copy(actionCosts = t(ac())) }
+        }
+
+        val acDef = STAMINA_DEF.actionCosts
+        addInt(
+            "$STAMINA.gk_dive_full_charge_hold_drain_delay_ticks",
+            "$STAMINA.gk_dive_full_charge_hold_drain_delay_ticks.desc",
+            acDef.gkDiveFullChargeHoldDrainDelayTicks,
+            { ac().gkDiveFullChargeHoldDrainDelayTicks },
+            { v -> setAc { it.copy(gkDiveFullChargeHoldDrainDelayTicks = v) } },
+            0..200,
+        )
+        addFloat("$STAMINA.gk_dive_full_charge_hold_drain_per_second", "$STAMINA.gk_dive_full_charge_hold_drain_per_second.desc", acDef.gkDiveFullChargeHoldDrainPerSecond, { ac().gkDiveFullChargeHoldDrainPerSecond }, { v: Float ->
+            setAc { it.copy(gkDiveFullChargeHoldDrainPerSecond = v) }
+        }, 0f..200f, 1f)
+        addFloat("$STAMINA.gk_dive_charge_cancel_cost", "$STAMINA.gk_dive_charge_cancel_cost.desc", acDef.gkDiveChargeCancelCost, { ac().gkDiveChargeCancelCost }, { v: Float ->
+            setAc { it.copy(gkDiveChargeCancelCost = v) }
+        }, 0f..500f, 1f)
+        addFloat("$STAMINA.slide_tackle_entry_cost", "$STAMINA.slide_tackle_entry_cost.desc", acDef.slideTackleEntryCost, { ac().slideTackleEntryCost }, { v: Float ->
+            setAc { it.copy(slideTackleEntryCost = v) }
+        }, 0f..500f, 1f)
+        addFloat("$STAMINA.slide_tackle_sustain_cost", "$STAMINA.slide_tackle_sustain_cost.desc", acDef.slideTackleSustainCost, { ac().slideTackleSustainCost }, { v: Float ->
+            setAc { it.copy(slideTackleSustainCost = v) }
+        }, 0f..500f, 1f)
+        addFloat("$STAMINA.slide_tackle_max_total_cost", "$STAMINA.slide_tackle_max_total_cost.desc", acDef.slideTackleMaxTotalCost, { ac().slideTackleMaxTotalCost }, { v: Float ->
+            setAc { it.copy(slideTackleMaxTotalCost = v) }
+        }, 0f..1000f, 1f)
+        addFloat("$STAMINA.boost_sprint_stamina_drain_multiplier", "$STAMINA.boost_sprint_stamina_drain_multiplier.desc", acDef.boostSprintStaminaDrainMultiplier, { ac().boostSprintStaminaDrainMultiplier }, { v: Float ->
+            setAc { it.copy(boostSprintStaminaDrainMultiplier = v) }
+        }, 1f..10f, 0.1f)
+        addFloat("$STAMINA.boost_sprint_speed_multiplier", "$STAMINA.boost_sprint_speed_multiplier.desc", acDef.boostSprintSpeedMultiplier, { ac().boostSprintSpeedMultiplier }, { v: Float ->
+            setAc { it.copy(boostSprintSpeedMultiplier = v) }
+        }, 1f..5f, 0.05f)
+    }
+
+    private fun OptionGroup.Builder.addPlayerSlideOptions(
+        cfg: () -> FootballServerConfig,
+        setCfg: (FootballServerConfig) -> Unit,
+    ) {
+        fun slide(): PlayerSlideTackleSettings = cfg().playerInput.slide
+        fun setSlide(t: (PlayerSlideTackleSettings) -> PlayerSlideTackleSettings) {
+            val pi = cfg().playerInput
+            setCfg(cfg().copy(playerInput = pi.copy(slide = t(slide()))))
+        }
+
+        addFloat("$PI.slide_tackle_cooldown_seconds", "$PI.slide_tackle_cooldown_seconds.desc", PL_SLIDE.cooldownSeconds, { slide().cooldownSeconds }, { v: Float ->
+            setSlide { it.copy(cooldownSeconds = v) }
+        }, 0f..30f, 0.5f)
+        addInt("$PI.min_slide_ticks", "$PI.min_slide_ticks.desc", PL_SLIDE.minSlideTicks, { slide().minSlideTicks }, { v -> setSlide { it.copy(minSlideTicks = v) } }, 1..60)
+        addDouble("$PI.slide_initial_speed", "$PI.slide_initial_speed.desc", PL_SLIDE.initialSpeed, { slide().initialSpeed }, { v -> setSlide { it.copy(initialSpeed = v) } }, 0.1..5.0)
+        addInt("$PI.slide_initial_hold_ticks", "$PI.slide_initial_hold_ticks.desc", PL_SLIDE.initialHoldTicks, { slide().initialHoldTicks }, { v -> setSlide { it.copy(initialHoldTicks = v) } }, 0..40)
+        addInt("$PI.slide_decay_ticks", "$PI.slide_decay_ticks.desc", PL_SLIDE.decayTicks, { slide().decayTicks }, { v -> setSlide { it.copy(decayTicks = v) } }, 1..60)
+        addDouble("$PI.slide_end_speed_retain", "$PI.slide_end_speed_retain.desc", PL_SLIDE.endSpeedRetain, { slide().endSpeedRetain }, { v -> setSlide { it.copy(endSpeedRetain = v) } }, 0.0..1.0)
+        addInt("$PI.slide_min_sprint_ticks", "$PI.slide_min_sprint_ticks.desc", PL_SLIDE.minSprintTicks, { slide().minSprintTicks }, { v -> setSlide { it.copy(minSprintTicks = v) } }, 0..40)
+        addDouble(
+            "$PI.slide_tackler_speed_damp_on_contact",
+            "$PI.slide_tackler_speed_damp_on_contact.desc",
+            PL_SLIDE.tacklerSpeedDampOnContact,
+            { slide().tacklerSpeedDampOnContact },
+            { v -> setSlide { it.copy(tacklerSpeedDampOnContact = v) } },
+            0.0..1.0,
+        )
+        addDouble("$PI.slide_victim_push_speed", "$PI.slide_victim_push_speed.desc", PL_SLIDE.victimPushSpeed, { slide().victimPushSpeed }, { v -> setSlide { it.copy(victimPushSpeed = v) } }, 0.0..3.0)
+        addInt("$PI.slide_victim_resistance_ticks", "$PI.slide_victim_resistance_ticks.desc", PL_SLIDE.victimResistanceTicks, { slide().victimResistanceTicks }, { v -> setSlide { it.copy(victimResistanceTicks = v) } }, 0..120)
+        addDouble("$PI.slide_victim_resistance_factor", "$PI.slide_victim_resistance_factor.desc", PL_SLIDE.victimResistanceFactor, { slide().victimResistanceFactor }, { v -> setSlide { it.copy(victimResistanceFactor = v) } }, 0.0..1.0)
+        addInt("$PI.slide_victim_jump_block_ticks", "$PI.slide_victim_jump_block_ticks.desc", PL_SLIDE.victimJumpBlockTicks, { slide().victimJumpBlockTicks }, { v -> setSlide { it.copy(victimJumpBlockTicks = v) } }, 0..120)
+        addInt("$PI.slide_ball_contact_grace_ticks", "$PI.slide_ball_contact_grace_ticks.desc", PL_SLIDE.ballContactGraceTicks, { slide().ballContactGraceTicks }, { v -> setSlide { it.copy(ballContactGraceTicks = v) } }, 0..60)
     }
 
     private fun OptionGroup.Builder.addStaminaMatchEventOptions(
@@ -452,6 +544,7 @@ object FootballServerConfigScreen {
     private val PL_KICK = DEF.playerInput.kick
     private val PL_CHARGE = DEF.playerInput.charge
     private val PL_DRIBBLE = DEF.playerInput.dribble
+    private val PL_SLIDE = DEF.playerInput.slide
     private val GK_CATCH = DEF.goalkeeper.catch
     private val GK_DIVE_BEH = DEF.goalkeeper.dive.behavior
     private val GK_DIVE_PITCH = DEF.goalkeeper.dive.pitch

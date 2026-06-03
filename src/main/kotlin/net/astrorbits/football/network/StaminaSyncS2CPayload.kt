@@ -10,6 +10,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 data class StaminaSyncS2CPayload(
     val stamina: Float,
     val maxStamina: Float,
+    val boostSprintActive: Boolean = false,
 ) : CustomPacketPayload {
     override fun type(): CustomPacketPayload.Type<StaminaSyncS2CPayload> = TYPE
 
@@ -19,6 +20,7 @@ data class StaminaSyncS2CPayload(
         val CODEC: StreamCodec<FriendlyByteBuf, StaminaSyncS2CPayload> = StreamCodec.composite(
             ByteBufCodecs.FLOAT, StaminaSyncS2CPayload::stamina,
             ByteBufCodecs.FLOAT, StaminaSyncS2CPayload::maxStamina,
+            ByteBufCodecs.BOOL, StaminaSyncS2CPayload::boostSprintActive,
             ::StaminaSyncS2CPayload,
         )
     }

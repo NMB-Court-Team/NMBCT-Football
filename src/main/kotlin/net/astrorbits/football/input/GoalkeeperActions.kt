@@ -5,6 +5,8 @@ import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.network.FootballActionC2SPayload
 import net.astrorbits.football.network.FootballActionType
+import net.astrorbits.football.config.FootballConfigs
+import net.astrorbits.football.stamina.StaminaState
 import net.astrorbits.football.util.FootballKickUtil
 import net.astrorbits.football.util.GoalkeeperUtil
 import net.astrorbits.football.util.KickChargeUtil
@@ -46,8 +48,26 @@ object GoalkeeperActions {
             FootballActionType.GK_CATCH -> handleCatch(player)
             FootballActionType.GK_DIVE -> handleDive(player, payload)
             FootballActionType.GK_PUNCH -> handlePunch(player)
+            FootballActionType.GK_DIVE_CHARGE_DRAIN -> handleDiveChargeDrain(player)
+            FootballActionType.GK_DIVE_CHARGE_CANCEL -> handleDiveChargeCancel(player)
             else -> Unit
         }
+    }
+
+    fun handleDiveChargeDrain(player: ServerPlayer) {
+        if (!canAct(player) || GoalkeeperUtil.findHeldFootball(player) != null) {
+            return
+        }
+        val cfg = FootballConfigs.server.staminaMechanism
+        StaminaState.tryConsume(player, cfg.gkDiveFullChargeHoldDrainPerTick())
+    }
+
+    fun handleDiveChargeCancel(player: ServerPlayer) {
+        if (!canAct(player) || GoalkeeperUtil.findHeldFootball(player) != null) {
+            return
+        }
+        val cfg = FootballConfigs.server.staminaMechanism
+        StaminaState.tryConsume(player, cfg.gkDiveChargeCancelCost)
     }
 
     private fun handleWhileHolding(player: ServerPlayer, football: Football, payload: FootballActionC2SPayload) {
@@ -198,6 +218,9 @@ object GoalkeeperActions {
 
     fun tryResolveDiveCatch(player: ServerPlayer, football: Football, diveDirection: Vec3): Boolean {
         val speed = GoalkeeperUtil.ballSpeed(football)
+        if (speed > GoalkeeperInputConfig.GK_DIVE_CATCH_MAX_SPEED) {
+            return false
+        }
         football.lastKicker = player.uuid
         val incoming = football.getPhysicsState().linearVelocity
         football.enterHold(player)

@@ -34,6 +34,14 @@ object FootballPlayerActions {
                 handleSlideTackleEnd(player)
                 return
             }
+            FootballActionType.GK_DIVE_CHARGE_DRAIN,
+            FootballActionType.GK_DIVE_CHARGE_CANCEL,
+            -> {
+                if (PlayerRoleState.isGoalkeeper(player)) {
+                    GoalkeeperActions.handle(player, payload)
+                }
+                return
+            }
             else -> Unit
         }
 
@@ -63,21 +71,31 @@ object FootballPlayerActions {
         if (!SlideTackleSessions.isSliding(player)) {
             return false
         }
-        return action != FootballActionType.SLIDE_TACKLE_END
+        return when (action) {
+            FootballActionType.SLIDE_TACKLE_END,
+            FootballActionType.SLIDE_TACKLE,
+            FootballActionType.DRIBBLE_HOLD,
+            FootballActionType.DRIBBLE_END,
+            -> false
+            else -> true
+        }
     }
 
     private fun handleSlideTackle(player: ServerPlayer, payload: FootballActionC2SPayload) {
-        FootballDribbleSessions.end(player)
+        val now = player.level().gameTime
+        if (SlideTackleSessions.isSliding(player)) {
+            SlideTackleSessions.requestEnd(player, now)
+            return
+        }
         if (
             !canAct(player) ||
             !player.isSprinting ||
             !player.onGround() ||
             GoalkeeperDiveSessions.isDiving(player) ||
-            SlideTackleSessions.isSliding(player)
+            now < SlideTackleSessions.getCooldownUntilTick(player.uuid)
         ) {
             return
         }
-        val now = player.level().gameTime
         SlideTackleSessions.begin(
             player = player,
             now = now,
@@ -190,6 +208,7 @@ object FootballPlayerActions {
             FootballActionType.GK_CATCH, FootballActionType.GK_DIVE, FootballActionType.GK_PUNCH,
             FootballActionType.GK_THROW_SHORT, FootballActionType.GK_THROW_LONG, FootballActionType.GK_DROP,
             FootballActionType.ITEM_THROW, FootballActionType.SLIDE_TACKLE, FootballActionType.SLIDE_TACKLE_END,
+            FootballActionType.GK_DIVE_CHARGE_DRAIN, FootballActionType.GK_DIVE_CHARGE_CANCEL,
             -> Unit
         }
     }

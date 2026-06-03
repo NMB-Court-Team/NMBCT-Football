@@ -38,6 +38,7 @@ data class FootballClientConfig(
     val ballBillboardRatio: Double = 0.62,
     val dribbleHoldPacketInterval: Int = 2,
     val goalNetRenderMode: GoalNetRenderMode = GoalNetRenderMode.AUTO,
+    val boostSprintInputMode: BoostSprintInputMode = BoostSprintInputMode.HOLD,
 ) {
     companion object {
         val CODEC: Codec<FootballClientConfig> = RecordCodecBuilder.create { instance ->
@@ -50,6 +51,8 @@ data class FootballClientConfig(
                 Codec.INT.fieldOf("dribble_hold_packet_interval").forGetter(FootballClientConfig::dribbleHoldPacketInterval),
                 GoalNetRenderMode.CODEC.optionalFieldOf("goal_net_render_mode", GoalNetRenderMode.AUTO)
                     .forGetter(FootballClientConfig::goalNetRenderMode),
+                BoostSprintInputMode.CODEC.optionalFieldOf("boost_sprint_input_mode", BoostSprintInputMode.HOLD)
+                    .forGetter(FootballClientConfig::boostSprintInputMode),
             ).apply(instance, ::FootballClientConfig)
         }
 

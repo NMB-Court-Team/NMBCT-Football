@@ -12,6 +12,7 @@ import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.match.TeamSide
+import net.astrorbits.football.stamina.BoostSprintState
 import net.astrorbits.football.stamina.StaminaState
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry
@@ -38,6 +39,7 @@ object FootballNetworking {
         registry.register(MatchConfigApplyC2SPayload.TYPE, MatchConfigApplyC2SPayload.CODEC)
 		registry.register(HalfKickoffRequestC2SPayload.TYPE, HalfKickoffRequestC2SPayload.CODEC)
 		registry.register(MatchResultRequestC2SPayload.TYPE, MatchResultRequestC2SPayload.CODEC)
+        registry.register(BoostSprintToggleC2SPayload.TYPE, BoostSprintToggleC2SPayload.CODEC)
     }
 
     private fun registerS2CPayloadType(registry: PayloadTypeRegistry<RegistryFriendlyByteBuf>) {
@@ -111,6 +113,11 @@ object FootballNetworking {
                 val nameB = MatchState.getTeamName(TeamSide.B).string
                 val isDraw = MatchState.teamAScore == MatchState.teamBScore
                 broadcastMatchResult(server, MatchState.teamAScore, MatchState.teamBScore, nameA, nameB, isDraw)
+            }
+        }
+        ServerPlayNetworking.registerGlobalReceiver(BoostSprintToggleC2SPayload.TYPE) { payload, context ->
+            context.server().execute {
+                BoostSprintState.setRequested(context.player(), payload.enabled)
             }
         }
     }
@@ -271,8 +278,8 @@ object FootballNetworking {
         }
     }
 
-    fun sendStaminaSync(player: ServerPlayer, stamina: Float, maxStamina: Float) {
-        ServerPlayNetworking.send(player, StaminaSyncS2CPayload(stamina, maxStamina))
+    fun sendStaminaSync(player: ServerPlayer, stamina: Float, maxStamina: Float, boostSprintActive: Boolean = false) {
+        ServerPlayNetworking.send(player, StaminaSyncS2CPayload(stamina, maxStamina, boostSprintActive))
     }
 
     /** 玩家加入时同步服务端配置与体力。 */
@@ -302,8 +309,8 @@ object FootballNetworking {
         ServerPlayNetworking.send(player, GoalkeeperHoldLockS2CPayload(lockTicksRemaining))
     }
 
-    fun syncSlideTackleState(player: ServerPlayer, sliding: Boolean) {
-        val payload = SlideTackleStateS2CPayload(player.id, sliding)
+    fun syncSlideTackleState(player: ServerPlayer, sliding: Boolean, cooldownUntilTick: Long = 0L) {
+        val payload = SlideTackleStateS2CPayload(player.id, sliding, cooldownUntilTick)
         val server = player.level().server ?: return
         for (target in server.playerList.players) {
             ServerPlayNetworking.send(target, payload)

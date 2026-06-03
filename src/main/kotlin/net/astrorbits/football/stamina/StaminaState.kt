@@ -24,15 +24,41 @@ object StaminaState {
 
     fun getStamina(playerId: UUID): Float = staminaByPlayer[playerId] ?: settings().maxStamina
 
+    /**
+     * 扣除体力；成功时重置回复计时并同步客户端。
+     * @return 是否扣减成功（当前体力 > 0 且扣后仍 >= 0，或部分扣到 0）
+     */
+    fun tryConsume(player: ServerPlayer, amount: Float): Boolean {
+        if (amount <= 0f || player.isSpectator || player.isCreative) {
+            return true
+        }
+        val cfg = settings()
+        val id = player.uuid
+        var stamina = staminaByPlayer.getOrPut(id) { cfg.maxStamina }.coerceIn(0f, cfg.maxStamina)
+        if (stamina <= 0f) {
+            return false
+        }
+        stamina = (stamina - amount).coerceAtLeast(0f)
+        ticksSinceConsume[id] = 0
+        recoveryAccumulator[id] = 0f
+        setStamina(player, stamina)
+        if (stamina <= 0f) {
+            BoostSprintState.setRequested(player, false)
+        }
+        return true
+    }
+
     fun tickServer(server: MinecraftServer) {
         for (player in server.playerList.players) {
             tickPlayer(player)
+            BoostSprintState.tickPlayer(player)
         }
     }
 
     fun tickPlayer(player: ServerPlayer) {
         if (player.isSpectator || player.isCreative) {
             resetPlayer(player.uuid, sync = true, player)
+            BoostSprintState.setRequested(player, false)
             return
         }
 
@@ -42,7 +68,11 @@ object StaminaState {
         var consumed = false
 
         if (player.isSprinting && hasForwardImpulse(player)) {
-            val perTick = cfg.sprintDrainPerSecond / StaminaMechanismSettings.TICKS_PER_SECOND
+            var perSecond = cfg.sprintDrainPerSecond
+            if (BoostSprintState.isActive(id)) {
+                perSecond *= cfg.boostSprintStaminaDrainMultiplier
+            }
+            val perTick = perSecond / StaminaMechanismSettings.TICKS_PER_SECOND
             var acc = sprintDrainAccumulator.getOrDefault(id, 0f) + perTick
             while (acc >= 1f) {
                 acc -= 1f
@@ -50,6 +80,9 @@ object StaminaState {
                 consumed = true
             }
             sprintDrainAccumulator[id] = acc
+            if (stamina <= 0f) {
+                BoostSprintState.setRequested(player, false)
+            }
         } else {
             sprintDrainAccumulator[id] = 0f
         }
@@ -59,6 +92,9 @@ object StaminaState {
         if (!onGround && was && player.deltaMovement.y > 0.2) {
             stamina = (stamina - cfg.jumpCost).coerceAtLeast(0f)
             consumed = true
+            if (stamina <= 0f) {
+                BoostSprintState.setRequested(player, false)
+            }
         }
         wasOnGround[id] = onGround
 
@@ -117,7 +153,12 @@ object StaminaState {
     }
 
     fun syncToPlayer(player: ServerPlayer) {
-        FootballNetworking.sendStaminaSync(player, getStamina(player.uuid), settings().maxStamina)
+        FootballNetworking.sendStaminaSync(
+            player,
+            getStamina(player.uuid),
+            settings().maxStamina,
+            BoostSprintState.isActive(player.uuid),
+        )
     }
 
     fun removePlayer(playerId: UUID) {
@@ -126,6 +167,7 @@ object StaminaState {
         sprintDrainAccumulator.remove(playerId)
         recoveryAccumulator.remove(playerId)
         wasOnGround.remove(playerId)
+        BoostSprintState.removePlayer(playerId)
     }
 
     private fun resetPlayer(playerId: UUID, sync: Boolean, player: ServerPlayer?) {
@@ -143,7 +185,12 @@ object StaminaState {
         val id = player.uuid
         val previous = staminaByPlayer.put(id, value)
         if (previous == null || abs(previous - value) > 1e-3f) {
-            FootballNetworking.sendStaminaSync(player, value, settings().maxStamina)
+            FootballNetworking.sendStaminaSync(
+                player,
+                value,
+                settings().maxStamina,
+                BoostSprintState.isActive(id),
+            )
         }
     }
 
@@ -156,6 +203,11 @@ object StaminaState {
             recoveryAccumulator[id] = 0f
             wasOnGround[id] = player.onGround()
         }
-        FootballNetworking.sendStaminaSync(player, value, settings().maxStamina)
+        FootballNetworking.sendStaminaSync(
+            player,
+            value,
+            settings().maxStamina,
+            BoostSprintState.isActive(id),
+        )
     }
 }

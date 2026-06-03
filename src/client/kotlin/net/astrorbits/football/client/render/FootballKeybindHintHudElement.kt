@@ -1,6 +1,7 @@
 package net.astrorbits.football.client.render
 
 import net.astrorbits.football.client.FootballOperabilityClient
+import net.astrorbits.football.client.StaminaClient
 import net.astrorbits.football.client.util.FootballHudVisibility
 import net.astrorbits.football.client.GoalkeeperStateClient
 import net.astrorbits.football.client.key.FootballInputHandler
@@ -76,9 +77,14 @@ class FootballKeybindHintHudElement : HudElement {
     private fun buildLookAroundSection(font: Font, player: LocalPlayer): List<StyledRow> {
         val rows = mutableListOf<StyledRow>()
         if (!GoalkeeperStateClient.isGoalkeeper) {
+            val nowTick = player.level()?.gameTime ?: 0L
             rows += StyledRow(
                 buildHintRow(font, FootballKeyBindings.SLIDE_TACKLE, SLIDE_TACKLE_LABEL_KEY),
-                if (FootballInputHandler.canSlideTackle()) RowColors.ACTIVE else RowColors.INACTIVE,
+                if (FootballInputHandler.canSlideTackle(nowTick)) RowColors.ACTIVE else RowColors.INACTIVE,
+            )
+            rows += StyledRow(
+                buildHintRow(font, FootballKeyBindings.BOOST_SPRINT, BOOST_SPRINT_LABEL_KEY),
+                if (player.isSprinting && StaminaClient.stamina > 0f) RowColors.ACTIVE else RowColors.INACTIVE,
             )
         }
         rows += StyledRow(
@@ -208,6 +214,7 @@ class FootballKeybindHintHudElement : HudElement {
         private const val TITLE_KEY_GK = "hud.nmbct-football.hint.title_gk"
         private const val LOOK_AROUND_LABEL_KEY = "hud.nmbct-football.hint.look_around"
         private const val SLIDE_TACKLE_LABEL_KEY = "hud.nmbct-football.hint.slide_tackle"
+        private const val BOOST_SPRINT_LABEL_KEY = "hud.nmbct-football.hint.boost_sprint"
         private const val GK_DIVE_INTERRUPT_LABEL_KEY = "hud.nmbct-football.hint.gk_dive_interrupt"
         private const val MARGIN = 8
         private const val PAD = 8

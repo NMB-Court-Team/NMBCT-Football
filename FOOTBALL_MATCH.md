@@ -2,7 +2,7 @@
 
 本文档说明 NMBCT Football 模组中**正式比赛流程**的设计：队伍与角色、阶段计时、开球锁定、进球/出界判定、配置与命令，以及服务端与客户端的协作方式。
 
-球体物理与踢球输入见 [FOOTBALL_PHYSICS.md](./FOOTBALL_PHYSICS.md)。
+球体物理与踢球输入见 [FOOTBALL_PHYSICS.md](./FOOTBALL_PHYSICS.md)；模组概览见 [README.md](./README.md)。
 
 ## 设计目标
 
@@ -59,9 +59,11 @@ flowchart TB
 | `client/match/MatchStateClient.kt` | 阶段切换、半场/结算请求 |
 | `client/match/MatchStartClient.kt` | 开球倒计时、客户端补时累积 |
 | `client/render/*HudElement.kt` | 比赛 HUD、进球/出界 Banner 等 |
-| `stamina/StaminaState.kt` | 服务端权威体力：消耗、回复、比赛事件 |
-| `client/StaminaClient.kt` | 客户端体力同步展示与移速修正 |
+| `stamina/StaminaState.kt` | 服务端权威体力：消耗、回复、`tryConsume`、比赛事件 |
+| `stamina/BoostSprintState.kt` | 加速疾跑状态、移速修饰与体力同步联动 |
+| `client/StaminaClient.kt` | 客户端体力同步、HUD 紫条渐变、移速修正 |
 | `config/server/StaminaMechanismSettings.kt` | 体力机制配置（`stamina_mechanism`） |
+| `config/server/StaminaActionCostsSettings.kt` | 动作体力（鱼跃/滑铲/加速疾跑）嵌套在 `action_costs` |
 
 ## 体力机制
 
@@ -80,6 +82,7 @@ flowchart TB
 | `recovery_per_second` | float | 0..100 /s，步进 0.5 | 20 | 延迟结束后每秒回复 |
 | `half_time_recovery_fraction` | float | 0..1，步进 0.01 | 0.6 | 半场切换时回复 `max × 比例` |
 | `goal_recovery_fraction` | float | 0..1，步进 0.01 | 0.15 | 进球后回复 `max × 比例` |
+| `action_costs` | 对象 | 见 [FOOTBALL_PHYSICS.md](./FOOTBALL_PHYSICS.md) | 见下 | 守门员鱼跃、滑铲、加速疾跑相关消耗/倍率 |
 | `speed_tiers` | 数组 | 见下 | 见下 | 移速档位列表，可增删 |
 
 **移速档位** `speed_tiers[]` 每项：
@@ -101,8 +104,9 @@ flowchart TB
 
 **消耗（服务端每 tick）**
 
-1. **疾跑**：`isSprinting` 且水平移动意图在朝向方向上的投影 > 0.1（`FootballMovementInputUtil` + `lastClientMoveIntent`）时，按 `sprint_drain_per_second / 20` 累加，每满 1 扣 1 点体力。
+1. **疾跑**：`isSprinting` 且水平移动意图在朝向方向上的投影 > 0.1（`FootballMovementInputUtil` + `lastClientMoveIntent`）时，按 `sprint_drain_per_second / 20` 累加，每满 1 扣 1 点体力；若 [`BoostSprintState`](src/main/kotlin/net/astrorbits/football/stamina/BoostSprintState.kt) 激活，则乘 `action_costs.boost_sprint_stamina_drain_multiplier`（默认 `3`）。
 2. **跳跃**：上一 tick 在地面、本 tick 离地且 `deltaMovement.y > 0.2` 时，扣除 `jump_cost`（近似起跳，非按键包）。
+3. **动作扣体**：滑铲起手/持续、鱼跃满蓄力保持/打断等通过 `StaminaState.tryConsume` 一次性或按 tick 扣除（见 `action_costs` 与 [FOOTBALL_PHYSICS.md](./FOOTBALL_PHYSICS.md)）。
 
 **回复**
 
@@ -124,7 +128,14 @@ flowchart TB
 - `stamina <= 0` 时，若存在 `stamina_fraction == 0` 的档位则用其倍率，否则进入比例查表。
 - 否则取当前比例 `stamina / max`，找**最小**的 `stamina_fraction` 使得 `比例 < stamina_fraction`，返回对应倍率；若无则 1.0（或显式 100% 档）。
 
-**客户端 HUD**（`StaminaHudElement`）：体力未满时显示在快捷栏上方；刻度线为配置中 `0 < fraction < 1` 的阈值；颜色仍按 10% / 40% / 80% 分段（与默认档位一致）。
+**客户端 HUD**
+
+- `StaminaHudElement`：体力未满或加速疾跑淡出中时显示在快捷栏上方；刻度线为配置中 `0 < fraction < 1` 的阈值；颜色按 10% / 40% / 80% 分段，加速疾跑时与紫色（`#9C27B0`）平滑插值（`boostBlend`）。
+- `BoostSprintHudElement`：加速疾跑激活或淡出时屏幕四边紫色晕影 + 体力条上方状态图标（见物理文档）。
+
+**加速疾跑移速**：服务端 `BoostSprintState` 与客户端 `StaminaClient` 均可能写入 `boost_sprint_speed` 修饰符；以服务端为准，同步包携带 `boostSprintActive`。
+
+**客户端配置**（`config/nmbct-football-client.json`）：`boost_sprint_input_mode` 为 **切换** 或 **按住**（默认 **按住**）；仅影响本地按键如何发送 `BoostSprintToggleC2SPayload`，不改变服务端移速与消耗数值。
 
 ## 核心状态：`MatchState`
 
@@ -374,7 +385,9 @@ flowchart TB
 | `MatchResetS2CPayload` | S→C | 重置客户端 UI 状态 |
 | `MatchConfigSyncS2CPayload` / `MatchFieldConfigSyncS2CPayload` | S→C | 打开 GUI 时下发配置 |
 | `MatchConfigApplyC2SPayload` | C→S | 保存配置 |
-| `StaminaSyncS2CPayload` | S→C | 同步当前体力与 `max_stamina` |
+| `StaminaSyncS2CPayload` | S→C | 同步 `stamina`、`max_stamina`、`boostSprintActive` |
+| `BoostSprintToggleC2SPayload` | C→S | 客户端请求开启/关闭加速疾跑 |
+| `SlideTackleStateS2CPayload` | S→C | 同步滑铲中状态与冷却结束 tick |
 | `ServerConfigSyncS2CPayload` | S→C | 同步 `FootballServerConfig`（`openEditor=true` 时打开 YACL） |
 
 玩家加入服务器时会 `syncConfigToPlayer` 推送比赛计时，并 `syncPlayerJoin` 推送服务端配置（含 `stamina_mechanism`）与体力。OP 在 YACL 保存服务端配置后会 `broadcastServerConfig` 给所有在线玩家。
@@ -390,7 +403,9 @@ flowchart TB
 | `GoalLineOutHudElement` | 出界类型 Banner |
 | `HalfKickoffHudElement` | 半场开球 Banner（约 4s） |
 | `MatchResultHudElement` | 终场结果 |
-| `StaminaHudElement` | 体力条（未满时显示，刻度为移速档位阈值） |
+| `StaminaHudElement` | 体力条（未满或加速淡出时显示，刻度为移速档位阈值） |
+| `BoostSprintHudElement` | 加速疾跑晕影与状态图标 |
+| `DribbleBallOffscreenHudElement` | 带球且球出屏时边缘箭头 + 足球图标（见 [FOOTBALL_PHYSICS.md](./FOOTBALL_PHYSICS.md)） |
 
 开球/补时 UI 状态集中在 `MatchStartClient`；阶段边沿逻辑在 `MatchStateClient`。
 

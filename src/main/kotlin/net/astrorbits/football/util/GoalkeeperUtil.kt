@@ -91,6 +91,64 @@ object GoalkeeperUtil {
     fun isBallApproachingKeeper(football: Football, player: ServerPlayer): Boolean =
         canStandingCatchBall(football, player)
 
+    fun diveCatchOrigin(player: ServerPlayer): Vec3 {
+        val base = player.position()
+        return base.add(0.0, player.eyeHeight * GoalkeeperInputConfig.GK_DIVE_CATCH_ORIGIN_EYE_SCALE, 0.0)
+    }
+
+    /**
+     * 鱼跃扑救能否接到球：三维锥体 + 近身放宽 + 高球扩大半角。
+     */
+    fun canDiveCatchBall(
+        player: ServerPlayer,
+        football: Football,
+        lookYaw: Float,
+        lookPitch: Float,
+        range: Double,
+    ): Boolean {
+        val ballPos = ballCenter(football)
+        val origin = diveCatchOrigin(player)
+        val offset = ballPos.subtract(origin)
+        val distSqr = offset.lengthSqr()
+        if (distSqr > range * range) {
+            return false
+        }
+        val horizontalDist = Vec3Math.horizontal(offset).length()
+        val lookDir = Vec3.directionFromRotation(lookPitch, lookYaw)
+        val horizontalLook = Vec3Math.normalizeSafe(Vec3Math.horizontal(lookDir))
+        val feetY = player.y
+        val headY = player.y + player.eyeHeight
+
+        if (horizontalDist < GoalkeeperInputConfig.GK_DIVE_CLOSE_RANGE) {
+            if (horizontalLook.lengthSqr() > 1.0e-8) {
+                val horizontalToBall = Vec3Math.horizontal(offset)
+                if (horizontalToBall.lengthSqr() > 1.0e-8 &&
+                    horizontalLook.dot(Vec3Math.normalizeSafe(horizontalToBall)) <= 0.0
+                ) {
+                    return false
+                }
+            }
+            val minY = feetY - GoalkeeperInputConfig.GK_DIVE_CLOSE_VERTICAL_BELOW_FEET
+            val maxY = headY + GoalkeeperInputConfig.GK_DIVE_CLOSE_VERTICAL_ABOVE_HEAD
+            return ballPos.y in minY..maxY
+        }
+
+        if (offset.lengthSqr() < 1.0e-8) {
+            return true
+        }
+        var halfAngle = GoalkeeperInputConfig.GK_DIVE_HALF_ANGLE_DEG
+        if (ballPos.y > origin.y + GoalkeeperInputConfig.GK_DIVE_HIGH_BALL_MIN_HEIGHT) {
+            halfAngle += GoalkeeperInputConfig.GK_DIVE_HIGH_BALL_EXTRA_HALF_ANGLE_DEG
+        }
+        val dir = Vec3Math.normalizeSafe(lookDir)
+        if (dir.lengthSqr() < 1.0e-8) {
+            return false
+        }
+        val dot = dir.dot(offset.normalize())
+        val minDot = kotlin.math.cos(Math.toRadians(halfAngle))
+        return dot >= minDot
+    }
+
     fun isInDirectionalSector(
         origin: Vec3,
         direction: Vec3,

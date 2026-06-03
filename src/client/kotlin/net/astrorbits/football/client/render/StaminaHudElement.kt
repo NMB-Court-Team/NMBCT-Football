@@ -14,7 +14,7 @@ class StaminaHudElement : HudElement {
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
         val stamina = StaminaClient.stamina
         val maxStamina = StaminaClient.maxStamina
-        if (stamina >= maxStamina - 1e-3f) return
+        if (stamina >= maxStamina - 1e-3f && StaminaClient.boostBlend <= 0f) return
 
         val client = Minecraft.getInstance()
         val width = client.window.guiScaledWidth
@@ -28,13 +28,7 @@ class StaminaHudElement : HudElement {
         val ratio = (stamina / maxStamina).coerceIn(0f, 1f)
         val fillW = (barW * ratio).roundToInt().coerceIn(0, barW)
 
-        val fillColor = when {
-            ratio <= 0f -> 0xFFE53935.toInt()
-            ratio < 0.1f -> 0xFFE53935.toInt()
-            ratio < 0.4f -> 0xFFFF9800.toInt()
-            ratio < 0.8f -> 0xFFFFD54F.toInt()
-            else -> 0xFF4CAF50.toInt()
-        }
+        val fillColor = StaminaClient.displayStaminaBarColor(ratio)
 
         extra.fill(x - 1, y - 1, x + barW + 1, y + barH + 1, 0xFF555555.toInt())
         extra.fill(x, y, x + barW, y + barH, 0xAA000000.toInt())

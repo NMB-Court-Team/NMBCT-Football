@@ -77,5 +77,11 @@
   },
   "soccer_sliding": {
     "sounds": ["nmbct-football:soccer_sliding"]
+  },
+  "player.boost_sprint.start": {
+    "sounds": ["nmbct-football:boost_sprint_start"]
+  },
+  "player.boost_sprint.end": {
+    "sounds": ["nmbct-football:boost_sprint_end"]
   }
 }

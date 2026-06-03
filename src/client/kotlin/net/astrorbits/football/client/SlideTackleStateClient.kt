@@ -12,15 +12,20 @@ import kotlin.math.atan2
 
 object SlideTackleStateClient {
     private val slidingEntities = mutableSetOf<Int>()
+    private var localCooldownUntilTick = 0L
     private const val MIN_FACING_SPEED_SQR = 1.0e-4
 
     fun register() {
         ClientPlayNetworking.registerGlobalReceiver(SlideTackleStateS2CPayload.TYPE) { payload, _ ->
             val level = Minecraft.getInstance().level ?: return@registerGlobalReceiver
+            val client = Minecraft.getInstance()
             if (payload.sliding) {
                 slidingEntities.add(payload.entityId)
             } else {
                 slidingEntities.remove(payload.entityId)
+            }
+            if (client.player?.id == payload.entityId && payload.cooldownUntilTick > 0L) {
+                localCooldownUntilTick = payload.cooldownUntilTick
             }
             applySlideStateToEntity(level.getEntity(payload.entityId), payload.sliding)
         }
@@ -45,6 +50,8 @@ object SlideTackleStateClient {
 
     @JvmStatic
     fun isSliding(entityId: Int): Boolean = slidingEntities.contains(entityId)
+
+    fun isOnCooldown(nowTick: Long): Boolean = nowTick < localCooldownUntilTick
 
     private fun applySlideStateToEntity(entity: Entity?, sliding: Boolean) {
         val player = entity as? Player ?: return

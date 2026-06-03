@@ -33,9 +33,21 @@ data class StaminaMechanismSettings(
     val speedTiers: List<StaminaSpeedTier> = DEFAULT_SPEED_TIERS,
     val halfTimeRecoveryFraction: Float = 0.6f,
     val goalRecoveryFraction: Float = 0.15f,
+    val actionCosts: StaminaActionCostsSettings = StaminaActionCostsSettings.DEFAULT,
 ) {
     val recoveryDelayTicks: Int
         get() = (recoveryDelaySeconds * TICKS_PER_SECOND).toInt()
+
+    val gkDiveFullChargeHoldDrainDelayTicks get() = actionCosts.gkDiveFullChargeHoldDrainDelayTicks
+    val gkDiveFullChargeHoldDrainPerSecond get() = actionCosts.gkDiveFullChargeHoldDrainPerSecond
+    val gkDiveChargeCancelCost get() = actionCosts.gkDiveChargeCancelCost
+    val slideTackleEntryCost get() = actionCosts.slideTackleEntryCost
+    val slideTackleSustainCost get() = actionCosts.slideTackleSustainCost
+    val slideTackleMaxTotalCost get() = actionCosts.slideTackleMaxTotalCost
+    val boostSprintStaminaDrainMultiplier get() = actionCosts.boostSprintStaminaDrainMultiplier
+    val boostSprintSpeedMultiplier get() = actionCosts.boostSprintSpeedMultiplier
+
+    fun gkDiveFullChargeHoldDrainPerTick(): Float = actionCosts.gkDiveFullChargeHoldDrainPerTick()
 
     /** 按阈值升序排列，供查表与校验使用。 */
     fun sortedSpeedTiers(): List<StaminaSpeedTier> =
@@ -95,6 +107,8 @@ data class StaminaMechanismSettings(
                     .forGetter(StaminaMechanismSettings::halfTimeRecoveryFraction),
                 Codec.FLOAT.optionalFieldOf("goal_recovery_fraction", 0.15f)
                     .forGetter(StaminaMechanismSettings::goalRecoveryFraction),
+                StaminaActionCostsSettings.CODEC.optionalFieldOf("action_costs", StaminaActionCostsSettings.DEFAULT)
+                    .forGetter(StaminaMechanismSettings::actionCosts),
             ).apply(i, ::StaminaMechanismSettings)
         }.validate(::validate)
 
@@ -130,6 +144,10 @@ data class StaminaMechanismSettings(
                     "goal_recovery_fraction must be in [0, 1], was ${settings.goalRecoveryFraction}"
                 }
             }
+            val actionErr = validateActionCosts(settings.actionCosts).error()
+            if (actionErr.isPresent) {
+                return DataResult.error { actionErr.get().message() }
+            }
             val optimizedTiers = optimizeSpeedTiers(settings.speedTiers)
             return validateSpeedTiers(optimizedTiers).map {
                 settings.copy(speedTiers = optimizedTiers)
@@ -162,6 +180,9 @@ data class StaminaMechanismSettings(
         }
 
         private fun speedMultipliersEqual(a: Float, b: Float): Boolean = abs(a - b) < 1e-4f
+
+        private fun validateActionCosts(costs: StaminaActionCostsSettings): DataResult<Unit> =
+            StaminaActionCostsSettings.validate(costs).map { Unit }
 
         fun validateSpeedTiers(tiers: List<StaminaSpeedTier>): DataResult<Unit> {
             val fractions = mutableSetOf<Float>()

@@ -34,4 +34,8 @@ enum class FootballActionType {
     SLIDE_TACKLE,
     /** 松开滑铲键后请求结束滑铲。 */
     SLIDE_TACKLE_END,
+    /** 守门员鱼跃满蓄力保持期间的体力消耗心跳。 */
+    GK_DIVE_CHARGE_DRAIN,
+    /** 守门员打断鱼跃蓄力（如带球键取消）。 */
+    GK_DIVE_CHARGE_CANCEL,
 }

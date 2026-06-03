@@ -1,12 +1,6 @@
 package net.astrorbits.football
 
-import net.astrorbits.football.input.FootballDribbleSessions
-import net.astrorbits.football.input.FootballInputConfig
-import net.astrorbits.football.input.FootballKickPushGrace
-import net.astrorbits.football.input.FootballPlayerBallContactGrace
-import net.astrorbits.football.input.SlideTackleSessions
-import net.astrorbits.football.input.GoalkeeperHoldLock
-import net.astrorbits.football.input.GoalkeeperInputConfig
+import net.astrorbits.football.input.*
 import net.astrorbits.football.item.Items
 import net.astrorbits.football.match.*
 import net.astrorbits.football.network.FootballNetworking
@@ -52,8 +46,6 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector3fc
 import java.util.*
-import kotlin.jvm.optionals.getOrNull
-import kotlin.jvm.optionals.toSet
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min

@@ -63,6 +63,15 @@ object FootballKeyBindings {
         )
     )
 
+    val BOOST_SPRINT: KeyMapping = KeyMappingHelper.registerKeyMapping(
+        KeyMapping(
+            "key.nmbct-football.boost_sprint",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_Z,
+            CATEGORY
+        )
+    )
+
     val OPEN_CLIENT_CONFIG: KeyMapping = KeyMappingHelper.registerKeyMapping(
         KeyMapping(
             "key.nmbct-football.open_client_config",

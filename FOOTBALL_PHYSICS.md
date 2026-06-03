@@ -1,6 +1,6 @@
 # 足球物理模拟原理
 
-本文档说明 NMBCT Football 模组中足球实体（`Football`）的物理模拟设计、每 tick 的计算流程，以及服务端与客户端的协作方式。
+本文档说明 NMBCT Football 模组中足球实体（`Football`）的物理模拟设计、每 tick 的计算流程，以及服务端与客户端的协作方式。比赛流程与体力 HUD 见 [FOOTBALL_MATCH.md](./FOOTBALL_MATCH.md)；模组概览与默认按键见 [README.md](./README.md)。
 
 ## 设计目标
 
@@ -362,9 +362,11 @@ distance = 相机到球心（含 MODEL_Y_OFFSET）的距离
 - 服务端以**动作瞬间视角**（`lookYaw` / `lookPitch`）计算前扑方向；前扑距离与起跳高度还随**俯仰角**变化（见下）。
 - 前扑距离与高度随蓄力提升；鱼跃期间每 tick 写入水平速度并同步客户端。
 - 鱼跃会话持续 `goalkeeper.dive.dive_duration_ticks`，期间每 tick 进行扑救判定。
-- 判定区域为玩家**当前视角前方扇形**，范围与角度使用服务端配置：
-  - `goalkeeper.dive.dive_range`
-  - `goalkeeper.dive.dive_half_angle_deg`（总角度 = `2 × half_angle`，默认 `120°`）
+- 扑救判定使用 [`GoalkeeperUtil.canDiveCatchBall`](src/main/kotlin/net/astrorbits/football/util/GoalkeeperUtil.kt)（**动作瞬间** `lookYaw` / `lookPitch`），不再仅用水平扇形：
+  - **远距**：以 `diveCatchOrigin`（眼高比例 `goalkeeper.dive.dive_catch_origin_eye_scale`）为原点，在**三维视线方向**上的锥体内（半角 `goalkeeper.dive.dive_half_angle_deg`，高球可叠加 `dive_high_ball_extra_half_angle_deg`），距离 ≤ `dive_range`（潜行 + `crouch_range_bonus`）。
+  - **近身**（水平距离 &lt; `dive_close_range`）：放宽为脚线以下 / 头顶以上的竖直带（`dive_close_vertical_below_feet`、`dive_close_vertical_above_head`），且球不得在身后。
+  - 来球速度超过 `dive_catch_max_speed` 时不接（与站立接球上限一致，默认 `2.2` blocks/tick）。
+- **蓄力体力**（`stamina_mechanism.action_costs`，见 [FOOTBALL_MATCH.md](./FOOTBALL_MATCH.md)）：满蓄力保持超过 `gk_dive_full_charge_hold_drain_delay_ticks` 后，客户端每 tick 发 `GK_DIVE_CHARGE_DRAIN` 按 `gk_dive_full_charge_hold_drain_per_second` 扣体；带球键打断蓄力发 `GK_DIVE_CHARGE_CANCEL`，一次性扣 `gk_dive_charge_cancel_cost`。
 - 命中后直接抱球（`enterHold`），并立刻处理“后坐力 + 前扑减速”。
 
 ### 起跳速度（蓄力 × 俯仰）
@@ -426,6 +428,55 @@ v_new      = v_remain + v_forward * 0.15 + recoil
 
 这保证了鱼跃接球与站立接球在“低速不弹、快速来球有后坐”上的手感一致。
 
+## 滑铲（`C` 键，冲刺时）
+
+服务端权威，逻辑在 [`SlideTackleSessions`](src/main/kotlin/net/astrorbits/football/input/SlideTackleSessions.kt)；**体力**在 `stamina_mechanism.action_costs`，**位移/冷却**在 `player_input.slide`（`PlayerSlideTackleSettings`）。
+
+### 触发与约束
+
+- 默认键 **C**（`slide_tackle`），须 **疾跑且在地**；连续疾跑至少 `slide_min_sprint_ticks`（默认 `5`）后才可起手。
+- 起手方向为 [`FootballKickUtil.resolveDribbleDirection`](src/main/kotlin/net/astrorbits/football/util/FootballKickUtil.kt)（与带球同基准，含观察四周锁定 yaw）。
+- 起手立刻扣 `slide_tackle_entry_cost`（须 ≤ 当前体力且 ≤ `slide_tackle_max_total_cost`）；滑铲进行中按 tick 从 `slide_tackle_sustain_cost` 预算扣体（预算 = `max(0, max_total − entry)`，在 `slide_decay_ticks` 内摊完），体力不足或预算耗尽则结束。
+- **冷却**：上次滑铲结束后 `slide_tackle_cooldown_seconds`（默认 `3s`）内不可再铲；客户端经 `SlideTackleStateS2CPayload` 同步冷却结束 tick。
+- **可与带球并存**：滑铲 session 独立于带球 session，不强制结束带球。
+
+### 位移曲线
+
+- 初速 `slide_initial_speed`（默认 `1.05` blocks/tick），前 `slide_initial_hold_ticks` 保持，再在 `slide_decay_ticks` 内衰减至 0。
+- 最短持续 `min_slide_ticks`（默认 `8`）；结束后保留 `slide_end_speed_retain`（默认 `85%`）的水平速度，**不再**清零 `deltaMovement`。
+- 滑铲期间 `effectiveHorizontalVelocity` 供 [`Football`](src/main/kotlin/net/astrorbits/football/Football.kt) 球体碰撞在实体 tick 前采样。
+
+### 撞人与被撞
+
+与下文「滑铲撞人」相同；参数现位于 `player_input.slide`（不再放在 `player_input.collision`）。
+
+## 加速疾跑（`Z` 键）
+
+[`BoostSprintState`](src/main/kotlin/net/astrorbits/football/stamina/BoostSprintState.kt) 服务端权威；客户端 [`BoostSprintClient`](src/client/kotlin/net/astrorbits/football/client/BoostSprintClient.kt) 处理按键。
+
+| 项 | 说明 |
+|----|------|
+| 按键 | 默认 **Z**（`boost_sprint`） |
+| 开启条件 | 疾跑、有向前移动意图、体力 &gt; 0 |
+| 移速 | `stamina_mechanism.action_costs.boost_sprint_speed_multiplier`（默认 `2.0`，`ADD_MULTIPLIED_TOTAL`） |
+| 体力 | 疾跑消耗 × `boost_sprint_stamina_drain_multiplier`（默认 `3`） |
+| 客户端模式 | `FootballClientConfig.boost_sprint_input_mode`：**切换**（再按关闭）或 **按住**（默认 **按住**） |
+| 同步 | `BoostSprintToggleC2SPayload`；`StaminaSyncS2CPayload.boostSprintActive` |
+| 表现 | 粒子尾迹；[`BoostSprintHudElement`](src/client/kotlin/net/astrorbits/football/client/render/BoostSprintHudElement.kt) 屏幕紫晕 + 体力条上方图标（`boost_sprint.png`，可调 `ICON_SCALE` / 平移）；本地音效 `player.boost_sprint.start` / `end` |
+
+松开按键、停止疾跑、无向前意图或体力耗尽会自动关闭；创造/旁观不生效。
+
+## 带球视野外指示
+
+带球且足球不在屏幕内时，[`DribbleBallOffscreenHudElement`](src/client/kotlin/net/astrorbits/football/client/render/DribbleBallOffscreenHudElement.kt) 在屏幕边缘显示方向箭头 + 小足球图标（`textures/item/football_32x.png`）。
+
+- 跟踪：[`DribbleBallIndicatorClient`](src/client/kotlin/net/astrorbits/football/client/DribbleBallIndicatorClient.kt) 在 `DRIBBLE_HOLD` 时绑定最近足球实体。
+- **主路径**（\|pitch\| &lt; 85°）：水平罗盘分箱（前/后/左/右）+ 视平面上下选边（前/后：上→顶边、下→底边；左/右：上/下半缘）+ 沿边比例 `u`；箭头方向 **屏幕中心 → 边缘点**；足球图标在箭头**尾部**（靠屏幕内侧）。
+- **退化路径**（仰视/俯视）：相机空间方向打边缘后 **相对屏幕中心上下镜像**；路径切换时重置边缘平滑，避免瞬移。
+- 箭头贴图：`textures/gui/sprites/hud/dribble_offscreen_arrow.png`（默认 11×11，绘制 16×16，尖端朝左，运行时旋转）。
+
+带球目标距离默认 **`dribble_target_distance = 1.2`**（`player_input.dribble`）。
+
 ## 球员交互碰撞（新增）
 
 为提升对抗与带球体验，足球与球员新增如下服务端权威交互：
@@ -441,17 +492,49 @@ v_new      = v_remain + v_forward * 0.15 + recoil
    - 滑铲命中其他玩家后，滑铲者当前速度会立即乘衰减系数（快速降速）。
    - 被铲者会沿滑铲方向被推开，并进入短时高阻力状态（水平速度每 tick 额外衰减）。
 
-## 新增配置项（`player_input`）
+## 新增配置项（服务端 `nmbct-football-server.json`）
 
-以下字段位于服务端配置 `player_input`（`nmbct-football-server.json`）：
+### `stamina_mechanism.action_costs`
+
+嵌套在 `stamina_mechanism` 下，YACL 分组「动作体力消耗」。 [`StaminaState.tryConsume`](src/main/kotlin/net/astrorbits/football/stamina/StaminaState.kt) 为统一扣体入口。
+
+| 字段 | 默认 | 说明 |
+|------|------|------|
+| `gk_dive_full_charge_hold_drain_delay_ticks` | `20` | 鱼跃满蓄力后延迟才开始持续扣体 |
+| `gk_dive_full_charge_hold_drain_per_second` | `40` | 满蓄力保持期间每秒扣体 |
+| `gk_dive_charge_cancel_cost` | `60` | 带球键打断鱼跃蓄力一次性扣体 |
+| `slide_tackle_entry_cost` | `60` | 滑铲起手扣体（亦作最低起步体力） |
+| `slide_tackle_sustain_cost` | `60` | 滑铲进行中至多再扣（在 `slide_decay_ticks` 内摊销） |
+| `slide_tackle_max_total_cost` | `120` | 单次滑铲 entry+sustain 总和上限 |
+| `boost_sprint_stamina_drain_multiplier` | `3` | 加速疾跑期间疾跑消耗倍率 |
+| `boost_sprint_speed_multiplier` | `2` | 加速疾跑额外移速倍率 |
 
 ### `player_input.dribble`
 
 | 字段 | 默认值 | 说明 |
 |------|--------|------|
 | `dribble_collision_grace_ticks` | `15` | 带球结束后继续忽略与刚带球体碰撞的 tick 数 |
+| `dribble_target_distance` | `1.2` | 带球时球相对玩家的目标水平距离（方块） |
 
-### `player_input.collision`
+### `player_input.slide`（`PlayerSlideTackleSettings`）
+
+| 字段 | 默认值 | 说明 |
+|------|--------|------|
+| `slide_tackle_cooldown_seconds` | `3` | 滑铲冷却（秒） |
+| `min_slide_ticks` | `8` | 最短滑铲 tick |
+| `slide_initial_speed` | `1.05` | 初速（blocks/tick） |
+| `slide_initial_hold_ticks` | `6` | 初速保持 tick |
+| `slide_decay_ticks` | `14` | 衰减 tick 数 |
+| `slide_end_speed_retain` | `0.85` | 结束时水平速度保留比例 |
+| `slide_min_sprint_ticks` | `5` | 起手前至少疾跑 tick |
+| `slide_tackler_speed_damp_on_contact` | `0.25` | 铲到人后自身速度保留比例 |
+| `slide_victim_push_speed` | `0.72` | 被铲瞬时推开速度 |
+| `slide_victim_resistance_ticks` | `12` | 被铲高阻力 tick |
+| `slide_victim_resistance_factor` | `0.35` | 高阻力每 tick 速度保留 |
+| `slide_victim_jump_block_ticks` | `14` | 被铲禁止起跳 tick |
+| `slide_ball_contact_grace_ticks` | `14` | 滑铲后与球碰撞豁免 tick |
+
+### `player_input.collision`（球↔人，非滑铲专用）
 
 | 字段 | 默认值 | 说明 |
 |------|--------|------|
@@ -462,11 +545,17 @@ v_new      = v_remain + v_forward * 0.15 + recoil
 | `player_ball_push_min_speed` | `0.06` | 玩家推球时，相对接近速度低于该值则不施加冲量 |
 | `player_ball_push_scale` | `0.35` | 玩家推球冲量 = 相对接近速度 × 该系数 |
 | `player_ball_push_max` | `0.55` | 玩家推球单次线速度增量上限（blocks/tick） |
-| `slide_tackler_speed_damp_on_contact` | `0.25` | 滑铲命中玩家后，滑铲者速度保留比例 |
-| `slide_victim_push_speed` | `0.72` | 被铲玩家瞬时推开速度 |
-| `slide_victim_resistance_ticks` | `12` | 被铲后高阻力持续 tick 数 |
-| `slide_victim_resistance_factor` | `0.35` | 高阻力期间每 tick 水平速度保留比例 |
-| `slide_victim_jump_block_ticks` | `14` | 被铲后禁止起跳持续 tick 数 |
+
+### `goalkeeper` 扑救扩展（`behavior` / `dive`）
+
+| 字段 | 默认 | 说明 |
+|------|------|------|
+| `dive_catch_max_speed` | `2.2` | 鱼跃/站立接球最大来球速度 |
+| `dive_close_range` | `2.5` | 近身判定水平距离阈值 |
+| `dive_high_ball_min_height` | `0.6` | 球心高于守门员眼高 + 该值（方块）时启用高球半角 |
+| `dive_high_ball_extra_half_angle_deg` | `25` | 高球时在 `dive_half_angle_deg` 上叠加的半角（度） |
+| `dive_close_vertical_below_feet` | `0.3` | 近身判定：允许球心在脚线以下该距离 |
+| `dive_close_vertical_above_head` | `1.8` | 近身判定：允许球心在头顶以上该距离 |
 
 调参建议：
 
@@ -474,6 +563,7 @@ v_new      = v_remain + v_forward * 0.15 + recoil
 - 若球撞人过“硬”，先降低 `ball_player_push_scale`，再考虑下调 `ball_player_restitution`。
 - 若带球仍偶发被自己球体挤动，可适当提高 `dribble_collision_grace_ticks`。
 - 若推球太“轻/重”，优先调 `player_ball_push_scale` 与 `player_ball_push_max`；球越“沉”可略增 `physics.mass`。
+- 滑铲体力：`entry + sustain` 不得超过 `slide_tackle_max_total_cost`；`entry` 亦为起手最低体力门槛。
 
 ### 玩家 ↔ 静止/慢速球（滚动推球）
 

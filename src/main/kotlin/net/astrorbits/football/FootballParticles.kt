@@ -316,7 +316,8 @@ object FootballParticles {
             burst.speed.toFloat(),
             burst.count,
         )
-        for (player in server.server.playerList.players) {
+        val players = server.server?.playerList?.players ?: return
+        for (player in players) {
             player.connection.send(packet)
         }
     }
@@ -325,6 +326,16 @@ object FootballParticles {
         val center = player.position().add(0.0, 0.2, 0.0)
         emitBurst(player.level(), center, cloudBurst(8, 0.04))
         emitBurst(player.level(), center, dustPuffBurst(7))
+    }
+
+    fun playBoostSprintTrail(player: ServerPlayer) {
+        val center = player.position().add(0.0, 0.13, 0.0)
+        val purpleDust = DustParticleOptions(0xFFCB11D4.toInt(), 1.5f)
+        emitBurst(
+            player.level(),
+            center,
+            ParticleBurst(purpleDust, 3, spreadX = 0.25, spreadY = 0.05, spreadZ = 0.25, speed = 0.02),
+        )
     }
 
     private fun emitBurst(level: Level, center: Vec3, burst: ParticleBurst) {

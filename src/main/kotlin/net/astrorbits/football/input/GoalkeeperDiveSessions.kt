@@ -121,16 +121,7 @@ object GoalkeeperDiveSessions {
             return
         }
 
-        val origin = player.position().add(0.0, player.eyeHeight * 0.5, 0.0)
-        val lookDirection = GoalkeeperUtil.resolveDiveDirection(player, useLookOnly = true)
-        if (!GoalkeeperUtil.isInDirectionalSector(
-                origin,
-                lookDirection,
-                GoalkeeperUtil.ballCenter(football),
-                range,
-                GoalkeeperInputConfig.GK_DIVE_HALF_ANGLE_DEG,
-            )
-        ) {
+        if (!GoalkeeperUtil.canDiveCatchBall(player, football, player.yRot, player.xRot, range)) {
             return
         }
 

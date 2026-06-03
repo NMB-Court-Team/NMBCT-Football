@@ -57,6 +57,8 @@ object FootballSounds {
     private val WHISTLE_4_EVENT = register("whistle_4")
     private val WHISTLE_5_EVENT = register("whistle_5")
     private val WHISTLE_6_EVENT = register("whistle_6")
+    private val BOOST_SPRINT_START_EVENT = register("player.boost_sprint.start")
+    private val BOOST_SPRINT_END_EVENT = register("player.boost_sprint.end")
 
     /**
      * 单次播放的音量与音高配置。
@@ -313,6 +315,9 @@ object FootballSounds {
     fun playGkDive(player: ServerPlayer) {
         play(player.level(), player.blockPosition(), GK_DIVE, player.random)
     }
+
+    val boostSprintStartEvent: SoundEvent get() = BOOST_SPRINT_START_EVENT
+    val boostSprintEndEvent: SoundEvent get() = BOOST_SPRINT_END_EVENT
 
     fun playGkPunch(player: ServerPlayer) {
         play(player.level(), player.blockPosition(), GK_PUNCH, player.random)

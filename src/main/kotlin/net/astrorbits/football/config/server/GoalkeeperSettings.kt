@@ -51,6 +51,12 @@ data class GoalkeeperDiveBehaviorSettings(
     val diveCatchMaxSpeed: Double = 2.2,
     val diveDeflectForceScale: Double = 0.6,
     val diveCatchRecoilMinSpeed: Double = 0.25,
+    val diveCatchOriginEyeScale: Double = 0.65,
+    val diveCloseRange: Double = 2.5,
+    val diveHighBallMinHeight: Double = 0.6,
+    val diveHighBallExtraHalfAngleDeg: Double = 25.0,
+    val diveCloseVerticalBelowFeet: Double = 0.3,
+    val diveCloseVerticalAboveHead: Double = 1.8,
 ) {
     companion object {
         val CODEC: Codec<GoalkeeperDiveBehaviorSettings> = RecordCodecBuilder.create { i ->
@@ -63,6 +69,18 @@ data class GoalkeeperDiveBehaviorSettings(
                 Codec.DOUBLE.fieldOf("dive_catch_max_speed").forGetter(GoalkeeperDiveBehaviorSettings::diveCatchMaxSpeed),
                 Codec.DOUBLE.fieldOf("dive_deflect_force_scale").forGetter(GoalkeeperDiveBehaviorSettings::diveDeflectForceScale),
                 Codec.DOUBLE.fieldOf("dive_catch_recoil_min_speed").forGetter(GoalkeeperDiveBehaviorSettings::diveCatchRecoilMinSpeed),
+                Codec.DOUBLE.optionalFieldOf("dive_catch_origin_eye_scale", 0.65)
+                    .forGetter(GoalkeeperDiveBehaviorSettings::diveCatchOriginEyeScale),
+                Codec.DOUBLE.optionalFieldOf("dive_close_range", 2.5)
+                    .forGetter(GoalkeeperDiveBehaviorSettings::diveCloseRange),
+                Codec.DOUBLE.optionalFieldOf("dive_high_ball_min_height", 0.6)
+                    .forGetter(GoalkeeperDiveBehaviorSettings::diveHighBallMinHeight),
+                Codec.DOUBLE.optionalFieldOf("dive_high_ball_extra_half_angle_deg", 25.0)
+                    .forGetter(GoalkeeperDiveBehaviorSettings::diveHighBallExtraHalfAngleDeg),
+                Codec.DOUBLE.optionalFieldOf("dive_close_vertical_below_feet", 0.3)
+                    .forGetter(GoalkeeperDiveBehaviorSettings::diveCloseVerticalBelowFeet),
+                Codec.DOUBLE.optionalFieldOf("dive_close_vertical_above_head", 1.8)
+                    .forGetter(GoalkeeperDiveBehaviorSettings::diveCloseVerticalAboveHead),
             ).apply(i, ::GoalkeeperDiveBehaviorSettings)
         }
 
@@ -164,6 +182,12 @@ data class GoalkeeperDiveSettings(
     val diveCatchMaxSpeed get() = behavior.diveCatchMaxSpeed
     val diveDeflectForceScale get() = behavior.diveDeflectForceScale
     val diveCatchRecoilMinSpeed get() = behavior.diveCatchRecoilMinSpeed
+    val diveCatchOriginEyeScale get() = behavior.diveCatchOriginEyeScale
+    val diveCloseRange get() = behavior.diveCloseRange
+    val diveHighBallMinHeight get() = behavior.diveHighBallMinHeight
+    val diveHighBallExtraHalfAngleDeg get() = behavior.diveHighBallExtraHalfAngleDeg
+    val diveCloseVerticalBelowFeet get() = behavior.diveCloseVerticalBelowFeet
+    val diveCloseVerticalAboveHead get() = behavior.diveCloseVerticalAboveHead
     val punchRange get() = actions.punchRange
     val punchForce get() = actions.punchForce
     val throwShortForce get() = actions.throwShortForce
@@ -217,6 +241,12 @@ data class GoalkeeperSettings(
     val diveCatchMaxSpeed get() = dive.diveCatchMaxSpeed
     val diveDeflectForceScale get() = dive.diveDeflectForceScale
     val diveCatchRecoilMinSpeed get() = dive.diveCatchRecoilMinSpeed
+    val diveCatchOriginEyeScale get() = dive.diveCatchOriginEyeScale
+    val diveCloseRange get() = dive.diveCloseRange
+    val diveHighBallMinHeight get() = dive.diveHighBallMinHeight
+    val diveHighBallExtraHalfAngleDeg get() = dive.diveHighBallExtraHalfAngleDeg
+    val diveCloseVerticalBelowFeet get() = dive.diveCloseVerticalBelowFeet
+    val diveCloseVerticalAboveHead get() = dive.diveCloseVerticalAboveHead
     val divePitch get() = dive.pitch
     val diveImpulse get() = dive.impulse
     val punchRange get() = dive.punchRange

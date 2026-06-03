@@ -3,6 +3,9 @@ package net.astrorbits.football.client.key
 import net.astrorbits.football.client.FootballOperabilityClient
 import net.astrorbits.football.client.GoalkeeperStateClient
 import net.astrorbits.football.client.SlideTackleStateClient
+import net.astrorbits.football.client.BoostSprintClient
+import net.astrorbits.football.client.DribbleBallIndicatorClient
+import net.astrorbits.football.client.StaminaClient
 import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.config.FootballConfigs
 import net.astrorbits.football.input.FootballInputConfig
@@ -29,6 +32,7 @@ object FootballInputHandler {
     private var kickRealtimePrevDown = false
     /** 按带球键打断鱼跃蓄力后，忽略本次 R 键松开触发的鱼跃。 */
     private var diveChargeCancelled = false
+    private var fullChargeHoldTicks = 0
 
     var shootChargeRatio: Float = 0f
         private set
@@ -110,6 +114,9 @@ object FootballInputHandler {
             }
 
             tickSprintCounter(player)
+            if (!GoalkeeperStateClient.isGoalkeeper) {
+                BoostSprintClient.tick(player)
+            }
 
             if (client.screen != null || client.isPaused) {
                 resetTransientState(player)
@@ -147,10 +154,9 @@ object FootballInputHandler {
 
     private fun handleOutfieldInput(player: LocalPlayer) {
         if (SlideTackleStateClient.isSliding(player.id)) {
-            // 滑铲时仅允许维持/结束滑铲输入，不发送其他主动球类动作。
             kickPressStartMs = null
             resetChargeDisplay()
-            dribbleTickCounter = 0
+            handleDribbleHold(player)
             handleSlideTacklePress(player)
             return
         }
@@ -178,9 +184,26 @@ object FootballInputHandler {
             }
         } else {
             tryInterruptDiveCharge()
+            tickGoalkeeperDiveChargeDrain(player)
             handleGoalkeeperDivePress(player)
             handleTrapPress(player, FootballActionType.GK_CATCH)
             handleChipPressGoalkeeper(player)
+        }
+    }
+
+    private fun tickGoalkeeperDiveChargeDrain(player: LocalPlayer) {
+        val sm = FootballConfigs.server.staminaMechanism
+        val display = liveKickChargeDisplay()
+        if (isGoalkeeperDiveChargeActive() && display != null && display.ratio >= 1f - 1e-4f) {
+            fullChargeHoldTicks++
+            if (fullChargeHoldTicks > sm.gkDiveFullChargeHoldDrainDelayTicks) {
+                sendAction(player, FootballActionType.GK_DIVE_CHARGE_DRAIN, 1f, 0L, 0)
+            }
+        } else {
+            fullChargeHoldTicks = 0
+        }
+        if (StaminaClient.stamina <= 0f && isGoalkeeperDiveChargeActive()) {
+            cancelDiveCharge()
         }
     }
 
@@ -223,9 +246,14 @@ object FootballInputHandler {
 
     private fun cancelDiveCharge() {
         diveChargeCancelled = true
+        fullChargeHoldTicks = 0
         kickPressStartMs = null
         kickReleaseHeldMsOverride = null
         resetChargeDisplay()
+        val player = net.minecraft.client.Minecraft.getInstance().player
+        if (player != null && GoalkeeperStateClient.isGoalkeeper && !GoalkeeperStateClient.isHoldingBall) {
+            sendAction(player, FootballActionType.GK_DIVE_CHARGE_CANCEL, 0f, 0L, 0)
+        }
     }
 
     /** 持球保护期间忽略开球/放下输入，并清除蓄力显示。 */
@@ -347,6 +375,7 @@ object FootballInputHandler {
         if (!FootballKeyBindings.DRIBBLE.isDown) {
             dribbleResumeBlocked = false
             if (dribblePrevTickPressed) {
+                DribbleBallIndicatorClient.onDribbleEnd()
                 sendAction(player, FootballActionType.DRIBBLE_END, 0f, 0L, 0)
             }
             dribbleTickCounter = 0
@@ -375,19 +404,24 @@ object FootballInputHandler {
 
     private fun handleSlideTacklePress(player: LocalPlayer) {
         val down = FootballKeyBindings.SLIDE_TACKLE.isDown
-        if (down && !slidePrevTickPressed && player.isSprinting && canSlideTackle()) {
+        val nowTick = player.level()?.gameTime ?: 0L
+        if (down && !slidePrevTickPressed && player.isSprinting && canSlideTackle(nowTick)) {
             resetSlideSprintTicks()
             sendAction(player, FootballActionType.SLIDE_TACKLE, 0f, 0L, buildFlags(player))
             return
         }
-        if (!down && slidePrevTickPressed) {
+        if (!down && slidePrevTickPressed && SlideTackleStateClient.isSliding(player.id)) {
             resetSlideSprintTicks()
             sendAction(player, FootballActionType.SLIDE_TACKLE_END, 0f, 0L, 0)
         }
     }
 
-    fun canSlideTackle(): Boolean =
-        consecutiveSprintTicks >= FootballInputConfig.SLIDE_MIN_SPRINT_TICKS
+    fun canSlideTackle(nowTick: Long = 0L): Boolean {
+        if (SlideTackleStateClient.isOnCooldown(nowTick)) {
+            return false
+        }
+        return consecutiveSprintTicks >= FootballInputConfig.SLIDE_MIN_SPRINT_TICKS
+    }
 
     fun resetSlideSprintTicks() {
         consecutiveSprintTicks = 0
@@ -488,6 +522,11 @@ object FootballInputHandler {
     }
 
     private fun sendDribbleAction(player: LocalPlayer, action: FootballActionType, flags: Int) {
+        if (action == FootballActionType.DRIBBLE_HOLD) {
+            DribbleBallIndicatorClient.onDribbleHold()
+        } else if (action == FootballActionType.DRIBBLE_END) {
+            DribbleBallIndicatorClient.onDribbleEnd()
+        }
         val lookYaw = if (LookAroundClient.active) {
             LookAroundClient.movementYaw(player)
         } else {
@@ -540,11 +579,14 @@ object FootballInputHandler {
         kickPressStartMs = null
         kickReleaseHeldMsOverride = null
         diveChargeCancelled = false
+        fullChargeHoldTicks = 0
         resetChargeDisplay()
         dribbleTickCounter = 0
         dribbleResumeBlocked = false
+        DribbleBallIndicatorClient.onDribbleEnd()
         resetSlideSprintTicks()
         wasSlidingLastTick = false
+        BoostSprintClient.reset()
     }
 
     private fun syncKickPressRealtimeClock() {

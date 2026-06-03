@@ -6,6 +6,7 @@ import dev.isxander.yacl3.api.YetAnotherConfigLib
 import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.config.client.FootballClientConfig
 import net.astrorbits.football.config.client.FootballClientConfigHolder
+import net.astrorbits.football.config.client.BoostSprintInputMode
 import net.astrorbits.football.config.client.GoalNetRenderMode
 import net.astrorbits.football.client.util.YaclOptionUtil.addDouble
 import net.astrorbits.football.client.util.YaclOptionUtil.addEnum
@@ -107,6 +108,15 @@ object FootballClientConfigScreen {
                                     { draft.dribbleHoldPacketInterval },
                                     { v -> draft = draft.copy(dribbleHoldPacketInterval = v) },
                                     1..20,
+                                )
+                                addEnum(
+                                    "yacl3.config.$MOD_ID.client.boost_sprint_input_mode",
+                                    "yacl3.config.$MOD_ID.client.boost_sprint_input_mode.desc",
+                                    BoostSprintInputMode::class.java,
+                                    BoostSprintInputMode.HOLD,
+                                    { draft.boostSprintInputMode },
+                                    { v -> draft = draft.copy(boostSprintInputMode = v) },
+                                    { mode -> Component.translatable(mode.translationKey) },
                                 )
                             }
                             .build(),
