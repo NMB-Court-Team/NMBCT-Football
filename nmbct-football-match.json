@@ -45,26 +45,25 @@
     },
     "half_area": {
       "goal_area_corner1": {
-        "x": 0.0,
-        "y": 64.0,
-        "z": 0.0
+        "x": -1.5,
+        "y": -60.0,
+        "z": 66.5
       },
       "goal_area_corner2": {
-        "x": 0.0,
-        "y": 64.0,
-        "z": 0.0
+        "x": 18.5,
+        "y": -60.0,
+        "z": 81.5
       },
       "penalty_area_corner1": {
-        "x": 0.0,
-        "y": 64.0,
-        "z": 0.0
+        "x": -11.5,
+        "y": -60.0,
+        "z": 55.5
       },
       "penalty_area_corner2": {
-        "x": 0.0,
-        "y": 64.0,
-        "z": 0.0
-      },
-      "penalty_arc_radius": 10.0
+        "x": 28.5,
+        "y": -60.0,
+        "z": 81.5
+      }
     }
   },
   "goal_b": {
@@ -99,26 +98,25 @@
     },
     "half_area": {
       "goal_area_corner1": {
-        "x": 0.0,
-        "y": 64.0,
-        "z": 0.0
+        "x": -1.5,
+        "y": -60.0,
+        "z": -64.5
       },
       "goal_area_corner2": {
-        "x": 0.0,
-        "y": 64.0,
-        "z": 0.0
+        "x": 18.5,
+        "y": -60.0,
+        "z": -49.5
       },
       "penalty_area_corner1": {
-        "x": 0.0,
-        "y": 64.0,
-        "z": 0.0
+        "x": -11.5,
+        "y": -60.0,
+        "z": -64.5
       },
       "penalty_area_corner2": {
-        "x": 0.0,
-        "y": 64.0,
-        "z": 0.0
-      },
-      "penalty_arc_radius": 10.0
+        "x": 28.5,
+        "y": -60.0,
+        "z": -38.5
+      }
     }
   },
   "sideline_a": {
@@ -131,12 +129,6 @@
     "axis": "z",
     "positive_inside": true
   },
-  "kick_off": {
-    "x": 8.5,
-    "y": -60.0,
-    "z": 8.5
-  },
-  "center_circle_radius": 10.0,
   "team_a_spawn": {
     "gk": {
       "x": 8.5,
