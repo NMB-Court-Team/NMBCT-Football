@@ -27,11 +27,20 @@ class MatchResultHudElement : HudElement {
             .ifBlank { MatchHudTeams.name(otherTeam) }
 
         val (resultKey, resultColor, accent) = when {
-            MatchResultClient.isDraw -> Triple(
+            MatchResultClient.isDraw && !MatchResultClient.wonByPenalties -> Triple(
                 "hud.nmbct-football.result.draw",
                 MatchEventBanner.ACCENT_DRAW,
                 MatchEventBanner.ACCENT_DRAW,
             )
+            MatchResultClient.wonByPenalties -> {
+                val myPen = if (myTeam == TeamSide.A) MatchResultClient.penaltyScoreA else MatchResultClient.penaltyScoreB
+                val otherPen = if (myTeam == TeamSide.A) MatchResultClient.penaltyScoreB else MatchResultClient.penaltyScoreA
+                if (myPen > otherPen) {
+                    Triple("hud.nmbct-football.result.win_penalties", MatchEventBanner.ACCENT_WIN, MatchEventBanner.ACCENT_WIN)
+                } else {
+                    Triple("hud.nmbct-football.result.loss_penalties", MatchEventBanner.ACCENT_LOSS, MatchEventBanner.ACCENT_LOSS)
+                }
+            }
             myScore > otherScore -> Triple(
                 "hud.nmbct-football.result.win",
                 MatchEventBanner.ACCENT_WIN,
@@ -54,14 +63,25 @@ class MatchResultHudElement : HudElement {
             resultText = Component.translatable(resultKey).string,
             resultColor = resultColor,
             accentColor = accent,
-            scoreRow = MatchEventBanner.ScoreRow(
-                nameA = myName,
-                scoreA = myScore,
-                nameB = otherName,
-                scoreB = otherScore,
-                colorA = MatchEventBanner.teamColor(myTeam),
-                colorB = MatchEventBanner.teamColor(otherTeam),
-            ),
+            scoreRow = if (MatchResultClient.wonByPenalties) {
+                MatchEventBanner.ScoreRow(
+                    nameA = myName,
+                    scoreA = if (myTeam == TeamSide.A) MatchResultClient.penaltyScoreA else MatchResultClient.penaltyScoreB,
+                    nameB = otherName,
+                    scoreB = if (myTeam == TeamSide.A) MatchResultClient.penaltyScoreB else MatchResultClient.penaltyScoreA,
+                    colorA = MatchEventBanner.teamColor(myTeam),
+                    colorB = MatchEventBanner.teamColor(otherTeam),
+                )
+            } else {
+                MatchEventBanner.ScoreRow(
+                    nameA = myName,
+                    scoreA = myScore,
+                    nameB = otherName,
+                    scoreB = otherScore,
+                    colorA = MatchEventBanner.teamColor(myTeam),
+                    colorB = MatchEventBanner.teamColor(otherTeam),
+                )
+            },
         )
     }
 }

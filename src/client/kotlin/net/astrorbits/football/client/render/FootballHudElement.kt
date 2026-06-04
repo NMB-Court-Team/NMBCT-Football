@@ -1,6 +1,8 @@
 package net.astrorbits.football.client.render
 
+import net.astrorbits.football.client.match.PenaltyShootoutClient
 import net.astrorbits.football.client.util.FootballHudVisibility
+import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.MatchState
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
@@ -49,6 +51,25 @@ class FootballHudElement : HudElement {
         cx += drawScore(extra, font, scoreB, cx, cy)
         cx += GAP
         drawName(extra, font, teamB, cx, cy, CYAN, false)
+
+        // ── 点球比分（正赛比分下方）──
+        if (MatchState.currentPhase == MatchPhase.PENALTIES && PenaltyShootoutClient.active) {
+            val penLabel = Component.translatable("hud.nmbct-football.penalty.score_label").visualOrderText
+            val penA = Component.literal(PenaltyShootoutClient.penaltyScoreA.toString()).visualOrderText
+            val penB = Component.literal(PenaltyShootoutClient.penaltyScoreB.toString()).visualOrderText
+            val penPanelW = PEN_PAD + font.width(penLabel) + PEN_GAP + S_W + PEN_GAP + D_W + PEN_GAP + S_W + PEN_PAD
+            val penY = if (MatchState.isStoppagePhase()) ST_Y + ST_H + 4 else Y + H + 4
+            val penCy = penY + PEN_H / 2 - font.lineHeight / 2
+            extra.fill(X, penY, X + penPanelW, penY + PEN_H, PEN_BAR)
+            var penCx = X + PEN_PAD
+            extra.text(font, penLabel, penCx, penCy, PEN_TEXT, true)
+            penCx += font.width(penLabel) + PEN_GAP
+            penCx += drawScore(extra, font, penA, penCx, penCy)
+            penCx += PEN_GAP
+            extra.text(font, SEP, penCx + D_W / 2 - font.width(SEP) / 2, penCy, DIM, true)
+            penCx += D_W + PEN_GAP
+            drawScore(extra, font, penB, penCx, penCy)
+        }
 
         // ── 补时面板 ──
         if (MatchState.isStoppagePhase()) {
@@ -101,6 +122,12 @@ class FootballHudElement : HudElement {
         // 补时面板
         private const val ST_Y = 32; private const val ST_H = 18
         private const val ST_PAD = 10; private const val ST_P_W = 24; private const val ST_T_W = 90; private const val ST_GAP = 6
+
+        private const val PEN_H = 18
+        private const val PEN_PAD = 10
+        private const val PEN_GAP = 6
+        private const val PEN_BAR = 0xDD221133.toInt()
+        private const val PEN_TEXT = 0xFFFFAA44.toInt()
 
         // 颜色
         private const val BAR = 0xDD111122.toInt()

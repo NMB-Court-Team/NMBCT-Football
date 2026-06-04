@@ -88,6 +88,7 @@ object MatchFieldConfigScreen {
                     .build(),
             )
             .group(kickPointGroup(ctx, side, "screen.nmbct-football.field.gk_kick_header", getter, setter, { it.goalKick }, { g, k -> g.copy(goalKick = k) }))
+            .group(kickPointGroup(ctx, side, "screen.nmbct-football.field.penalty_spot_header", getter, setter, { g -> g.penaltySpot ?: KickPosition.DEFAULT }, { g, k -> g.copy(penaltySpot = k) }))
             .group(kickPointGroup(ctx, side, "screen.nmbct-football.field.cl_kick_header", getter, setter, { it.cornerKickLeft }, { g, k -> g.copy(cornerKickLeft = k) }))
             .group(kickPointGroup(ctx, side, "screen.nmbct-football.field.cr_kick_header", getter, setter, { it.cornerKickRight }, { g, k -> g.copy(cornerKickRight = k) }))
             .build()
@@ -150,6 +151,7 @@ object MatchFieldConfigScreen {
 
     private fun headerSuffix(headerKey: String): String = when {
         headerKey.contains("gk_kick") -> "gk"
+        headerKey.contains("penalty_spot") -> "penalty"
         headerKey.contains("cl_kick") -> "cl"
         headerKey.contains("cr_kick") -> "cr"
         else -> "kick"

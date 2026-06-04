@@ -1,0 +1,43 @@
+package net.astrorbits.football.client.match
+
+import net.astrorbits.football.match.TeamSide
+
+object PenaltyKickClient {
+    private const val DURATION_MS = 3500L
+
+    var startTimeMs: Long = 0L; private set
+    var kickerTeam: TeamSide = TeamSide.A; private set
+    var kickerName: String = ""; private set
+    var penaltyScoreA: Int = 0; private set
+    var penaltyScoreB: Int = 0; private set
+    var kickNumber: Int = 0; private set
+    var suddenDeath: Boolean = false; private set
+    var teamAName: String = ""; private set
+    var teamBName: String = ""; private set
+
+    val isActive: Boolean
+        get() = startTimeMs > 0 && (System.currentTimeMillis() - startTimeMs) < DURATION_MS
+
+    val elapsedMs: Long get() = if (startTimeMs > 0) System.currentTimeMillis() - startTimeMs else 0L
+
+    fun show(
+        kickerTeam: TeamSide,
+        kickerName: String,
+        penaltyScoreA: Int,
+        penaltyScoreB: Int,
+        kickNumber: Int,
+        suddenDeath: Boolean,
+        teamAName: String,
+        teamBName: String,
+    ) {
+        this.kickerTeam = kickerTeam
+        this.kickerName = kickerName
+        this.penaltyScoreA = penaltyScoreA
+        this.penaltyScoreB = penaltyScoreB
+        this.kickNumber = kickNumber
+        this.suddenDeath = suddenDeath
+        this.teamAName = teamAName
+        this.teamBName = teamBName
+        startTimeMs = System.currentTimeMillis()
+    }
+}

@@ -7,6 +7,8 @@ enum class TeamSide {
     A,
     B;
 
+    fun opponent(): TeamSide = if (this == A) B else A
+
     companion object {
         val STREAM_CODEC: StreamCodec<FriendlyByteBuf, TeamSide> = StreamCodec.of(
             { buf, v -> buf.writeEnum(v) },

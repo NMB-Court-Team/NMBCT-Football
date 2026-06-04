@@ -107,6 +107,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             }
         }
 
+    /** 物理线速度（服务端判例/静止检测；客户端为同步值）。 */
+    fun simulationVelocity(): Vec3 = physicsState.linearVelocity
+
     /** 指定玩家是否被禁止以任何方式移动此球（传送除外）。含开球锁定与复位延迟。 */
     fun isPlayerBallMovementForbidden(player: Player): Boolean {
         if (immovableTargetPlayers.contains(player.uuid)) return true
@@ -480,6 +483,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     /** 主动踢球：重置进球归属链（含滑铲推球）。 */
     fun recordActiveKick(player: ServerPlayer, kickDirection: Vec3?) {
+        if (MatchState.currentPhase == MatchPhase.PENALTIES) {
+            PenaltyShootoutState.onKickerTouchedBall(player, this)
+        }
         lastPhysicalTouch = player.uuid
         setGoalAttribution(player)
         val ballCenter = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
@@ -701,11 +707,16 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (MatchState.currentPhase == MatchPhase.PRE_MATCH || MatchState.currentPhase == MatchPhase.FINISHED) return
         if (MatchState.postGoalResetPending) return
 
-        val config = MatchConfigHolder.current
         val radius = FootballPhysicsConfig.RADIUS
         val prevCenter = prevPos.add(0.0, radius, 0.0)
         val currCenter = currPos.add(0.0, radius, 0.0)
 
+        if (MatchState.currentPhase == MatchPhase.PENALTIES) {
+            detectPenaltyKick(prevCenter, currCenter)
+            return
+        }
+
+        val config = MatchConfigHolder.current
         // 球门 A 由 A 队防守，球入门则 B 队得分；出底线则视触球方判角球/球门球
         checkGoalOrOut(config.goalA, prevCenter, currCenter, TeamSide.A, TeamSide.B)
         // 球门 B 由 B 队防守，球入门则 A 队得分
@@ -713,6 +724,17 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         // 边线出界
         checkSidelineOut(config.sidelineA, prevCenter, currCenter)
         checkSidelineOut(config.sidelineB, prevCenter, currCenter)
+    }
+
+    private fun detectPenaltyKick(prevCenter: Vec3, currCenter: Vec3) {
+        if (!PenaltyShootoutState.isActive()) return
+        val goal = PenaltyShootoutState.defendingGoal()
+        val defending = PenaltyShootoutState.activeDefendingTeam
+        val attacking = defending.opponent()
+        val crossing = GoalCrossingUtil.segmentCrossesGoalLine(
+            goal, prevCenter, currCenter, defending, attacking,
+        ) ?: return
+        PenaltyShootoutState.onGoalLineCrossing(crossing)
     }
 
     /** 检测球是否穿越边线出界 */

@@ -593,5 +593,14 @@
     "match.phase.extra_second": "Extra 2nd",
     "match.phase.extra_second_et": "Extra 2nd ET",
     "match.phase.penalties": "Penalties",
+    "match.penalty.toss": "Penalties at %s's goal; %s kicks first",
+    "match.penalty.sudden_death": "Sudden death",
+    "command.nmbct-football.match.phase.penalties_not_tied": "Match is not tied; cannot start penalty shootout",
+    "hud.nmbct-football.penalty.score_label": "Pens",
+    "hud.nmbct-football.penalty.kick_round": "Penalty kick %s",
+    "hud.nmbct-football.penalty.kick_sudden_death": "Sudden death kick %s",
+    "hud.nmbct-football.result.win_penalties": "Won on penalties",
+    "hud.nmbct-football.result.loss_penalties": "Lost on penalties",
+    "screen.nmbct-football.field.penalty_spot_header": "Penalty spot",
     "match.phase.finished": "Full Time"
 }

@@ -9,6 +9,7 @@ import net.astrorbits.football.match.MatchKickoffTiming
 import net.astrorbits.football.match.MatchConfig
 import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.match.MatchPhase
+import net.astrorbits.football.match.PenaltyShootoutState
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.match.TeamSide
@@ -65,6 +66,8 @@ object FootballNetworking {
         registry.register(MatchHudDebugS2CPayload.TYPE, MatchHudDebugS2CPayload.CODEC)
         registry.register(MatchTimerSyncS2CPayload.TYPE, MatchTimerSyncS2CPayload.CODEC)
         registry.register(StaminaSyncS2CPayload.TYPE, StaminaSyncS2CPayload.CODEC)
+        registry.register(PenaltyShootoutSyncS2CPayload.TYPE, PenaltyShootoutSyncS2CPayload.CODEC)
+        registry.register(PenaltyKickStartS2CPayload.TYPE, PenaltyKickStartS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -112,8 +115,24 @@ object FootballNetworking {
                 val server = context.server()
                 val nameA = MatchState.getTeamName(TeamSide.A).string
                 val nameB = MatchState.getTeamName(TeamSide.B).string
-                val isDraw = MatchState.teamAScore == MatchState.teamBScore
-                broadcastMatchResult(server, MatchState.teamAScore, MatchState.teamBScore, nameA, nameB, isDraw)
+                val winner = PenaltyShootoutState.lastWinner
+                if (winner != null) {
+                    broadcastMatchResult(
+                        server,
+                        MatchState.teamAScore,
+                        MatchState.teamBScore,
+                        nameA,
+                        nameB,
+                        isDraw = false,
+                        wonByPenalties = true,
+                        penaltyScoreA = PenaltyShootoutState.penaltyScoreA,
+                        penaltyScoreB = PenaltyShootoutState.penaltyScoreB,
+                        penaltyWinner = winner,
+                    )
+                } else {
+                    val isDraw = MatchState.teamAScore == MatchState.teamBScore
+                    broadcastMatchResult(server, MatchState.teamAScore, MatchState.teamBScore, nameA, nameB, isDraw)
+                }
             }
         }
         ServerPlayNetworking.registerGlobalReceiver(BoostSprintToggleC2SPayload.TYPE) { payload, context ->
@@ -156,11 +175,13 @@ object FootballNetworking {
                     if (remaining <= 0) {
                         val next = MatchState.getNextPhaseForAutoAdvance()
                         if (next != null) {
-                            MatchState.setPhase(next)
+                            MatchState.setPhase(next, server)
                         }
                     }
                 }
             }
+
+            PenaltyShootoutState.tick(server)
 
             MatchState.tickKickoffWhistles(server)
             MatchState.tickDynamicStoppageAccumulation()
@@ -239,9 +260,66 @@ object FootballNetworking {
         }
     }
 
-    fun broadcastMatchResult(server: MinecraftServer, teamAScore: Int, teamBScore: Int, teamAName: String, teamBName: String, isDraw: Boolean) {
-        FootballSounds.playMatchWhistle(server, 2)
-        val payload = MatchResultS2CPayload(teamAScore, teamBScore, teamAName, teamBName, isDraw)
+    fun broadcastMatchResult(
+        server: MinecraftServer,
+        teamAScore: Int,
+        teamBScore: Int,
+        teamAName: String,
+        teamBName: String,
+        isDraw: Boolean,
+        wonByPenalties: Boolean = false,
+        penaltyScoreA: Int = 0,
+        penaltyScoreB: Int = 0,
+        penaltyWinner: TeamSide? = null,
+    ) {
+        if (!wonByPenalties) {
+            FootballSounds.playMatchWhistle(server, 2)
+        }
+        val payload = MatchResultS2CPayload(
+            teamAScore, teamBScore, teamAName, teamBName, isDraw,
+            wonByPenalties, penaltyScoreA, penaltyScoreB, penaltyWinner,
+        )
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun broadcastPenaltyShootoutSync(server: MinecraftServer) {
+        val kickerName = PenaltyShootoutState.currentKickerUuid?.let { uuid ->
+            server.playerList.getPlayer(uuid)?.gameProfile?.name
+        } ?: ""
+        val payload = PenaltyShootoutSyncS2CPayload(
+            active = PenaltyShootoutState.isActive(),
+            penaltyScoreA = PenaltyShootoutState.penaltyScoreA,
+            penaltyScoreB = PenaltyShootoutState.penaltyScoreB,
+            suddenDeath = PenaltyShootoutState.suddenDeath,
+            totalKicksTaken = PenaltyShootoutState.totalKicksTaken,
+            currentKickerTeam = PenaltyShootoutState.currentKickerTeam,
+            kickerName = kickerName,
+            kickPhase = PenaltyShootoutState.kickPhase,
+            activeDefendingTeam = PenaltyShootoutState.activeDefendingTeam,
+            firstKickTeam = PenaltyShootoutState.firstKickTeam,
+        )
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun broadcastPenaltyKickStart(server: MinecraftServer) {
+        val kickerName = PenaltyShootoutState.currentKickerUuid?.let { uuid ->
+            server.playerList.getPlayer(uuid)?.gameProfile?.name
+        } ?: "?"
+        val cfg = MatchConfigHolder.current
+        val payload = PenaltyKickStartS2CPayload(
+            kickerTeam = PenaltyShootoutState.currentKickerTeam,
+            kickerName = kickerName,
+            penaltyScoreA = PenaltyShootoutState.penaltyScoreA,
+            penaltyScoreB = PenaltyShootoutState.penaltyScoreB,
+            kickNumber = PenaltyShootoutState.totalKicksTaken + 1,
+            suddenDeath = PenaltyShootoutState.suddenDeath,
+            teamAName = cfg.teamAName,
+            teamBName = cfg.teamBName,
+        )
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
         }

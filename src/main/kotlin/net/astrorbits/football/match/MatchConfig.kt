@@ -2,6 +2,7 @@ package net.astrorbits.football.match
 
 import com.mojang.serialization.Codec
 import com.mojang.serialization.codecs.RecordCodecBuilder
+import java.util.Optional
 
 /** 出生点坐标 */
 data class SpawnPosition(
@@ -118,6 +119,8 @@ data class GoalConfig(
     val goalKick: KickPosition = KickPosition.DEFAULT,
     val cornerKickLeft: KickPosition = KickPosition.DEFAULT,
     val cornerKickRight: KickPosition = KickPosition.DEFAULT,
+    /** 点球点；缺省时由门线沿 facing 反方向 11 格推导。 */
+    val penaltySpot: KickPosition? = null,
 ) {
     companion object {
         val CODEC: Codec<GoalConfig> = RecordCodecBuilder.create { i ->
@@ -134,7 +137,11 @@ data class GoalConfig(
                 KickPosition.CODEC.optionalFieldOf("goal_kick", KickPosition.DEFAULT).forGetter(GoalConfig::goalKick),
                 KickPosition.CODEC.optionalFieldOf("corner_kick_left", KickPosition.DEFAULT).forGetter(GoalConfig::cornerKickLeft),
                 KickPosition.CODEC.optionalFieldOf("corner_kick_right", KickPosition.DEFAULT).forGetter(GoalConfig::cornerKickRight),
-            ).apply(i, ::GoalConfig)
+                KickPosition.CODEC.optionalFieldOf("penalty_spot")
+                    .forGetter { Optional.ofNullable(it.penaltySpot) },
+            ).apply(i) { x1, y1, z1, x2, y2, z2, fx, fy, fz, gk, cl, cr, pen ->
+                GoalConfig(x1, y1, z1, x2, y2, z2, fx, fy, fz, gk, cl, cr, pen.orElse(null))
+            }
         }
 
         val DEFAULT = GoalConfig()

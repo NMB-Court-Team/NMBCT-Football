@@ -135,6 +135,7 @@ object MatchState {
         postGoalResetPending = false
         clearDirectGoalRestriction()
         PlayerRoleState.reset()
+        PenaltyShootoutState.clear()
     }
 
     fun beginThrowInDirectGoalRestriction() {
@@ -187,6 +188,12 @@ object MatchState {
     }
 
     fun isKickoffInteractionLocked(player: ServerPlayer): Boolean {
+        if (PenaltyShootoutState.isPenaltyMovementRestricted(player)) {
+            return true
+        }
+        if (currentPhase == MatchPhase.PENALTIES && !PenaltyShootoutState.isPenaltyFootballInteractionAllowed(player)) {
+            return true
+        }
         val phaseActive = KickoffLock.isKickoffPhaseActive(kickoffTeam, kickoffTouched, kickoffTimerStartMs)
         val elapsed = if (phaseActive) System.currentTimeMillis() - kickoffTimerStartMs else 0L
         return KickoffLock.isPlayerLocked(
@@ -449,13 +456,17 @@ object MatchState {
             || currentPhase == MatchPhase.EXTRA_FIRST_ET || currentPhase == MatchPhase.EXTRA_SECOND_ET
     }
 
-    fun advancePhase(): MatchPhase {
+    fun advancePhase(server: MinecraftServer? = null): MatchPhase {
         val next = currentPhase.next ?: return currentPhase
-        setPhase(next)
+        setPhase(next, server)
         return next
     }
 
-    fun setPhase(phase: MatchPhase) {
+    fun setPhase(phase: MatchPhase, server: MinecraftServer? = null) {
+        val wasPenalties = currentPhase == MatchPhase.PENALTIES
+        if (wasPenalties && phase != MatchPhase.PENALTIES && phase != MatchPhase.FINISHED) {
+            PenaltyShootoutState.clear()
+        }
         currentPhase = phase
         stoppageTimerTicks = 0
         // 进入新半场时清零动态补时
@@ -507,7 +518,10 @@ object MatchState {
             MatchPhase.PENALTIES -> 0
             MatchPhase.FINISHED -> timerTicks
         }
-        isRunning = phase != MatchPhase.PRE_MATCH && phase != MatchPhase.FINISHED
+        isRunning = phase != MatchPhase.PRE_MATCH && phase != MatchPhase.FINISHED && phase != MatchPhase.PENALTIES
+        if (phase == MatchPhase.PENALTIES && server != null && teamAScore == teamBScore) {
+            PenaltyShootoutState.start(server)
+        }
     }
 
     /** 根据当前阶段和配置自动判断下一步应该进入什么阶段 */

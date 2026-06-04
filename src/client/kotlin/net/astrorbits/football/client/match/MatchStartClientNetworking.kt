@@ -9,6 +9,8 @@ import net.astrorbits.football.network.GoalLineOutS2CPayload
 import net.astrorbits.football.network.MatchResultS2CPayload
 import net.astrorbits.football.network.MatchHudDebugS2CPayload
 import net.astrorbits.football.network.MatchTimerSyncS2CPayload
+import net.astrorbits.football.network.PenaltyKickStartS2CPayload
+import net.astrorbits.football.network.PenaltyShootoutSyncS2CPayload
 import net.astrorbits.football.network.PostGoalKickoffS2CPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.Minecraft
@@ -46,6 +48,37 @@ object MatchStartClientNetworking {
             Minecraft.getInstance().execute {
                 MatchState.reset()
                 MatchStartClient.reset()
+                PenaltyShootoutClient.reset()
+            }
+        }
+        ClientPlayNetworking.registerGlobalReceiver(PenaltyShootoutSyncS2CPayload.TYPE) { payload, _ ->
+            Minecraft.getInstance().execute {
+                PenaltyShootoutClient.sync(
+                    payload.active,
+                    payload.penaltyScoreA,
+                    payload.penaltyScoreB,
+                    payload.suddenDeath,
+                    payload.totalKicksTaken,
+                    payload.currentKickerTeam,
+                    payload.kickerName,
+                    payload.kickPhase,
+                    payload.activeDefendingTeam,
+                    payload.firstKickTeam,
+                )
+            }
+        }
+        ClientPlayNetworking.registerGlobalReceiver(PenaltyKickStartS2CPayload.TYPE) { payload, _ ->
+            Minecraft.getInstance().execute {
+                PenaltyKickClient.show(
+                    payload.kickerTeam,
+                    payload.kickerName,
+                    payload.penaltyScoreA,
+                    payload.penaltyScoreB,
+                    payload.kickNumber,
+                    payload.suddenDeath,
+                    payload.teamAName,
+                    payload.teamBName,
+                )
             }
         }
         ClientPlayNetworking.registerGlobalReceiver(HalfKickoffS2CPayload.TYPE) { payload, _ ->
@@ -71,9 +104,15 @@ object MatchStartClientNetworking {
         ClientPlayNetworking.registerGlobalReceiver(MatchResultS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
                 MatchResultClient.show(
-                    payload.teamAScore, payload.teamBScore,
-                    payload.teamAName, payload.teamBName,
+                    payload.teamAScore,
+                    payload.teamBScore,
+                    payload.teamAName,
+                    payload.teamBName,
                     payload.isDraw,
+                    payload.wonByPenalties,
+                    payload.penaltyScoreA,
+                    payload.penaltyScoreB,
+                    payload.penaltyWinner,
                 )
             }
         }

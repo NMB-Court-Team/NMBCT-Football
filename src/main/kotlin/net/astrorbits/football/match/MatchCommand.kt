@@ -21,7 +21,7 @@ object MatchCommand {
 			MatchState.teleportTeamsToSpawnPositions(it.source.server)
 			val kickoff = TeamSide.entries.random()
 			MatchState.broadcastMatchStart(it.source.server, kickoff)
-			MatchState.advancePhase()
+			MatchState.advancePhase(it.source.server)
 			1
 		})
 
@@ -157,7 +157,7 @@ object MatchCommand {
 
 		// /match phase advance — advance to next phase (no chat message)
 		phaseCmd.then(Commands.literal("advance").executes {
-			MatchState.advancePhase()
+			MatchState.advancePhase(it.source.server)
 			1
 		})
 
@@ -165,7 +165,13 @@ object MatchCommand {
 		val setCmd = Commands.literal("set")
 		for (phase in MatchPhase.entries) {
 			setCmd.then(Commands.literal(phase.name).executes { ctx ->
-				MatchState.setPhase(phase)
+				if (phase == MatchPhase.PENALTIES && MatchState.teamAScore != MatchState.teamBScore) {
+					ctx.source.sendFailure(
+						Component.translatable("command.nmbct-football.match.phase.penalties_not_tied"),
+					)
+					return@executes 0
+				}
+				MatchState.setPhase(phase, ctx.source.server)
 				ctx.source.sendSuccess(
 					{
 						Component.translatable(

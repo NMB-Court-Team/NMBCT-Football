@@ -207,7 +207,7 @@ flowchart TB
 | `SECOND_HALF_ET` | 下半场补时 |
 | `EXTRA_FIRST` / `EXTRA_FIRST_ET` | 加时上半场及补时 |
 | `EXTRA_SECOND` / `EXTRA_SECOND_ET` | 加时下半场及补时 |
-| `PENALTIES` | 点球大战（**仅占位阶段**，无点球逻辑实现） |
+| `PENALTIES` | 点球大战（见 [PENALTY_SHOOTOUT.md](./PENALTY_SHOOTOUT.md)） |
 | `FINISHED` | 比赛结束 |
 
 ### 主计时与补时
@@ -556,7 +556,7 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 
 ## 当前限制与扩展点
 
-1. **`PENALTIES` 阶段**：配置与阶段链已预留，但**没有**点球罚球、轮流主罚等玩法实现；进入后需人工 `/match phase advance` 或等待后续开发。
+1. **点球大战**：MVP 已实现（见 [PENALTY_SHOOTOUT.md](./PENALTY_SHOOTOUT.md)）；主罚顺序、红牌剔除、人数不均等见该文档 Backlog。
 2. **全局 `MatchState`**：同一服务器同时只能进行一场「逻辑比赛」；多赛场需自行约定或未来拆分状态。
 3. **动态补时**：由客户端写入 `MatchState.dynamicStoppageTicks`，无专用服务端校验；无人参赛客户端时可能不累积补时。
 4. **界外球**：边线出界统一为 `THROW_IN`，延迟后球回到中圈开球点，无掷界外球动画或边线落点；开球后适用直接进球限制。
