@@ -115,6 +115,7 @@
     "command.nmbct-football.match.timer_paused": "计时已暂停",
     "command.nmbct-football.match.debug_hud": "正在依次预览进球/出界/半场/结算 HUD（约 18 秒）",
     "command.nmbct-football.match.reset": "比赛已重置",
+    "command.nmbct-football.match.start_no_playable_duration": "无法开始比赛：半场与加时均为 0（或未启用加时），且未启用点球大战",
     "command.nmbct-football.match.score_a": "队伍A得分: %s",
     "command.nmbct-football.match.score_b": "队伍B得分: %s",
     "command.nmbct-football.match.name_a": "队伍A名称: %s",

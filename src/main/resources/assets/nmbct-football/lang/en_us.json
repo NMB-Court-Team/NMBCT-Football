@@ -115,6 +115,7 @@
     "command.nmbct-football.match.timer_paused": "Timer paused",
     "command.nmbct-football.match.debug_hud": "Playing goal/out/half/result HUD previews (~18s)",
     "command.nmbct-football.match.reset": "Match reset",
+    "command.nmbct-football.match.start_no_playable_duration": "Cannot start match: half and extra time are both zero (or extra time disabled), and penalty shootout is disabled",
     "command.nmbct-football.match.score_a": "Team A score: %s",
     "command.nmbct-football.match.score_b": "Team B score: %s",
     "command.nmbct-football.match.name_a": "Team A name: %s",

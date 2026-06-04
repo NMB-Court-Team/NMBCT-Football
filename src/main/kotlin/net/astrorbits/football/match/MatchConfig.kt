@@ -180,6 +180,10 @@ data class MatchConfig(
     val enablePenaltyShootout: Boolean get() = rules.enablePenaltyShootout
     val postGoalBallResetDelaySeconds: Int get() = rules.postGoalBallResetDelaySeconds
 
+    fun startsWithPenaltyShootout(): Boolean = rules.startsWithPenaltyShootout()
+
+    fun hasNoPlayableDuration(): Boolean = rules.hasNoPlayableDuration()
+
     companion object {
         const val DEFAULT_TEAM_A_NAME = "红队"
         const val DEFAULT_TEAM_B_NAME = "蓝队"

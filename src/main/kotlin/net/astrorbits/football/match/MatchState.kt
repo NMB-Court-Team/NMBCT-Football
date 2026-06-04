@@ -47,6 +47,26 @@ object MatchState {
     var lastHalfKickoffTeam: TeamSide? = null
     /** 进球或出界后、等待延迟复位期间为 true，防止重复判例。 */
     var postGoalResetPending: Boolean = false
+    /**
+     * 门柱外侧穿越门线后的短暂确认：若球随后弹入球门则改判进球，避免打框进门被判出界。
+     */
+    var pendingGoalLineOut: PendingGoalLineOut? = null
+
+    data class PendingGoalLineOut(
+        val goal: GoalConfig,
+        val ballPos: Vec3,
+        val restartTeam: TeamSide,
+        val outType: GoalLineOutType,
+        val defendingTeam: TeamSide,
+        val attackingTeam: TeamSide,
+        var ticksRemaining: Int = GOAL_LINE_OUT_CONFIRM_TICKS,
+    )
+
+    private const val GOAL_LINE_OUT_CONFIRM_TICKS = 10
+
+    fun clearPendingGoalLineOut() {
+        pendingGoalLineOut = null
+    }
     /** 掷界外球（出边线）开球后：须先由其他球员获得进球归属，否则直接进门无效。 */
     var directGoalRestricted: Boolean = false
     private var directGoalInitialAttribution: UUID? = null
@@ -133,6 +153,7 @@ object MatchState {
         halfKickoffBroadcasted = false
         lastHalfKickoffTeam = null
         postGoalResetPending = false
+        clearPendingGoalLineOut()
         clearDirectGoalRestriction()
         PlayerRoleState.reset()
         PenaltyShootoutState.clear()
@@ -308,6 +329,27 @@ object MatchState {
     /** 清除场上所有足球并在指定位置放置一个新足球。 */
     fun resetFootballAt(level: ServerLevel, pos: Vec3) {
         resetFootball(level, pos)
+    }
+
+    /** 开赛：常规流程或配置为 0 分钟且无加时时直接进入点球大战。配置无效时返回 false。 */
+    fun beginMatch(server: MinecraftServer, level: ServerLevel): Boolean {
+        if (MatchConfigHolder.current.hasNoPlayableDuration()) {
+            return false
+        }
+        PlayerRoleState.randomAssignGoalkeepers(server)
+        resetFootball(level)
+        teleportTeamsToSpawnPositions(server)
+        val cfg = MatchConfigHolder.current
+        if (cfg.startsWithPenaltyShootout()) {
+            StaminaState.onMatchStart(server)
+            setPhase(MatchPhase.PENALTIES, server)
+            FootballNetworking.syncTimerToClients(server)
+            return true
+        }
+        val kickoff = TeamSide.entries.random()
+        broadcastMatchStart(server, kickoff)
+        advancePhase(server)
+        return true
     }
 
     /** 向双方在线队员广播比赛开始 HUD 信息。 */

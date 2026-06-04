@@ -744,6 +744,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
 
         val config = MatchConfigHolder.current
+        if (tickPendingGoalLineOut(prevCenter, currCenter)) {
+            return
+        }
         // 球门 A 由 A 队防守，球入门则 B 队得分；出底线则视触球方判角球/球门球
         checkGoalOrOut(config.goalA, prevCenter, currCenter, TeamSide.A, TeamSide.B)
         // 球门 B 由 B 队防守，球入门则 A 队得分
@@ -751,6 +754,39 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         // 边线出界
         checkSidelineOut(config.sidelineA, prevCenter, currCenter)
         checkSidelineOut(config.sidelineB, prevCenter, currCenter)
+    }
+
+    /**
+     * 门柱外侧底线出界待确认：若数 tick 内球心进入门框则改判进球。
+     * @return 本 tick 已处理完毕（进球或已确认出界），不再做常规门线检测
+     */
+    private fun tickPendingGoalLineOut(prevCenter: Vec3, currCenter: Vec3): Boolean {
+        val pending = MatchState.pendingGoalLineOut ?: return false
+        if (GoalCrossingUtil.isCenterInGoal(pending.goal, currCenter)) {
+            MatchState.clearPendingGoalLineOut()
+            checkGoalOrOut(
+                pending.goal,
+                prevCenter,
+                currCenter,
+                pending.defendingTeam,
+                pending.attackingTeam,
+            )
+            return true
+        }
+        pending.ticksRemaining--
+        if (pending.ticksRemaining > 0) {
+            return true
+        }
+        MatchState.clearPendingGoalLineOut()
+        val server = (level() as? ServerLevel)?.server ?: return true
+        scheduleOutOfBoundsRestart(
+            level() as ServerLevel,
+            server,
+            pending.ballPos,
+            pending.restartTeam,
+            pending.outType,
+        )
+        return true
     }
 
     private fun detectPenaltyKick(prevCenter: Vec3, currCenter: Vec3) {
@@ -761,7 +797,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val crossing = GoalCrossingUtil.segmentCrossesGoalLine(
             goal, prevCenter, currCenter, defending, attacking,
         ) ?: return
-        PenaltyShootoutState.onGoalLineCrossing(crossing)
+        val effectiveInGoal = crossing.inGoal || GoalCrossingUtil.isCenterInGoal(goal, currCenter)
+        PenaltyShootoutState.onGoalLineCrossing(
+            crossing.copy(inGoal = effectiveInGoal, definiteGoalLineOut = crossing.definiteGoalLineOut && !effectiveInGoal),
+        )
     }
 
     /** 检测球是否穿越边线出界 */
@@ -819,14 +858,21 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             currCenter,
             defendingTeam,
             attackingTeam,
-        ) ?: return
+        )
+        val scored = crossing?.inGoal == true
+            || GoalCrossingUtil.isCenterInGoal(goal, currCenter)
+            || GoalCrossingUtil.segmentEnteredGoal(goal, prevCenter, currCenter)
+        if (!scored && crossing == null) {
+            return
+        }
 
         val server = (level() as? ServerLevel)?.server ?: return
-        val ix = crossing.intersection.x
-        val iz = crossing.intersection.z
+        val ix = crossing?.intersection?.x ?: currCenter.x
+        val iz = crossing?.intersection?.z ?: currCenter.z
         val facing = Vec3(goal.facingX, goal.facingY, goal.facingZ)
 
-        if (crossing.inGoal) {
+        if (scored) {
+            MatchState.clearPendingGoalLineOut()
             if (MatchState.postGoalResetPending) return
             val scorerUuid = resolveGoalScorerUuid()
             val scorerName = scorerUuid?.let { server.playerList.getPlayer(it)?.gameProfile?.name } ?: "?"
@@ -857,7 +903,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 level() as ServerLevel,
                 afterReset = PendingAfterReset.PostGoal(defendingTeam),
             )
-        } else {
+        } else if (crossing != null && crossing.definiteGoalLineOut) {
             val lastTouchTeam = lastPhysicalTouch?.let { MatchState.getPlayerTeam(it) }
             val outType: GoalLineOutType
             val restartTeam: TeamSide
@@ -877,7 +923,17 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 GoalCrossingUtil.cornerKickPosition(goal, facing, ix, iz)
             }
 
-            scheduleOutOfBoundsRestart(level() as ServerLevel, server, ballPos, restartTeam, outType)
+            if (MatchState.pendingGoalLineOut != null) {
+                return
+            }
+            MatchState.pendingGoalLineOut = MatchState.PendingGoalLineOut(
+                goal = goal,
+                ballPos = ballPos,
+                restartTeam = restartTeam,
+                outType = outType,
+                defendingTeam = defendingTeam,
+                attackingTeam = attackingTeam,
+            )
         }
     }
 
@@ -970,15 +1026,28 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     /**
      * @param ignoreImmovableTargets 为 true 时跳过 [immovableTargetPlayers] 检查（如命令踢球）。
+     * @param actingPlayer 执行踢球的玩家；用于 [isPlayerBallMovementForbidden] 判定。
+     * @return 踢球是否已施加（被禁用时为 false）。
      */
-    fun kick(kickPoint: Vec3, direction: Vec3, ignoreImmovableTargets: Boolean = false) {
+    fun kick(
+        kickPoint: Vec3,
+        direction: Vec3,
+        ignoreImmovableTargets: Boolean = false,
+        actingPlayer: ServerPlayer? = null,
+    ): Boolean {
         if (level().isClientSide || isImmovable) {
-            return
+            return false
         }
         if (!ignoreImmovableTargets) {
-            val kickerUuid = lastPhysicalTouch
-            if (kickerUuid != null && kickerUuid in immovableTargetPlayers) {
-                return
+            val forbidden = when {
+                actingPlayer != null -> isPlayerBallMovementForbidden(actingPlayer)
+                else -> {
+                    val kickerUuid = lastPhysicalTouch
+                    kickerUuid != null && kickerUuid in immovableTargetPlayers
+                }
+            }
+            if (forbidden) {
+                return false
             }
         }
 
@@ -998,6 +1067,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
         syncPhysicsToEntityData()
         syncPacketPositionCodec(x, y, z)
+        return true
     }
 
     /** 踢球后把球挪到踢球方向外侧，减轻与踢球者重叠导致的每 tick 回拉。 */
@@ -1019,13 +1089,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         deltaMovement = physicsState.linearVelocity
     }
 
-    fun trap() {
+    fun trap(player: ServerPlayer): Boolean {
         if (level().isClientSide || isImmovable) {
-            return
+            return false
         }
-        val kickerUuid = lastPhysicalTouch
-        if (kickerUuid != null && kickerUuid in immovableTargetPlayers) {
-            return
+        if (isPlayerBallMovementForbidden(player)) {
+            return false
         }
         releaseHold()
         physicsState.linearVelocity = Vec3.ZERO
@@ -1033,6 +1102,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         deltaMovement = Vec3.ZERO
         previousOrientation.set(physicsState.orientation)
         syncPhysicsToEntityData()
+        return true
     }
 
     fun applyDribbleAssist(horizontalVelocity: Vec3, player: ServerPlayer) {

@@ -95,21 +95,23 @@ object GoalkeeperActions {
         when (payload.action) {
             FootballActionType.GK_THROW_SHORT -> {
                 val params = GoalkeeperUtil.resolveThrowShortParams()
-                FootballParticles.playGkThrow(player, football)
                 football.releaseHold()
                 FootballKickUtil.recordActiveKickForPlayerLook(
                     player, football, payload.lookYaw, payload.lookPitch, params,
                 )
-                FootballKickUtil.applyKickToFootballWithLook(
+                if (FootballKickUtil.applyKickToFootballWithLook(
                     football,
                     params,
                     payload.lookYaw,
                     payload.lookPitch,
                     random = player.random,
                     spreadInaccuracy = FootballInputConfig.KICK_SPREAD_INACCURACY,
-                )
-                FootballSounds.playGkThrow(player)
-                lastActionTick[player.uuid] = now
+                    actingPlayer = player,
+                )) {
+                    FootballParticles.playGkThrow(player, football)
+                    FootballSounds.playGkThrow(player)
+                    lastActionTick[player.uuid] = now
+                }
             }
             FootballActionType.GK_THROW_LONG -> {
                 val sprinting = payload.flags and FootballInputConfig.FLAG_SPRINT != 0
@@ -117,26 +119,31 @@ object GoalkeeperActions {
                 val perfect = KickChargeUtil.isPerfectCharge(payload.chargeHeldMs, chargeSettings)
                 val chargeRatio = KickChargeUtil.computeRatio(payload.chargeHeldMs, chargeSettings)
                 val params = GoalkeeperUtil.resolveThrowLongParams(chargeRatio, sprinting, perfect)
-                FootballParticles.playGkThrow(player, football)
                 football.releaseHold()
                 FootballKickUtil.recordActiveKickForPlayerLook(
                     player, football, payload.lookYaw, payload.lookPitch, params,
                 )
-                FootballKickUtil.applyKickToFootballWithLook(
+                if (FootballKickUtil.applyKickToFootballWithLook(
                     football,
                     params,
                     payload.lookYaw,
                     payload.lookPitch,
                     random = if (!perfect) player.random else null,
                     spreadInaccuracy = if (!perfect) FootballInputConfig.KICK_SPREAD_INACCURACY else 0.0,
-                )
-                FootballSounds.playGkThrow(player)
-                lastActionTick[player.uuid] = now
+                    actingPlayer = player,
+                )) {
+                    FootballParticles.playGkThrow(player, football)
+                    FootballSounds.playGkThrow(player)
+                    lastActionTick[player.uuid] = now
+                }
             }
             FootballActionType.GK_DROP -> {
+                if (football.isPlayerBallMovementForbidden(player)) {
+                    return
+                }
                 football.recordActiveKick(player, null)
-                FootballParticles.playGkCatch(player, football, 0.0)
                 football.dropAt(player)
+                FootballParticles.playGkCatch(player, football, 0.0)
                 FootballSounds.playGkCatch(player, 0.0)
                 lastActionTick[player.uuid] = now
             }
@@ -155,6 +162,9 @@ object GoalkeeperActions {
         if (football.isHeld()) {
             return
         }
+        if (football.isPlayerBallMovementForbidden(player)) {
+            return
+        }
         if (GoalkeeperUtil.standingCatchDistanceSqr(player, football) > range * range) {
             return
         }
@@ -170,6 +180,9 @@ object GoalkeeperActions {
         val incoming = football.getPhysicsState().linearVelocity
         football.recordActiveKick(player, null)
         football.enterHold(player)
+        if (!football.isHeldBy(player)) {
+            return
+        }
         val recoil = computeCatchRecoil(speed, incoming)
         applyCatchMomentumDamping(player, player.lookAngle, recoil)
         FootballSounds.playGkCatch(player, speed)
@@ -188,14 +201,18 @@ object GoalkeeperActions {
         if (football.isHeld()) {
             return
         }
+        if (football.isPlayerBallMovementForbidden(player)) {
+            return
+        }
         if (player.distanceToSqr(football) > range * range) {
             return
         }
 
-        FootballKickUtil.applyKickToFootball(player, football, GoalkeeperUtil.resolvePunchParams())
-        FootballSounds.playGkPunch(player)
-        FootballParticles.playGkPunch(player, football)
-        lastActionTick[player.uuid] = now
+        if (FootballKickUtil.applyKickToFootball(player, football, GoalkeeperUtil.resolvePunchParams())) {
+            FootballSounds.playGkPunch(player)
+            FootballParticles.playGkPunch(player, football)
+            lastActionTick[player.uuid] = now
+        }
     }
 
     private fun handleDive(player: ServerPlayer, payload: FootballActionC2SPayload) {
@@ -221,13 +238,22 @@ object GoalkeeperActions {
     }
 
     fun tryResolveDiveCatch(player: ServerPlayer, football: Football, diveDirection: Vec3): Boolean {
+        if (football.isPlayerBallMovementForbidden(player)) {
+            return false
+        }
         val speed = GoalkeeperUtil.ballSpeed(football)
         if (speed > GoalkeeperInputConfig.GK_DIVE_CATCH_MAX_SPEED) {
             return false
         }
         football.recordActiveKick(player, diveDirection)
         val incoming = football.getPhysicsState().linearVelocity
+        if (football.isHeld()) {
+            return false
+        }
         football.enterHold(player)
+        if (!football.isHeldBy(player)) {
+            return false
+        }
         applyCatchMomentumDamping(player, diveDirection, computeCatchRecoil(speed, incoming))
 
         FootballSounds.playGkCatch(player, speed)

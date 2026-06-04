@@ -11,11 +11,18 @@ import net.minecraft.world.phys.Vec3
 
 object GoalCrossingUtil {
     private const val GOAL_Z_TOLERANCE = 1.01
+    /** 球心越过门线进入球网侧的最小有符号距离。 */
+    private const val GOAL_LINE_INSIDE_EPSILON = 0.05
     const val KICK_TOWARD_GOAL_DOT_THRESHOLD = 0.35
 
     data class GoalLineCrossing(
         val intersection: Vec3,
         val inGoal: Boolean,
+        /**
+         * 穿越点落在门框外且属于「门柱外侧」类出界（非仅高出/低于横梁或地面）。
+         * 打框弹入球门时穿越点常在横梁高度外，不应据此立即判底线出界。
+         */
+        val definiteGoalLineOut: Boolean,
         val defendingTeam: TeamSide,
         val attackingTeam: TeamSide,
     )
@@ -56,23 +63,57 @@ object GoalCrossingUtil {
         val iy = prevCenter.y + movement.y * t
         val iz = prevCenter.z + movement.z * t
 
+        val inGoal = isPointInGoalFrame(goal, ix, iy, iz)
+        val definiteGoalLineOut = !inGoal && isDefiniteGoalLineOutMiss(goal, ix, iy, iz)
+
+        return GoalLineCrossing(
+            intersection = Vec3(ix, iy, iz),
+            inGoal = inGoal,
+            definiteGoalLineOut = definiteGoalLineOut,
+            defendingTeam = defendingTeam,
+            attackingTeam = attackingTeam,
+        )
+    }
+
+    /** 球心已在门线内侧且位于门框（含 Z 容差）内，视为已进门。 */
+    fun isCenterInGoal(goal: GoalConfig, center: Vec3): Boolean {
+        val facing = Vec3(goal.facingX, goal.facingY, goal.facingZ)
+        if (facing.lengthSqr() < 1e-6) {
+            return false
+        }
+        val refX = goal.x1 + facing.x
+        val refY = goal.y1 + facing.y
+        val refZ = goal.z1 + facing.z
+        if (signedDistance(center, refX, refY, refZ, facing) <= GOAL_LINE_INSIDE_EPSILON) {
+            return false
+        }
+        return isPointInGoalFrame(goal, center.x, center.y, center.z)
+    }
+
+    fun segmentEnteredGoal(goal: GoalConfig, prevCenter: Vec3, currCenter: Vec3): Boolean =
+        !isCenterInGoal(goal, prevCenter) && isCenterInGoal(goal, currCenter)
+
+    private fun isPointInGoalFrame(goal: GoalConfig, x: Double, y: Double, z: Double): Boolean {
         val minX = minOf(goal.x1, goal.x2)
         val maxX = maxOf(goal.x1, goal.x2)
         val minY = minOf(goal.y1, goal.y2)
         val maxY = maxOf(goal.y1, goal.y2)
         val minZ = minOf(goal.z1, goal.z2)
         val maxZ = maxOf(goal.z1, goal.z2)
+        return x in minX..maxX
+            && y in minY..maxY
+            && z in minZ - GOAL_Z_TOLERANCE..maxZ + GOAL_Z_TOLERANCE
+    }
 
-        val inGoal = ix in minX..maxX
-            && iy in minY..maxY
-            && iz in minZ - GOAL_Z_TOLERANCE..maxZ + GOAL_Z_TOLERANCE
-
-        return GoalLineCrossing(
-            intersection = Vec3(ix, iy, iz),
-            inGoal = inGoal,
-            defendingTeam = defendingTeam,
-            attackingTeam = attackingTeam,
-        )
+    /** 仅门柱左右外侧算明确出界；仅高出/低于门框仍可能弹入，不算。 */
+    private fun isDefiniteGoalLineOutMiss(goal: GoalConfig, ix: Double, iy: Double, iz: Double): Boolean {
+        val minX = minOf(goal.x1, goal.x2)
+        val maxX = maxOf(goal.x1, goal.x2)
+        val minZ = minOf(goal.z1, goal.z2)
+        val maxZ = maxOf(goal.z1, goal.z2)
+        val besidePost = ix !in minX..maxX
+        val besideNet = iz !in minZ - GOAL_Z_TOLERANCE..maxZ + GOAL_Z_TOLERANCE
+        return besidePost || besideNet
     }
 
     /** 检测本段位移是否穿过任一门框并进门。 */

@@ -53,18 +53,20 @@ object MatchEventBanner {
         val pop = 1f + (1f - easeOutCubic((elapsedMs / 380f).coerceIn(0f, 1f))) * 0.12f
 
         val headlineLine = Line(headline, if (ownGoal) ACCENT_OWN_GOAL else ACCENT_GOLD, bold = true, scale = 2.25f * pop)
+        val teamLineObj = Line(teamLine, teamColor, bold = true)
+        val scorerLineObj = scorerLine.takeIf { it.isNotBlank() }?.let { Line(it, WHITE, bold = true) }
         val contentW = max(
             GOAL_MIN_W,
             maxOf(
                 scaledWidth(font, headlineLine),
-                scaledWidth(font, Line(teamLine, teamColor, bold = true)),
-                scaledWidth(font, Line(scorerLine, WHITE, bold = true)),
+                scaledWidth(font, teamLineObj),
+                scorerLineObj?.let { scaledWidth(font, it) } ?: 0,
                 scoreRowWidth(font, scoreRow, SCORE_BOX_GOAL, SCORE_GAP_GOAL),
             ),
         )
         val contentH = lineBlockHeight(font, headlineLine) +
-            lineBlockHeight(font, Line(teamLine, teamColor, bold = true)) +
-            lineBlockHeight(font, Line(scorerLine, WHITE, bold = true)) +
+            lineBlockHeight(font, teamLineObj) +
+            (scorerLineObj?.let { lineBlockHeight(font, it) } ?: 0) +
             SCORE_TOP_GAP_GOAL + SCORE_ROW_GOAL
         val panelW = contentW + PAD_GOAL * 2
         val panelH = PAD_GOAL * 2 + contentH + GOAL_BAR_H * 2
@@ -80,8 +82,8 @@ object MatchEventBanner {
         val cx = panelX + panelW / 2
         var y = panelY + GOAL_BAR_H + PAD_GOAL
         y += drawCenteredLine(extra, font, headlineLine, cx, y, withAlpha(headlineLine.color))
-        y += drawCenteredLine(extra, font, Line(teamLine, teamColor, bold = true), cx, y, withAlpha(teamColor))
-        y += drawCenteredLine(extra, font, Line(scorerLine, WHITE, bold = true), cx, y, withAlpha(WHITE))
+        y += drawCenteredLine(extra, font, teamLineObj, cx, y, withAlpha(teamColor))
+        scorerLineObj?.let { y += drawCenteredLine(extra, font, it, cx, y, withAlpha(WHITE)) }
         y += SCORE_TOP_GAP_GOAL
         drawScoreRow(extra, font, cx, y, scoreRow, withAlpha, SCORE_BOX_GOAL, SCORE_ROW_GOAL, SCORE_GAP_GOAL)
     }

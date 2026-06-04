@@ -103,17 +103,18 @@ object FootballKickUtil {
         return Vec3Math.normalizeSafe(Vec3(-sin(yawRad), 0.0, cos(yawRad)))
     }
 
-    fun applyKickToFootball(player: Player, football: Football, params: KickParams, applySpread: Boolean = false) {
+    fun applyKickToFootball(player: Player, football: Football, params: KickParams, applySpread: Boolean = false): Boolean {
         if (player is net.minecraft.server.level.ServerPlayer) {
             recordActiveKickForPlayerLook(player, football, player.yRot, player.xRot, params)
         }
-        applyKickToFootballWithLook(
+        return applyKickToFootballWithLook(
             football = football,
             params = params,
             lookYaw = player.yRot,
             lookPitch = player.xRot,
             random = if (applySpread) player.random else null,
             spreadInaccuracy = if (applySpread) FootballInputConfig.KICK_SPREAD_INACCURACY else 0.0,
+            actingPlayer = player as? net.minecraft.server.level.ServerPlayer,
         )
     }
 
@@ -139,12 +140,21 @@ object FootballKickUtil {
         lookPitch: Float,
         random: RandomSource? = null,
         spreadInaccuracy: Double = 0.0,
-    ) {
+        actingPlayer: net.minecraft.server.level.ServerPlayer? = null,
+    ): Boolean {
         val look = lookDirection(lookYaw, lookPitch)
         val horizontalLook = Vec3Math.horizontal(look)
         val pitchOffset = lookPitchAngleOffset(lookPitch)
         val adjustedParams = params.copy(angleDegrees = params.angleDegrees + pitchOffset)
-        applyKickWithHorizontalDirection(football, horizontalLook, look, adjustedParams, random, spreadInaccuracy)
+        return applyKickWithHorizontalDirection(
+            football,
+            horizontalLook,
+            look,
+            adjustedParams,
+            random,
+            spreadInaccuracy,
+            actingPlayer,
+        )
     }
 
     /** 命令简单踢球：力度 + 仰角，方向由执行朝向水平分量与 elevation 决定。 */
@@ -245,14 +255,15 @@ object FootballKickUtil {
         params: KickParams,
         random: RandomSource? = null,
         spreadInaccuracy: Double = 0.0,
-    ) {
+        actingPlayer: net.minecraft.server.level.ServerPlayer? = null,
+    ): Boolean {
         val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         val kickPoint = buildKickPoint(ballCenter, horizontalLook, params.heightOffset)
         var direction = buildKickDirection(horizontalLook, verticalReference, params.force, params.angleDegrees)
         if (random != null && spreadInaccuracy > 0.0) {
             direction = applyProjectileSpread(direction, random, spreadInaccuracy)
         }
-        football.kick(kickPoint, direction)
+        return football.kick(kickPoint, direction, actingPlayer = actingPlayer)
     }
 
     /**
@@ -272,16 +283,20 @@ object FootballKickUtil {
         return Vec3Math.normalizeSafe(spread).scale(force)
     }
 
-    fun applyDribbleTouch(player: Player, football: Football, dribbleBaseYaw: Float? = null) {
+    fun applyDribbleTouch(player: Player, football: Football, dribbleBaseYaw: Float? = null): Boolean {
         val direction = resolveDribbleDirection(player, dribbleBaseYaw)
         if (direction.lengthSqr() < 1.0e-8) {
-            return
+            return false
         }
-        if (player is net.minecraft.server.level.ServerPlayer) {
-            football.recordDribbleTouch(player)
+        val serverPlayer = player as? net.minecraft.server.level.ServerPlayer
+        if (serverPlayer != null && football.isPlayerBallMovementForbidden(serverPlayer)) {
+            return false
+        }
+        if (serverPlayer != null) {
+            football.recordDribbleTouch(serverPlayer)
         }
         val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         val kickPoint = buildKickPoint(ballCenter, direction, 0.0)
-        football.kick(kickPoint, direction.scale(FootballInputConfig.DRIBBLE_TOUCH_FORCE))
+        return football.kick(kickPoint, direction.scale(FootballInputConfig.DRIBBLE_TOUCH_FORCE), actingPlayer = serverPlayer)
     }
 }

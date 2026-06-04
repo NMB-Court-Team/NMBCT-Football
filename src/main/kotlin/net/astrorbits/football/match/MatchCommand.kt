@@ -16,12 +16,12 @@ object MatchCommand {
 		val root = Commands.literal("match")
 
 		root.then(Commands.literal("start").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes {
-			PlayerRoleState.randomAssignGoalkeepers(it.source.server)
-			MatchState.resetFootball(it.source.level)
-			MatchState.teleportTeamsToSpawnPositions(it.source.server)
-			val kickoff = TeamSide.entries.random()
-			MatchState.broadcastMatchStart(it.source.server, kickoff)
-			MatchState.advancePhase(it.source.server)
+			if (!MatchState.beginMatch(it.source.server, it.source.level)) {
+				it.source.sendFailure(
+					Component.translatable("command.nmbct-football.match.start_no_playable_duration"),
+				)
+				return@executes 0
+			}
 			1
 		})
 

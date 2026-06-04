@@ -122,6 +122,10 @@ object FootballPlayerActions {
             FootballDribbleSessions.end(player)
             return
         }
+        if (football.isPlayerBallMovementForbidden(player)) {
+            FootballDribbleSessions.end(player)
+            return
+        }
 
         if (player.distanceToSqr(football) > FootballInputConfig.PLAYER_KICK_RANGE * FootballInputConfig.PLAYER_KICK_RANGE) {
             FootballDribbleSessions.end(player)
@@ -154,6 +158,9 @@ object FootballPlayerActions {
         if (football.isHeld()) {
             return
         }
+        if (football.isPlayerBallMovementForbidden(player)) {
+            return
+        }
 
         if (player.distanceToSqr(football) > FootballInputConfig.PLAYER_KICK_RANGE * FootballInputConfig.PLAYER_KICK_RANGE) {
             return
@@ -170,38 +177,38 @@ object FootballPlayerActions {
         when (payload.action) {
             FootballActionType.PASS -> {
                 val params = FootballKickUtil.resolvePassParams()
-                FootballKickUtil.applyKickToFootball(player, football, params, applySpread = true)
-                FootballSounds.playKick(player, params.force)
-                FootballParticles.playKick(player, football, params.force)
-                markKickAwayAction(player, now)
+                if (FootballKickUtil.applyKickToFootball(player, football, params, applySpread = true)) {
+                    FootballSounds.playKick(player, params.force)
+                    FootballParticles.playKick(player, football, params.force)
+                    markKickAwayAction(player, now)
+                }
             }
             FootballActionType.SHOOT -> {
                 val chargeSettings = FootballInputConfig.chargeSettings()
                 val perfect = KickChargeUtil.isPerfectCharge(payload.chargeHeldMs, chargeSettings)
                 val chargeRatio = KickChargeUtil.computeRatio(payload.chargeHeldMs, chargeSettings)
                 val params = FootballKickUtil.resolveShootParams(chargeRatio, sprinting, perfect)
-                FootballKickUtil.applyKickToFootball(player, football, params, applySpread = !perfect)
-                FootballSounds.playKick(player, params.force)
-                FootballParticles.playKick(player, football, params.force)
-                markKickAwayAction(player, now)
+                if (FootballKickUtil.applyKickToFootball(player, football, params, applySpread = !perfect)) {
+                    FootballSounds.playKick(player, params.force)
+                    FootballParticles.playKick(player, football, params.force)
+                    markKickAwayAction(player, now)
+                }
             }
             FootballActionType.TRAP -> {
                 football.recordActiveKick(player, null)
-                football.trap()
-                FootballSounds.playTrap(player)
-                FootballParticles.playTrap(player, football)
-                lastActionTick[player.uuid] = now
+                if (football.trap(player)) {
+                    FootballSounds.playTrap(player)
+                    FootballParticles.playTrap(player, football)
+                    lastActionTick[player.uuid] = now
+                }
             }
             FootballActionType.CHIP -> {
                 val params = FootballKickUtil.resolveChipParams(player)
-                FootballKickUtil.applyKickToFootball(
-                    player,
-                    football,
-                    params
-                )
-                FootballSounds.playKick(player, params.force)
-                FootballParticles.playKick(player, football, params.force)
-                markKickAwayAction(player, now)
+                if (FootballKickUtil.applyKickToFootball(player, football, params)) {
+                    FootballSounds.playKick(player, params.force)
+                    FootballParticles.playKick(player, football, params.force)
+                    markKickAwayAction(player, now)
+                }
             }
             FootballActionType.DRIBBLE_HOLD, FootballActionType.DRIBBLE_END,
             FootballActionType.GK_CATCH, FootballActionType.GK_DIVE, FootballActionType.GK_PUNCH,

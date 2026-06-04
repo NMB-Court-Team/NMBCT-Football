@@ -29,9 +29,9 @@ object MatchSetupConfigScreen {
                 val rules = draft.rules
                 val saved = draft.copy(
                     rules = rules.copy(
-                        halfTimeMinutes = rules.halfTimeMinutes.coerceAtLeast(1),
+                        halfTimeMinutes = rules.halfTimeMinutes.coerceAtLeast(0),
                         stoppageTimeMaxMinutes = rules.stoppageTimeMaxMinutes.coerceAtLeast(0),
-                        extraTimeHalfMinutes = rules.extraTimeHalfMinutes.coerceAtLeast(1),
+                        extraTimeHalfMinutes = rules.extraTimeHalfMinutes.coerceAtLeast(0),
                         postGoalBallResetDelaySeconds = rules.postGoalBallResetDelaySeconds.coerceAtLeast(0),
                     ),
                 )
@@ -88,7 +88,7 @@ object MatchSetupConfigScreen {
                         defaultValue = def.halfTimeMinutes,
                         getter = { getter().halfTimeMinutes },
                         setter = { v -> setRules(getter, setter) { it.copy(halfTimeMinutes = v) } },
-                        range = 1..120,
+                        range = 0..120,
                     )
                     addBoolean(
                         nameKey = "screen.nmbct-football.match.enable_stoppage_time",
@@ -141,7 +141,7 @@ object MatchSetupConfigScreen {
                         defaultValue = def.extraTimeHalfMinutes,
                         getter = { getter().extraTimeHalfMinutes },
                         setter = { v -> setRules(getter, setter) { it.copy(extraTimeHalfMinutes = v) } },
-                        range = 1..30,
+                        range = 0..30,
                     )
                     addBoolean(
                         nameKey = "screen.nmbct-football.match.enable_penalty_shootout",

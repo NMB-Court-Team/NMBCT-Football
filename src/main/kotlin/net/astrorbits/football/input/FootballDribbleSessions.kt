@@ -47,6 +47,10 @@ object FootballDribbleSessions {
         if (PlayerRoleState.isGoalkeeper(player)) {
             return
         }
+        if (football.isPlayerBallMovementForbidden(player)) {
+            end(player)
+            return
+        }
 
         val lookAroundActive = payload.flags and FootballInputConfig.FLAG_LOOK_AROUND != 0
         collisionGrace.remove(player.uuid)
@@ -60,10 +64,13 @@ object FootballDribbleSessions {
                 dribbleBaseYaw = if (lookAroundActive) payload.lookYaw else null,
             )
             sessions[player.uuid] = session
+            var playedTouchFeedback = false
             if (FootballInputConfig.DRIBBLE_TOUCH_FORCE > 0.0) {
-                FootballKickUtil.applyDribbleTouch(player, football, session.dribbleBaseYaw)
+                playedTouchFeedback = FootballKickUtil.applyDribbleTouch(player, football, session.dribbleBaseYaw)
             }
-            tryPlayDribbleSound(session, player, football, now)
+            if (playedTouchFeedback) {
+                tryPlayDribbleSound(session, player, football, now)
+            }
             return
         }
 
@@ -178,6 +185,9 @@ object FootballDribbleSessions {
     }
 
     private fun tryPlayDribbleSound(session: DribbleSession, player: ServerPlayer, football: Football, now: Long) {
+        if (football.isPlayerBallMovementForbidden(player)) {
+            return
+        }
         if (now < session.nextSoundTick) {
             return
         }

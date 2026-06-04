@@ -94,11 +94,12 @@ class FootballItem(properties: Properties) : Item(properties) {
             if (player is ServerPlayer) {
                 football.recordActiveKick(player, direction)
             }
-            football.kick(kickPoint, direction)
-            if (player is ServerPlayer) {
-                FootballSounds.playKick(player, FOOTBALL_ITEM_THROW_FORCE)
+            if (football.kick(kickPoint, direction, actingPlayer = player as? ServerPlayer)) {
+                if (player is ServerPlayer) {
+                    FootballSounds.playKick(player, FOOTBALL_ITEM_THROW_FORCE)
+                }
+                FootballParticles.playKick(level, center, FOOTBALL_ITEM_THROW_FORCE, direction)
             }
-            FootballParticles.playKick(level, center, FOOTBALL_ITEM_THROW_FORCE, direction)
         }
 
         if (!player.hasInfiniteMaterials()) {

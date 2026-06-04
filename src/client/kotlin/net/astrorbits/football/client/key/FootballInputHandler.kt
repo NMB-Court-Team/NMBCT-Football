@@ -227,7 +227,7 @@ object FootballInputHandler {
                 }
                 val settings = chargeSettings()
                 val chargeRatio = KickChargeUtil.computeLinearRatio(heldMs.coerceAtLeast(0L), settings)
-                sendAction(player, FootballActionType.GK_DIVE, chargeRatio, heldMs.coerceAtLeast(0L), buildDiveFlags(player))
+                maybeSendFootballAction(player, FootballActionType.GK_DIVE, chargeRatio, heldMs.coerceAtLeast(0L), buildDiveFlags(player))
             }
             LongPressState.NONE -> Unit
         }
@@ -306,9 +306,9 @@ object FootballInputHandler {
                     when {
                         holdingBall && GoalkeeperStateClient.isHoldReleaseLocked() -> Unit
                         holdingBall && heldMs < FootballInputConfig.TAP_MAX_MS ->
-                            sendAction(player, FootballActionType.GK_THROW_SHORT, 0f, heldMs, flags)
+                            maybeSendFootballAction(player, FootballActionType.GK_THROW_SHORT, 0f, heldMs, flags)
                         holdingBall && KickChargeUtil.isCharging(heldMs, chargeSettings()) ->
-                            sendAction(
+                            maybeSendFootballAction(
                                 player,
                                 FootballActionType.GK_THROW_LONG,
                                 throwChargeRatio,
@@ -316,17 +316,17 @@ object FootballInputHandler {
                                 flags,
                             )
                         holdingBall ->
-                            sendAction(player, FootballActionType.GK_THROW_SHORT, 0f, heldMs, flags)
+                            maybeSendFootballAction(player, FootballActionType.GK_THROW_SHORT, 0f, heldMs, flags)
                         heldMs < FootballInputConfig.TAP_MAX_MS -> {
-                            sendAction(player, FootballActionType.PASS, 0f, heldMs, flags)
+                            maybeSendFootballAction(player, FootballActionType.PASS, 0f, heldMs, flags)
                             blockDribbleResume(player)
                         }
                         KickChargeUtil.isCharging(heldMs, chargeSettings()) -> {
-                            sendAction(player, FootballActionType.SHOOT, shootChargeRatio, heldMs, flags)
+                            maybeSendFootballAction(player, FootballActionType.SHOOT, shootChargeRatio, heldMs, flags)
                             blockDribbleResume(player)
                         }
                         else -> {
-                            sendAction(player, FootballActionType.PASS, 0f, heldMs, flags)
+                            maybeSendFootballAction(player, FootballActionType.PASS, 0f, heldMs, flags)
                             blockDribbleResume(player)
                         }
                     }
@@ -352,20 +352,20 @@ object FootballInputHandler {
     }
 
     private fun handleTrapPress(player: LocalPlayer, action: FootballActionType) {
-        if (FootballKeyBindings.TRAP.isDown && !trapPrevTickPressed) {
+        if (FootballKeyBindings.TRAP.isDown && !trapPrevTickPressed && canSendFootballAction(player, action)) {
             sendAction(player, action, 0f, 0L, 0)
         }
     }
 
     private fun handleChipPress(player: LocalPlayer) {
-        if (FootballKeyBindings.CHIP.isDown && !chipPrevTickPressed) {
+        if (FootballKeyBindings.CHIP.isDown && !chipPrevTickPressed && canSendFootballAction(player, FootballActionType.CHIP)) {
             sendAction(player, FootballActionType.CHIP, 0f, 0L, buildFlags(player))
             blockDribbleResume(player)
         }
     }
 
     private fun handleChipPressGoalkeeper(player: LocalPlayer) {
-        if (FootballKeyBindings.CHIP.isDown && !chipPrevTickPressed) {
+        if (FootballKeyBindings.CHIP.isDown && !chipPrevTickPressed && canSendFootballAction(player, FootballActionType.GK_PUNCH)) {
             sendAction(player, FootballActionType.GK_PUNCH, 0f, 0L, 0)
         }
     }
@@ -400,6 +400,9 @@ object FootballInputHandler {
             return
         }
         dribbleTickCounter = 0
+        if (!canSendFootballAction(player, FootballActionType.DRIBBLE_HOLD)) {
+            return
+        }
         sendDribbleAction(player, FootballActionType.DRIBBLE_HOLD, buildDribbleFlags(player))
     }
 
@@ -542,6 +545,43 @@ object FootballInputHandler {
             lookYaw = lookYaw,
             lookPitch = player.xRot,
         )
+    }
+
+    private fun maybeSendFootballAction(
+        player: LocalPlayer,
+        action: FootballActionType,
+        chargeRatio: Float,
+        chargeHeldMs: Long,
+        flags: Int,
+    ) {
+        if (canSendFootballAction(player, action)) {
+            sendAction(player, action, chargeRatio, chargeHeldMs, flags)
+        }
+    }
+
+    private fun canSendFootballAction(player: LocalPlayer, action: FootballActionType): Boolean {
+        if (!FootballOperabilityClient.canShowFootballHints(player)) {
+            return false
+        }
+        val key = when (action) {
+            FootballActionType.PASS,
+            FootballActionType.SHOOT,
+            FootballActionType.GK_THROW_SHORT,
+            FootballActionType.GK_THROW_LONG,
+            FootballActionType.GK_DIVE,
+            -> FootballKeyBindings.KICK
+            FootballActionType.TRAP,
+            FootballActionType.GK_CATCH,
+            FootballActionType.GK_DROP,
+            -> FootballKeyBindings.TRAP
+            FootballActionType.CHIP,
+            FootballActionType.GK_PUNCH,
+            -> FootballKeyBindings.CHIP
+            FootballActionType.DRIBBLE_HOLD,
+            -> FootballKeyBindings.DRIBBLE
+            else -> return true
+        }
+        return FootballOperabilityClient.canUseFootballHint(player, player.level(), key)
     }
 
     private fun sendAction(

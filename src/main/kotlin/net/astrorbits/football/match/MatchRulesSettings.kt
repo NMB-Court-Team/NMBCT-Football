@@ -12,6 +12,17 @@ data class MatchRulesSettings(
     val enablePenaltyShootout: Boolean = false,
     val postGoalBallResetDelaySeconds: Int = 3,
 ) {
+    private fun skipsRegularAndExtraTime(): Boolean =
+        halfTimeMinutes == 0 && (!enableExtraTime || extraTimeHalfMinutes == 0)
+
+    /** 无常规/加时，开赛即点球大战（测试用）。 */
+    fun startsWithPenaltyShootout(): Boolean =
+        enablePenaltyShootout && skipsRegularAndExtraTime()
+
+    /** 无常规、无加时、也未启用点球，无法开赛。 */
+    fun hasNoPlayableDuration(): Boolean =
+        skipsRegularAndExtraTime() && !enablePenaltyShootout
+
     companion object {
         val CODEC: Codec<MatchRulesSettings> = RecordCodecBuilder.create { i ->
             i.group(

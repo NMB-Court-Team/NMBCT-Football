@@ -198,6 +198,10 @@ object FootballNetworking {
         }
     }
 
+    fun syncTimerToClients(server: MinecraftServer) {
+        broadcastTimerSync(server)
+    }
+
     private fun broadcastTimerSync(server: MinecraftServer) {
         val cfg = MatchConfigHolder.current
         val payload = MatchTimerSyncS2CPayload(
