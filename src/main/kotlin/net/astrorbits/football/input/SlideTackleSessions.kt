@@ -24,6 +24,7 @@ data class SlideTackleSession(
     val playersContacted: MutableSet<UUID> = mutableSetOf(),
     var contactSpeedScale: Double = 1.0,
     var sustainBudgetRemaining: Float = 0f,
+    var endSoundPlayed: Boolean = false,
 )
 
 data class TackledResistance(
@@ -32,7 +33,10 @@ data class TackledResistance(
 )
 
 object SlideTackleSessions {
-    private const val STEP_SOUND_INTERVAL_TICKS = 4L
+    /** 音效时长（20 TPS）：start 0.3s / loop 0.2s / end 0.5s。 */
+    private const val SLIDE_START_SOUND_TICKS = 6L
+    private const val SLIDE_LOOP_INTERVAL_TICKS = 4L
+    private const val SLIDE_END_SOUND_LEAD_TICKS = 10L
     private const val CONTACT_HITBOX_EXPAND = 0.6
     private const val SLIDE_MOVE_EPSILON = 0.001
 
@@ -94,6 +98,7 @@ object SlideTackleSessions {
         setSlideState(player, sliding = true)
         FootballNetworking.syncSlideTackleState(player, sliding = true, cooldownUntilTick = 0L)
         FootballParticles.playSlideTackle(player)
+        FootballSounds.playSlideTackleStart(player)
         return true
     }
 
@@ -119,10 +124,10 @@ object SlideTackleSessions {
     }
 
     fun end(player: ServerPlayer) {
-        val session = sessions.remove(player.uuid) ?: return
+        val session = sessions[player.uuid] ?: return
         val now = player.level().gameTime
         applySlideExitVelocity(player, session, now - session.startTick)
-        finishSlideSession(player, now)
+        finishSlideSession(player, now, session)
     }
 
     fun requestEnd(player: ServerPlayer, now: Long) {
@@ -156,7 +161,7 @@ object SlideTackleSessions {
                 continue
             }
             if (shouldForceEndSlide(player)) {
-                finishSlideSession(player, now)
+                finishSlideSession(player, now, session)
                 iterator.remove()
                 continue
             }
@@ -164,27 +169,32 @@ object SlideTackleSessions {
             val elapsed = now - session.startTick
             if (session.endRequested && elapsed >= slideCfg().minSlideTicks) {
                 applySlideExitVelocity(player, session, elapsed)
-                finishSlideSession(player, now)
+                finishSlideSession(player, now, session)
                 iterator.remove()
                 continue
             }
 
             if (!tickSlideStaminaDrain(player, session)) {
                 applySlideExitVelocity(player, session, elapsed)
-                finishSlideSession(player, now)
+                finishSlideSession(player, now, session)
                 iterator.remove()
                 continue
             }
 
             val speed = applySlideMovement(player, session.direction, elapsed, session.contactSpeedScale)
+            tryPlaySlideEndSoundEarly(player, session, elapsed)
             if (speed <= SLIDE_MOVE_EPSILON && elapsed >= slideCfg().minSlideTicks) {
                 applySlideExitVelocity(player, session, elapsed)
-                finishSlideSession(player, now)
+                finishSlideSession(player, now, session)
                 iterator.remove()
                 continue
             }
-            if (speed > SLIDE_MOVE_EPSILON && elapsed > 0L && elapsed % STEP_SOUND_INTERVAL_TICKS == 0L) {
-                FootballSounds.playSlideTackle(player)
+            if (!session.endSoundPlayed &&
+                speed > SLIDE_MOVE_EPSILON &&
+                elapsed >= SLIDE_START_SOUND_TICKS &&
+                (elapsed - SLIDE_START_SOUND_TICKS) % SLIDE_LOOP_INTERVAL_TICKS == 0L
+            ) {
+                FootballSounds.playSlideTackleLoop(player)
             }
             tryResolvePlayerContact(player, session, now)
         }
@@ -215,13 +225,42 @@ object SlideTackleSessions {
         }
     }
 
-    private fun finishSlideSession(player: ServerPlayer, now: Long) {
+    private fun finishSlideSession(player: ServerPlayer, now: Long, session: SlideTackleSession) {
         sessions.remove(player.uuid)
         setSlideState(player, sliding = false)
         val cooldownEnd = now + slideCfg().cooldownTicks
         cooldownUntil[player.uuid] = cooldownEnd
         FootballNetworking.syncSlideTackleState(player, sliding = false, cooldownUntilTick = cooldownEnd)
+        if (!session.endSoundPlayed) {
+            FootballSounds.playSlideTackleEnd(player)
+        }
         resetSprintTicks(player.uuid)
+    }
+
+    private fun tryPlaySlideEndSoundEarly(player: ServerPlayer, session: SlideTackleSession, elapsed: Long) {
+        if (session.endSoundPlayed) {
+            return
+        }
+        val remaining = remainingSlideMovementTicks(elapsed, session.contactSpeedScale)
+        if (remaining in 1..SLIDE_END_SOUND_LEAD_TICKS) {
+            session.endSoundPlayed = true
+            FootballSounds.playSlideTackleEnd(player)
+        }
+    }
+
+    /** 距滑铲位移结束还剩多少 tick（含 contact 减速后的实际速度曲线）。 */
+    private fun remainingSlideMovementTicks(elapsed: Long, contactSpeedScale: Double): Long {
+        if (slideSpeedAtTick(elapsed, contactSpeedScale) <= SLIDE_MOVE_EPSILON) {
+            return 0
+        }
+        var t = elapsed + 1
+        while (t - elapsed <= 120) {
+            if (slideSpeedAtTick(t, contactSpeedScale) <= SLIDE_MOVE_EPSILON) {
+                return t - elapsed
+            }
+            t++
+        }
+        return 120
     }
 
     private fun shouldForceEndSlide(player: ServerPlayer): Boolean {

@@ -59,6 +59,9 @@ object FootballSounds {
     private val WHISTLE_6_EVENT = register("whistle_6")
     private val BOOST_SPRINT_START_EVENT = register("player.boost_sprint.start")
     private val BOOST_SPRINT_END_EVENT = register("player.boost_sprint.end")
+    private val SLIDE_TACKLE_START_EVENT = register("player.slide_tackle.start")
+    private val SLIDE_TACKLE_END_EVENT = register("player.slide_tackle.end")
+    private val SLIDE_TACKLE_LOOP_EVENT = register("player.slide_tackle.loop")
 
     /**
      * 单次播放的音量与音高配置。
@@ -319,6 +322,33 @@ object FootballSounds {
     val boostSprintStartEvent: SoundEvent get() = BOOST_SPRINT_START_EVENT
     val boostSprintEndEvent: SoundEvent get() = BOOST_SPRINT_END_EVENT
 
+    /** 滑铲起手：短促摩擦/蹬地声。 */
+    val SLIDE_TACKLE_START: SoundSpec = SoundSpec(
+        event = SLIDE_TACKLE_START_EVENT,
+        source = SoundSource.PLAYERS,
+        volume = 0.95f,
+        basePitch = 1.0f,
+        pitchSpread = 0.04f,
+    )
+
+    /** 滑铲结束：减速停住时的收尾摩擦声。 */
+    val SLIDE_TACKLE_END: SoundSpec = SoundSpec(
+        event = SLIDE_TACKLE_END_EVENT,
+        source = SoundSource.PLAYERS,
+        volume = 0.85f,
+        basePitch = 0.95f,
+        pitchSpread = 0.05f,
+    )
+
+    /** 滑铲进行中：周期性播放，四条 loop 随机轮换。 */
+    val SLIDE_TACKLE_LOOP: SoundSpec = SoundSpec(
+        event = SLIDE_TACKLE_LOOP_EVENT,
+        source = SoundSource.PLAYERS,
+        volume = 0.75f,
+        basePitch = 1.0f,
+        pitchSpread = 0.08f,
+    )
+
     fun playGkPunch(player: ServerPlayer) {
         play(player.level(), player.blockPosition(), GK_PUNCH, player.random)
     }
@@ -327,20 +357,16 @@ object FootballSounds {
         play(player.level(), player.blockPosition(), GK_THROW, player.random)
     }
 
-    fun playSlideTackle(player: ServerPlayer) {
-        val belowPos = player.blockPosition().below()
-        val blockState = player.level().getBlockState(belowPos)
-        val soundType = blockState.soundType
-        val breakEvent = soundType.breakSound ?: return
-        // 滑铲脚步声使用脚下方块破坏声，音量减半。
-        player.level().playSound(
-            null,
-            player.blockPosition(),
-            breakEvent,
-            SoundSource.BLOCKS,
-            soundType.volume * 0.5f,
-            soundType.pitch,
-        )
+    fun playSlideTackleStart(player: ServerPlayer) {
+        play(player.level(), player.blockPosition(), SLIDE_TACKLE_START, player.random)
+    }
+
+    fun playSlideTackleLoop(player: ServerPlayer) {
+        play(player.level(), player.blockPosition(), SLIDE_TACKLE_LOOP, player.random)
+    }
+
+    fun playSlideTackleEnd(player: ServerPlayer) {
+        play(player.level(), player.blockPosition(), SLIDE_TACKLE_END, player.random)
     }
 
     /** 滑铲触球：与 [playKick] 相同踢球音效，在球位置播放，力度随滑铲速度缩放。 */

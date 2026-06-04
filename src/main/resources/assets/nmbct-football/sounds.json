@@ -75,8 +75,19 @@
   "whistle_6": {
     "sounds": ["nmbct-football:shrill_whistle6"]
   },
-  "soccer_sliding": {
-    "sounds": ["nmbct-football:soccer_sliding"]
+  "player.slide_tackle.start": {
+    "sounds": ["nmbct-football:sliding_start"]
+  },
+  "player.slide_tackle.end": {
+    "sounds": ["nmbct-football:sliding_end"]
+  },
+  "player.slide_tackle.loop": {
+    "sounds": [
+      "nmbct-football:sliding_loop_01",
+      "nmbct-football:sliding_loop_02",
+      "nmbct-football:sliding_loop_03",
+      "nmbct-football:sliding_loop_04"
+    ]
   },
   "player.boost_sprint.start": {
     "sounds": ["nmbct-football:boost_sprint_start"]
