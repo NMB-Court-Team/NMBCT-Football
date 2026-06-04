@@ -82,9 +82,21 @@ object MatchState {
         else -> null
     }
 
-    /** 是否处于正式比赛阶段（非 [MatchPhase.PRE_MATCH]、非 [MatchPhase.FINISHED]；含常规半场、补时、加时、点球大战）。 */
+    /** 是否处于正式比赛阶段（非 [MatchPhase.PRE_MATCH]、非 [MatchPhase.PRE_MATCH_PREP]、非 [MatchPhase.FINISHED]；含常规半场、补时、加时、点球大战）。 */
     fun isDuringMatch(): Boolean =
-        currentPhase != MatchPhase.PRE_MATCH && currentPhase != MatchPhase.FINISHED
+        currentPhase != MatchPhase.PRE_MATCH
+            && currentPhase != MatchPhase.PRE_MATCH_PREP
+            && currentPhase != MatchPhase.FINISHED
+
+    /** 赛前准备阶段：可调整守门员与按键，但不判进球/出界。 */
+    fun isPreMatchPreparationPhase(): Boolean = currentPhase == MatchPhase.PRE_MATCH_PREP
+
+    /** 正式比赛或赛前准备：守门员身份与相关输入生效。 */
+    fun allowsActiveGoalkeeperRole(): Boolean = isDuringMatch() || isPreMatchPreparationPhase()
+
+    /** 比赛计时是否暂停（含赛前准备阶段，即 [isRunning] 为 false 且仍在可计时阶段）。 */
+    fun isMatchTimerPaused(): Boolean =
+        (isDuringMatch() || isPreMatchPreparationPhase()) && !isRunning
 
     fun addPlayer(team: TeamSide, uuid: UUID) {
         when (team) {
@@ -333,7 +345,7 @@ object MatchState {
         resetFootball(level, pos)
     }
 
-    /** 开赛：常规流程或配置为 0 分钟且无加时时直接进入点球大战。配置无效时返回 false。 */
+    /** 开赛：可选赛前准备 → 常规流程；或配置为 0 分钟且无加时时直接进入点球大战。配置无效时返回 false。 */
     fun beginMatch(server: MinecraftServer, level: ServerLevel): Boolean {
         if (MatchConfigHolder.current.hasNoPlayableDuration()) {
             return false
@@ -346,18 +358,76 @@ object MatchState {
         teleportTeamsToSpawnPositions(server)
         val cfg = MatchConfigHolder.current
         if (cfg.startsWithPenaltyShootout()) {
+            PlayerRoleState.assignGoalkeepersIfMissing(server)
+            broadcastGoalkeepersAnnouncement(server)
             StaminaState.onMatchStart(server)
             setPhase(MatchPhase.PENALTIES, server)
-            PlayerRoleState.assignGoalkeepersOnMatchStart(server)
             FootballNetworking.syncTimerToClients(server)
             return true
         }
+        if (cfg.isPreMatchPreparationEnabled()) {
+            beginPreMatchPreparation(server)
+            return true
+        }
+        startRegularMatch(server)
+        return true
+    }
+
+    /** 进入赛前准备：分配缺失的守门员、公示双方门将并开始准备计时。 */
+    fun beginPreMatchPreparation(server: MinecraftServer) {
+        PlayerRoleState.assignGoalkeepersIfMissing(server)
+        broadcastGoalkeepersAnnouncement(server)
+        setPhase(MatchPhase.PRE_MATCH_PREP, server)
+        broadcastPreparationStarted(server)
+        FootballNetworking.syncTimerToClients(server)
+    }
+
+    /** 准备时间结束后进入上半场并执行常规开赛流程。 */
+    fun finishPreMatchPreparation(server: MinecraftServer) {
+        if (currentPhase != MatchPhase.PRE_MATCH_PREP) return
+        startRegularMatch(server)
+    }
+
+    /** 上半场开球：分配/同步守门员并广播开赛 HUD。 */
+    fun startRegularMatch(server: MinecraftServer) {
+        PlayerRoleState.assignGoalkeepersIfMissing(server)
+        broadcastGoalkeepersAnnouncement(server)
         val kickoff = TeamSide.entries.random()
         setPhase(MatchPhase.FIRST_HALF, server)
         broadcastMatchStart(server, kickoff)
-        PlayerRoleState.assignGoalkeepersOnMatchStart(server)
         FootballNetworking.syncTimerToClients(server)
-        return true
+    }
+
+    /** 向双方队员聊天栏公示各队守门员。 */
+    fun broadcastGoalkeepersAnnouncement(server: MinecraftServer) {
+        for (team in TeamSide.entries) {
+            val teamName = getTeamName(team).string
+            val gkUuid = when (team) {
+                TeamSide.A -> PlayerRoleState.teamAGoalkeeper
+                TeamSide.B -> PlayerRoleState.teamBGoalkeeper
+            }
+            val gkName = gkUuid?.let { server.playerList.getPlayer(it)?.gameProfile?.name }
+            val message = if (gkName != null) {
+                Component.translatable("match.announce.goalkeeper", teamName, gkName)
+            } else {
+                Component.translatable("match.announce.goalkeeper_unassigned", teamName)
+            }
+            broadcastToMatchPlayers(server, message)
+        }
+    }
+
+    private fun broadcastPreparationStarted(server: MinecraftServer) {
+        val minutes = MatchConfigHolder.current.preMatchPreparationMinutes
+        broadcastToMatchPlayers(
+            server,
+            Component.translatable("match.prep.started", minutes),
+        )
+    }
+
+    private fun broadcastToMatchPlayers(server: MinecraftServer, message: Component) {
+        for (uuid in teamAPlayers + teamBPlayers) {
+            server.playerList.getPlayer(uuid)?.sendSystemMessage(message)
+        }
     }
 
     /** 向双方在线队员广播比赛开始 HUD 信息。 */
@@ -466,6 +536,7 @@ object MatchState {
         val extraDuration = config.extraTimeHalfMinutes * 60 * 20
         return when (currentPhase) {
             MatchPhase.PRE_MATCH, MatchPhase.FINISHED -> -1
+            MatchPhase.PRE_MATCH_PREP -> config.rules.preMatchPreparationTicks()
             MatchPhase.FIRST_HALF, MatchPhase.FIRST_HALF_ET -> halfDuration
             MatchPhase.SECOND_HALF, MatchPhase.SECOND_HALF_ET -> halfDuration * 2
             MatchPhase.EXTRA_FIRST, MatchPhase.EXTRA_FIRST_ET -> halfDuration * 2 + extraDuration
@@ -489,6 +560,10 @@ object MatchState {
         val extraDuration = config.extraTimeHalfMinutes * 60 * 20
         val stoppageDuration = getStoppageTargetTicks()
         return when (currentPhase) {
+            MatchPhase.PRE_MATCH_PREP -> {
+                val target = config.rules.preMatchPreparationTicks()
+                (target - timerTicks).coerceAtLeast(0)
+            }
             MatchPhase.FIRST_HALF -> (halfDuration - timerTicks).coerceAtLeast(0)
             MatchPhase.FIRST_HALF_ET -> (stoppageDuration - stoppageTimerTicks).coerceAtLeast(0)
             MatchPhase.SECOND_HALF -> (halfDuration * 2 - timerTicks).coerceAtLeast(0)
@@ -529,7 +604,7 @@ object MatchState {
             halfKickoffBroadcasted = false
         }
         timerTicks = when (phase) {
-            MatchPhase.PRE_MATCH -> 0
+            MatchPhase.PRE_MATCH, MatchPhase.PRE_MATCH_PREP -> 0
             MatchPhase.FIRST_HALF -> 0
             MatchPhase.FIRST_HALF_ET -> {
                 val halfDuration = MatchConfigHolder.current.halfTimeMinutes * 60 * 20
@@ -578,6 +653,7 @@ object MatchState {
     fun getNextPhaseForAutoAdvance(): MatchPhase? {
         val config = MatchConfigHolder.current
         return when (currentPhase) {
+            MatchPhase.PRE_MATCH_PREP -> MatchPhase.FIRST_HALF
             MatchPhase.FIRST_HALF -> if (config.enableStoppageTime && dynamicStoppageTicks > 0) MatchPhase.FIRST_HALF_ET else MatchPhase.SECOND_HALF
             MatchPhase.SECOND_HALF -> {
                 if (config.enableStoppageTime && dynamicStoppageTicks > 0) MatchPhase.SECOND_HALF_ET

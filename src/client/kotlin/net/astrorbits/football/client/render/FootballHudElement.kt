@@ -30,14 +30,17 @@ class FootballHudElement : HudElement {
         val scoreA = Component.literal(MatchState.teamAScore.toString()).visualOrderText
         val scoreB = Component.literal(MatchState.teamBScore.toString()).visualOrderText
 
+        val inPrep = MatchState.isPreMatchPreparationPhase()
         val panelW = PAD + P_W + GAP + T_W + GAP + NAME_W + GAP + S_W + GAP + D_W + GAP + S_W + GAP + NAME_W + PAD
         val cy = Y + H / 2 - font.lineHeight / 2
+        val phaseColor = if (inPrep) PHASE_PREP else PHASE
+        val barColor = if (inPrep) BAR_PREP else BAR
 
         // ── 主栏 ──
-        extra.fill(X, Y, X + panelW, Y + H, BAR)
+        extra.fill(X, Y, X + panelW, Y + H, barColor)
 
         var cx = X + PAD
-        extra.text(font, phaseText, cx, cy, PHASE, true)
+        extra.text(font, phaseText, cx, cy, phaseColor, true)
         cx += P_W + GAP
         val timerX = cx
         extra.text(font, timer, cx, cy, TIMER, true)
@@ -233,8 +236,10 @@ class FootballHudElement : HudElement {
 
         // 颜色
         private const val BAR = 0xDD111122.toInt()
+        private const val BAR_PREP = 0xDD142818.toInt()
         private const val SCORE_BOX = 0x22FFFFFF
         private const val PHASE = 0xFFCCCCCC.toInt()
+        private const val PHASE_PREP = MatchEventBanner.ACCENT_PREP
         private const val TIMER = 0xFFFFD700.toInt()
         private const val RED = 0xFFFF4444.toInt()
         private const val CYAN = 0xFF44CCFF.toInt()

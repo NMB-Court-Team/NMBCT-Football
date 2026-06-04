@@ -119,7 +119,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     private fun isMatchPaused(): Boolean =
-        !level().isClientSide && MatchState.isDuringMatch() && !MatchState.isRunning
+        !level().isClientSide && MatchState.isMatchTimerPaused()
 
     /**
      * 是否固定：不可踢、不可推，物理与位置保持锚点；仅 [teleportBall] / [teleportBallCenter] 可改变位置。
@@ -785,7 +785,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     private fun detectGoal(prevPos: Vec3, currPos: Vec3) {
-        if (MatchState.currentPhase == MatchPhase.PRE_MATCH || MatchState.currentPhase == MatchPhase.FINISHED) return
+        if (MatchState.currentPhase == MatchPhase.PRE_MATCH
+            || MatchState.currentPhase == MatchPhase.PRE_MATCH_PREP
+            || MatchState.currentPhase == MatchPhase.FINISHED
+        ) return
         if (MatchState.postGoalResetPending) return
 
         val radius = FootballPhysicsConfig.RADIUS

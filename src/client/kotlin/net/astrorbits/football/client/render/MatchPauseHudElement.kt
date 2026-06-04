@@ -1,6 +1,7 @@
 package net.astrorbits.football.client.render
 
 import net.astrorbits.football.client.match.MatchPauseClient
+import net.astrorbits.football.match.MatchState
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
@@ -14,6 +15,13 @@ class MatchPauseHudElement : HudElement {
         val client = Minecraft.getInstance()
         if (client.isPaused) return
 
+        val inPrep = MatchState.isPreMatchPreparationPhase()
+        val prepPaused = inPrep && MatchState.isMatchTimerPaused()
+        val prepPauseOverlay = if (prepPaused) {
+            Component.translatable("hud.nmbct-football.match.paused_overlay").string
+        } else {
+            null
+        }
         val key = if (MatchPauseClient.paused) {
             "hud.nmbct-football.match.paused"
         } else {
@@ -28,6 +36,9 @@ class MatchPauseHudElement : HudElement {
             elapsedMs = MatchPauseClient.elapsedMs,
             durationMs = MatchPauseClient.DURATION_MS,
             headlineText = Component.translatable(key).string,
+            stackBelowPreMatchPrep = inPrep,
+            prepTimerPaused = prepPaused,
+            prepPauseOverlayText = prepPauseOverlay,
         )
     }
 }

@@ -209,6 +209,10 @@ data class MatchConfig(
     val extraTimeHalfMinutes: Int get() = rules.extraTimeHalfMinutes
     val enablePenaltyShootout: Boolean get() = rules.enablePenaltyShootout
     val postGoalBallResetDelaySeconds: Int get() = rules.postGoalBallResetDelaySeconds
+    val enablePreMatchPreparation: Boolean get() = rules.enablePreMatchPreparation
+    val preMatchPreparationMinutes: Int get() = rules.preMatchPreparationMinutes
+
+    fun isPreMatchPreparationEnabled(): Boolean = rules.isPreMatchPreparationEnabled()
 
     fun startsWithPenaltyShootout(): Boolean = rules.startsWithPenaltyShootout()
 

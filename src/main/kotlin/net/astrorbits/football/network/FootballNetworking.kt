@@ -177,9 +177,13 @@ object FootballNetworking {
                 if (MatchState.currentPhase != MatchPhase.PENALTIES) {
                     val remaining = MatchState.getPhaseRemainingTicks()
                     if (remaining <= 0) {
-                        val next = MatchState.getNextPhaseForAutoAdvance()
-                        if (next != null) {
-                            MatchState.setPhase(next, server)
+                        if (MatchState.currentPhase == MatchPhase.PRE_MATCH_PREP) {
+                            MatchState.finishPreMatchPreparation(server)
+                        } else {
+                            val next = MatchState.getNextPhaseForAutoAdvance()
+                            if (next != null) {
+                                MatchState.setPhase(next, server)
+                            }
                         }
                     }
                 }

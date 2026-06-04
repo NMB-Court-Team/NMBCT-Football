@@ -8,11 +8,12 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.Style
 
-/** 比赛暂停期间屏幕顶端持续显示的大字提示（与 4s Banner 并存）。 */
+/** 比赛暂停期间屏幕顶端持续显示的大字提示（与 4s Banner 并存）。赛前准备阶段已并入准备 Banner。 */
 class MatchPauseOverlayHudElement : HudElement {
 
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
-        if (!MatchState.isDuringMatch() || MatchState.isRunning) return
+        if (!MatchState.isMatchTimerPaused()) return
+        if (MatchState.isPreMatchPreparationPhase()) return
         val client = Minecraft.getInstance()
         if (client.isPaused) return
 
@@ -23,11 +24,10 @@ class MatchPauseOverlayHudElement : HudElement {
             .visualOrderText
         val w = font.width(text)
         val cx = screenW / 2
-        val y = TOP_MARGIN
 
         val pose = extra.pose()
         pose.pushMatrix()
-        pose.translate(cx - w * TEXT_SCALE / 2f, y.toFloat())
+        pose.translate(cx - w * TEXT_SCALE / 2f, TOP_MARGIN.toFloat())
         pose.scale(TEXT_SCALE, TEXT_SCALE)
         extra.text(font, text, 0, 0, MatchEventBanner.ACCENT_PAUSE, true)
         pose.popMatrix()

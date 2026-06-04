@@ -145,6 +145,9 @@ object MatchEventBanner {
         elapsedMs: Long,
         durationMs: Long,
         headlineText: String,
+        stackBelowPreMatchPrep: Boolean = false,
+        prepTimerPaused: Boolean = false,
+        prepPauseOverlayText: String? = null,
     ) {
         val anim = computeAnim(elapsedMs, durationMs, enterMs = 260L, exitMs = 650L, slidePx = 12)
         val withAlpha = { color: Int -> applyAlpha(color, anim.alpha) }
@@ -155,7 +158,12 @@ object MatchEventBanner {
         val panelW = ACCENT_W + OUT_PAD * 2 + contentW
         val panelH = OUT_TOP_BAR + OUT_PAD * 2 + contentH
         val panelX = (screenW - panelW) / 2
-        val panelY = (screenH * 0.11f).toInt() + anim.slidePx
+        val baseY = if (stackBelowPreMatchPrep) {
+            preMatchPrepPanelBottom(screenH, font, prepTimerPaused, prepPauseOverlayText) + PAUSE_BELOW_PREP_GAP
+        } else {
+            (screenH * 0.11f).toInt()
+        }
+        val panelY = baseY + anim.slidePx
 
         extra.fill(panelX, panelY, panelX + panelW, panelY + panelH, withAlpha(OUT_PANEL_BG))
         extra.fill(panelX, panelY, panelX + panelW, panelY + OUT_TOP_BAR, withAlpha(ACCENT_PAUSE))
@@ -203,6 +211,68 @@ object MatchEventBanner {
         y += drawCenteredLine(extra, font, headline, cx, y, withAlpha(typeColor))
         y += drawCenteredLine(extra, font, touch, cx, y, withAlpha(touchColor))
         drawCenteredLine(extra, font, restart, cx, y, withAlpha(restartColor))
+    }
+
+    fun preMatchPrepPanelTop(screenH: Int): Int = (screenH * PREP_TOP_FRAC).toInt()
+
+    fun preMatchPrepPanelHeight(font: Font, timerPaused: Boolean, pauseOverlayText: String? = null): Int {
+        val row1 = font.lineHeight
+        if (!timerPaused || pauseOverlayText.isNullOrBlank()) {
+            return HALF_TOP_BAR + HALF_PAD * 2 + row1
+        }
+        val pauseLine = Line(pauseOverlayText, ACCENT_PAUSE, bold = true, scale = PREP_PAUSE_OVERLAY_SCALE)
+        return HALF_TOP_BAR + HALF_PAD * 2 + row1 + PREP_PAUSE_ROW_GAP + lineBlockHeight(font, pauseLine)
+    }
+
+    fun preMatchPrepPanelBottom(screenH: Int, font: Font, timerPaused: Boolean, pauseOverlayText: String? = null): Int =
+        preMatchPrepPanelTop(screenH) + preMatchPrepPanelHeight(font, timerPaused, pauseOverlayText)
+
+    /** 赛前准备：上中窄条，亮绿色强调；计时暂停时倒计时改为橙色，并在下方显示「比赛暂停中」大字。 */
+    fun renderPreMatchPrep(
+        extra: GuiGraphicsExtractor,
+        font: Font,
+        screenW: Int,
+        screenH: Int,
+        headlineText: String,
+        timerText: String,
+        timerPaused: Boolean = false,
+        pauseOverlayText: String? = null,
+    ) {
+        val accent = ACCENT_PREP
+        val timerColor = if (timerPaused) ACCENT_PAUSE else PREP_TIMER
+        val sep = " · "
+        val sepW = font.width(sep)
+        val row1W = font.width(toSequence(font, headlineText, bold = true)) + sepW +
+            font.width(toSequence(font, timerText, bold = true))
+        val pauseLine = if (timerPaused && !pauseOverlayText.isNullOrBlank()) {
+            Line(pauseOverlayText, ACCENT_PAUSE, bold = true, scale = PREP_PAUSE_OVERLAY_SCALE)
+        } else {
+            null
+        }
+        val contentW = max(HALF_MIN_W, maxOf(row1W, pauseLine?.let { scaledWidth(font, it) } ?: 0))
+        val panelW = max(HALF_MIN_W, ACCENT_W + HALF_PAD * 2 + contentW)
+        val panelH = preMatchPrepPanelHeight(font, timerPaused, pauseOverlayText)
+        val panelX = (screenW - panelW) / 2
+        val panelY = preMatchPrepPanelTop(screenH)
+
+        extra.fill(panelX, panelY, panelX + panelW, panelY + panelH, PREP_PANEL_BG)
+        extra.fill(panelX, panelY, panelX + panelW, panelY + HALF_TOP_BAR, accent)
+        extra.fill(panelX, panelY, panelX + ACCENT_W, panelY + panelH, accent)
+
+        val cx = panelX + panelW / 2
+        var y = panelY + HALF_TOP_BAR + HALF_PAD
+        var x = panelX + (panelW - row1W) / 2
+        val headlineSeq = toSequence(font, headlineText, bold = true)
+        extra.text(font, headlineSeq, x, y, accent, true)
+        x += font.width(headlineSeq)
+        extra.text(font, sep, x, y, PREP_SEP, true)
+        x += sepW
+        val timerSeq = toSequence(font, timerText, bold = true)
+        extra.text(font, timerSeq, x, y, timerColor, true)
+        pauseLine?.let {
+            y += font.lineHeight + PREP_PAUSE_ROW_GAP
+            drawCenteredLine(extra, font, it, cx, y, ACCENT_PAUSE)
+        }
     }
 
     /** 半场：上中窄条，单行「阶段 · 发球方」 */
@@ -556,4 +626,13 @@ object MatchEventBanner {
     const val ACCENT_LOSS = 0xFFFF55AA.toInt()
     const val ACCENT_DRAW = 0xFF55FF55.toInt()
     const val ACCENT_PAUSE = 0xFFFF9800.toInt()
+    /** 赛前准备阶段 Banner / HUD 强调色（亮绿） */
+    const val ACCENT_PREP = 0xFF66FF66.toInt()
+    private const val PREP_PANEL_BG = 0xDD142818.toInt()
+    private const val PREP_SEP = 0xFF99DD99.toInt()
+    private const val PREP_TIMER = 0xFFAAFFAA.toInt()
+    private const val PREP_TOP_FRAC = 0.09f
+    private const val PREP_PAUSE_ROW_GAP = 4
+    private const val PREP_PAUSE_OVERLAY_SCALE = 2f
+    private const val PAUSE_BELOW_PREP_GAP = 6
 }

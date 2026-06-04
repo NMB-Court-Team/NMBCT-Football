@@ -20,7 +20,7 @@ object PlayerRoleState {
     }
 
     fun isGoalkeeper(player: ServerPlayer): Boolean {
-        if (!MatchState.isDuringMatch()) return false
+        if (!MatchState.allowsActiveGoalkeeperRole()) return false
         if (penaltyKickOutfieldOverride.contains(player.uuid)) return false
         return isDesignatedGoalkeeper(player)
     }
@@ -82,7 +82,8 @@ object PlayerRoleState {
      * 开赛时分配守门员：若该队已有正式门将登记（含上一场保留或 `setGk`）且仍在名单中，则沿用；
      * 否则从该队在线队员中随机一名设为守门员。
      */
-    fun assignGoalkeepersOnMatchStart(server: MinecraftServer) {
+    /** 沿用已登记且仍在名单中的门将；否则从该队在线队员中随机一名。 */
+    fun assignGoalkeepersIfMissing(server: MinecraftServer) {
         for (team in TeamSide.entries) {
             val roster = when (team) {
                 TeamSide.A -> MatchState.teamAPlayers
@@ -104,6 +105,8 @@ object PlayerRoleState {
             }
         }
     }
+
+    fun assignGoalkeepersOnMatchStart(server: MinecraftServer) = assignGoalkeepersIfMissing(server)
 
     /** 主罚点球时切换为场外操作（门将/自愿门将）。 */
     fun enterPenaltyKickOutfield(player: ServerPlayer) {

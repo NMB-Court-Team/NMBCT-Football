@@ -11,7 +11,14 @@ data class MatchRulesSettings(
     val extraTimeHalfMinutes: Int = 3,
     val enablePenaltyShootout: Boolean = false,
     val postGoalBallResetDelaySeconds: Int = 3,
+    val enablePreMatchPreparation: Boolean = true,
+    val preMatchPreparationMinutes: Int = 2,
 ) {
+    /** 显式开启且时长大于 0 时进入赛前准备阶段。 */
+    fun isPreMatchPreparationEnabled(): Boolean =
+        enablePreMatchPreparation && preMatchPreparationMinutes > 0
+
+    fun preMatchPreparationTicks(): Int = preMatchPreparationMinutes * 60 * 20
     private fun skipsRegularAndExtraTime(): Boolean =
         halfTimeMinutes == 0 && (!enableExtraTime || extraTimeHalfMinutes == 0)
 
@@ -34,6 +41,10 @@ data class MatchRulesSettings(
                 Codec.BOOL.fieldOf("enable_penalty_shootout").forGetter(MatchRulesSettings::enablePenaltyShootout),
                 Codec.INT.optionalFieldOf("post_goal_ball_reset_delay_seconds", 3)
                     .forGetter(MatchRulesSettings::postGoalBallResetDelaySeconds),
+                Codec.BOOL.optionalFieldOf("enable_pre_match_preparation", true)
+                    .forGetter(MatchRulesSettings::enablePreMatchPreparation),
+                Codec.INT.optionalFieldOf("pre_match_preparation_minutes", 2)
+                    .forGetter(MatchRulesSettings::preMatchPreparationMinutes),
             ).apply(i, ::MatchRulesSettings)
         }
 

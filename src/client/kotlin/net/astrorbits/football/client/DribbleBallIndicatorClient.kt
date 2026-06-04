@@ -72,7 +72,7 @@ object DribbleBallIndicatorClient {
             return false
         }
         val phase = MatchState.currentPhase
-        if (phase == MatchPhase.PRE_MATCH || phase == MatchPhase.FINISHED) {
+        if (phase == MatchPhase.PRE_MATCH || phase == MatchPhase.PRE_MATCH_PREP || phase == MatchPhase.FINISHED) {
             return false
         }
         return isLocalPlayerMatchParticipant()

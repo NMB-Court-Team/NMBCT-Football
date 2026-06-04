@@ -33,6 +33,7 @@ object MatchSetupConfigScreen {
                         stoppageTimeMaxMinutes = rules.stoppageTimeMaxMinutes.coerceAtLeast(0),
                         extraTimeHalfMinutes = rules.extraTimeHalfMinutes.coerceAtLeast(0),
                         postGoalBallResetDelaySeconds = rules.postGoalBallResetDelaySeconds.coerceAtLeast(0),
+                        preMatchPreparationMinutes = rules.preMatchPreparationMinutes.coerceIn(0, 10),
                     ),
                 )
                 if (ClientPlayNetworking.canSend(MatchConfigApplyC2SPayload.TYPE)) {
@@ -112,6 +113,21 @@ object MatchSetupConfigScreen {
                         getter = { getter().postGoalBallResetDelaySeconds },
                         setter = { v -> setRules(getter, setter) { it.copy(postGoalBallResetDelaySeconds = v) } },
                         range = 0..60,
+                    )
+                    addBoolean(
+                        nameKey = "screen.nmbct-football.match.enable_pre_match_preparation",
+                        descKey = MatchYaclDesc.desc("screen.nmbct-football.match.enable_pre_match_preparation"),
+                        defaultValue = def.enablePreMatchPreparation,
+                        getter = { getter().enablePreMatchPreparation },
+                        setter = { v -> setRules(getter, setter) { it.copy(enablePreMatchPreparation = v) } },
+                    )
+                    addInt(
+                        nameKey = "screen.nmbct-football.match.pre_match_preparation_minutes",
+                        descKey = MatchYaclDesc.desc("screen.nmbct-football.match.pre_match_preparation_minutes"),
+                        defaultValue = def.preMatchPreparationMinutes,
+                        getter = { getter().preMatchPreparationMinutes },
+                        setter = { v -> setRules(getter, setter) { it.copy(preMatchPreparationMinutes = v) } },
+                        range = 0..10,
                     )
                 },
             ),

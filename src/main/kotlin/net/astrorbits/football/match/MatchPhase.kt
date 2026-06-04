@@ -14,6 +14,7 @@ enum class MatchPhase(val displayNameKey: String) {
     EXTRA_SECOND("match.phase.extra_second"),
     EXTRA_SECOND_ET("match.phase.extra_second_et"),
     PENALTIES("match.phase.penalties"),
+    PRE_MATCH_PREP("match.phase.pre_match_prep"),
     FINISHED("match.phase.finished");
 
     companion object {
@@ -37,6 +38,7 @@ enum class MatchPhase(val displayNameKey: String) {
             EXTRA_SECOND -> EXTRA_SECOND_ET
             EXTRA_SECOND_ET -> PENALTIES
             PENALTIES -> FINISHED
+            PRE_MATCH_PREP -> FIRST_HALF
             FINISHED -> null
         }
 }
