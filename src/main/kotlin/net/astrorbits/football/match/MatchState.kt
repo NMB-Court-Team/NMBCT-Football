@@ -82,6 +82,10 @@ object MatchState {
         else -> null
     }
 
+    /** 是否处于正式比赛阶段（非 [MatchPhase.PRE_MATCH]、非 [MatchPhase.FINISHED]；含常规半场、补时、加时、点球大战）。 */
+    fun isDuringMatch(): Boolean =
+        currentPhase != MatchPhase.PRE_MATCH && currentPhase != MatchPhase.FINISHED
+
     fun addPlayer(team: TeamSide, uuid: UUID) {
         when (team) {
             TeamSide.A -> teamAPlayers.add(uuid)

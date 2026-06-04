@@ -109,6 +109,7 @@ object GoalkeeperStateClient {
 
         if (holding && !wasHoldingBall) {
             predictHoldReleaseLock(level.gameTime)
+            GoalkeeperHoldStealProtectionClient.onGoalkeeperBeganHolding(player, level.gameTime)
             FootballInputHandler.onGoalkeeperBeganHoldingBall()
         }
 
@@ -160,5 +161,6 @@ object GoalkeeperStateClient {
     fun onMatchReset() {
         isGoalkeeper = false
         resetHoldState()
+        GoalkeeperHoldStealProtectionClient.onMatchReset()
     }
 }

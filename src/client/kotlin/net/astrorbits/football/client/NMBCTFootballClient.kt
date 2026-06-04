@@ -32,6 +32,8 @@ import net.astrorbits.football.client.render.FootballHudElement
 import net.astrorbits.football.client.render.FootballKeybindHintHudElement
 import net.astrorbits.football.client.render.FootballRenderer
 import net.astrorbits.football.client.render.GoalkeeperHoldLockHudElement
+import net.astrorbits.football.client.render.GoalkeeperHoldStealProtectionHudElement
+import net.astrorbits.football.client.GoalkeeperHoldStealProtectionClient
 import net.astrorbits.football.client.render.KickChargeHudElement
 import net.astrorbits.football.client.render.BoostSprintHudElement
 import net.astrorbits.football.client.render.DribbleBallOffscreenHudElement
@@ -79,6 +81,11 @@ object NMBCTFootballClient : ClientModInitializer {
 		HudElementRegistry.addLast(
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "gk_hold_lock_hud"),
 			GoalkeeperHoldLockHudElement()
+		)
+		HudElementRegistry.attachElementAfter(
+			net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements.CROSSHAIR,
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "gk_hold_steal_protection_hud"),
+			GoalkeeperHoldStealProtectionHudElement(),
 		)
 
 		HudElementRegistry.addLast(
@@ -140,6 +147,7 @@ object NMBCTFootballClient : ClientModInitializer {
 		}
 
 		GoalkeeperStateClient.register()
+		GoalkeeperHoldStealProtectionClient.register()
 		GoalkeeperHoldPoseClient.register()
 		SlideTackleStateClient.register()
 		FootballClientAttackInteractions.register()

@@ -55,6 +55,8 @@ flowchart TB
 | `match/MatchConfigHolder.kt` | 加载/保存 `config/nmbct-football-match.json` |
 | `match/MatchCommand.kt` | `/match` 命令 |
 | `match/PlayerRoleState.kt` | 官方/自愿守门员 |
+| `client/GoalkeeperHoldStealProtectionClient.kt` | 比赛期间抢球保护窗口（客户端，供 HUD） |
+| `client/render/GoalkeeperHoldStealProtectionHudElement.kt` | 准心下方「抢球保护中」提示 |
 | `match/PostGoalBallResetScheduler.kt` | 进球/出界/无效进球后延迟复位足球 |
 | `match/PendingAfterReset.kt` | 足球复位完成后的开球阶段（含无效进球重开） |
 | `match/MatchKickoffTiming.kt` | 开球锁定时长常量 |
@@ -193,6 +195,21 @@ flowchart TB
 | 随机分配 | `/match start` 时从各队在线队员中各随机一名             |
 
 门将身份影响：开球 HUD 是否显示门将提示、守门员专属输入（扑球/持球等）。退出守门员身份时会放下手中足球。
+
+#### 守门员持球抢球保护
+
+仅在 **`MatchState.isDuringMatch()`** 为真时生效（阶段不是 `PRE_MATCH` 或 `FINISHED`，含常规半场、补时、加时、`PENALTIES` 点球大战）。赛前练习、赛后或未开赛时，守门员仍可持球，但**不会**触发抢球保护。
+
+| 项 | 说明 |
+|----|------|
+| 触发 | 守门员成功接球进入 `Football.enterHold` |
+| 时长 | 服务端配置 `goalkeeper.catch.hold_steal_protection_ticks`（默认 **200 tick ≈ 10 秒**；`0` 关闭） |
+| 效果 | 保护期内，除持球守门员外，其他球员无法通过踢球、停球、运球触球、身体碰撞、滑铲触球等方式从门将手上夺走足球 |
+| 门将本人 | 仍可手抛/开球/放下；手抛与放下受 **`hold_release_lock_ticks`**（持球保护条）约束，与抢球保护独立 |
+| 判定入口 | 服务端 `Football.isHoldStealProtectedFrom`；`kick` / `trap` / `applyDribbleAssist` / `push` 等路径均会校验 |
+| 客户端 HUD | 保护生效且本地玩家在踢球范围内或本人为持球门将时，十字准心下方显示蓝色小字「抢球保护中」（`GoalkeeperHoldStealProtectionHudElement`） |
+
+实现：`Football.kt`（权威判定）、`GoalkeeperHoldStealProtectionClient.kt`（客户端跟踪保护窗口与 HUD 可见性）。配置见服务端 YACL **守门员 → 接球 → 抢球保护时长**。
 
 ## 比赛阶段 `MatchPhase`
 

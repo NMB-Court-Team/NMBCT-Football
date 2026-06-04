@@ -126,6 +126,10 @@ object FootballPlayerActions {
             FootballDribbleSessions.end(player)
             return
         }
+        if (football.isHoldStealProtectedFrom(player)) {
+            FootballDribbleSessions.end(player)
+            return
+        }
 
         if (player.distanceToSqr(football) > FootballInputConfig.PLAYER_KICK_RANGE * FootballInputConfig.PLAYER_KICK_RANGE) {
             FootballDribbleSessions.end(player)

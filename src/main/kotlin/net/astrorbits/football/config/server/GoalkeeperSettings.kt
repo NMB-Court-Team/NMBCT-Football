@@ -16,6 +16,8 @@ data class GoalkeeperCatchSettings(
     val holdFirstPersonExtraDown: Double = 0.12,
     val dropDistance: Double = 0.5,
     val holdReleaseLockTicks: Int = 25,
+    /** 比赛期间守门员持球后，其他球员无法踢走/抢断的时长（tick）；0 关闭。默认 200 tick ≈ 10 秒。 */
+    val holdStealProtectionTicks: Int = 200,
     val actionCooldownTicks: Int = 3,
 ) {
     companion object {
@@ -33,6 +35,8 @@ data class GoalkeeperCatchSettings(
                 Codec.DOUBLE.fieldOf("hold_first_person_extra_down").forGetter(GoalkeeperCatchSettings::holdFirstPersonExtraDown),
                 Codec.DOUBLE.fieldOf("drop_distance").forGetter(GoalkeeperCatchSettings::dropDistance),
                 Codec.INT.fieldOf("hold_release_lock_ticks").forGetter(GoalkeeperCatchSettings::holdReleaseLockTicks),
+                Codec.INT.optionalFieldOf("hold_steal_protection_ticks", 200)
+                    .forGetter(GoalkeeperCatchSettings::holdStealProtectionTicks),
                 Codec.INT.fieldOf("action_cooldown_ticks").forGetter(GoalkeeperCatchSettings::actionCooldownTicks),
             ).apply(i, ::GoalkeeperCatchSettings)
         }
@@ -232,6 +236,7 @@ data class GoalkeeperSettings(
     val holdFirstPersonExtraDown get() = catch.holdFirstPersonExtraDown
     val dropDistance get() = catch.dropDistance
     val holdReleaseLockTicks get() = catch.holdReleaseLockTicks
+    val holdStealProtectionTicks get() = catch.holdStealProtectionTicks
     val actionCooldownTicks get() = catch.actionCooldownTicks
     val diveDurationTicks get() = dive.diveDurationTicks
     val diveCooldownTicks get() = dive.diveCooldownTicks

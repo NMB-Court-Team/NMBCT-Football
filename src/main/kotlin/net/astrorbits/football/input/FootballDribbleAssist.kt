@@ -45,6 +45,9 @@ object FootballDribbleAssist {
         if (football.isPlayerBallMovementForbidden(player)) {
             return false
         }
+        if (football.isHoldStealProtectedFrom(player)) {
+            return false
+        }
 
         val horizontalDistanceSqr = player.distanceToSqr(football)
         if (horizontalDistanceSqr > FootballInputConfig.DRIBBLE_MAX_CONTROL_RANGE * FootballInputConfig.DRIBBLE_MAX_CONTROL_RANGE) {

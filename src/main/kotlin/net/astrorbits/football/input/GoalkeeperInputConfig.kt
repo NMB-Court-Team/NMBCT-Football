@@ -44,4 +44,5 @@ object GoalkeeperInputConfig {
     val GK_THROW_SPRINT_BONUS get() = FootballConfigs.server.goalkeeper.throwSprintBonus
     val GK_ACTION_COOLDOWN_TICKS get() = FootballConfigs.server.goalkeeper.actionCooldownTicks
     val GK_HOLD_RELEASE_LOCK_TICKS get() = FootballConfigs.server.goalkeeper.holdReleaseLockTicks
+    val GK_HOLD_STEAL_PROTECTION_TICKS get() = FootballConfigs.server.goalkeeper.holdStealProtectionTicks
 }

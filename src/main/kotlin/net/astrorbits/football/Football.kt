@@ -394,7 +394,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         repositionCenter: Vec3? = null,
         now: Long = (level() as? ServerLevel)?.gameTime ?: 0L,
     ): Boolean {
-        if (isImmovable || isPlayerBallMovementForbidden(player)) {
+        if (isImmovable || isPlayerBallMovementForbidden(player) || isHoldStealProtectedFrom(player)) {
             return false
         }
         if (contactNormal.lengthSqr() <= 1.0e-8) {
@@ -453,7 +453,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         repositionCenter: Vec3? = null,
         now: Long,
     ): Boolean {
-        if (isImmovable || isPlayerBallMovementForbidden(player)) {
+        if (isImmovable || isPlayerBallMovementForbidden(player) || isHoldStealProtectedFrom(player)) {
             return false
         }
         if (shouldSuppressPlayerBodyImpulse(player, now)) {
@@ -475,6 +475,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             params = params,
             random = player.random,
             spreadInaccuracy = FootballInputConfig.KICK_SPREAD_INACCURACY,
+            actingPlayer = player,
         )
         deltaMovement = physicsState.linearVelocity
         MatchState.tryNotifyKickoffBallTouched(player)
@@ -1050,8 +1051,13 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 return false
             }
         }
+        if (isHoldStealProtectedFrom(actingPlayer)) {
+            return false
+        }
 
-        releaseHold()
+        if (holderEntityId >= 0) {
+            releaseHold()
+        }
         val center = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         FootballPhysicsSimulator.applyKick(physicsState, kickPoint, direction, center)
         previousOrientation.set(physicsState.orientation)
@@ -1096,7 +1102,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (isPlayerBallMovementForbidden(player)) {
             return false
         }
-        releaseHold()
+        if (isHoldStealProtectedFrom(player)) {
+            return false
+        }
+        if (holderEntityId >= 0) {
+            releaseHold()
+        }
         physicsState.linearVelocity = Vec3.ZERO
         physicsState.angularVelocity = Vec3.ZERO
         deltaMovement = Vec3.ZERO
@@ -1107,6 +1118,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     fun applyDribbleAssist(horizontalVelocity: Vec3, player: ServerPlayer) {
         if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player)) {
+            return
+        }
+        if (isHoldStealProtectedFrom(player)) {
             return
         }
 
@@ -1133,6 +1147,24 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     fun isHeld(): Boolean = getHolderEntityId() >= 0
 
     fun isHeldBy(player: ServerPlayer): Boolean = getHolderEntityId() == player.id
+
+    /**
+     * 守门员持球后的抢球保护：仅在 [MatchState.isDuringMatch] 且 [GoalkeeperInputConfig.GK_HOLD_STEAL_PROTECTION_TICKS] 内，
+     * 除持球者外的玩家无法通过踢球、停球、碰撞推球等方式把球从守门员手上夺走。
+     */
+    fun isHoldStealProtectedFrom(actingPlayer: ServerPlayer?): Boolean {
+        if (level().isClientSide || holderEntityId < 0 || !MatchState.isDuringMatch()) {
+            return false
+        }
+        val protectionTicks = GoalkeeperInputConfig.GK_HOLD_STEAL_PROTECTION_TICKS
+        if (protectionTicks <= 0) {
+            return false
+        }
+        if (actingPlayer != null && actingPlayer.id == holderEntityId) {
+            return false
+        }
+        return level().gameTime - holdStartTick < protectionTicks
+    }
 
     fun enterHold(player: ServerPlayer) {
         if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player)) {
@@ -1335,7 +1367,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     override fun push(entity: Entity) {
         if (entity is ServerPlayer) {
-            if (isImmovable || isPlayerBallMovementForbidden(entity)) {
+            if (isImmovable || isPlayerBallMovementForbidden(entity) || isHoldStealProtectedFrom(entity)) {
                 return
             }
             val now = (level() as? ServerLevel)?.gameTime ?: 0L

@@ -259,6 +259,7 @@ object FootballServerConfigScreen {
                     addDouble("$GK.catch_max_speed", "$GK.catch_max_speed.desc", GK_CATCH.catchMaxSpeed, { gk().catchMaxSpeed }, { v -> setGk { it.copy(catchMaxSpeed = v) } }, 0.5..10.0)
                     addInt("$GK.hold_max_ticks", "$GK.hold_max_ticks.desc", GK_CATCH.holdMaxTicks, { gk().holdMaxTicks }, { v -> setGk { it.copy(holdMaxTicks = v) } }, 20..1200)
                     addInt("$GK.hold_release_lock", "$GK.hold_release_lock.desc", GK_CATCH.holdReleaseLockTicks, { gk().holdReleaseLockTicks }, { v -> setGk { it.copy(holdReleaseLockTicks = v) } }, 0..200)
+                    addInt("$GK.hold_steal_protection", "$GK.hold_steal_protection.desc", GK_CATCH.holdStealProtectionTicks, { gk().holdStealProtectionTicks }, { v -> setGk { it.copy(holdStealProtectionTicks = v) } }, 0..600)
                 }
                 .build(),
         )
