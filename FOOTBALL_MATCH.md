@@ -68,6 +68,12 @@ flowchart TB
 | `client/DribbleBallIndicatorClient.kt` | 带球 / 全场指示的足球跟踪（客户端） |
 | `client/render/DribbleBallOffscreenHudElement.kt` | 球不在屏幕内时的边缘箭头 + 足球图标 |
 | `client/config/yacl/MatchSetupConfigScreen.kt` | `/match setup` 规则与辅助功能 GUI |
+| `client/config/yacl/MatchFieldConfigScreen.kt` | `/match config` 赛场几何 YACL 界面与分组 |
+| `client/config/yacl/MatchFieldYaclExtensions.kt` | 赛场 GUI 的 `addPosition` / `addPositionAndFacing` 等扩展 |
+| `client/config/yacl/MatchFieldPlayerSamples.kt` | 从本地玩家读取站位/朝向/边线坐标 |
+| `client/config/yacl/controller/*` | 内联数字框、`Vec3`、出生点（含朝向）自定义 Controller |
+| `client/mixin/ListEntryWidgetMixin.java` | 列表项内联编辑时转发键盘事件（见赛场 GUI） |
+| `client/config/MatchFieldConfigNetworking.kt` | 打开赛场 GUI 时接收 `MatchFieldConfigSyncS2CPayload` |
 | `network/InvalidGoalS2CPayload.kt` | S2C：无效进球 HUD |
 | `stamina/StaminaState.kt` | 服务端权威体力：消耗、回复、`tryConsume`、比赛事件 |
 | `stamina/BoostSprintState.kt` | 加速疾跑状态、移速修饰与体力同步联动 |
@@ -403,6 +409,8 @@ flowchart TB
 | `enable_football_position_indicator` | 比赛进行中为参赛玩家显示全场视野外足球方位 HUD | false |
 
 > **旧版 JSON 兼容**：根级仍可直接写 `half_time_minutes`、`enable_stoppage_time` 等（无 `rules` / `accessibility` 包裹）时，由 `MatchConfig.CODEC` 的 `FLAT_LEGACY_CODEC` 读取并映射到 `rules`；`accessibility` 缺省为关闭。代码中可通过 `MatchConfig.halfTimeMinutes` 等 getter 访问规则字段，与嵌套结构无关。
+>
+> **保存格式**：`MatchConfigHolder` 持久化时优先使用 `NESTED_CODEC`（含 `rules` / `accessibility` 对象）。仓库根目录 `nmbct-football-match.json` 为与线上一致的**推荐结构示例**；复制到 `<Fabric 配置目录>/nmbct-football-match.json` 即可作为服务器默认赛场。
 
 ### 几何配置要点
 
@@ -412,9 +420,50 @@ flowchart TB
 
 **`TeamSpawnConfig`**：`gk` 单个门将点；`players` 为场上队员坐标列表（可含 `yaw`/`pitch`）。
 
-管理员可用 `/match setup`（队伍、时间、加时/点球、**辅助功能**）与 `/match config`（赛场几何 GUI）编辑；应用后通过 `MatchConfigApplyC2SPayload` 写回服务端并持久化，并触发 `broadcastTimerSync` 将规则与 `enable_football_position_indicator` 推送到所有客户端。
+管理员可用 `/match setup`（队伍、时间、加时/点球、**辅助功能**）与 `/match config`（赛场几何 GUI，见下节）编辑；应用后通过 `MatchConfigApplyC2SPayload` 写回服务端并持久化，并触发 `broadcastTimerSync` 将规则与 `enable_football_position_indicator` 推送到所有客户端。
 
-> 示例 JSON 中的 `enable_goal_detection` **不在**当前 `MatchConfig.CODEC 中，会被忽略；只要比赛阶段已开始，判定即生效。
+> 示例 JSON 中的 `enable_goal_detection` **不在**当前 `MatchConfig.CODEC` 中，会被忽略；只要比赛阶段已开始，判定即生效。
+
+### 赛场几何 GUI（`/match config`）
+
+GM 执行 `/match config` 时，服务端发送 `MatchFieldConfigSyncS2CPayload`，客户端打开 [`MatchFieldConfigScreen`](src/client/kotlin/net/astrorbits/football/client/config/yacl/MatchFieldConfigScreen.kt)。保存草稿经 `MatchConfigApplyC2SPayload` 写回服务端与 `config/nmbct-football-match.json`。
+
+**分类（Tab）**
+
+| Tab | 对应配置 |
+|-----|----------|
+| 球门 A / 球门 B | `goal_a` / `goal_b` |
+| 出生点 A / 出生点 B | `team_a_spawn` / `team_b_spawn` |
+| 开球 | `kick_off` |
+| 边线 A / 边线 B | `sideline_a` / `sideline_b` |
+
+**自定义 Controller（YACL）**
+
+为避免嵌套完整 `StringControllerElement` 在列表行高（约 20px）内被裁切，赛场坐标使用自绘内联控件，而非默认字符串行：
+
+| Controller | 用途 | 行内布局 |
+|------------|------|----------|
+| `PositionController` | `Vec3`（角点、朝向向量、开球/角球/门球点等） | 选项名 · `X` `Y` `Z` 内联输入 · 可选 **取当前位置** |
+| `PositionAndFacingController` | 门将/队员出生点 | 选项名 · `X` `Y` `Z` `偏航` `俯仰` · 可选 **取当前位置与朝向** |
+| `DoubleStringController` | 边线 `coord` 等标量 | 单行数字框，非法输入回退 |
+
+内联数字框实现于 [`InlineNumberField`](src/client/kotlin/net/astrorbits/football/client/config/yacl/controller/InlineNumberField.kt)：悬停/聚焦时显示下划线与光标；`Position*ControllerElement` 仅在首次构造时创建字段实例，`setDimension` 只更新布局，避免 YACL 每帧改 Y 导致焦点丢失。
+
+**各 Tab 控件要点**
+
+| 区域 | 行为 |
+|------|------|
+| **球门几何** | 角点 1、角点 2：内联 `X/Y/Z` + 行末 **取当前位置**（`MatchFieldPlayerSamples.position()`）。朝向向量：仅内联坐标，**无**取样按钮。已移除分组顶部的独立「设为角点 1 / 设为角点 2」按钮。 |
+| **门球 / 左角 / 右角** | 各一组 `PositionController`，默认带 **取当前位置**。 |
+| **出生点** | 门将：`PositionAndFacingController` + **取当前位置与朝向**。队员列表：`ListOption` + `compact = true`（行内始终显示五字段）+ 每行 **取当前位置与朝向**。 |
+| **开球** | 单条 `PositionController` + **取当前位置**。 |
+| **边线** | `coord` 数字框、轴枚举、场内方向布尔；另保留分组级 **取当前位置** 按钮（按当前 `axis` 写入 `coord`，见 `MatchFieldPlayerSamples.sidelineCoord`）。 |
+
+**列表项键盘输入**
+
+YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子控件（上移/下移/删除或 `entryWidget`），而内联框焦点在 `entryWidget` 内部，会出现「有光标但无法输入」。
+
+客户端通过 [`ListEntryWidgetMixin`](src/client/java/net/astrorbits/football/client/mixin/ListEntryWidgetMixin.java) 在列表项有活跃内联框时（[`InlineFieldKeyboardHost`](src/client/kotlin/net/astrorbits/football/client/config/yacl/controller/InlineFieldKeyboardHost.kt)）转发键盘事件，并在点击内联区域后将 `ListEntryWidget` 的 focused 设为 `entryWidget`。
 
 ## 命令一览 `/match`
 
