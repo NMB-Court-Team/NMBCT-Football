@@ -374,10 +374,6 @@ object FootballSounds {
         playSlideTackleBallHit(player.level(), ballPos, impactSpeed, player.random)
     }
 
-    fun playWhistle(level: Level, pos: BlockPos, random: RandomSource) {
-        play(level, pos, WHISTLE_USE, random)
-    }
-
     /** 比赛裁判哨（1–6 对应 assets 中 whistle_1 … whistle_6）。 */
     fun playMatchWhistle(server: MinecraftServer, number: Int) {
         val event = when (number) {

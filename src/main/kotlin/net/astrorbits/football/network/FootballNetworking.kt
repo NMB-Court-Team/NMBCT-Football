@@ -65,6 +65,7 @@ object FootballNetworking {
 		registry.register(MatchResultRequestC2SPayload.TYPE, MatchResultRequestC2SPayload.CODEC)
 		registry.register(MatchResultS2CPayload.TYPE, MatchResultS2CPayload.CODEC)
         registry.register(SlideTackleStateS2CPayload.TYPE, SlideTackleStateS2CPayload.CODEC)
+        registry.register(WhistleUseS2CPayload.TYPE, WhistleUseS2CPayload.CODEC)
         registry.register(GoalLineOutS2CPayload.TYPE, GoalLineOutS2CPayload.CODEC)
         registry.register(MatchHudDebugS2CPayload.TYPE, MatchHudDebugS2CPayload.CODEC)
         registry.register(MatchTimerSyncS2CPayload.TYPE, MatchTimerSyncS2CPayload.CODEC)
@@ -404,6 +405,15 @@ object FootballNetworking {
 
     fun syncSlideTackleState(player: ServerPlayer, sliding: Boolean, cooldownUntilTick: Long = 0L) {
         val payload = SlideTackleStateS2CPayload(player.id, sliding, cooldownUntilTick)
+        val server = player.level().server ?: return
+        for (target in server.playerList.players) {
+            ServerPlayNetworking.send(target, payload)
+        }
+    }
+
+    /** 同步哨子吹哨：各客户端在吹哨玩家实体上播放绑定音效。 */
+    fun syncWhistleUse(player: ServerPlayer) {
+        val payload = WhistleUseS2CPayload(player.id)
         val server = player.level().server ?: return
         for (target in server.playerList.players) {
             ServerPlayNetworking.send(target, payload)
