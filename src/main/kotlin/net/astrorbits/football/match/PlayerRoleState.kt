@@ -2,6 +2,7 @@ package net.astrorbits.football.match
 
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.util.GoalkeeperUtil
+import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -10,10 +11,17 @@ object PlayerRoleState {
     var teamAGoalkeeper: UUID? = null
     var teamBGoalkeeper: UUID? = null
     val voluntaryGkMode: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
+    /** 点球主罚轮次中临时按场外球员操作（仍保留正式门将登记）。 */
+    private val penaltyKickOutfieldOverride: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
-    fun isGoalkeeper(player: ServerPlayer): Boolean {
+    fun isDesignatedGoalkeeper(player: ServerPlayer): Boolean {
         val uuid = player.uuid
         return uuid == teamAGoalkeeper || uuid == teamBGoalkeeper || voluntaryGkMode.contains(uuid)
+    }
+
+    fun isGoalkeeper(player: ServerPlayer): Boolean {
+        if (penaltyKickOutfieldOverride.contains(player.uuid)) return false
+        return isDesignatedGoalkeeper(player)
     }
 
     fun setOfficialGk(team: TeamSide, player: ServerPlayer?) {
@@ -83,9 +91,33 @@ object PlayerRoleState {
         }
     }
 
+    /** 主罚点球时切换为场外操作（门将/自愿门将）。 */
+    fun enterPenaltyKickOutfield(player: ServerPlayer) {
+        if (!isDesignatedGoalkeeper(player)) return
+        if (!penaltyKickOutfieldOverride.add(player.uuid)) return
+        syncRoleToPlayer(player)
+    }
+
+    /** 本脚主罚结束后恢复门将操作（若仍为正式门将）。 */
+    fun releasePenaltyKickOutfield(player: ServerPlayer) {
+        if (!penaltyKickOutfieldOverride.remove(player.uuid)) return
+        syncRoleToPlayer(player)
+    }
+
+    fun clearPenaltyKickOutfieldOverrides(server: MinecraftServer? = null) {
+        if (penaltyKickOutfieldOverride.isEmpty()) return
+        val affected = penaltyKickOutfieldOverride.toList()
+        penaltyKickOutfieldOverride.clear()
+        server ?: return
+        for (uuid in affected) {
+            server.playerList.getPlayer(uuid)?.let { syncRoleToPlayer(it) }
+        }
+    }
+
     fun reset() {
         teamAGoalkeeper = null
         teamBGoalkeeper = null
         voluntaryGkMode.clear()
+        penaltyKickOutfieldOverride.clear()
     }
 }

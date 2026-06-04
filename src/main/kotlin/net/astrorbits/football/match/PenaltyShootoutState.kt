@@ -54,11 +54,15 @@ object PenaltyShootoutState {
 
     private val kickedPlayersA = mutableSetOf<UUID>()
     private val kickedPlayersB = mutableSetOf<UUID>()
+    /** 点球大战开始时在线的队员；全员至少踢一次后才允许二踢。 */
+    private val eligibleKickersA = mutableSetOf<UUID>()
+    private val eligibleKickersB = mutableSetOf<UUID>()
     private var resolveTicks = 0
     private var stationaryTicks = 0
     private var outcomeRecorded = false
     private var activeFootballId: Int = -1
     private var pendingAdvance = false
+    private var kickIntroTicksRemaining = 0
 
     fun isActive(): Boolean = active && MatchState.currentPhase == MatchPhase.PENALTIES
 
@@ -80,19 +84,12 @@ object PenaltyShootoutState {
         MatchState.postGoalResetPending = false
         MatchState.clearDirectGoalRestriction()
 
-        server.playerList.broadcastSystemMessage(
-            Component.translatable(
-                "match.penalty.toss",
-                MatchState.getTeamName(activeDefendingTeam).string,
-                MatchState.getTeamName(firstKickTeam).string,
-            ),
-            false,
-        )
+        captureEligibleKickPools(server)
         FootballSounds.playMatchWhistle(server, 1)
         beginKick(server)
     }
 
-    fun clear() {
+    fun clear(server: MinecraftServer? = null) {
         active = false
         penaltyScoreA = 0
         penaltyScoreB = 0
@@ -104,11 +101,15 @@ object PenaltyShootoutState {
         kickPhase = PenaltyKickPhase.SETUP
         kickedPlayersA.clear()
         kickedPlayersB.clear()
+        eligibleKickersA.clear()
+        eligibleKickersB.clear()
+        PlayerRoleState.clearPenaltyKickOutfieldOverrides(server)
         resolveTicks = 0
         stationaryTicks = 0
         outcomeRecorded = false
         activeFootballId = -1
         pendingAdvance = false
+        kickIntroTicksRemaining = 0
     }
 
     fun defendingGoal(): GoalConfig {
@@ -172,7 +173,16 @@ object PenaltyShootoutState {
             advanceAfterOutcome(server)
             return
         }
-        if (!isActive() || kickPhase != PenaltyKickPhase.RESOLVING || outcomeRecorded) return
+        if (!isActive()) return
+        if (kickPhase == PenaltyKickPhase.SETUP && kickIntroTicksRemaining > 0) {
+            kickIntroTicksRemaining--
+            if (kickIntroTicksRemaining == 0) {
+                kickPhase = PenaltyKickPhase.AWAITING_KICK
+                FootballNetworking.broadcastPenaltyShootoutSync(server)
+            }
+            return
+        }
+        if (kickPhase != PenaltyKickPhase.RESOLVING || outcomeRecorded) return
         resolveTicks++
         if (resolveTicks >= RESOLVE_TIMEOUT_TICKS) {
             applyOutcome(scored = false)
@@ -244,29 +254,73 @@ object PenaltyShootoutState {
         return if (index % 2 == 0) firstKickTeam else firstKickTeam.opponent()
     }
 
+    /** 点球大战开始时登记该队当时在线的 roster 队员。 */
+    private fun captureEligibleKickPools(server: MinecraftServer) {
+        eligibleKickersA.clear()
+        eligibleKickersB.clear()
+        for (uuid in MatchState.teamAPlayers) {
+            if (server.playerList.getPlayer(uuid) != null) {
+                eligibleKickersA.add(uuid)
+            }
+        }
+        for (uuid in MatchState.teamBPlayers) {
+            if (server.playerList.getPlayer(uuid) != null) {
+                eligibleKickersB.add(uuid)
+            }
+        }
+    }
+
+    /**
+     * 主罚选择：优先尚未踢过的在场 eligible 队员；仅当所有**当前仍在场**的 eligible 都已踢过至少一次后，才允许二踢。
+     * 开球时在线、之后离场的队员不阻塞二踢。
+     */
     private fun pickKicker(team: TeamSide, server: MinecraftServer): UUID? {
-        val roster = when (team) {
-            TeamSide.A -> MatchState.teamAPlayers
-            TeamSide.B -> MatchState.teamBPlayers
+        val eligible = when (team) {
+            TeamSide.A -> eligibleKickersA
+            TeamSide.B -> eligibleKickersB
         }
         val kicked = when (team) {
             TeamSide.A -> kickedPlayersA
             TeamSide.B -> kickedPlayersB
         }
-        val online = roster.mapNotNull { server.playerList.getPlayer(it) }
-        if (online.isEmpty()) return null
-        online.firstOrNull { it.uuid !in kicked }?.uuid?.let { return it }
-        return online.random().uuid
+        if (eligible.isEmpty()) return null
+
+        val present = eligible.mapNotNull { server.playerList.getPlayer(it) }
+        if (present.isEmpty()) return null
+
+        val outfield = present.filter { !PlayerRoleState.isDesignatedGoalkeeper(it) }
+        if (outfield.isNotEmpty()) {
+            pickKickerFromPool(outfield, kicked)?.let { return it }
+        }
+        return pickKickerFromPool(present, kicked)
+    }
+
+    private fun pickKickerFromPool(
+        candidates: List<ServerPlayer>,
+        kicked: Set<UUID>,
+    ): UUID? {
+        if (candidates.isEmpty()) return null
+        val awaitingFirstKick = candidates.filter { it.uuid !in kicked }
+        if (awaitingFirstKick.isNotEmpty()) {
+            return awaitingFirstKick.random().uuid
+        }
+        return candidates.random().uuid
     }
 
     private fun beginKick(server: MinecraftServer) {
+        currentKickerUuid?.let { uuid ->
+            server.playerList.getPlayer(uuid)?.let { PlayerRoleState.releasePenaltyKickOutfield(it) }
+        }
         kickPhase = PenaltyKickPhase.SETUP
         outcomeRecorded = false
         currentKickerTeam = teamForKickIndex(totalKicksTaken)
         currentKickerUuid = pickKicker(currentKickerTeam, server)
+        currentKickerUuid?.let { uuid ->
+            server.playerList.getPlayer(uuid)?.let { PlayerRoleState.enterPenaltyKickOutfield(it) }
+        }
         val level = server.overworld()
         placeBallAndPlayers(level, server)
-        kickPhase = PenaltyKickPhase.AWAITING_KICK
+        kickIntroTicksRemaining = PenaltyShootoutTiming.KICK_INTRO_LOCK_TICKS
         FootballNetworking.broadcastPenaltyShootoutSync(server)
         FootballNetworking.broadcastPenaltyKickStart(server)
     }
@@ -352,6 +406,7 @@ object PenaltyShootoutState {
     }
 
     private fun finish(server: MinecraftServer, winner: TeamSide) {
+        PlayerRoleState.clearPenaltyKickOutfieldOverrides(server)
         active = false
         lastWinner = winner
         kickPhase = PenaltyKickPhase.SETUP

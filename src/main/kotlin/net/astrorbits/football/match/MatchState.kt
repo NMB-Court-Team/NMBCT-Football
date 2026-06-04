@@ -511,7 +511,7 @@ object MatchState {
     fun setPhase(phase: MatchPhase, server: MinecraftServer? = null) {
         val wasPenalties = currentPhase == MatchPhase.PENALTIES
         if (wasPenalties && phase != MatchPhase.PENALTIES && phase != MatchPhase.FINISHED) {
-            PenaltyShootoutState.clear()
+            PenaltyShootoutState.clear(server)
         }
         currentPhase = phase
         stoppageTimerTicks = 0

@@ -2,6 +2,7 @@ package net.astrorbits.football.client.render
 
 import net.astrorbits.football.client.match.MatchHudTeams
 import net.astrorbits.football.client.match.PenaltyKickClient
+import net.astrorbits.football.match.PenaltyShootoutTiming
 import net.astrorbits.football.match.TeamSide
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
@@ -37,7 +38,7 @@ class PenaltyKickHudElement : HudElement {
             screenW = client.window.guiScaledWidth,
             screenH = client.window.guiScaledHeight,
             elapsedMs = PenaltyKickClient.elapsedMs,
-            durationMs = 3500L,
+            durationMs = PenaltyShootoutTiming.KICK_BANNER_MS,
             ownGoal = false,
             headline = headline,
             teamLine = kickerDisplay,

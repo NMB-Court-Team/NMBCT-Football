@@ -1,5 +1,6 @@
 package net.astrorbits.football.client.render
 
+import net.astrorbits.football.client.match.MatchHudTeams
 import net.astrorbits.football.client.match.PenaltyShootoutClient
 import net.astrorbits.football.client.util.FootballHudVisibility
 import net.astrorbits.football.match.MatchPhase
@@ -52,23 +53,79 @@ class FootballHudElement : HudElement {
         cx += GAP
         drawName(extra, font, teamB, cx, cy, CYAN, false)
 
-        // ── 点球比分（正赛比分下方）──
+        // ── 点球大战：本轮信息 + 点球比分（比分在信息行下方）──
         if (MatchState.currentPhase == MatchPhase.PENALTIES && PenaltyShootoutClient.active) {
+            val penBaseY = if (MatchState.isStoppagePhase()) ST_Y + ST_H + 4 else Y + H + 4
+            val infoY = penBaseY
+            val scoreY = penBaseY + PEN_INFO_H + PEN_ROW_GAP
+
+            val goalTeam = MatchHudTeams.name(PenaltyShootoutClient.activeDefendingTeam)
+            val kickTeam = MatchHudTeams.name(PenaltyShootoutClient.currentKickerTeam)
+            val kicker = PenaltyShootoutClient.kickerName.ifBlank { "?" }
+
+            val goalLabel = Component.translatable("hud.nmbct-football.penalty.goal_team").visualOrderText
+            val kickLabel = Component.translatable("hud.nmbct-football.penalty.kicking_team").visualOrderText
+            val kickerLabel = Component.translatable("hud.nmbct-football.penalty.kicker").visualOrderText
+            val goalValue = Component.literal(goalTeam).visualOrderText
+            val kickValue = Component.literal(kickTeam).visualOrderText
+            val kickerValue = Component.literal(kicker).visualOrderText
+
+            val infoPanelW = measurePenaltyInfoWidth(
+                font,
+                goalLabel,
+                goalValue,
+                kickLabel,
+                kickValue,
+                kickerLabel,
+                kickerValue,
+            )
+            val infoCy = infoY + PEN_INFO_H / 2 - font.lineHeight / 2
+            extra.fill(X, infoY, X + infoPanelW, infoY + PEN_INFO_H, PEN_BAR)
+            var infoCx = X + PEN_PAD
+            infoCx += drawLabelValue(
+                extra,
+                font,
+                infoCx,
+                infoCy,
+                goalLabel,
+                goalValue,
+                MatchEventBanner.teamColor(PenaltyShootoutClient.activeDefendingTeam),
+            )
+            infoCx += PEN_SEGMENT_GAP
+            infoCx += drawLabelValue(
+                extra,
+                font,
+                infoCx,
+                infoCy,
+                kickLabel,
+                kickValue,
+                MatchEventBanner.teamColor(PenaltyShootoutClient.currentKickerTeam),
+            )
+            infoCx += PEN_SEGMENT_GAP
+            drawLabelValue(
+                extra,
+                font,
+                infoCx,
+                infoCy,
+                kickerLabel,
+                kickerValue,
+                MatchEventBanner.teamColor(PenaltyShootoutClient.currentKickerTeam),
+            )
+
             val penLabel = Component.translatable("hud.nmbct-football.penalty.score_label").visualOrderText
             val penA = Component.literal(PenaltyShootoutClient.penaltyScoreA.toString()).visualOrderText
             val penB = Component.literal(PenaltyShootoutClient.penaltyScoreB.toString()).visualOrderText
             val penPanelW = PEN_PAD + font.width(penLabel) + PEN_GAP + S_W + PEN_GAP + D_W + PEN_GAP + S_W + PEN_PAD
-            val penY = if (MatchState.isStoppagePhase()) ST_Y + ST_H + 4 else Y + H + 4
-            val penCy = penY + PEN_H / 2 - font.lineHeight / 2
-            extra.fill(X, penY, X + penPanelW, penY + PEN_H, PEN_BAR)
+            val penCy = scoreY + PEN_H / 2 - font.lineHeight / 2
+            extra.fill(X, scoreY, X + penPanelW, scoreY + PEN_H, PEN_BAR)
             var penCx = X + PEN_PAD
             extra.text(font, penLabel, penCx, penCy, PEN_TEXT, true)
             penCx += font.width(penLabel) + PEN_GAP
-            penCx += drawScore(extra, font, penA, penCx, penCy, penY, PEN_H)
+            penCx += drawScore(extra, font, penA, penCx, penCy, scoreY, PEN_H)
             penCx += PEN_GAP
             extra.text(font, SEP, penCx + D_W / 2 - font.width(SEP) / 2, penCy, DIM, true)
             penCx += D_W + PEN_GAP
-            drawScore(extra, font, penB, penCx, penCy, penY, PEN_H)
+            drawScore(extra, font, penB, penCx, penCy, scoreY, PEN_H)
         }
 
         // ── 补时面板 ──
@@ -104,6 +161,38 @@ class FootballHudElement : HudElement {
         return NAME_W
     }
 
+    private fun measurePenaltyInfoWidth(
+        font: Font,
+        goalLabel: FormattedCharSequence,
+        goalValue: FormattedCharSequence,
+        kickLabel: FormattedCharSequence,
+        kickValue: FormattedCharSequence,
+        kickerLabel: FormattedCharSequence,
+        kickerValue: FormattedCharSequence,
+    ): Int {
+        fun fieldW(label: FormattedCharSequence, value: FormattedCharSequence) =
+            font.width(label) + PEN_FIELD_GAP + font.width(value)
+        return PEN_PAD * 2 +
+            fieldW(goalLabel, goalValue) + PEN_SEGMENT_GAP +
+            fieldW(kickLabel, kickValue) + PEN_SEGMENT_GAP +
+            fieldW(kickerLabel, kickerValue)
+    }
+
+    private fun drawLabelValue(
+        extra: GuiGraphicsExtractor,
+        font: Font,
+        x: Int,
+        y: Int,
+        label: FormattedCharSequence,
+        value: FormattedCharSequence,
+        valueColor: Int,
+    ): Int {
+        extra.text(font, label, x, y, PEN_LABEL, true)
+        val valueX = x + font.width(label) + PEN_FIELD_GAP
+        extra.text(font, value, valueX, y, valueColor, true)
+        return font.width(label) + PEN_FIELD_GAP + font.width(value)
+    }
+
     private fun drawScore(
         extra: GuiGraphicsExtractor,
         font: Font,
@@ -131,10 +220,15 @@ class FootballHudElement : HudElement {
         private const val ST_Y = 32; private const val ST_H = 18
         private const val ST_PAD = 10; private const val ST_P_W = 24; private const val ST_T_W = 90; private const val ST_GAP = 6
 
+        private const val PEN_INFO_H = 18
         private const val PEN_H = 18
+        private const val PEN_ROW_GAP = 4
         private const val PEN_PAD = 10
         private const val PEN_GAP = 6
+        private const val PEN_FIELD_GAP = 4
+        private const val PEN_SEGMENT_GAP = 12
         private const val PEN_BAR = 0xDD221133.toInt()
+        private const val PEN_LABEL = 0xFFAAAAAA.toInt()
         private const val PEN_TEXT = 0xFFFFAA44.toInt()
 
         // 颜色

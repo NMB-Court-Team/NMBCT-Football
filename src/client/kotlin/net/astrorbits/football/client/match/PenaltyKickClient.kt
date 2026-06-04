@@ -1,9 +1,10 @@
 package net.astrorbits.football.client.match
 
+import net.astrorbits.football.match.PenaltyShootoutTiming
 import net.astrorbits.football.match.TeamSide
 
 object PenaltyKickClient {
-    private const val DURATION_MS = 3500L
+    private val DURATION_MS = PenaltyShootoutTiming.KICK_BANNER_MS
 
     var startTimeMs: Long = 0L; private set
     var kickerTeam: TeamSide = TeamSide.A; private set
