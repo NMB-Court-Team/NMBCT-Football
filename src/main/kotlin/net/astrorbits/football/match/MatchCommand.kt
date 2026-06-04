@@ -26,7 +26,10 @@ object MatchCommand {
 		})
 
 		root.then(Commands.literal("pause").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes {
+			val server = it.source.server
 			MatchState.isRunning = !MatchState.isRunning
+			FootballNetworking.broadcastMatchPause(server, paused = !MatchState.isRunning)
+			FootballNetworking.syncTimerToClients(server)
 			val key = if (MatchState.isRunning) "command.nmbct-football.match.timer_started" else "command.nmbct-football.match.timer_paused"
 			it.source.sendSuccess({ Component.translatable(key) }, true)
 			1

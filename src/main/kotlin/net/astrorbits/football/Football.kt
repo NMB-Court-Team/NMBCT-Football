@@ -110,12 +110,16 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     /** 物理线速度（服务端判例/静止检测；客户端为同步值）。 */
     fun simulationVelocity(): Vec3 = physicsState.linearVelocity
 
-    /** 指定玩家是否被禁止以任何方式移动此球（传送除外）。含开球锁定与复位延迟。 */
+    /** 指定玩家是否被禁止以任何方式移动此球（传送除外）。含开球锁定、比赛暂停与复位延迟。 */
     fun isPlayerBallMovementForbidden(player: Player): Boolean {
+        if (isMatchPaused()) return true
         if (immovableTargetPlayers.contains(player.uuid)) return true
         if (player is ServerPlayer && MatchState.isKickoffInteractionLocked(player)) return true
         return false
     }
+
+    private fun isMatchPaused(): Boolean =
+        !level().isClientSide && MatchState.isDuringMatch() && !MatchState.isRunning
 
     /**
      * 是否固定：不可踢、不可推，物理与位置保持锚点；仅 [teleportBall] / [teleportBallCenter] 可改变位置。
@@ -163,6 +167,30 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
      */
     fun makePlayerImmovable(player: Player) {
         immovableTargetPlayers += player.uuid
+    }
+
+    /** 进入比赛暂停：速度清零，解除固定锚点以便仅受重力下坠，并对所有玩家禁止操作。 */
+    fun enterMatchPause(lockedPlayers: Set<UUID>) {
+        if (level().isClientSide) return
+        if (holderEntityId >= 0) {
+            releaseHold()
+        }
+        isImmovable = false
+        physicsState.linearVelocity = Vec3.ZERO
+        physicsState.angularVelocity = Vec3.ZERO
+        physicsState.wallBounceCooldown = 0
+        immovableTargetPlayers = lockedPlayers
+        syncPhysicsToEntityData()
+        syncPacketPositionCodec(x, y, z)
+    }
+
+    /** 比赛继续：恢复暂停前的不可操作/固定状态（速度保持暂停结束时的值）。 */
+    fun restoreFromMatchPause(immovableTargets: Set<UUID>, isImmovable: Boolean) {
+        if (level().isClientSide) return
+        immovableTargetPlayers = immovableTargets
+        this.isImmovable = isImmovable
+        syncPhysicsToEntityData()
+        syncPacketPositionCodec(x, y, z)
     }
 
     /**
@@ -251,6 +279,11 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return
         }
 
+        if (isMatchPaused()) {
+            tickWhileMatchPaused()
+            return
+        }
+
         FootballPhysicsSimulator.applyAirForces(physicsState)
 
         val movement = physicsState.linearVelocity
@@ -291,6 +324,24 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         syncPacketPositionCodec(x, y, z)
     }
 
+    /** 暂停期间：无水平速度、无自转，仅重力下坠与场地碰撞。 */
+    private fun tickWhileMatchPaused() {
+        physicsState.angularVelocity = Vec3.ZERO
+        var vy = physicsState.linearVelocity.y
+        if (!physicsState.onGround || vy > 0.0) {
+            vy -= FootballPhysicsConfig.GRAVITY
+        }
+        vy *= FootballPhysicsConfig.AIR_DRAG
+        physicsState.linearVelocity = Vec3(0.0, vy, 0.0)
+
+        advanceWithWorldCollisions(physicsState.linearVelocity, detectGoals = false)
+
+        previousOrientation.set(physicsState.orientation)
+        deltaMovement = physicsState.linearVelocity
+        syncPhysicsToEntityData()
+        syncPacketPositionCodec(x, y, z)
+    }
+
     private fun captureImmovableSnapshot() {
         immovableSnapshot = FootballImmovableSnapshot(
             x = x,
@@ -323,7 +374,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     private data class WorldMotionResult(val beforeMove: Vec3, val actualMotion: Vec3)
 
-    private fun advanceWithWorldCollisions(movement: Vec3): WorldMotionResult {
+    private fun advanceWithWorldCollisions(movement: Vec3, detectGoals: Boolean = true): WorldMotionResult {
         deltaMovement = movement
         val beforeMove = position()
         move(MoverType.SELF, movement)
@@ -340,7 +391,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         FootballSounds.playCollisionBounces(level(), blockPosition(), bounce, level().random)
         FootballParticles.playCollisionBounces(level(), blockPosition(), bounce)
 
-        detectGoal(beforeMove, position())
+        if (detectGoals) {
+            detectGoal(beforeMove, position())
+        }
         applyWorldContactGuards(beforeMove, position())
 
         return WorldMotionResult(beforeMove, actualMotion)

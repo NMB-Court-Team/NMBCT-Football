@@ -136,6 +136,36 @@ object MatchEventBanner {
         drawScoreRow(extra, font, cx, y, scoreRow, withAlpha, SCORE_BOX_GOAL, SCORE_ROW_GOAL, SCORE_GAP_GOAL)
     }
 
+    /** 比赛暂停/继续：上中单行橙色卡片（与出界 Banner 动效一致） */
+    fun renderPause(
+        extra: GuiGraphicsExtractor,
+        font: Font,
+        screenW: Int,
+        screenH: Int,
+        elapsedMs: Long,
+        durationMs: Long,
+        headlineText: String,
+    ) {
+        val anim = computeAnim(elapsedMs, durationMs, enterMs = 260L, exitMs = 650L, slidePx = 12)
+        val withAlpha = { color: Int -> applyAlpha(color, anim.alpha) }
+
+        val headline = Line(headlineText, ACCENT_PAUSE, bold = true, scale = 1.85f)
+        val contentW = max(OUT_MIN_W, scaledWidth(font, headline))
+        val contentH = lineBlockHeight(font, headline)
+        val panelW = ACCENT_W + OUT_PAD * 2 + contentW
+        val panelH = OUT_TOP_BAR + OUT_PAD * 2 + contentH
+        val panelX = (screenW - panelW) / 2
+        val panelY = (screenH * 0.11f).toInt() + anim.slidePx
+
+        extra.fill(panelX, panelY, panelX + panelW, panelY + panelH, withAlpha(OUT_PANEL_BG))
+        extra.fill(panelX, panelY, panelX + panelW, panelY + OUT_TOP_BAR, withAlpha(ACCENT_PAUSE))
+        extra.fill(panelX, panelY, panelX + ACCENT_W, panelY + panelH, withAlpha(ACCENT_PAUSE))
+
+        val cx = panelX + ACCENT_W + OUT_PAD + contentW / 2
+        val y = panelY + OUT_TOP_BAR + OUT_PAD
+        drawCenteredLine(extra, font, headline, cx, y, withAlpha(ACCENT_PAUSE))
+    }
+
     /** 出界：上中醒目卡片（避开右侧键位提示），类型 + 提出者 + 发球方 */
     fun renderOut(
         extra: GuiGraphicsExtractor,
@@ -525,4 +555,5 @@ object MatchEventBanner {
     const val ACCENT_WIN = 0xFFFFAA00.toInt()
     const val ACCENT_LOSS = 0xFFFF55AA.toInt()
     const val ACCENT_DRAW = 0xFF55FF55.toInt()
+    const val ACCENT_PAUSE = 0xFFFF9800.toInt()
 }

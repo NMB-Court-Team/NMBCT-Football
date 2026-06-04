@@ -12,6 +12,7 @@ import net.astrorbits.football.match.MatchConfig
 import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.PenaltyShootoutState
+import net.astrorbits.football.match.MatchPauseFootballState
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.match.TeamSide
@@ -70,6 +71,7 @@ object FootballNetworking {
         registry.register(StaminaSyncS2CPayload.TYPE, StaminaSyncS2CPayload.CODEC)
         registry.register(PenaltyShootoutSyncS2CPayload.TYPE, PenaltyShootoutSyncS2CPayload.CODEC)
         registry.register(PenaltyKickStartS2CPayload.TYPE, PenaltyKickStartS2CPayload.CODEC)
+        registry.register(MatchPauseS2CPayload.TYPE, MatchPauseS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -425,6 +427,7 @@ object FootballNetworking {
             GoalkeeperUtil.findHeldFootball(player)?.dropAt(player)
         }
         GoalkeeperHoldLock.clearAll(server)
+        MatchPauseFootballState.onResume(server)
         MatchState.reset()
         syncAllGoalkeeperRoles(server)
         broadcastMatchReset(server)
@@ -440,6 +443,20 @@ object FootballNetworking {
     fun broadcastMatchReset(server: MinecraftServer) {
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, MatchResetS2CPayload.INSTANCE)
+        }
+    }
+
+    /** 比赛暂停/继续：全场 whistle_1 + Banner（与哨声同范围，所有在线玩家）。 */
+    fun broadcastMatchPause(server: MinecraftServer, paused: Boolean) {
+        if (paused) {
+            MatchPauseFootballState.onPause(server)
+        } else {
+            MatchPauseFootballState.onResume(server)
+        }
+        FootballSounds.playMatchWhistle(server, 1)
+        val payload = MatchPauseS2CPayload(paused)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
         }
     }
 

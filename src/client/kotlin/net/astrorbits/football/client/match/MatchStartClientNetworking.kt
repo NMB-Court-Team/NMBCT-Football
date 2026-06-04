@@ -9,6 +9,7 @@ import net.astrorbits.football.network.MatchResetS2CPayload
 import net.astrorbits.football.network.GoalLineOutS2CPayload
 import net.astrorbits.football.network.MatchResultS2CPayload
 import net.astrorbits.football.network.MatchHudDebugS2CPayload
+import net.astrorbits.football.network.MatchPauseS2CPayload
 import net.astrorbits.football.network.MatchTimerSyncS2CPayload
 import net.astrorbits.football.network.PenaltyKickStartS2CPayload
 import net.astrorbits.football.network.PenaltyShootoutSyncS2CPayload
@@ -91,6 +92,11 @@ object MatchStartClientNetworking {
                     payload.kickoffTeam, payload.isKickoffTeam,
                     payload.phaseKey, payload.teamAName, payload.teamBName,
                 )
+            }
+        }
+        ClientPlayNetworking.registerGlobalReceiver(MatchPauseS2CPayload.TYPE) { payload, _ ->
+            Minecraft.getInstance().execute {
+                MatchPauseClient.show(payload.paused)
             }
         }
         ClientPlayNetworking.registerGlobalReceiver(GoalLineOutS2CPayload.TYPE) { payload, _ ->
