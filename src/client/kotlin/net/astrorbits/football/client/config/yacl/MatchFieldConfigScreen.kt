@@ -221,6 +221,13 @@ object MatchFieldConfigScreen {
                         setter = { v -> ctx.draft = ctx.draft.copy(kickOff = KickPosition(v.x, v.y, v.z)) },
                         ctx = ctx,
                     )
+                    addDoubleField(
+                        nameKey = "screen.nmbct-football.field.center_circle_radius",
+                        descKey = MatchYaclDesc.desc("screen.nmbct-football.field.center_circle_radius"),
+                        getter = { ctx.draft.centerCircleRadius },
+                        setter = { v -> ctx.draft = ctx.draft.copy(centerCircleRadius = v) },
+                        ctx = ctx,
+                    )
                 }
                 .build(),
         )

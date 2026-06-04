@@ -169,6 +169,7 @@ data class MatchConfig(
     val sidelineA: SidelineConfig = SidelineConfig.DEFAULT,
     val sidelineB: SidelineConfig = SidelineConfig.DEFAULT,
     val kickOff: KickPosition = KickPosition(8.5, -60.0, 8.5),
+    val centerCircleRadius: Double = 10.0,
     val teamASpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
     val teamBSpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
 ) {
@@ -204,6 +205,7 @@ data class MatchConfig(
                 SidelineConfig.CODEC.optionalFieldOf("sideline_a", SidelineConfig.DEFAULT).forGetter(MatchConfig::sidelineA),
                 SidelineConfig.CODEC.optionalFieldOf("sideline_b", SidelineConfig.DEFAULT).forGetter(MatchConfig::sidelineB),
                 KickPosition.CODEC.optionalFieldOf("kick_off", KickPosition(8.5, -60.0, 8.5)).forGetter(MatchConfig::kickOff),
+                Codec.DOUBLE.optionalFieldOf("center_circle_radius", 10.0).forGetter(MatchConfig::centerCircleRadius),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_a_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamASpawn),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_b_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamBSpawn),
             ).apply(i, ::MatchConfig)
