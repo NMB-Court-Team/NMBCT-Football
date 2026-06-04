@@ -8,6 +8,7 @@ import net.astrorbits.football.physics.FootballNetInteraction
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsNbt
 import net.astrorbits.football.physics.FootballPhysicsState
+import net.astrorbits.football.physics.FootballPlayerBallCollision
 import net.astrorbits.football.util.*
 import net.fabricmc.fabric.api.`object`.builder.v1.entity.FabricEntityDataRegistry
 import net.minecraft.core.Registry
@@ -46,7 +47,6 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector3fc
 import java.util.*
-import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -386,34 +386,14 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         applyWorldContactGuards(beforeCorrection, position())
     }
 
-    private fun playerBallPushDirection(player: ServerPlayer, ballCenter: Vec3): Vec3 {
-        val fromPlayer = Vec3Math.horizontal(ballCenter.subtract(player.position()))
-        val fallback = Vec3Math.normalizeSafe(effectivePlayerHorizontalMotion(player))
-        val baseDir = Vec3Math.normalizeSafe(fromPlayer, fallback)
-        return applyBodyPushDeflection(player, baseDir)
-    }
-
-    private fun applyBodyPushDeflection(player: ServerPlayer, pushDir: Vec3): Vec3 {
-        val moveDir = Vec3Math.normalizeSafe(effectivePlayerHorizontalMotion(player))
-        if (moveDir.lengthSqr() <= 1.0e-8 || pushDir.lengthSqr() <= 1.0e-8) {
-            return pushDir
-        }
-
-        val lateral = Vec3(-moveDir.z, 0.0, moveDir.x)
-        val side = pushDir.dot(lateral)
-        if (abs(side) <= PLAYER_PUSH_DEFLECTION_DEADZONE) {
-            return pushDir
-        }
-
-        val glancing = (1.0 - pushDir.dot(moveDir).coerceIn(0.0, 1.0)).coerceIn(0.0, 1.0)
-        val bias = PLAYER_PUSH_DEFLECTION_BIAS * (0.45 + glancing * 0.55)
-        return Vec3Math.normalizeSafe(pushDir.add(lateral.scale(kotlin.math.sign(side) * bias)), pushDir)
-    }
-
     private fun applyPlayerPushFromPlayer(
         player: ServerPlayer,
         contactNormal: Vec3,
         ballCenter: Vec3 = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0),
+        repositionCenter: Vec3? = null,
+        now: Long = (level() as? ServerLevel)?.gameTime ?: 0L,
+        overlapping: Boolean = false,
+        sweepT: Double? = null,
     ): Boolean {
         if (isImmovable || isPlayerBallMovementForbidden(player)) {
             return false
@@ -421,25 +401,87 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (contactNormal.lengthSqr() <= 1.0e-8) {
             return false
         }
+        if (shouldSuppressPlayerBodyImpulse(player, now)) {
+            return false
+        }
+        if (repositionCenter != null) {
+            setCenterWithWorldContactGuards(repositionCenter)
+        }
 
         val sliding = SlideTackleSessions.isSliding(player)
-        val playerHorizontal = effectivePlayerHorizontalMotion(player)
-        val applied = FootballPhysicsSimulator.applyPlayerBodyBallPush(
-            physicsState,
-            playerHorizontal,
-            velocityTransfer = 1.0,
+        val resolvedBallCenter = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
+        val pushNormal = FootballPhysicsSimulator.orientContactNormalTowardBall(
+            contactNormal,
+            player.position(),
+            resolvedBallCenter,
         )
-        val slideBallImpactSpeed = if (sliding) playerHorizontal.horizontalDistance() else 0.0
-        if (applied) {
-            deltaMovement = physicsState.linearVelocity
-            MatchState.tryNotifyKickoffBallTouched(player)
-            if (sliding) {
-                FootballSounds.playSlideTackleBallHit(player, blockPosition(), slideBallImpactSpeed)
-            }
-            val now = (level() as? ServerLevel)?.gameTime ?: 0L
-            FootballPlayerBallContactGrace.record(player, this, now, sliding)
+        val verticalStep = player.y - player.yOld
+        val playerVelocity = effectivePlayerVelocity(player, verticalStep).let { velocity ->
+            if (sliding) velocity.scale(SLIDE_IMPACT_VELOCITY_SCALE) else velocity
         }
-        return applied
+        val preCollisionBallVelocity = physicsState.linearVelocity
+        val momentum = FootballPlayerBallCollision.resolveMomentum(
+            ballVelocity = preCollisionBallVelocity,
+            playerVelocity = playerVelocity,
+            normal = pushNormal,
+        ) ?: FootballPlayerBallCollision.resolveQuasiStaticPush(
+            ballVelocity = preCollisionBallVelocity,
+            playerVelocity = playerVelocity,
+            normal = pushNormal,
+        ) ?: run {
+            logSkipCode008(
+                player = player,
+                overlapping = overlapping,
+                sweepT = sweepT,
+                sliding = sliding,
+                preCollisionBallVelocity = preCollisionBallVelocity,
+                playerVelocity = playerVelocity,
+                pushNormal = pushNormal,
+            )
+            return false
+        }
+
+        val playerRecoil = FootballPlayerBallCollision.resolvePlayerRecoil(
+            ballVelocity = preCollisionBallVelocity,
+            playerVelocity = playerVelocity,
+            normal = pushNormal,
+        )
+
+        applyBallMomentumResult(momentum)
+
+        val playerDelta = FootballPlayerBallCollision.capPlayerKnockback(
+            playerRecoil,
+            FootballInputConfig.BALL_PLAYER_MAX_PUSH,
+        )
+        applyPlayerKnockback(player, playerDelta)
+
+        deltaMovement = physicsState.linearVelocity
+        MatchState.tryNotifyKickoffBallTouched(player)
+        val slideBallImpactSpeed = if (sliding) playerVelocity.horizontalDistance() else 0.0
+        if (sliding) {
+            FootballSounds.playSlideTackleBallHit(player, blockPosition(), slideBallImpactSpeed)
+        }
+        FootballPlayerBallContactGrace.record(player, this, now, sliding)
+        return true
+    }
+
+    private fun applyBallMomentumResult(momentum: FootballPlayerBallCollision.MomentumResult) {
+        physicsState.linearVelocity = momentum.ballVelocity
+        FootballPhysicsSimulator.resetRollingOrientation(physicsState)
+        val rolling = Vec3Math.rollingAngularVelocity(
+            Vec3Math.horizontal(physicsState.linearVelocity),
+            FootballPhysicsConfig.RADIUS,
+        )
+        physicsState.angularVelocity = Vec3(rolling.x, physicsState.angularVelocity.y, rolling.z)
+    }
+
+    private fun applyPlayerKnockback(player: ServerPlayer, playerDelta: Vec3) {
+        val horizontal = Vec3Math.horizontal(playerDelta)
+        if (horizontal.lengthSqr() <= FootballPhysicsConfig.EPSILON * FootballPhysicsConfig.EPSILON) {
+            return
+        }
+        player.deltaMovement = player.deltaMovement.add(playerDelta)
+        player.hurtMarked = true
     }
 
     private fun setGoalAttribution(player: ServerPlayer) {
@@ -488,22 +530,219 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     private fun resolveGoalScorerUuid(): UUID? = goalAttributionPlayer ?: lastPhysicalTouch
 
-    private fun shouldSkipPlayerBodyInteraction(player: ServerPlayer, now: Long): Boolean {
-        if (FootballDribbleSessions.shouldIgnoreCollision(player, this, now)) {
-            return true
-        }
+    private fun shouldSkipPlayerBodyCollisionDetection(player: ServerPlayer): Boolean {
+        return FootballDribbleSessions.hasActiveSessionBlockingCollision(player, this)
+    }
+
+    private fun shouldSuppressPlayerBodyImpulse(player: ServerPlayer, now: Long): Boolean {
         if (FootballKickPushGrace.shouldSuppressPlayerPush(player, this, now)) {
             return true
         }
-        return FootballPlayerBallContactGrace.shouldIgnoreBodyCollision(player, this, now)
+        if (FootballPlayerBallContactGrace.shouldSuppressBodyImpulse(player, this, now)) {
+            return true
+        }
+        if (FootballDribbleSessions.shouldSuppressCollisionImpulse(player, this, now)) {
+            return true
+        }
+        return false
+    }
+
+    private fun logSkipCode008(
+        player: ServerPlayer,
+        overlapping: Boolean,
+        sweepT: Double?,
+        sliding: Boolean,
+        preCollisionBallVelocity: Vec3,
+        playerVelocity: Vec3,
+        pushNormal: Vec3,
+    ) {
+        val eps = FootballPhysicsConfig.EPSILON
+        val n = Vec3Math.normalizeSafe(pushNormal)
+        val nLenSqr = n.lengthSqr()
+        val relativeNormal = preCollisionBallVelocity.subtract(playerVelocity).dot(n)
+        val ballSpeed = preCollisionBallVelocity.length()
+        val playerSpeed = playerVelocity.length()
+        val playerHorizontal = Vec3Math.horizontal(playerVelocity)
+        val playerHorizontalSpeed = playerHorizontal.length()
+        val minPlayerSpeed = FootballInputConfig.PLAYER_BALL_PUSH_MIN_SPEED
+        val pushScale = FootballInputConfig.PLAYER_BALL_PUSH_SCALE
+        val pushMax = FootballInputConfig.PLAYER_BALL_PUSH_MAX
+        val velDiag = collectPlayerVelocityDiagnostics(player)
+
+        val momentumReason = when {
+            nLenSqr <= eps * eps -> "normal_degenerate"
+            relativeNormal >= -eps -> when {
+                ballSpeed < 1.0e-6 && playerHorizontalSpeed < 1.0e-6 -> "both_stationary"
+                relativeNormal > eps -> "player_pushing_or_ball_receding"
+                else -> "not_closing_within_epsilon"
+            }
+            else -> {
+                val ballMass = FootballPhysicsConfig.MASS
+                val playerMass = FootballInputConfig.PLAYER_MASS
+                val restitution = FootballInputConfig.BALL_PLAYER_RESTITUTION
+                val invMassSum = 1.0 / ballMass + 1.0 / playerMass
+                val impulse = -(1.0 + restitution.coerceIn(0.0, 1.25)) * relativeNormal / invMassSum
+                if (impulse <= eps) "impulse_too_small" else "unexpected_momentum_miss"
+            }
+        }
+
+        val quasiReason: String
+        var approachSpeed = Double.NaN
+        var impartedSpeed = Double.NaN
+        if (playerHorizontalSpeed < minPlayerSpeed) {
+            quasiReason = "player_horizontal_speed_below_min"
+        } else {
+            val nHoriz = FootballPlayerBallCollision.horizontalContactNormal(pushNormal)
+            val pushDir = FootballPlayerBallCollision.deflectBodyPushDirection(nHoriz, playerHorizontal)
+            val previewDelta = FootballPlayerBallCollision.computeQuasiStaticDeltaVelocity(
+                playerHorizontal = playerHorizontal,
+                contactNormalHorizontal = nHoriz,
+                deflectedPushDir = pushDir,
+                playerSpeed = playerHorizontalSpeed,
+                pushScale = pushScale,
+                pushMax = pushMax,
+                minPlayerSpeed = minPlayerSpeed,
+            )
+            approachSpeed = max(
+                playerHorizontal.dot(nHoriz).coerceAtLeast(0.0),
+                playerHorizontal.dot(pushDir).coerceAtLeast(0.0),
+            )
+            impartedSpeed = previewDelta?.length() ?: 0.0
+            quasiReason = when {
+                pushDir.lengthSqr() <= eps * eps -> "push_direction_degenerate"
+                previewDelta == null -> "delta_velocity_unresolved"
+                impartedSpeed <= eps -> "imparted_speed_too_small"
+                else -> "unexpected_quasi_miss"
+            }
+        }
+
+        fun fmt(v: Vec3): String = String.format("%.4f,%.4f,%.4f", v.x, v.y, v.z)
+
+        NMBCTFootball.LOGGER.info(
+            "skip code 008 | player=${player.name.string} ballId=$id tick=${(level() as? ServerLevel)?.gameTime} " +
+                "overlapping=$overlapping sweepT=$sweepT sliding=$sliding",
+        )
+        NMBCTFootball.LOGGER.info(
+            "skip code 008 | vBall=${fmt(preCollisionBallVelocity)} ballSpeed=$ballSpeed " +
+                "vPlayer=${fmt(playerVelocity)} playerSpeed=$playerSpeed playerH=${fmt(playerHorizontal)} " +
+                "playerHSpeed=$playerHorizontalSpeed",
+        )
+        NMBCTFootball.LOGGER.info(
+            "skip code 008 | normal=${fmt(n)} relNorm=$relativeNormal eps=$eps " +
+                "momentumFail=$momentumReason",
+        )
+        NMBCTFootball.LOGGER.info(
+            "skip code 008 | quasiFail=$quasiReason minPlayerSpeed=$minPlayerSpeed " +
+                "approachSpeed=$approachSpeed impartedSpeed=$impartedSpeed pushScale=$pushScale pushMax=$pushMax",
+        )
+        NMBCTFootball.LOGGER.info(
+            "skip code 008 | vel posDelta=${velDiag.fmt(velDiag.positionDeltaH)} h=${velDiag.fmtSpd(velDiag.positionDeltaH)} " +
+                "posStep3=${velDiag.fmt(velDiag.positionDelta3)} " +
+                "deltaField=${velDiag.fmt(velDiag.deltaMovementFieldH)} h=${velDiag.fmtSpd(velDiag.deltaMovementFieldH)} " +
+                "getDelta=${velDiag.fmt(velDiag.getDeltaMovementH)} h=${velDiag.fmtSpd(velDiag.getDeltaMovementH)}",
+        )
+        NMBCTFootball.LOGGER.info(
+            "skip code 008 | vel intent=${velDiag.fmt(velDiag.lastClientMoveIntentH)} h=${velDiag.fmtSpd(velDiag.lastClientMoveIntentH)} " +
+                "inputVec=${velDiag.fmt(velDiag.movementInputVector)} h=${velDiag.fmtSpd(velDiag.movementInputVector)} " +
+                "intended=${velDiag.fmt(velDiag.intendedHorizontal)} h=${velDiag.fmtSpd(velDiag.intendedHorizontal)} " +
+                "pushH=${velDiag.fmt(velDiag.pushHorizontal)} bestH=${velDiag.fmt(velDiag.bestHorizontal)} " +
+                "h=${velDiag.fmtSpd(velDiag.bestHorizontal)} " +
+                "slide=${velDiag.fmt(velDiag.slideHorizontal)} h=${velDiag.fmtSpd(velDiag.slideHorizontal)}",
+        )
+        NMBCTFootball.LOGGER.info(
+            "skip code 008 | vel used=${velDiag.fmt(velDiag.effectiveUsedH)} h=${velDiag.fmtSpd(velDiag.effectiveUsedH)} " +
+                "src=${velDiag.effectiveSource} xxa=${player.xxa} zza=${player.zza} " +
+                "sprint=${player.isSprinting} onGround=${player.onGround()} noPhysics=${player.noPhysics}",
+        )
+    }
+
+    private data class PlayerVelocityDiagnostics(
+        val positionDeltaH: Vec3,
+        val positionDelta3: Vec3,
+        val deltaMovementFieldH: Vec3,
+        val getDeltaMovementH: Vec3,
+        val lastClientMoveIntentH: Vec3,
+        val movementInputVector: Vec3,
+        val intendedHorizontal: Vec3,
+        val pushHorizontal: Vec3,
+        val bestHorizontal: Vec3,
+        val slideHorizontal: Vec3,
+        val effectiveUsedH: Vec3,
+        val effectiveSource: String,
+    ) {
+        fun fmt(v: Vec3): String = String.format("%.4f,%.4f,%.4f", v.x, v.y, v.z)
+
+        fun fmtSpd(v: Vec3): String = String.format("%.4f", Vec3Math.horizontal(v).length())
+    }
+
+    private fun collectPlayerVelocityDiagnostics(player: ServerPlayer): PlayerVelocityDiagnostics {
+        val positionDelta3 = Vec3(player.x - player.xOld, player.y - player.yOld, player.z - player.zOld)
+        val positionDeltaH = Vec3Math.horizontal(positionDelta3)
+        val deltaMovementFieldH = Vec3Math.horizontal(player.deltaMovement)
+        val getDeltaMovementH = Vec3Math.horizontal(player.getDeltaMovement())
+        val lastClientMoveIntentH = Vec3Math.horizontal(player.lastClientMoveIntent)
+        val movementInputVector = FootballMovementInputUtil.movementInputVector(player)
+        val intendedHorizontal = FootballMovementInputUtil.intendedHorizontalVelocity(player)
+        val bestHorizontal = FootballMovementInputUtil.bestHorizontalVelocity(player)
+        val pushHorizontal = bestHorizontal
+        val slideHorizontal = SlideTackleSessions.effectiveHorizontalVelocity(player) ?: Vec3.ZERO
+
+        val effectiveUsedH = effectivePlayerHorizontalMotion(player)
+        val measuredFromPos = positionDeltaH.lengthSqr() > deltaMovementFieldH.lengthSqr()
+        val effectiveSource = when {
+            slideHorizontal.lengthSqr() > 1.0e-12 &&
+                slideHorizontal.lengthSqr() >= effectiveUsedH.lengthSqr() ->
+                "slide"
+            bestHorizontal.lengthSqr() > 1.0e-12 &&
+                bestHorizontal.lengthSqr() >= effectiveUsedH.lengthSqr() ->
+                "bestHorizontal"
+            measuredFromPos && positionDeltaH.lengthSqr() > 1.0e-12 -> "positionDelta"
+            getDeltaMovementH.lengthSqr() > 1.0e-12 -> "getDeltaMovement"
+            deltaMovementFieldH.lengthSqr() > 1.0e-12 -> "deltaMovement"
+            intendedHorizontal.lengthSqr() > 1.0e-12 -> "intended"
+            positionDeltaH.lengthSqr() > 1.0e-12 -> "positionDelta"
+            else -> "none"
+        }
+
+        return PlayerVelocityDiagnostics(
+            positionDeltaH = positionDeltaH,
+            positionDelta3 = positionDelta3,
+            deltaMovementFieldH = deltaMovementFieldH,
+            getDeltaMovementH = getDeltaMovementH,
+            lastClientMoveIntentH = lastClientMoveIntentH,
+            movementInputVector = movementInputVector,
+            intendedHorizontal = intendedHorizontal,
+            pushHorizontal = pushHorizontal,
+            bestHorizontal = bestHorizontal,
+            slideHorizontal = slideHorizontal,
+            effectiveUsedH = effectiveUsedH,
+            effectiveSource = effectiveSource,
+        )
+    }
+
+    /** 动量 / 准静态推球 / 后坐力共用：最佳水平速度 + 垂直步进（滑铲 session 优先）。 */
+    private fun effectivePlayerVelocity(player: ServerPlayer, verticalStep: Double): Vec3 {
+        val horizontal = effectivePlayerHorizontalMotion(player)
+        return Vec3(horizontal.x, verticalStep, horizontal.z)
     }
 
     private fun effectivePlayerHorizontalMotion(player: ServerPlayer): Vec3 {
-        val deltaMovement = Vec3Math.horizontal(player.deltaMovement)
-        val positionDelta = Vec3(player.x - player.xOld, 0.0, player.z - player.zOld)
-        val measured = if (positionDelta.lengthSqr() > deltaMovement.lengthSqr()) positionDelta else deltaMovement
-        val slide = SlideTackleSessions.effectiveHorizontalVelocity(player) ?: return measured
-        return if (slide.lengthSqr() >= measured.lengthSqr()) slide else measured
+        val best = FootballMovementInputUtil.bestHorizontalVelocity(player)
+        val slide = SlideTackleSessions.effectiveHorizontalVelocity(player) ?: return best
+        return if (slide.lengthSqr() >= best.lengthSqr()) slide else best
+    }
+
+    /** 碰撞扫掠用本 tick 玩家位移；位移尚未写入时用速度/意图作为预测步长。 */
+    private fun resolvePlayerStepForCollision(player: ServerPlayer): Vec3 {
+        val positionStep = Vec3(player.x - player.xOld, player.y - player.yOld, player.z - player.zOld)
+        if (positionStep.lengthSqr() > 1.0e-12) {
+            return positionStep
+        }
+        val horizontal = effectivePlayerHorizontalMotion(player)
+        if (horizontal.lengthSqr() > 1.0e-12) {
+            return Vec3(horizontal.x, player.deltaMovement.y, horizontal.z)
+        }
+        return player.deltaMovement
     }
 
     private fun resolvePlayerCollisions(
@@ -521,55 +760,50 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val previousCenter = beforeMove.add(0.0, radius, 0.0)
         val currentCenter = afterMove.add(0.0, radius, 0.0)
         val previousBallBox = boundingBox.move(beforeMove.subtract(afterMove))
-        val searchBox = previousBallBox.minmax(boundingBox).inflate(1.4, 0.9, 1.4)
+        val ballMotionLength = currentCenter.distanceTo(previousCenter)
+        val searchInflateH = 1.4 + min(ballMotionLength, 4.0) * 0.25
+        val searchBox = previousBallBox.minmax(boundingBox).inflate(searchInflateH, 0.9, searchInflateH)
         val players = serverLevel.getEntitiesOfClass(ServerPlayer::class.java, searchBox) { player ->
             player.isAlive && !player.isSpectator && !player.noPhysics
         }
 
         for (player in players) {
-            val suppressBodyInteraction =
-                isPlayerBallMovementForbidden(player) || shouldSkipPlayerBodyInteraction(player, now)
-
-            val playerBox = player.boundingBox
-            var contactNormal: Vec3? = null
-            var hadBodyContact = false
-            val motion = currentCenter.subtract(previousCenter)
-            if (!suppressBodyInteraction) {
-                val segmentEnd = if (motion.lengthSqr() > 1.0e-12) {
-                    currentCenter
-                } else {
-                    val playerStep = Vec3(player.x - player.xOld, player.y - player.yOld, player.z - player.zOld)
-                    if (playerStep.lengthSqr() > 1.0e-12) previousCenter.add(playerStep) else currentCenter
-                }
-                if (segmentEnd.distanceToSqr(previousCenter) > 1.0e-12) {
-                    val hit = segmentAabbHit(previousCenter, segmentEnd, playerBox.inflate(radius))
-                    if (hit != null) {
-                        val segment = segmentEnd.subtract(previousCenter)
-                        val impactCenter = previousCenter.add(segment.scale(hit.t))
-                            .add(hit.normal.scale(PLAYER_SEPARATION_EPSILON))
-                        setCenterWithWorldContactGuards(impactCenter)
-                        contactNormal = hit.normal
-                        hadBodyContact = true
-                    }
-                }
+            if (isPlayerBallMovementForbidden(player)) {
+                continue
+            }
+            if (shouldSkipPlayerBodyCollisionDetection(player)) {
+                continue
             }
 
-            val depenetration = computeSpherePlayerDepenetration(
-                center = position().add(0.0, radius, 0.0),
-                playerBox = playerBox,
-                radius = radius,
+            val playerStep = resolvePlayerStepForCollision(player)
+            val playerEnvelope = FootballPlayerBallCollision.playerMotionEnvelope(player.boundingBox, playerStep)
+
+            val ballDelta = currentCenter.subtract(previousCenter)
+            val sweepEnd = if (ballDelta.lengthSqr() > 1.0e-12) {
+                currentCenter
+            } else {
+                previousCenter.subtract(playerStep)
+            }
+            var sweepHit = FootballPlayerBallCollision.sweepBallCenter(
+                previousCenter,
+                sweepEnd,
+                playerEnvelope,
+                radius,
             )
-            if (depenetration != null && !suppressBodyInteraction) {
-                val correctedCenter = position().add(0.0, radius, 0.0).add(depenetration.push)
-                setCenterWithWorldContactGuards(correctedCenter)
-                contactNormal = depenetration.normal
-                hadBodyContact = true
+            val overlappingBeforeSweep = sweepHit == null &&
+                FootballPlayerBallCollision.overlapHitAt(currentCenter, playerEnvelope, radius) != null
+            if (sweepHit == null) {
+                sweepHit = FootballPlayerBallCollision.overlapHitAt(currentCenter, playerEnvelope, radius)
+            }
+            if (sweepHit == null) {
+                continue
             }
 
-            val normal = contactNormal ?: continue
-            val impactBallCenter = position().add(0.0, radius, 0.0)
+            val overlapping = overlappingBeforeSweep || sweepHit.t <= 1.0e-6
+            val repositionCenter = if (sweepHit.t > 1.0e-6) sweepHit.contactCenter else null
+            val impactBallCenter = repositionCenter ?: currentCenter
             val pushNormal = FootballPhysicsSimulator.orientContactNormalTowardBall(
-                normal,
+                sweepHit.normal,
                 player.position(),
                 impactBallCenter,
             )
@@ -577,46 +811,26 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             val preTouchBottomPos = position()
             val preTouchPhysics = FootballTrajectoryPredictor.copyState(physicsState)
             var slidePushApplied = false
-            if (!suppressBodyInteraction && player.uuid !in pushedPlayersThisTick) {
-                if (applyPlayerPushFromPlayer(player, pushNormal, impactBallCenter)) {
+            if (player.uuid !in pushedPlayersThisTick) {
+                if (applyPlayerPushFromPlayer(
+                        player,
+                        pushNormal,
+                        impactBallCenter,
+                        repositionCenter,
+                        now,
+                        overlapping,
+                        sweepHit.t,
+                    )
+                ) {
                     pushedPlayersThisTick.add(player.uuid)
-                    hadBodyContact = true
                     slidePushApplied = sliding
                     if (sliding) {
                         recordActiveKick(player, effectivePlayerHorizontalMotion(player))
+                    } else {
+                        recordPassiveBodyTouch(player, preTouchPhysics, preTouchBottomPos)
                     }
                 }
             }
-
-            if (!suppressBodyInteraction && hadBodyContact) {
-                if (!slidePushApplied) {
-                    recordPassiveBodyTouch(player, preTouchPhysics, preTouchBottomPos)
-                }
-                MatchState.tryNotifyKickoffBallTouched(player)
-                FootballPlayerBallContactGrace.record(
-                    player,
-                    this,
-                    now,
-                    sliding,
-                )
-            }
-
-            val velocity = physicsState.linearVelocity
-            val normalVelocity = velocity.dot(pushNormal)
-            val approachSpeed = max((-normalVelocity), -intendedMotion.dot(pushNormal)).coerceAtLeast(0.0)
-            if (approachSpeed < FootballInputConfig.BALL_PLAYER_RECOIL_MIN_SPEED) {
-                continue
-            }
-            val recoilDir = Vec3Math.horizontal(pushNormal).scale(-1.0)
-            val direction = if (recoilDir.lengthSqr() > 1.0e-8) Vec3Math.normalizeSafe(recoilDir) else pushNormal.scale(-1.0)
-            val pushMagnitude = (approachSpeed * FootballInputConfig.BALL_PLAYER_PUSH_SCALE)
-                .coerceAtMost(FootballInputConfig.BALL_PLAYER_MAX_PUSH)
-                .coerceAtLeast(0.0)
-            if (pushMagnitude <= 1.0e-6) {
-                continue
-            }
-            player.deltaMovement = player.deltaMovement.add(direction.scale(pushMagnitude))
-            player.hurtMarked = true
         }
     }
 
@@ -664,57 +878,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return null
         }
         return PlayerDepenetration(bestPush, Vec3Math.normalizeSafe(bestPush))
-    }
-
-    private data class SegmentAabbHit(val t: Double, val normal: Vec3)
-
-    private fun segmentAabbHit(start: Vec3, end: Vec3, box: AABB): SegmentAabbHit? {
-        val direction = end.subtract(start)
-        var tMin = 0.0
-        var tMax = 1.0
-        var enterNormal = Vec3.ZERO
-
-        fun updateAxis(
-            startValue: Double,
-            dirValue: Double,
-            minBound: Double,
-            maxBound: Double,
-            negativeNormal: Vec3,
-            positiveNormal: Vec3,
-        ): Boolean {
-            if (abs(dirValue) < 1.0e-9) {
-                return startValue in minBound..maxBound
-            }
-
-            val t1 = (minBound - startValue) / dirValue
-            val t2 = (maxBound - startValue) / dirValue
-            val axisEnterT: Double
-            val axisExitT: Double
-            val axisEnterNormal: Vec3
-
-            if (t1 <= t2) {
-                axisEnterT = t1
-                axisExitT = t2
-                axisEnterNormal = negativeNormal
-            } else {
-                axisEnterT = t2
-                axisExitT = t1
-                axisEnterNormal = positiveNormal
-            }
-
-            if (axisEnterT > tMin) {
-                tMin = axisEnterT
-                enterNormal = axisEnterNormal
-            }
-            tMax = min(tMax, axisExitT)
-            return tMin <= tMax
-        }
-
-        if (!updateAxis(start.x, direction.x, box.minX, box.maxX, Vec3(-1.0, 0.0, 0.0), Vec3(1.0, 0.0, 0.0))) return null
-        if (!updateAxis(start.y, direction.y, box.minY, box.maxY, Vec3(0.0, -1.0, 0.0), Vec3(0.0, 1.0, 0.0))) return null
-        if (!updateAxis(start.z, direction.z, box.minZ, box.maxZ, Vec3(0.0, 0.0, -1.0), Vec3(0.0, 0.0, 1.0))) return null
-        if (tMax < 0.0 || tMin > 1.0) return null
-        return SegmentAabbHit(t = tMin.coerceIn(0.0, 1.0), normal = enterNormal)
     }
 
     private fun detectGoal(prevPos: Vec3, currPos: Vec3) {
@@ -1195,13 +1358,30 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 return
             }
             val now = (level() as? ServerLevel)?.gameTime ?: 0L
-            if (shouldSkipPlayerBodyInteraction(entity, now)) {
+            if (shouldSkipPlayerBodyCollisionDetection(entity)) {
                 return
             }
             val radius = FootballPhysicsConfig.RADIUS
             val ballCenter = position().add(0.0, radius, 0.0)
-            val pushDir = playerBallPushDirection(entity, ballCenter)
-            if (applyPlayerPushFromPlayer(entity, pushDir)) {
+            val playerBox = entity.boundingBox
+            val geometricContact = FootballPlayerBallCollision.contactAtSphereCenter(ballCenter, playerBox, radius)
+                ?: FootballPlayerBallCollision.overlapHitAt(ballCenter, playerBox, radius)
+            val overlapping = geometricContact != null && geometricContact.t <= 1.0e-6
+            val contactNormal = geometricContact?.normal
+                ?: FootballPhysicsSimulator.orientContactNormalTowardBall(
+                    Vec3Math.normalizeSafe(Vec3Math.horizontal(ballCenter.subtract(entity.position()))),
+                    entity.position(),
+                    ballCenter,
+                )
+            if (applyPlayerPushFromPlayer(
+                    entity,
+                    contactNormal,
+                    ballCenter,
+                    now = now,
+                    overlapping = overlapping,
+                    sweepT = geometricContact?.t,
+                )
+            ) {
                 syncPhysicsToEntityData()
             }
             return
@@ -1309,11 +1489,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     companion object {
         /** 球-玩家分离时的皮肤厚度，避免下一 tick 再次嵌入。 */
         private const val PLAYER_SEPARATION_EPSILON = 0.015
+        private const val SLIDE_IMPACT_VELOCITY_SCALE = 1.25
         /** 玩家主动推球的接触余量，用于覆盖玩家本 tick 扫过球边缘但尚未深度重叠的情况。 */
         private const val PLAYER_PUSH_CONTACT_MARGIN = 0.08
-        /** 身体推球的刻意侧向偏移：普通移动控球不应像带球技能一样稳定。 */
-        private const val PLAYER_PUSH_DEFLECTION_BIAS = 0.62
-        private const val PLAYER_PUSH_DEFLECTION_DEADZONE = 0.02
 
         fun registerSerializers() {
             FabricEntityDataRegistry.register(ENTITY_ID, SERIALIZER_IMMOVABLE_TARGET_PLAYERS)

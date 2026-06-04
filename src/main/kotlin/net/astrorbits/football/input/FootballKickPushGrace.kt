@@ -6,7 +6,8 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * 踢球后短暂忽略该球员对同一足球的身体推球与碰撞冲量，避免推球 + 连点踢球时球在脚前鬼畜。
+ * 踢球后短暂抑制该球员对同一足球的重复身体冲量，避免推球 + 连点踢球时球在脚前鬼畜。
+ * 不阻断碰撞检测。
  */
 object FootballKickPushGrace {
     private data class GraceEntry(val footballId: Int, val expiresAtTick: Long)
@@ -27,6 +28,10 @@ object FootballKickPushGrace {
             return false
         }
         return entry.footballId == football.id
+    }
+
+    fun removePlayer(playerId: UUID) {
+        graceByPlayer.remove(playerId)
     }
 
     fun cleanupExpired(now: Long) {

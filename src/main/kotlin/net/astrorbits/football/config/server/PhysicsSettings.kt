@@ -5,8 +5,8 @@ import com.mojang.serialization.codecs.RecordCodecBuilder
 
 data class PhysicsCoreSettings(
     val radius: Double = 0.25,
-    val mass: Double = 0.45,
-    val inertia: Double = 2.0 / 5.0 * 0.45 * 0.25 * 0.25,
+    val mass: Double = 0.5,
+    val inertia: Double = 2.0 / 5.0 * 0.5 * 0.25 * 0.25,
     val gravity: Double = 0.04,
     val airDrag: Double = 0.99,
     val spinDrag: Double = 0.995,

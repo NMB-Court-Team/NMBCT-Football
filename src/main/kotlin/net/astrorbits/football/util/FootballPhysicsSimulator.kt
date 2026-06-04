@@ -1,7 +1,6 @@
 package net.astrorbits.football.util
 
 import net.minecraft.world.phys.Vec3
-import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.physics.CollisionBounceResult
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
@@ -60,42 +59,11 @@ object FootballPhysicsSimulator {
         state.linearVelocity = Vec3(redirected.x, state.linearVelocity.y, redirected.z)
     }
 
-    /**
-     * 身体触球（走路/跑步/滑铲）：将球员水平速度叠加到球上，并同步无滑滚动角速度与朝向。
-     *
-     * @param velocityTransfer 速度传递比例（滑铲一般为 1.0）
-     */
-    fun applyPlayerBodyBallPush(
-        state: FootballPhysicsState,
-        playerHorizontalVelocity: Vec3,
-        velocityTransfer: Double = 1.0,
-    ): Boolean {
-        val player = Vec3Math.horizontal(playerHorizontalVelocity)
-        if (player.lengthSqr() < FootballPhysicsConfig.EPSILON * FootballPhysicsConfig.EPSILON) {
-            return false
-        }
-        if (player.lengthSqr() < FootballInputConfig.PLAYER_BALL_PUSH_MIN_SPEED * FootballInputConfig.PLAYER_BALL_PUSH_MIN_SPEED) {
-            return false
-        }
-
-        val transfer = velocityTransfer.coerceIn(0.0, 1.25)
-        val ballHorizontal = Vec3Math.horizontal(state.linearVelocity)
-        val merged = ballHorizontal.add(player.scale(transfer))
-        state.linearVelocity = Vec3(merged.x, state.linearVelocity.y, merged.z)
-        resetRollingOrientation(state)
-        val rolling = Vec3Math.rollingAngularVelocity(
-            Vec3Math.horizontal(state.linearVelocity),
-            FootballPhysicsConfig.RADIUS,
-        )
-        state.angularVelocity = Vec3(rolling.x, state.angularVelocity.y, rolling.z)
-        return true
-    }
-
-    /** 将接触法线翻转为沿「球员脚点 → 球心」方向，保证推球离开球员。 */
+    /** 确保接触法线（玩家 → 球）与球心相对脚点方向同向；保留 3D 分量以反映撞击高度。 */
     fun orientContactNormalTowardBall(contactNormal: Vec3, playerFeetPosition: Vec3, ballCenter: Vec3): Vec3 {
-        val towardBall = Vec3Math.horizontal(ballCenter.subtract(playerFeetPosition))
+        val towardBall = ballCenter.subtract(playerFeetPosition)
         val fallback = Vec3Math.normalizeSafe(towardBall)
-        val raw = Vec3Math.normalizeSafe(Vec3Math.horizontal(contactNormal), fallback)
+        val raw = Vec3Math.normalizeSafe(contactNormal, fallback)
         if (towardBall.lengthSqr() < FootballPhysicsConfig.EPSILON * FootballPhysicsConfig.EPSILON) {
             return raw
         }

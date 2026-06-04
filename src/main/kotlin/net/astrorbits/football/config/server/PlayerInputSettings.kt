@@ -111,9 +111,10 @@ data class PlayerCollisionSettings(
     val ballPlayerPushScale: Double = 0.2,
     val ballPlayerMaxPush: Double = 0.75,
     val ballPlayerRestitution: Double = 0.68,
+    val playerMass: Double = 70.0,
     val playerBallPushMinSpeed: Double = 0.06,
-    val playerBallPushScale: Double = 0.35,
-    val playerBallPushMax: Double = 0.55,
+    val playerBallPushScale: Double = 0.08,
+    val playerBallPushMax: Double = 0.06,
     val playerBallContactGraceTicks: Int = 3,
 ) {
     companion object {
@@ -123,9 +124,10 @@ data class PlayerCollisionSettings(
                 Codec.DOUBLE.fieldOf("ball_player_push_scale").forGetter(PlayerCollisionSettings::ballPlayerPushScale),
                 Codec.DOUBLE.fieldOf("ball_player_max_push").forGetter(PlayerCollisionSettings::ballPlayerMaxPush),
                 Codec.DOUBLE.fieldOf("ball_player_restitution").forGetter(PlayerCollisionSettings::ballPlayerRestitution),
+                Codec.DOUBLE.optionalFieldOf("player_mass", 70.0).forGetter(PlayerCollisionSettings::playerMass),
                 Codec.DOUBLE.optionalFieldOf("player_ball_push_min_speed", 0.06).forGetter(PlayerCollisionSettings::playerBallPushMinSpeed),
-                Codec.DOUBLE.optionalFieldOf("player_ball_push_scale", 0.35).forGetter(PlayerCollisionSettings::playerBallPushScale),
-                Codec.DOUBLE.optionalFieldOf("player_ball_push_max", 0.55).forGetter(PlayerCollisionSettings::playerBallPushMax),
+                Codec.DOUBLE.optionalFieldOf("player_ball_push_scale", 0.08).forGetter(PlayerCollisionSettings::playerBallPushScale),
+                Codec.DOUBLE.optionalFieldOf("player_ball_push_max", 0.06).forGetter(PlayerCollisionSettings::playerBallPushMax),
                 Codec.INT.optionalFieldOf("player_ball_contact_grace_ticks", 8).forGetter(PlayerCollisionSettings::playerBallContactGraceTicks),
             ).apply(i, ::PlayerCollisionSettings)
         }
@@ -183,6 +185,7 @@ data class PlayerInputSettings(
     val ballPlayerPushScale get() = collision.ballPlayerPushScale
     val ballPlayerMaxPush get() = collision.ballPlayerMaxPush
     val ballPlayerRestitution get() = collision.ballPlayerRestitution
+    val playerMass get() = collision.playerMass
     val playerBallPushMinSpeed get() = collision.playerBallPushMinSpeed
     val playerBallPushScale get() = collision.playerBallPushScale
     val playerBallPushMax get() = collision.playerBallPushMax
