@@ -5,6 +5,7 @@ import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.match.MatchFieldBounds
 import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.util.FootballKickUtil
 import net.minecraft.client.Minecraft
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
@@ -15,9 +16,19 @@ import net.minecraft.world.phys.Vec3
 object DribbleBallIndicatorClient {
     private const val SCOREBOARD_TEAM_A = "football_A"
     private const val SCOREBOARD_TEAM_B = "football_B"
+    private const val DEV_NEAREST_FOOTBALL_RANGE = 256.0
 
     var activeFootballId: Int = -1
         private set
+
+    /** 开发环境：无视比赛配置，常驻跟踪距本地玩家最近的足球。 */
+    var devAlwaysShowNearestFootballIndicator: Boolean = false
+        private set
+
+    fun toggleDevAlwaysShowNearestFootballIndicator(): Boolean {
+        devAlwaysShowNearestFootballIndicator = !devAlwaysShowNearestFootballIndicator
+        return devAlwaysShowNearestFootballIndicator
+    }
 
     fun onDribbleHold() {
         val client = Minecraft.getInstance()
@@ -32,9 +43,12 @@ object DribbleBallIndicatorClient {
         activeFootballId = -1
     }
 
-    /** 当前应显示视野外指示的足球中心；带球优先，其次为比赛全场指示。 */
+    /** 当前应显示视野外指示的足球中心；带球优先，其次开发常驻或比赛全场指示。 */
     fun trackedBallCenter(): Vec3? {
         activeBallCenter()?.let { return it }
+        if (devAlwaysShowNearestFootballIndicator) {
+            return nearestFootballForDev()
+        }
         if (!isMatchPositionIndicatorActive()) {
             return null
         }
@@ -68,6 +82,13 @@ object DribbleBallIndicatorClient {
         val player = Minecraft.getInstance().player ?: return false
         val team = player.level().scoreboard.getPlayersTeam(player.gameProfile.name)
         return team?.name == SCOREBOARD_TEAM_A || team?.name == SCOREBOARD_TEAM_B
+    }
+
+    private fun nearestFootballForDev(): Vec3? {
+        val client = Minecraft.getInstance()
+        val player = client.player ?: return null
+        val football = FootballKickUtil.findNearestFootball(player, DEV_NEAREST_FOOTBALL_RANGE) ?: return null
+        return football.position().add(0.0, football.bbHeight * 0.5, 0.0)
     }
 
     private fun nearestFootballInIndicatorRange(): Vec3? {

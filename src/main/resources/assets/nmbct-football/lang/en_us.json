@@ -134,6 +134,8 @@
     "command.nmbct-football.match.phase.current": "Current phase: %s, remaining: %s",
     "command.nmbct-football.match.phase.advanced": "Advanced to phase: %s",
     "command.nmbct-football.match.phase.set": "Phase set to: %s",
+    "command.nmbct-football.dev.ball_indicator.on": "Football position indicator enabled (nearest ball, dev)",
+    "command.nmbct-football.dev.ball_indicator.off": "Football position indicator disabled (dev)",
     "yacl3.config.nmbct-football.client.title": "NMBCT Football · Client",
     "yacl3.config.nmbct-football.server.title": "NMBCT Football · Server",
     "yacl3.config.nmbct-football.match.field.goal_geometry": "Goal geometry",

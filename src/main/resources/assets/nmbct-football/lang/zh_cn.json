@@ -134,6 +134,8 @@
     "command.nmbct-football.match.phase.current": "当前阶段：%s，剩余时间：%s",
     "command.nmbct-football.match.phase.advanced": "已推进到阶段：%s",
     "command.nmbct-football.match.phase.set": "已设置阶段为：%s",
+    "command.nmbct-football.dev.ball_indicator.on": "已开启足球位置指示（最近足球，开发）",
+    "command.nmbct-football.dev.ball_indicator.off": "已关闭足球位置指示（开发）",
     "yacl3.config.nmbct-football.client.title": "柠檬杯风驰足球 · 客户端",
     "yacl3.config.nmbct-football.server.title": "柠檬杯风驰足球 · 服务端",
     "yacl3.config.nmbct-football.match.field.goal_geometry": "球门几何",

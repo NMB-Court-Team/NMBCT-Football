@@ -59,6 +59,7 @@ object NMBCTFootballClient : ClientModInitializer {
 
 		FootballKeyBindings.init()
 		FootballClientConfigKeyHandler.register()
+		FootballDevClientCommands.register()
 
 		HudElementRegistry.addLast(
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "match_hud"),
