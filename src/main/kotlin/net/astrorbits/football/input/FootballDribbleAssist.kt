@@ -9,8 +9,10 @@ import net.minecraft.world.phys.Vec3
 import kotlin.math.min
 
 object FootballDribbleAssist {
-    /** 滑铲带球：目标点领先约 1 tick 滑铲位移，减轻“球总在身后追”的观感 */
-    private const val SLIDE_TARGET_LEAD_TICKS = 1.0
+    /** 滑铲带球：目标点沿铲向略领先，减轻“球总在身后追”；不宜过大否则球位偏前 */
+    private const val SLIDE_TARGET_LEAD_TICKS = 0.72
+    /** 滑铲带球：沿铲向回拉（格），球位略靠后 */
+    private const val SLIDE_TARGET_REAR_OFFSET = 0.1
     /** 落后时沿铲向可叠加的追位速度上限（blocks/tick） */
     private const val SLIDE_CATCHUP_SPEED_CAP = 2.0
     /** 落后追位：位置误差 → 额外沿向速度的增益 */
@@ -53,7 +55,9 @@ object FootballDribbleAssist {
             playerPos.z + dir.z * targetDistance,
         )
         if (slideVelocity != null && slideVelocity.lengthSqr() > 1.0e-8) {
-            target = target.add(slideVelocity.scale(SLIDE_TARGET_LEAD_TICKS))
+            target = target
+                .add(slideVelocity.scale(SLIDE_TARGET_LEAD_TICKS))
+                .subtract(dir.scale(SLIDE_TARGET_REAR_OFFSET))
         }
 
         val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
