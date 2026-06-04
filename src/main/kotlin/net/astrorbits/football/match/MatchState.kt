@@ -340,7 +340,7 @@ object MatchState {
         if (MatchConfigHolder.current.hasNoPlayableDuration()) {
             return false
         }
-        PlayerRoleState.randomAssignGoalkeepers(server)
+        PlayerRoleState.assignGoalkeepersOnMatchStart(server)
         resetFootball(level)
         teleportTeamsToSpawnPositions(server)
         val cfg = MatchConfigHolder.current
