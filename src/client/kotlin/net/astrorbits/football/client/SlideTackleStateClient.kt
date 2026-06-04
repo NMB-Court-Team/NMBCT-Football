@@ -16,24 +16,33 @@ object SlideTackleStateClient {
     private const val MIN_FACING_SPEED_SQR = 1.0e-4
 
     fun register() {
+        SlideTackleSoundsClient.register()
         ClientPlayNetworking.registerGlobalReceiver(SlideTackleStateS2CPayload.TYPE) { payload, _ ->
             val level = Minecraft.getInstance().level ?: return@registerGlobalReceiver
             val client = Minecraft.getInstance()
+            val entity = level.getEntity(payload.entityId)
             if (payload.sliding) {
                 slidingEntities.add(payload.entityId)
+                if (entity != null) {
+                    SlideTackleSoundsClient.onSlideStart(entity, level.gameTime)
+                }
             } else {
                 slidingEntities.remove(payload.entityId)
+                if (entity != null) {
+                    SlideTackleSoundsClient.onSlideEnd(entity)
+                }
             }
             if (client.player?.id == payload.entityId && payload.cooldownUntilTick > 0L) {
                 localCooldownUntilTick = payload.cooldownUntilTick
             }
-            applySlideStateToEntity(level.getEntity(payload.entityId), payload.sliding)
+            applySlideStateToEntity(entity, payload.sliding)
         }
 
         ClientTickEvents.END_CLIENT_TICK.register { client ->
             val level = client.level
             if (level == null) {
                 slidingEntities.clear()
+                SlideTackleSoundsClient.clear()
                 return@register
             }
             // 只做实体生命周期清理；朝向与结束状态都由服务端滑铲状态驱动。

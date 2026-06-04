@@ -321,8 +321,7 @@ object FootballSounds {
 
     val boostSprintStartEvent: SoundEvent get() = BOOST_SPRINT_START_EVENT
     val boostSprintEndEvent: SoundEvent get() = BOOST_SPRINT_END_EVENT
-
-    /** 滑铲起手：短促摩擦/蹬地声。 */
+    /** 滑铲起手：短促摩擦/蹬地声（客户端 [net.astrorbits.football.client.SlideTackleSoundsClient] 绑定实体播放）。 */
     val SLIDE_TACKLE_START: SoundSpec = SoundSpec(
         event = SLIDE_TACKLE_START_EVENT,
         source = SoundSource.PLAYERS,
@@ -355,18 +354,6 @@ object FootballSounds {
 
     fun playGkThrow(player: ServerPlayer) {
         play(player.level(), player.blockPosition(), GK_THROW, player.random)
-    }
-
-    fun playSlideTackleStart(player: ServerPlayer) {
-        play(player.level(), player.blockPosition(), SLIDE_TACKLE_START, player.random)
-    }
-
-    fun playSlideTackleLoop(player: ServerPlayer) {
-        play(player.level(), player.blockPosition(), SLIDE_TACKLE_LOOP, player.random)
-    }
-
-    fun playSlideTackleEnd(player: ServerPlayer) {
-        play(player.level(), player.blockPosition(), SLIDE_TACKLE_END, player.random)
     }
 
     /** 滑铲触球：与 [playKick] 相同踢球音效，在球位置播放，力度随滑铲速度缩放。 */
