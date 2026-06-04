@@ -11,6 +11,7 @@
 - **自动判例**：球每 tick 位移后检测是否穿越门线或边线，区分进球、无效进球、角球、球门球、界外球。
 - **开球纪律**：非发球方在开球锁定期间无法操作足球；拖延开球会累积动态补时并触发裁判哨声。
 - **GM 可控**：`/match` 命令管理开赛、阶段、比分、队伍与守门员；配置文件与 GUI 编辑赛场参数。
+- **可选赛前准备**：开赛前可配置倒计时，供调整按键、换守门员与战术讨论；亮绿色 Banner 与聊天公示守门员。
 - **可选辅助功能**：比赛设置中可开启全场足球位置指示，帮助参赛玩家在球出屏时定位足球（纯客户端 HUD，不改变物理或判例）。
 
 ## 架构概览
@@ -54,11 +55,13 @@ flowchart TB
 | `match/MatchFieldBounds.kt` | 由球门/边线推导球场水平矩形及指示范围 |
 | `match/MatchConfigHolder.kt` | 加载/保存 `config/nmbct-football-match.json` |
 | `match/MatchCommand.kt` | `/match` 命令 |
-| `match/PlayerRoleState.kt` | 官方/自愿守门员；开赛分配与暂停期间活跃身份判定 |
+| `match/PlayerRoleState.kt` | 官方/自愿守门员；开赛/准备阶段分配与活跃身份判定 |
 | `match/MatchPauseFootballState.kt` | 暂停时全场足球速度/可操作状态快照与恢复 |
 | `network/MatchPauseS2CPayload.kt` | S2C：暂停/继续 Banner |
 | `client/match/MatchPauseClient.kt` | 暂停 Banner 计时（4s） |
 | `client/render/MatchPauseHudElement.kt` | 橙色「比赛暂停 / 比赛继续」Banner |
+| `client/render/PreMatchPrepHudElement.kt` | 赛前准备阶段亮绿色 Banner（含暂停时合并「比赛暂停中」） |
+| `client/render/MatchPauseOverlayHudElement.kt` | 正式比赛暂停期间顶部大字「比赛暂停中」（准备阶段已并入准备 Banner） |
 | `client/GoalkeeperHoldStealProtectionClient.kt` | 比赛期间抢球保护窗口（客户端，供 HUD） |
 | `client/render/GoalkeeperHoldStealProtectionHudElement.kt` | 准心下方「抢球保护中」提示 |
 | `match/PostGoalBallResetScheduler.kt` | 进球/出界/无效进球后延迟复位足球 |
@@ -167,7 +170,7 @@ flowchart TB
 | `currentPhase` | 当前 `MatchPhase` |
 | `timerTicks` | 主计时器（正计时，tick） |
 | `stoppageTimerTicks` | 补时阶段专用计时 |
-| `isRunning` | 主/补时计时是否递增 |
+| `isRunning` | 主/补时/准备计时是否递增 |
 | `teamAScore` / `teamBScore` | 比分 |
 | `teamAPlayers` / `teamBPlayers` | 队员 UUID 集合 |
 | `teamAName` / `teamBName` | 队名（`Component`，可命令/GUI 修改） |
@@ -196,16 +199,18 @@ flowchart TB
 |------|-------------------------------------------|
 | 官方门将 | `/match setGk A\|B <玩家>`；`/match clearGk` 清除登记 |
 | 自愿门将 | `/match gk on\|off`（任意玩家）；`reset()` 时会清除 |
-| 开赛分配 | `/match start` 时调用 `assignGoalkeepersOnMatchStart`（见开赛流程） |
+| 开赛分配 | `/match start` 时调用 `assignGoalkeepersIfMissing`（见开赛流程） |
 
 **正式门将登记**（`teamAGoalkeeper` / `teamBGoalkeeper`）在 `/match reset`、结算约 16 秒后的自动复位、以及 `beginMatch` 内调用的 `reset()` 中**均会保留**，便于连续多场比赛沿用同一门将。仅 `PlayerRoleState.reset()` 会清除自愿门将与点球主罚时的临时「场外操作」覆盖。
 
-**活跃门将身份**（`isGoalkeeper` → 守门员输入、S2C 角色包）仅在 `MatchState.isDuringMatch()` 为真时生效；`PRE_MATCH` / `FINISHED` 期间登记仍在，但场上不视为活跃门将。
+**活跃门将身份**（`isGoalkeeper` → 守门员输入、S2C 角色包）在 **`MatchState.allowsActiveGoalkeeperRole()`** 为真时生效，即正式比赛阶段（`isDuringMatch()`）或 **赛前准备阶段**（`PRE_MATCH_PREP`）。`PRE_MATCH` / `FINISHED` 期间登记仍在，但场上不视为活跃门将。
 
-开赛分配规则（`assignGoalkeepersOnMatchStart`）：
+开赛/准备分配规则（`assignGoalkeepersIfMissing`）：
 
 1. 若该队已有正式门将 UUID，且该玩家仍在 `teamAPlayers` / `teamBPlayers` 中 → **沿用**，并向在线球员同步角色；
 2. 否则 → 从该队**在线**队员中随机一名设为官方门将。
+
+**守门员公示**：进入赛前准备阶段或正式开赛（上半场开球）时，服务端向双方队员聊天栏广播各队守门员（`match.announce.goalkeeper` / `match.announce.goalkeeper_unassigned`）。从准备阶段转入上半场时会再次公示，便于确认临时更换结果。
 
 门将身份影响：开球 HUD 是否显示门将提示、守门员专属输入（扑球/持球等）。退出活跃门将身份时会放下手中足球。
 
@@ -231,6 +236,7 @@ flowchart TB
 | 阶段 | 说明 |
 |------|------|
 | `PRE_MATCH` | 赛前；不判进球/出界 |
+| `PRE_MATCH_PREP` | **赛前准备**；可调整按键、讨论战术、临时换守门员；不判进球/出界；计时结束后自动进入 `FIRST_HALF` |
 | `FIRST_HALF` | 上半场 |
 | `FIRST_HALF_ET` | 上半场补时 |
 | `SECOND_HALF` | 下半场 |
@@ -242,7 +248,8 @@ flowchart TB
 
 ### 主计时与补时
 
-- **服务端**（`FootballNetworking.registerServerTick`）：当阶段不是 `PRE_MATCH`/`FINISHED` 且 `isRunning` 时，每 tick 递增 `timerTicks`（常规阶段）或 `stoppageTimerTicks`（`*_ET` 补时阶段）。
+- **服务端**（`FootballNetworking.registerServerTick`）：当阶段不是 `PRE_MATCH`/`FINISHED` 且 `isRunning` 时，每 tick 递增 `timerTicks`（常规阶段、`PRE_MATCH_PREP` 准备倒计时）或 `stoppageTimerTicks`（`*_ET` 补时阶段）。
+- **赛前准备计时**：`PRE_MATCH_PREP` 使用 `rules.pre_match_preparation_minutes` 换算的目标 tick；`getPhaseRemainingTicks() <= 0` 时调用 `finishPreMatchPreparation()` 进入常规开赛流程（非简单 `setPhase(FIRST_HALF)`）。
 - **补时阶段**：主 HUD 仍显示父阶段名（如 `FIRST_HALF_ET` → 显示 `FIRST_HALF`），下方单独显示补时条 `formatStoppageWithTarget()`。
 - **阶段结束**：`getPhaseRemainingTicks() <= 0` 时调用 `getNextPhaseForAutoAdvance()` 并 `setPhase(next)`。`PENALTIES` 阶段不自动因时间结束而推进。
 
@@ -271,15 +278,35 @@ flowchart TB
 
 ## 开赛流程 `/match start`
 
-需要权限等级 **2（游戏管理员）**。顺序如下：
+需要权限等级 **2（游戏管理员）**。若 `MatchConfig.hasNoPlayableDuration()` 为真（无常规/加时且未启用点球），开赛失败。
 
 1. 若 `currentPhase != PRE_MATCH`（含 **`FINISHED` 结算阶段立刻再开赛**）：先 `MatchState.reset()` 清零比分/阶段等，**保留**队伍名单与正式门将登记。
-2. `PlayerRoleState.assignGoalkeepersOnMatchStart` — 沿用已登记且仍在名单中的门将，否则各队从在线队员随机一名（见上文）。
-3. `MatchState.resetFootball` — 清除全场足球，在中圈 `kickOff` 生成新球。
-4. `MatchState.teleportTeamsToSpawnPositions` — 按 `team_a_spawn` / `team_b_spawn` 传送（门将 → `gk`，其余队员打乱后填入 `players` 列表，多余的人随机重复坐标）。
-5. 随机 `kickoffTeam`；`setPhase(FIRST_HALF)`；`broadcastMatchStart`（哨声 1 + 各队员 `MatchStartS2CPayload`）；`syncTimerToClients`。
+2. `resetFootball` — 清除全场足球，在中圈 `kickOff` 生成新球。
+3. `teleportTeamsToSpawnPositions` — 按 `team_a_spawn` / `team_b_spawn` 传送（门将 → `gk`，其余队员打乱后填入 `players` 列表，多余的人随机重复坐标）。
 
-> 从 `FINISHED` 开赛时不再调用 `advancePhase()`（`FINISHED.next` 为 null），改为直接 `setPhase(FIRST_HALF)`。
+此后分支：
+
+### A. 仅点球大战（测试）
+
+当 `rules.startsWithPenaltyShootout()`（半场与加时均为 0 且启用点球）：
+
+- `assignGoalkeepersIfMissing` → 公示守门员 → `setPhase(PENALTIES)` → `syncTimerToClients`。
+
+### B. 启用赛前准备
+
+当 `rules.isPreMatchPreparationEnabled()`（`enable_pre_match_preparation == true` 且 `pre_match_preparation_minutes > 0`）：
+
+1. `beginPreMatchPreparation`：`assignGoalkeepersIfMissing` → **聊天公示守门员** → `setPhase(PRE_MATCH_PREP)` → 聊天提示准备时长 → `syncTimerToClients`。
+2. 准备倒计时结束（服务端 tick）→ `finishPreMatchPreparation` → `startRegularMatch`（见下）。
+
+### C. 直接开赛
+
+`startRegularMatch`：
+
+1. `assignGoalkeepersIfMissing` → **聊天公示守门员**。
+2. 随机 `kickoffTeam`；`setPhase(FIRST_HALF)`；`broadcastMatchStart`（哨声 1 + 各队员 `MatchStartS2CPayload`）；`syncTimerToClients`。
+
+> 从 `FINISHED` 开赛时不再调用 `advancePhase()`（`FINISHED.next` 为 null），改为直接 `setPhase(FIRST_HALF)` 或经准备阶段进入。
 
 ## 开球锁定
 
@@ -304,7 +331,7 @@ flowchart TB
 
 ## 进球与出界判定
 
-在 `Football` 服务端每 tick 位移后调用 `detectGoal(prevPos, currPos)`。**仅在**阶段不是 `PRE_MATCH` 且不是 `FINISHED` 时生效。
+在 `Football` 服务端每 tick 位移后调用 `detectGoal(prevPos, currPos)`。**仅在**阶段不是 `PRE_MATCH`、不是 `PRE_MATCH_PREP` 且不是 `FINISHED` 时生效。
 
 ### 球门与得分方向
 
@@ -405,13 +432,28 @@ flowchart TB
 
 需要 GM 权限。每次执行切换 `MatchState.isRunning`，并：
 
-| 项 | 暂停（`isRunning = false` 且 `isDuringMatch()`） | 继续（`isRunning = true`） |
-|----|--------------------------------------------------|----------------------------|
-| 计时 | 主计时 / 补时 tick 不再递增（`FootballNetworking.registerServerTick`） | 恢复递增 |
+| 项 | 暂停（`isMatchTimerPaused()`） | 继续（`isRunning = true`） |
+|----|--------------------------------|----------------------------|
+| 判定 | 处于正式比赛或赛前准备，且 `isRunning == false` | 同上为 false |
+| 计时 | 主计时 / 补时 / **准备倒计时** tick 不再递增 | 恢复递增 |
 | 哨声 | 全场 `whistle_1` | 全场 `whistle_1` |
 | Banner | 橙色「**比赛暂停**」，约 **4s** 后淡出（`MatchPauseHudElement` / `renderPause`） | 橙色「**比赛继续**」，同上 |
+| 顶部大字 | 正式比赛：持续显示「**比赛暂停中**」（`MatchPauseOverlayHudElement`） | 隐藏 |
 | 网络 | `MatchPauseS2CPayload(paused=true/false)` 发给所有在线玩家 | 同上 |
 | 计时同步 | `syncTimerToClients` | 同上 |
+
+### 赛前准备阶段的暂停表现
+
+准备阶段（`PRE_MATCH_PREP`）暂停时 HUD 与正式比赛不同：
+
+| 元素 | 行为 |
+|------|------|
+| **准备 Banner**（`PreMatchPrepHudElement`） | **始终显示**，不因暂停而隐藏 |
+| **准备 Banner 内容** | 第一行：`赛前准备 · 剩余 MM:SS`；暂停时倒计时改为橙色（`ACCENT_PAUSE`，与「比赛暂停中」同色） |
+| **「比赛暂停中」大字** | **并入**准备 Banner 第二行（2× 字号、橙色），**不再**单独显示 `MatchPauseOverlayHudElement` |
+| **4s 橙 Banner** | 仍正常弹出「比赛暂停 / 比赛继续」，位置在**准备 Banner 下方**（`renderPause(stackBelowPreMatchPrep=true)`），避免重叠 |
+
+继续比赛后，准备 Banner 恢复单行绿色倒计时；若触发「比赛继续」短 Banner，其位置随准备 Banner 高度自动下移。
 
 ### 足球物理与可操作（`MatchPauseFootballState` + `Football`）
 
@@ -458,6 +500,12 @@ flowchart TB
 | `extra_time_half_minutes` | 加时单半场分钟数 | 3 |
 | `enable_penalty_shootout` | 平局是否进入点球阶段 | false |
 | `post_goal_ball_reset_delay_seconds` | 进球或边线出界后，球传回开球点的延迟（秒） | 3 |
+| `enable_pre_match_preparation` | 是否开启赛前准备阶段 | true |
+| `pre_match_preparation_minutes` | 赛前准备时长（分钟，**0～10**；**0** 表示无需准备） | 2 |
+
+实际进入准备阶段需 **`enable_pre_match_preparation == true` 且 `pre_match_preparation_minutes > 0`**（`MatchRulesSettings.isPreMatchPreparationEnabled()`）。准备时间可用于球员调整按键、讨论作战方案、临时更换守门员（`/match setGk`）等；未预设守门员时，进入准备阶段会从该队在线队员中随机一名。
+
+**`/match setup` → 时间** 中对应项：**开启赛前准备时间**、**赛前准备时间（分钟）**。
 
 **`accessibility` 对象**（`MatchAccessibilitySettings`）：
 
@@ -573,13 +621,15 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 
 | 元素 | 说明 |
 |------|------|
-| `FootballHudElement` | 常驻：阶段名、主计时、比分、补时条、阶段终止时间 |
+| `FootballHudElement` | 常驻：阶段名、主计时、比分、补时条、阶段终止时间；**准备阶段**阶段名与背景为亮绿色 |
 | `MatchStartHudElement` | 开场 6s 介绍（队名、是否门将、开球方） |
 | `KickoffLockHudElement` | 开球倒计时与锁定提示 |
 | `GoalScoredHudElement` | 进球 Banner（金色/乌龙紫色） |
 | `InvalidGoalHudElement` | 无效进球 Banner（暗红 `#6B1A28`，与红队得分色区分） |
 | `GoalLineOutHudElement` | 出界类型 Banner（角球/球门球/出边线） |
-| `MatchPauseHudElement` | 比赛暂停/继续 Banner（橙色，4s 淡出） |
+| `MatchPauseHudElement` | 比赛暂停/继续 Banner（橙色，4s 淡出；准备阶段叠在准备 Banner 下方） |
+| `MatchPauseOverlayHudElement` | 正式比赛暂停期间顶部大字「比赛暂停中」（准备阶段已并入准备 Banner） |
+| `PreMatchPrepHudElement` | 赛前准备 Banner（亮绿 `#66FF66`；暂停时双行 + 橙色倒计时） |
 | `HalfKickoffHudElement` | 半场开球 Banner（约 4s） |
 | `MatchResultHudElement` | 终场结果 |
 | `StaminaHudElement` | 体力条（未满或加速淡出时显示，刻度为移速档位阈值） |
@@ -597,7 +647,7 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 | 条件 | 说明 |
 |------|------|
 | 配置开启 | `MatchConfigHolder.current.accessibility.enableFootballPositionIndicator == true`（由 `MatchConfigSync` / `MatchTimerSync` 同步） |
-| 比赛进行中 | `currentPhase` 不是 `PRE_MATCH` 也不是 `FINISHED` |
+| 比赛进行中 | `currentPhase` 不是 `PRE_MATCH`、`PRE_MATCH_PREP` 也不是 `FINISHED` |
 | 参赛玩家 | 本地玩家在原版计分板队伍 `football_A` 或 `football_B` 中（与 `/match join` 一致） |
 
 ### 跟踪与显示
@@ -639,6 +689,8 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 
 | 提交 | 主题 | 文档章节 |
 |------|------|----------|
+| 赛前准备阶段 | `/match setup` 可配置准备时长与开关；`PRE_MATCH_PREP` 阶段、亮绿 Banner、守门员公示与随机分配 | 「比赛阶段」「开赛流程」「配置 `MatchConfig`」「客户端 HUD」「守门员」 |
+| 准备阶段暂停 HUD | 准备 Banner 暂停时不隐藏；「比赛暂停中」并入 Banner；倒计时改橙色；4s 暂停 Banner 下移 | 「比赛暂停 `/match pause`」 |
 | 预设守门员 | `/match start` 优先沿用 `setGk` 且仍在名单中的门将，否则随机 | 「守门员 `PlayerRoleState`」「开赛流程 `/match start`」 |
 | 复位保留队伍与门将 | `reset()` / `resetMatchToPreMatch` 不再清空队员；正式门将 UUID 跨场保留；`beginMatch` 从 `FINISHED` 可先 `reset` 再开赛 | 「核心状态：`MatchState`」「比赛结束」、守门员 |
 | 比赛暂停 | 哨声 + 橙 Banner；足球清零速、重力下坠、全员不可操作；继续时恢复可操作快照 | 「比赛暂停 `/match pause`」、网络同步、客户端 HUD |
