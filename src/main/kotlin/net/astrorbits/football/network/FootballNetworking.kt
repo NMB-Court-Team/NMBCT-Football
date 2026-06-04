@@ -425,7 +425,6 @@ object FootballNetworking {
             GoalkeeperUtil.findHeldFootball(player)?.dropAt(player)
         }
         GoalkeeperHoldLock.clearAll(server)
-        MatchState.clearScoreboardTeams(server)
         MatchState.reset()
         syncAllGoalkeeperRoles(server)
         broadcastMatchReset(server)

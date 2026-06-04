@@ -147,8 +147,6 @@ object MatchState {
         isRunning = false
         teamAScore = 0
         teamBScore = 0
-        teamAPlayers.clear()
-        teamBPlayers.clear()
         kickoffTeam = null
         kickoffTouched = false
         clearKickoffWhistleTimers()
@@ -340,19 +338,25 @@ object MatchState {
         if (MatchConfigHolder.current.hasNoPlayableDuration()) {
             return false
         }
-        PlayerRoleState.assignGoalkeepersOnMatchStart(server)
+        // 结算阶段或进行中再次开赛：重置比分/阶段等，但保留双方名单（见 reset()）。
+        if (currentPhase != MatchPhase.PRE_MATCH) {
+            reset()
+        }
         resetFootball(level)
         teleportTeamsToSpawnPositions(server)
         val cfg = MatchConfigHolder.current
         if (cfg.startsWithPenaltyShootout()) {
             StaminaState.onMatchStart(server)
             setPhase(MatchPhase.PENALTIES, server)
+            PlayerRoleState.assignGoalkeepersOnMatchStart(server)
             FootballNetworking.syncTimerToClients(server)
             return true
         }
         val kickoff = TeamSide.entries.random()
+        setPhase(MatchPhase.FIRST_HALF, server)
         broadcastMatchStart(server, kickoff)
-        advancePhase(server)
+        PlayerRoleState.assignGoalkeepersOnMatchStart(server)
+        FootballNetworking.syncTimerToClients(server)
         return true
     }
 

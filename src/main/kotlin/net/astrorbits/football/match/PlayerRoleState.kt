@@ -20,6 +20,7 @@ object PlayerRoleState {
     }
 
     fun isGoalkeeper(player: ServerPlayer): Boolean {
+        if (!MatchState.isDuringMatch()) return false
         if (penaltyKickOutfieldOverride.contains(player.uuid)) return false
         return isDesignatedGoalkeeper(player)
     }
@@ -78,7 +79,7 @@ object PlayerRoleState {
     }
 
     /**
-     * 开赛时分配守门员：若该队已有赛前设定的正式门将且仍在名单中，则保留并同步角色；
+     * 开赛时分配守门员：若该队已有正式门将登记（含上一场保留或 `setGk`）且仍在名单中，则沿用；
      * 否则从该队在线队员中随机一名设为守门员。
      */
     fun assignGoalkeepersOnMatchStart(server: MinecraftServer) {
@@ -127,9 +128,8 @@ object PlayerRoleState {
         }
     }
 
+    /** 复位比赛进程时调用：保留正式门将登记，仅清除临时门将状态。 */
     fun reset() {
-        teamAGoalkeeper = null
-        teamBGoalkeeper = null
         voluntaryGkMode.clear()
         penaltyKickOutfieldOverride.clear()
     }
