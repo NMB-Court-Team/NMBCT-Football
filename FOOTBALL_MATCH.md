@@ -8,9 +8,10 @@
 
 - **服务端权威**：比分、阶段、计时、开球方、球复位均由服务端 `MatchState` 维护；客户端负责 HUD 与开球倒计时体验。
 - **可配置的赛场几何**：球门矩形、底线朝向、边线、开球点、角球/门球点、双方出生点均来自 `MatchConfig`。
-- **自动判例**：球每 tick 位移后检测是否穿越门线或边线，区分进球、角球、球门球、界外球。
+- **自动判例**：球每 tick 位移后检测是否穿越门线或边线，区分进球、无效进球、角球、球门球、界外球。
 - **开球纪律**：非发球方在开球锁定期间无法操作足球；拖延开球会累积动态补时并触发裁判哨声。
 - **GM 可控**：`/match` 命令管理开赛、阶段、比分、队伍与守门员；配置文件与 GUI 编辑赛场参数。
+- **可选辅助功能**：比赛设置中可开启全场足球位置指示，帮助参赛玩家在球出屏时定位足球（纯客户端 HUD，不改变物理或判例）。
 
 ## 架构概览
 
@@ -47,18 +48,27 @@ flowchart TB
 |------|------|
 | `match/MatchState.kt` | 全局比赛状态：比分、阶段、计时、队伍、开球锁定 |
 | `match/MatchPhase.kt` | 比赛阶段枚举与线性 `next` 链 |
-| `match/MatchConfig.kt` | 赛场与规则配置（Codec） |
+| `match/MatchConfig.kt` | 赛场与规则配置（Codec）；含 `rules`、`accessibility` 嵌套段 |
+| `match/MatchRulesSettings.kt` | 时长、补时、加时、点球、复位延迟等规则 |
+| `match/MatchAccessibilitySettings.kt` | 辅助功能开关（如足球位置指示） |
+| `match/MatchFieldBounds.kt` | 由球门/边线推导球场水平矩形及指示范围 |
 | `match/MatchConfigHolder.kt` | 加载/保存 `config/nmbct-football-match.json` |
 | `match/MatchCommand.kt` | `/match` 命令 |
 | `match/PlayerRoleState.kt` | 官方/自愿守门员 |
-| `match/PostGoalBallResetScheduler.kt` | 进球后延迟复位足球 |
+| `match/PostGoalBallResetScheduler.kt` | 进球/出界/无效进球后延迟复位足球 |
+| `match/DirectGoalRestartKind.kt` | 掷界外球/半场开球后的「直接进门无效」场景枚举 |
+| `match/PendingAfterReset.kt` | 足球复位完成后的开球阶段（含无效进球重开） |
 | `match/MatchKickoffTiming.kt` | 开球锁定时长常量 |
 | `Football.kt` | `detectGoal`：门线/边线穿越检测 |
 | `network/FootballNetworking.kt` | 计时 tick、包广播、半场开球 |
 | `input/FootballPlayerActions.kt` | 开球锁定校验与触球通知 |
 | `client/match/MatchStateClient.kt` | 阶段切换、半场/结算请求 |
 | `client/match/MatchStartClient.kt` | 开球倒计时、客户端补时累积 |
-| `client/render/*HudElement.kt` | 比赛 HUD、进球/出界 Banner 等 |
+| `client/render/*HudElement.kt` | 比赛 HUD、进球/无效进球/出界 Banner 等 |
+| `client/DribbleBallIndicatorClient.kt` | 带球 / 全场指示的足球跟踪（客户端） |
+| `client/render/DribbleBallOffscreenHudElement.kt` | 球不在屏幕内时的边缘箭头 + 足球图标 |
+| `client/config/yacl/MatchSetupConfigScreen.kt` | `/match setup` 规则与辅助功能 GUI |
+| `network/InvalidGoalS2CPayload.kt` | S2C：无效进球 HUD |
 | `stamina/StaminaState.kt` | 服务端权威体力：消耗、回复、`tryConsume`、比赛事件 |
 | `stamina/BoostSprintState.kt` | 加速疾跑状态、移速修饰与体力同步联动 |
 | `client/StaminaClient.kt` | 客户端体力同步、HUD 紫条渐变、移速修正 |
@@ -153,10 +163,12 @@ flowchart TB
 | `kickoffTeam` | 当前开球方 |
 | `kickoffTouched` | 发球方是否已触球 |
 | `dynamicStoppageTicks` | 本半场动态累积的补时时长上限（tick） |
-| `postGoalResetPending` | 进球判分后、球复位前，防止重复进球 |
+| `postGoalResetPending` | 进球/无效进球判例后、球复位前，防止重复判例 |
 | `lastHalfKickoffTeam` | 用于半场开球方交替 |
+| `directGoalRestricted` | 掷界外球/半场开球后：须先切换进球归属球员，否则直接进门无效 |
+| `directGoalInitialAttribution` | 限制期内首个 `goalAttributionPlayer`（内部字段） |
 
-`reset()` 会清空比分、队伍、开球状态，并调用 `PlayerRoleState.reset()`。
+`reset()` 会清空比分、队伍、开球状态、直接进球限制，并调用 `PlayerRoleState.reset()`。
 
 ## 队伍与角色
 
@@ -268,15 +280,52 @@ flowchart TB
 
 门框由对角点 `(x1,y1,z1)`–`(x2,y2,z2)` 定义竖直矩形；`facing_x/y/z` 定义**门线平面**（从 `(x1,y1,z1)` 沿 facing 偏移 1 格作为参考点）。检测球心轨迹是否从场外一侧穿越该平面，且穿越点落在框内（Z 方向允许约 ±1.01 容差）。
 
+### 进球归属
+
+`Football` 维护两类触球记录：
+
+| 字段 | 含义 |
+|------|------|
+| `lastPhysicalTouch` | 最后物理触球玩家；用于出界/角球/门球/掷界外球发球方推断 |
+| `goalAttributionPlayer` | 当前进球应归属的玩家；主动踢球会重置；被动触球时若球路预测本就会进门则**不**改归属 |
+
+有效进球时，射手 UUID 取 `goalAttributionPlayer ?: lastPhysicalTouch`。
+
 ### 进球处理
 
-1. `onGoal(attackingTeam)` 增加比分
-2. 根据 `lastKicker` 解析射手与是否乌龙（`scorerTeam != attackingTeam`）
-3. `broadcastGoalScored`、进球粒子
-4. `PostGoalBallResetScheduler.schedule` — 延迟 `post_goal_ball_reset_delay_seconds` 后将球放到 `kickOff`（0 秒则立即）
-5. 开球方 = **失球方**（`defendingTeam`），进入 `POST_GOAL` 开球锁定，`broadcastPostGoalKickoff`
+1. 若处于**直接进球限制**且归属未切换 → 走「无效进球」流程（见下），**不**调用 `onGoal`
+2. `onGoal(attackingTeam)` 增加比分
+3. 解析射手与是否乌龙（`scorerTeam != attackingTeam`）
+4. `broadcastGoalScored`、进球粒子、体力回复（`goal_recovery_fraction`）
+5. `PostGoalBallResetScheduler.schedule` — 延迟 `post_goal_ball_reset_delay_seconds` 后将球放到 `kickOff`（0 秒则立即）
+6. 开球方 = **失球方**（`defendingTeam`），进入 `POST_GOAL` 开球锁定，`broadcastPostGoalKickoff`
+7. 清除直接进球限制（正常进球后不再沿用掷界外球/半场开球限制）
 
-`lastKicker` 在踢球、运球、守门员触球等操作时更新，用于进球归属与出界发球方推断。
+### 直接进球限制（无效进球）
+
+**适用场景**（进入限制后，须先由**另一名球员**获得 `goalAttributionPlayer`，否则进门无效）：
+
+| 场景 | 启用时机 | `DirectGoalRestartKind` |
+|------|----------|-------------------------|
+| 掷界外球 | 边线 `THROW_IN` 延迟复位完成、进入 `GOAL_LINE_OUT` 开球锁定时 | `THROW_IN` |
+| 半场开球 | `triggerHalfKickoff` 复位足球时 | `HALF_KICKOFF` |
+
+**不**包含：比赛开始开球（`MATCH_START`）、进球后开球（`POST_GOAL`）、角球/球门球（非 `THROW_IN` 的底线出界）。
+
+**判定**（`MatchState.isDirectGoalInvalid`）：
+
+- 限制期内记录**首个** `goalAttributionPlayer` 为基准归属；
+- 球进入球门时，若当前归属（`goalAttributionPlayer ?: lastPhysicalTouch`）仍与基准为**同一人**，则无效；
+- 任意球员通过 `recordActiveKick` 或符合条件的 `recordPassiveBodyTouch` 使 `goalAttributionPlayer` 变为**其他 UUID** 时，限制解除。
+
+**无效进球处理**：
+
+1. 不加分、不吹进球哨（whistle_4）、无进球粒子、无进球体力回复
+2. `broadcastInvalidGoal` → 客户端 `InvalidGoalHudElement`（标题【无效进球】，暗红强调色，显示触球者与**不变**的比分）
+3. `postGoalResetPending = true`，延迟后将球复位至 `kick_off`
+4. `PendingAfterReset.DirectGoalInvalidReset` 重新进入对应开球锁定，并**再次**启用直接进球限制（新球放置后重置「首触归属」记录）
+
+带球触球（`recordDribbleTouch`）只更新 `lastPhysicalTouch`，**不**改变进球归属，因此同一球员连续带球射门仍可能被判无效，直到其他球员获得归属。
 
 ### 穿越门线但未进门框（底线出界）
 
@@ -293,6 +342,7 @@ flowchart TB
 - 类型固定为 `THROW_IN`（界外球）
 - 开球锁定 + `broadcastGoalLineOut`（哨声 6）
 - **延迟复位**：与进球相同，使用 `post_goal_ball_reset_delay_seconds`，由 `PostGoalBallResetScheduler` 将足球传回 `kick_off`（赛场中心）；延迟期间 `postGoalResetPending` 为 true，不再重复判例
+- **直接进球限制**：`THROW_IN` 复位开球完成后启用（见上文「无效进球」）
 
 ## 半场开球
 
@@ -304,10 +354,11 @@ flowchart TB
 服务端 `triggerHalfKickoff`：
 
 - 开球方与上一半场**交替**（`lastHalfKickoffTeam` A→B，B→A）
+- `beginDirectGoalRestriction(HALF_KICKOFF)` — 本半场首次开球适用直接进球限制
 - 足球复位到开球点
-- 吹哨 1，向双方队员发送 `HalfKickoffS2CPayload`
+- `beginKickoffPhase`（`HALF`）、吹哨 1，向双方队员发送 `HalfKickoffS2CPayload`
 
-**上半场**不走此流程，仅使用 `/match start` 的 `MatchStart` 流程。
+**上半场**不走此流程，仅使用 `/match start` 的 `MatchStart` 流程（**不**启用直接进球限制）。
 
 ## 比赛结束
 
@@ -321,20 +372,37 @@ flowchart TB
 
 默认路径：`<Fabric 配置目录>/nmbct-football-match.json`（开发仓库根目录的 `nmbct-football-match.json` 可作为示例）。
 
+顶层字段（新保存的 JSON 推荐结构）：
+
 | 字段 | 含义 | 默认 |
 |------|------|------|
 | `team_a_name` / `team_b_name` | 队名字符串 | 红队 / 蓝队 |
+| `rules` | 比赛时长与规则（见下表） | 见 `MatchRulesSettings` |
+| `accessibility` | 辅助功能（见下表） | 见 `MatchAccessibilitySettings` |
+| `goal_a` / `goal_b` | 球门几何与角球/门球点 | 见 `GoalConfig` |
+| `sideline_a` / `sideline_b` | 边线 | 见 `SidelineConfig` |
+| `kick_off` | 中圈开球点 | (8.5, -60, 8.5) |
+| `team_a_spawn` / `team_b_spawn` | 出生点 | `TeamSpawnConfig` |
+
+**`rules` 对象**（`MatchRulesSettings`）：
+
+| 字段 | 含义 | 默认 |
+|------|------|------|
 | `half_time_minutes` | 单半场分钟数 | 5 |
 | `enable_stoppage_time` | 是否允许进入补时阶段 | false |
 | `stoppage_time_max_minutes` | 动态补时累积上限 | 3 |
 | `enable_extra_time` | 平局是否加时 | false |
 | `extra_time_half_minutes` | 加时单半场分钟数 | 3 |
 | `enable_penalty_shootout` | 平局是否进入点球阶段 | false |
-| `goal_a` / `goal_b` | 球门几何与角球/门球点 | 见 `GoalConfig` |
-| `sideline_a` / `sideline_b` | 边线 | 见 `SidelineConfig` |
-| `kick_off` | 中圈开球点 | (8.5, -60, 8.5) |
-| `post_goal_ball_reset_delay_seconds` | 进球或边线出界后，球传回开球点的延迟 | 3 |
-| `team_a_spawn` / `team_b_spawn` | 出生点 | `TeamSpawnConfig` |
+| `post_goal_ball_reset_delay_seconds` | 进球或边线出界后，球传回开球点的延迟（秒） | 3 |
+
+**`accessibility` 对象**（`MatchAccessibilitySettings`）：
+
+| 字段 | 含义 | 默认 |
+|------|------|------|
+| `enable_football_position_indicator` | 比赛进行中为参赛玩家显示全场视野外足球方位 HUD | false |
+
+> **旧版 JSON 兼容**：根级仍可直接写 `half_time_minutes`、`enable_stoppage_time` 等（无 `rules` / `accessibility` 包裹）时，由 `MatchConfig.CODEC` 的 `FLAT_LEGACY_CODEC` 读取并映射到 `rules`；`accessibility` 缺省为关闭。代码中可通过 `MatchConfig.halfTimeMinutes` 等 getter 访问规则字段，与嵌套结构无关。
 
 ### 几何配置要点
 
@@ -344,7 +412,7 @@ flowchart TB
 
 **`TeamSpawnConfig`**：`gk` 单个门将点；`players` 为场上队员坐标列表（可含 `yaw`/`pitch`）。
 
-管理员可用 `/match setup`（规则 GUI）与 `/match config`（赛场几何 GUI）编辑；应用后通过 `MatchConfigApplyC2SPayload` 写回服务端并持久化。
+管理员可用 `/match setup`（队伍、时间、加时/点球、**辅助功能**）与 `/match config`（赛场几何 GUI）编辑；应用后通过 `MatchConfigApplyC2SPayload` 写回服务端并持久化，并触发 `broadcastTimerSync` 将规则与 `enable_football_position_indicator` 推送到所有客户端。
 
 > 示例 JSON 中的 `enable_goal_detection` **不在**当前 `MatchConfig.CODEC 中，会被忽略；只要比赛阶段已开始，判定即生效。
 
@@ -364,7 +432,8 @@ flowchart TB
 | `leave` | 玩家 | 离开队伍 |
 | `clear` / `clear A\|B` | GM | 清空队员 |
 | `setGk` / `clearGk` / `gk on\|off` | 见上文 | 守门员管理 |
-| `setup` / `config` | GM | 打开配置界面 |
+| `setup` | GM | 打开比赛设置（含辅助功能 → 足球位置指示） |
+| `config` | GM | 打开赛场几何配置 |
 | `debugHud` | GM | 预览 HUD |
 
 另有 `/match` 未列出的子命令以 `MatchCommand.kt` 为准。
@@ -373,12 +442,13 @@ flowchart TB
 
 | 包 | 方向 | 用途 |
 |----|------|------|
-| `MatchTimerSyncS2CPayload` | S→C | 每秒同步计时、阶段、比分、队名、规则开关 |
+| `MatchTimerSyncS2CPayload` | S→C | 每秒同步计时、阶段、比分、队名、规则开关、`enable_football_position_indicator` |
 | `MatchStartS2CPayload` | S→C | 开场 HUD + 开球方 |
 | `PostGoalKickoffS2CPayload` | S→C | 进球后开球 |
 | `HalfKickoffS2CPayload` | S→C | 半场开球 Banner |
 | `HalfKickoffRequestC2SPayload` | C→S | 请求触发半场开球 |
 | `GoalScoredS2CPayload` | S→C | 进球庆祝 HUD |
+| `InvalidGoalS2CPayload` | S→C | 无效进球 HUD（比分不变） |
 | `GoalLineOutS2CPayload` | S→C | 出界类型与发球方 |
 | `KickoffBallTouchedS2CPayload` | S→C | 开球已触球，解锁对方 |
 | `MatchResultS2CPayload` | S→C | 终场比分 |
@@ -399,28 +469,59 @@ flowchart TB
 | `FootballHudElement` | 常驻：阶段名、主计时、比分、补时条、阶段终止时间 |
 | `MatchStartHudElement` | 开场 6s 介绍（队名、是否门将、开球方） |
 | `KickoffLockHudElement` | 开球倒计时与锁定提示 |
-| `GoalScoredHudElement` | 进球 Banner |
-| `GoalLineOutHudElement` | 出界类型 Banner |
+| `GoalScoredHudElement` | 进球 Banner（金色/乌龙紫色） |
+| `InvalidGoalHudElement` | 无效进球 Banner（暗红 `#6B1A28`，与红队得分色区分） |
+| `GoalLineOutHudElement` | 出界类型 Banner（角球/球门球/出边线） |
 | `HalfKickoffHudElement` | 半场开球 Banner（约 4s） |
 | `MatchResultHudElement` | 终场结果 |
 | `StaminaHudElement` | 体力条（未满或加速淡出时显示，刻度为移速档位阈值） |
 | `BoostSprintHudElement` | 加速疾跑晕影与状态图标 |
-| `DribbleBallOffscreenHudElement` | 带球且球出屏时边缘箭头 + 足球图标（见 [FOOTBALL_PHYSICS.md](./FOOTBALL_PHYSICS.md)） |
+| `DribbleBallOffscreenHudElement` | 球出屏时边缘箭头 + 足球图标（带球或开启全场指示时，见下节与 [FOOTBALL_PHYSICS.md](./FOOTBALL_PHYSICS.md)） |
 
 开球/补时 UI 状态集中在 `MatchStartClient`；阶段边沿逻辑在 `MatchStateClient`。
+
+## 辅助功能：足球位置指示
+
+配置项：`accessibility.enable_football_position_indicator`（`/match setup` → 分类 **辅助功能** → **足球位置指示**）。**仅影响客户端 HUD**，服务端判例与球物理不变。
+
+### 启用条件（客户端同时满足）
+
+| 条件 | 说明 |
+|------|------|
+| 配置开启 | `MatchConfigHolder.current.accessibility.enableFootballPositionIndicator == true`（由 `MatchConfigSync` / `MatchTimerSync` 同步） |
+| 比赛进行中 | `currentPhase` 不是 `PRE_MATCH` 也不是 `FINISHED` |
+| 参赛玩家 | 本地玩家在原版计分板队伍 `football_A` 或 `football_B` 中（与 `/match join` 一致） |
+
+### 跟踪与显示
+
+[`DribbleBallIndicatorClient`](src/client/kotlin/net/astrorbits/football/client/DribbleBallIndicatorClient.kt) 每帧为 [`DribbleBallOffscreenHudElement`](src/client/kotlin/net/astrorbits/football/client/render/DribbleBallOffscreenHudElement.kt) 提供球心位置：
+
+1. **带球优先**：若正在发送 `DRIBBLE_HOLD`，绑定 8 格内最近的足球（与原先带球指示相同）。
+2. **全场指示**：否则在指示范围内查找距玩家最近的 `Football` 实体；球在屏幕内时不绘制 HUD。
+
+### 指示范围 `MatchFieldBounds`
+
+[`MatchFieldBounds`](src/main/kotlin/net/astrorbits/football/match/MatchFieldBounds.kt) 根据当前 `MatchConfig` 计算：
+
+1. **球场矩形**：两条边线（`sideline_a` / `sideline_b`，同轴 `coord` + `positive_inside`）与两座球门门线（`goal_a` / `goal_b` 在垂直于边线的轴上的 min/max）围成的水平矩形。
+2. **扩展**：矩形四向各外扩 **64 格**（`INDICATOR_EXPANSION`）；**Y 轴不限**（查询 AABB 使用 `±∞` 高度，水平位置仍须在扩展矩形内）。
+
+可被指示的足球与「额外」可见该 HUD 的参赛玩家共用上述范围；无守门员/场外观众等特殊分支。
 
 ## 当前限制与扩展点
 
 1. **`PENALTIES` 阶段**：配置与阶段链已预留，但**没有**点球罚球、轮流主罚等玩法实现；进入后需人工 `/match phase advance` 或等待后续开发。
 2. **全局 `MatchState`**：同一服务器同时只能进行一场「逻辑比赛」；多赛场需自行约定或未来拆分状态。
 3. **动态补时**：由客户端写入 `MatchState.dynamicStoppageTicks`，无专用服务端校验；无人参赛客户端时可能不累积补时。
-4. **界外球**：边线出界统一为 `THROW_IN`，延迟后球回到中圈开球点，无掷界外球动画或边线落点。
-5. **进球检测**：基于球心线段与平面/矩形相交，高速或极端几何下可能需要调门框与 `facing` 容差。
+4. **界外球**：边线出界统一为 `THROW_IN`，延迟后球回到中圈开球点，无掷界外球动画或边线落点；开球后适用直接进球限制。
+5. **直接进球限制**：仅掷界外球复位开球与半场开球；比赛开始/进球后/角球/球门球开球不受此规则约束。
+6. **进球检测**：基于球心线段与平面/矩形相交，高速或极端几何下可能需要调门框与 `facing` 容差。
+7. **足球位置指示**：仅客户端；多球时取范围内距玩家最近的一颗；边线/球门轴配置异常时 `pitchRect` 可能为 null，指示不显示。
 
 ## 与物理模块的衔接
 
 - 比赛复位调用 `MatchState.resetFootball`，会 `discard` 全场 `Football` 实体并新建一球。
-- 进球/出界不改变物理参数，仅改变位置与 `kickoffTeam`。
+- 进球/无效进球/出界不改变物理参数，仅改变位置与 `kickoffTeam`。
 - 开球锁定在输入层拦截，不改变 `Football` 的 `kick` 实现本身。
 
 详见 [FOOTBALL_PHYSICS.md](./FOOTBALL_PHYSICS.md) 中「每 tick 计算流程」与「踢球」章节。
