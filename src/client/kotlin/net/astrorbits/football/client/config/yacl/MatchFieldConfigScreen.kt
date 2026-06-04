@@ -44,8 +44,7 @@ object MatchFieldConfigScreen {
                 { ctx.draft.teamBSpawn },
                 { s -> ctx.draft = ctx.draft.copy(teamBSpawn = s) },
             ))
-            .category(kickOffCategory(ctx))
-            .category(sidelinesCategory(ctx))
+            .category(otherAreasCategory(ctx))
             .save {
                 if (ClientPlayNetworking.canSend(MatchConfigApplyC2SPayload.TYPE)) {
                     ClientPlayNetworking.send(MatchConfigApplyC2SPayload(ctx.draft))
@@ -265,35 +264,10 @@ object MatchFieldConfigScreen {
             .build()
     }
 
-    private fun kickOffCategory(ctx: MatchFieldDraftContext): ConfigCategory = ConfigCategory.createBuilder()
-        .name(Component.translatable("screen.nmbct-football.field.tab.kick_off"))
-        .group(
-            OptionGroup.createBuilder()
-                .name(Component.translatable("screen.nmbct-football.field.tab.kick_off"))
-                .description(OptionDescription.of(Component.translatable(MatchYaclDesc.desc("screen.nmbct-football.field.tab.kick_off"))))
-                .apply {
-                    fun ko() = ctx.draft.kickOff
-                    addPosition(
-                        nameKey = "screen.nmbct-football.field.kick_off.pos",
-                        descKey = MatchYaclDesc.desc("screen.nmbct-football.field.tab.kick_off"),
-                        getter = { Vec3(ko().x, ko().y, ko().z) },
-                        setter = { v -> ctx.draft = ctx.draft.copy(kickOff = KickPosition(v.x, v.y, v.z)) },
-                        ctx = ctx,
-                    )
-                    addDoubleField(
-                        nameKey = "screen.nmbct-football.field.center_circle_radius",
-                        descKey = MatchYaclDesc.desc("screen.nmbct-football.field.center_circle_radius"),
-                        getter = { ctx.draft.centerCircleRadius },
-                        setter = { v -> ctx.draft = ctx.draft.copy(centerCircleRadius = v) },
-                        ctx = ctx,
-                    )
-                }
-                .build(),
-        )
-        .build()
-
-    private fun sidelinesCategory(ctx: MatchFieldDraftContext): ConfigCategory = ConfigCategory.createBuilder()
-        .name(Component.translatable("screen.nmbct-football.field.tab.sideline"))
+    private fun otherAreasCategory(ctx: MatchFieldDraftContext): ConfigCategory = ConfigCategory.createBuilder()
+        .name(Component.translatable("screen.nmbct-football.field.tab.other_areas"))
+        .group(centerCircleGroup(ctx))
+        .group(otherMiscGroup(ctx))
         .group(
             sidelineGroup(
                 ctx,
@@ -310,6 +284,49 @@ object MatchFieldConfigScreen {
                 setter = { s -> ctx.draft = ctx.draft.copy(sidelineB = s) },
             ),
         )
+        .build()
+
+    private fun centerCircleGroup(ctx: MatchFieldDraftContext): OptionGroup = OptionGroup.createBuilder()
+        .name(Component.translatable("screen.nmbct-football.field.tab.kick_off"))
+        .description(OptionDescription.of(Component.translatable(MatchYaclDesc.desc("screen.nmbct-football.field.tab.kick_off"))))
+        .apply {
+            fun ko() = ctx.draft.kickOff
+            addPosition(
+                nameKey = "screen.nmbct-football.field.kick_off.pos",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.tab.kick_off"),
+                getter = { Vec3(ko().x, ko().y, ko().z) },
+                setter = { v -> ctx.draft = ctx.draft.copy(kickOff = KickPosition(v.x, v.y, v.z)) },
+                ctx = ctx,
+            )
+            addDoubleField(
+                nameKey = "screen.nmbct-football.field.center_circle_radius",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.center_circle_radius"),
+                getter = { ctx.draft.centerCircleRadius },
+                setter = { v -> ctx.draft = ctx.draft.copy(centerCircleRadius = v) },
+                ctx = ctx,
+            )
+        }
+        .build()
+
+    private fun otherMiscGroup(ctx: MatchFieldDraftContext): OptionGroup = OptionGroup.createBuilder()
+        .name(Component.translatable("screen.nmbct-football.field.group.other"))
+        .description(OptionDescription.of(Component.translatable(MatchYaclDesc.desc("screen.nmbct-football.field.group.other"))))
+        .apply {
+            addDoubleField(
+                nameKey = "screen.nmbct-football.field.corner_kick_penalty_area_radius",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.corner_kick_penalty_area_radius"),
+                getter = { ctx.draft.cornerKickPenaltyAreaRadius },
+                setter = { v -> ctx.draft = ctx.draft.copy(cornerKickPenaltyAreaRadius = v) },
+                ctx = ctx,
+            )
+            addDoubleField(
+                nameKey = "screen.nmbct-football.field.throw_in_penalty_area_radius",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.throw_in_penalty_area_radius"),
+                getter = { ctx.draft.throwInPenaltyAreaRadius },
+                setter = { v -> ctx.draft = ctx.draft.copy(throwInPenaltyAreaRadius = v) },
+                ctx = ctx,
+            )
+        }
         .build()
 
     private fun sidelineGroup(

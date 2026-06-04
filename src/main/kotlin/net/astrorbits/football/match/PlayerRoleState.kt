@@ -21,9 +21,12 @@ object PlayerRoleState {
 
     fun isGoalkeeper(player: ServerPlayer): Boolean {
         if (!MatchParticipation.isParticipating(player)) return false
-        if (!MatchState.allowsActiveGoalkeeperRole()) return false
         if (penaltyKickOutfieldOverride.contains(player.uuid)) return false
-        return isDesignatedGoalkeeper(player)
+        // 自愿门将模式（/football match gk on）可在比赛外用于测试守门员操作
+        if (voluntaryGkMode.contains(player.uuid)) return true
+        if (!MatchState.allowsActiveGoalkeeperRole()) return false
+        val uuid = player.uuid
+        return uuid == teamAGoalkeeper || uuid == teamBGoalkeeper
     }
 
     fun setOfficialGk(team: TeamSide, player: ServerPlayer?) {
