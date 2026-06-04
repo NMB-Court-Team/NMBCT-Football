@@ -54,7 +54,11 @@ flowchart TB
 | `match/MatchFieldBounds.kt` | 由球门/边线推导球场水平矩形及指示范围 |
 | `match/MatchConfigHolder.kt` | 加载/保存 `config/nmbct-football-match.json` |
 | `match/MatchCommand.kt` | `/match` 命令 |
-| `match/PlayerRoleState.kt` | 官方/自愿守门员 |
+| `match/PlayerRoleState.kt` | 官方/自愿守门员；开赛分配与暂停期间活跃身份判定 |
+| `match/MatchPauseFootballState.kt` | 暂停时全场足球速度/可操作状态快照与恢复 |
+| `network/MatchPauseS2CPayload.kt` | S2C：暂停/继续 Banner |
+| `client/match/MatchPauseClient.kt` | 暂停 Banner 计时（4s） |
+| `client/render/MatchPauseHudElement.kt` | 橙色「比赛暂停 / 比赛继续」Banner |
 | `client/GoalkeeperHoldStealProtectionClient.kt` | 比赛期间抢球保护窗口（客户端，供 HUD） |
 | `client/render/GoalkeeperHoldStealProtectionHudElement.kt` | 准心下方「抢球保护中」提示 |
 | `match/PostGoalBallResetScheduler.kt` | 进球/出界/无效进球后延迟复位足球 |
@@ -175,7 +179,7 @@ flowchart TB
 | `directGoalRestricted` | 掷界外球（出边线）开球后：须先切换进球归属球员，否则直接进门无效 |
 | `directGoalInitialAttribution` | 限制期内首个 `goalAttributionPlayer`（内部字段） |
 
-`reset()` 会清空比分、队伍、开球状态、直接进球限制，并调用 `PlayerRoleState.reset()`。
+`reset()` 会清空比分、阶段、开球状态、直接进球限制，并调用 `PlayerRoleState.reset()`。**不会**清空 `teamAPlayers` / `teamBPlayers`（队伍名单仅由 `/match clear` 清除）。**不会**清空赛前 `setGk` 登记的正式门将 UUID（见下文守门员一节）。
 
 ## 队伍与角色
 
@@ -190,11 +194,20 @@ flowchart TB
 
 | 类型 | 设置方式                                      |
 |------|-------------------------------------------|
-| 官方门将 | `/match setGk A\|B <玩家>`                  |
-| 自愿门将 | `/match gk on\|off`（任意玩家） |
-| 随机分配 | `/match start` 时从各队在线队员中各随机一名             |
+| 官方门将 | `/match setGk A\|B <玩家>`；`/match clearGk` 清除登记 |
+| 自愿门将 | `/match gk on\|off`（任意玩家）；`reset()` 时会清除 |
+| 开赛分配 | `/match start` 时调用 `assignGoalkeepersOnMatchStart`（见开赛流程） |
 
-门将身份影响：开球 HUD 是否显示门将提示、守门员专属输入（扑球/持球等）。退出守门员身份时会放下手中足球。
+**正式门将登记**（`teamAGoalkeeper` / `teamBGoalkeeper`）在 `/match reset`、结算约 16 秒后的自动复位、以及 `beginMatch` 内调用的 `reset()` 中**均会保留**，便于连续多场比赛沿用同一门将。仅 `PlayerRoleState.reset()` 会清除自愿门将与点球主罚时的临时「场外操作」覆盖。
+
+**活跃门将身份**（`isGoalkeeper` → 守门员输入、S2C 角色包）仅在 `MatchState.isDuringMatch()` 为真时生效；`PRE_MATCH` / `FINISHED` 期间登记仍在，但场上不视为活跃门将。
+
+开赛分配规则（`assignGoalkeepersOnMatchStart`）：
+
+1. 若该队已有正式门将 UUID，且该玩家仍在 `teamAPlayers` / `teamBPlayers` 中 → **沿用**，并向在线球员同步角色；
+2. 否则 → 从该队**在线**队员中随机一名设为官方门将。
+
+门将身份影响：开球 HUD 是否显示门将提示、守门员专属输入（扑球/持球等）。退出活跃门将身份时会放下手中足球。
 
 #### 守门员持球抢球保护
 
@@ -260,11 +273,13 @@ flowchart TB
 
 需要权限等级 **2（游戏管理员）**。顺序如下：
 
-1. `PlayerRoleState.randomAssignGoalkeepers` — 各队随机官方门将（若有人在线）
-2. `MatchState.resetFootball` — 清除全场足球，在中圈 `kickOff` 生成新球
-3. `MatchState.teleportTeamsToSpawnPositions` — 按 `team_a_spawn` / `team_b_spawn` 传送（门将 → `gk`，其余队员打乱后填入 `players` 列表，多余的人随机重复坐标）
-4. 随机 `kickoffTeam`，`broadcastMatchStart`（哨声 1 + 各队员 `MatchStartS2CPayload`）
-5. `advancePhase()` — `PRE_MATCH` → `FIRST_HALF`
+1. 若 `currentPhase != PRE_MATCH`（含 **`FINISHED` 结算阶段立刻再开赛**）：先 `MatchState.reset()` 清零比分/阶段等，**保留**队伍名单与正式门将登记。
+2. `PlayerRoleState.assignGoalkeepersOnMatchStart` — 沿用已登记且仍在名单中的门将，否则各队从在线队员随机一名（见上文）。
+3. `MatchState.resetFootball` — 清除全场足球，在中圈 `kickOff` 生成新球。
+4. `MatchState.teleportTeamsToSpawnPositions` — 按 `team_a_spawn` / `team_b_spawn` 传送（门将 → `gk`，其余队员打乱后填入 `players` 列表，多余的人随机重复坐标）。
+5. 随机 `kickoffTeam`；`setPhase(FIRST_HALF)`；`broadcastMatchStart`（哨声 1 + 各队员 `MatchStartS2CPayload`）；`syncTimerToClients`。
+
+> 从 `FINISHED` 开赛时不再调用 `advancePhase()`（`FINISHED.next` 为 null），改为直接 `setPhase(FIRST_HALF)`。
 
 ## 开球锁定
 
@@ -382,11 +397,39 @@ flowchart TB
 
 ## 比赛结束
 
-进入 `FINISHED` 后，客户端约 **16 秒**（320 tick）自动 `MatchState.reset()` 回到赛前状态。
+进入 `FINISHED` 后，客户端约 **16 秒**（320 tick）由服务端 `resetMatchToPreMatch()` 回到赛前状态（内部调用 `MatchState.reset()`，**保留**队伍与正式门将登记；先 `MatchPauseFootballState.onResume` 解除可能残留的暂停锁球状态）。
 
 同时会向服务端发送 `MatchResultRequestC2SPayload`，服务端广播 `MatchResultS2CPayload`（哨声 2）与比分/平局信息，驱动 `MatchResultHudElement`。
 
-`/match pause` 切换 `isRunning`，暂停主计时与补时计时递增。
+## 比赛暂停 `/match pause`
+
+需要 GM 权限。每次执行切换 `MatchState.isRunning`，并：
+
+| 项 | 暂停（`isRunning = false` 且 `isDuringMatch()`） | 继续（`isRunning = true`） |
+|----|--------------------------------------------------|----------------------------|
+| 计时 | 主计时 / 补时 tick 不再递增（`FootballNetworking.registerServerTick`） | 恢复递增 |
+| 哨声 | 全场 `whistle_1` | 全场 `whistle_1` |
+| Banner | 橙色「**比赛暂停**」，约 **4s** 后淡出（`MatchPauseHudElement` / `renderPause`） | 橙色「**比赛继续**」，同上 |
+| 网络 | `MatchPauseS2CPayload(paused=true/false)` 发给所有在线玩家 | 同上 |
+| 计时同步 | `syncTimerToClients` | 同上 |
+
+### 足球物理与可操作（`MatchPauseFootballState` + `Football`）
+
+暂停瞬间（`onPause`），对**所有维度**内的 `Football` 实体：
+
+1. **速度清零**：线速度、角速度立即设为 0；若门将持球则先 `releaseHold`。
+2. **解除固定锚点**：`isImmovable = false`（避免点球定点等固定状态阻止下坠）；记录暂停前每球的 `isImmovable` 与 `immovableTargetPlayers` 快照。
+3. **禁止操作**：`immovableTargetPlayers` 设为当前所有在线玩家 UUID；`isPlayerBallMovementForbidden` 在 `isMatchPaused()` 时对全员为 true（踢、推、持球、运球等均不可用）。
+
+暂停期间每 tick（`tickWhileMatchPaused`）：
+
+- 水平速度恒为 0，角速度恒为 0；
+- 仅施加重力（与常规 `applyAirForces` 相同的 `GRAVITY`）与竖直空气阻力，保留地面/墙体碰撞；
+- **不**调度球员碰球、**不**判进球/出界（`detectGoals = false`）。
+
+继续时（`onResume`）：按快照恢复每球的 `immovableTargetPlayers` 与 `isImmovable`（例如点球大战中球固定、仅部分玩家不可踢的状态会还原）；**不**恢复暂停前的速度，球从当前下落状态继续正常物理。
+
+`/match reset` 在 `MatchState.reset()` 前会调用 `onResume`，避免复位后足球仍被全员锁定。
 
 ## 配置 `MatchConfig`
 
@@ -484,8 +527,8 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 | 命令 | 权限 | 说明 |
 |------|------|------|
 | `start` | GM | 开赛（见上文） |
-| `pause` | GM | 暂停/恢复计时 |
-| `reset` | GM | 清空比赛状态并广播客户端重置 |
+| `pause` | GM | 暂停/恢复计时；吹哨 + 橙 Banner；足球清零速下坠并全员不可操作（见「比赛暂停」） |
+| `reset` | GM | 复位比分/阶段/UI；**保留**队伍名单与 `setGk` 正式门将；广播 `MatchResetS2CPayload` |
 | `phase` | GM | 查看当前阶段与时间 |
 | `phase advance` | GM | 手动进入 `currentPhase.next` |
 | `phase set <PHASE>` | GM | 设置阶段（会重置阶段相关计时） |
@@ -516,6 +559,7 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 | `KickoffBallTouchedS2CPayload` | S→C | 开球已触球，解锁对方 |
 | `MatchResultS2CPayload` | S→C | 终场比分 |
 | `MatchResetS2CPayload` | S→C | 重置客户端 UI 状态 |
+| `MatchPauseS2CPayload` | S→C | 暂停/继续 Banner（`paused: Boolean`） |
 | `MatchConfigSyncS2CPayload` / `MatchFieldConfigSyncS2CPayload` | S→C | 打开 GUI 时下发配置 |
 | `MatchConfigApplyC2SPayload` | C→S | 保存配置 |
 | `StaminaSyncS2CPayload` | S→C | 同步 `stamina`、`max_stamina`、`boostSprintActive` |
@@ -535,6 +579,7 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 | `GoalScoredHudElement` | 进球 Banner（金色/乌龙紫色） |
 | `InvalidGoalHudElement` | 无效进球 Banner（暗红 `#6B1A28`，与红队得分色区分） |
 | `GoalLineOutHudElement` | 出界类型 Banner（角球/球门球/出边线） |
+| `MatchPauseHudElement` | 比赛暂停/继续 Banner（橙色，4s 淡出） |
 | `HalfKickoffHudElement` | 半场开球 Banner（约 4s） |
 | `MatchResultHudElement` | 终场结果 |
 | `StaminaHudElement` | 体力条（未满或加速淡出时显示，刻度为移速档位阈值） |
@@ -586,5 +631,14 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 - 比赛复位调用 `MatchState.resetFootball`，会 `discard` 全场 `Football` 实体并新建一球。
 - 进球/无效进球/出界不改变物理参数，仅改变位置与 `kickoffTeam`。
 - 开球锁定在输入层拦截，不改变 `Football` 的 `kick` 实现本身。
+- 比赛暂停时走 `tickWhileMatchPaused`：仅竖直重力下坠，全员 `immovableTargetPlayers`；继续后恢复各球暂停前的锁定/固定状态。
 
 详见 [FOOTBALL_PHYSICS.md](./FOOTBALL_PHYSICS.md) 中「每 tick 计算流程」与「踢球」章节。
+
+## 近期变更摘要（近三次提交）
+
+| 提交 | 主题 | 文档章节 |
+|------|------|----------|
+| 预设守门员 | `/match start` 优先沿用 `setGk` 且仍在名单中的门将，否则随机 | 「守门员 `PlayerRoleState`」「开赛流程 `/match start`」 |
+| 复位保留队伍与门将 | `reset()` / `resetMatchToPreMatch` 不再清空队员；正式门将 UUID 跨场保留；`beginMatch` 从 `FINISHED` 可先 `reset` 再开赛 | 「核心状态：`MatchState`」「比赛结束」、守门员 |
+| 比赛暂停 | 哨声 + 橙 Banner；足球清零速、重力下坠、全员不可操作；继续时恢复可操作快照 | 「比赛暂停 `/match pause`」、网络同步、客户端 HUD |
