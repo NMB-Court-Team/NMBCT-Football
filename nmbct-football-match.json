@@ -1,17 +1,17 @@
 {
-  "team_a_name": "魔法氢棕土",
-  "team_b_name": "曲斯特奇奇",
+  "field_config_version": 2,
+  "team_a_name": "曲斯特奇奇",
+  "team_b_name": "魔法氢棕土",
   "rules": {
-    "half_time_minutes": 1,
-    "enable_stoppage_time": true,
+    "half_time_minutes": 0,
+    "enable_stoppage_time": false,
     "stoppage_time_max_minutes": 1,
-    "enable_extra_time": true,
+    "enable_extra_time": false,
     "extra_time_half_minutes": 1,
-    "enable_penalty_shootout": true,
-    "post_goal_ball_reset_delay_seconds": 3
+    "enable_penalty_shootout": true
   },
   "accessibility": {
-    "enable_football_position_indicator": false
+    "enable_football_position_indicator": true
   },
   "goal_a": {
     "x1": 12.8,
@@ -29,14 +29,42 @@
       "z": 80.3
     },
     "corner_kick_left": {
-      "x": 12.8,
+      "x": -26.5,
       "y": -60.0,
-      "z": 81.3
+      "z": 81.5
     },
     "corner_kick_right": {
-      "x": 4.2,
+      "x": 43.5,
       "y": -60.0,
-      "z": 81.3
+      "z": 81.5
+    },
+    "penalty_spot": {
+      "x": 8.5,
+      "y": -60.0,
+      "z": 55.5
+    },
+    "half_area": {
+      "goal_area_corner1": {
+        "x": 0.0,
+        "y": 64.0,
+        "z": 0.0
+      },
+      "goal_area_corner2": {
+        "x": 0.0,
+        "y": 64.0,
+        "z": 0.0
+      },
+      "penalty_area_corner1": {
+        "x": 0.0,
+        "y": 64.0,
+        "z": 0.0
+      },
+      "penalty_area_corner2": {
+        "x": 0.0,
+        "y": 64.0,
+        "z": 0.0
+      },
+      "penalty_arc_radius": 10.0
     }
   },
   "goal_b": {
@@ -55,50 +83,198 @@
       "z": -63.3
     },
     "corner_kick_left": {
-      "x": 4.2,
+      "x": 43.5,
       "y": -60.0,
-      "z": -64.3
+      "z": -64.5
     },
     "corner_kick_right": {
-      "x": 12.8,
+      "x": -26.5,
       "y": -60.0,
-      "z": -64.3
+      "z": -64.5
+    },
+    "penalty_spot": {
+      "x": 8.5,
+      "y": -60.0,
+      "z": -38.5
+    },
+    "half_area": {
+      "goal_area_corner1": {
+        "x": 0.0,
+        "y": 64.0,
+        "z": 0.0
+      },
+      "goal_area_corner2": {
+        "x": 0.0,
+        "y": 64.0,
+        "z": 0.0
+      },
+      "penalty_area_corner1": {
+        "x": 0.0,
+        "y": 64.0,
+        "z": 0.0
+      },
+      "penalty_area_corner2": {
+        "x": 0.0,
+        "y": 64.0,
+        "z": 0.0
+      },
+      "penalty_arc_radius": 10.0
     }
   },
-  "field_config_version": 2,
   "sideline_a": {
-    "coord": 4.2,
-    "axis": "z",
-    "positive_inside": true
-  },
-  "sideline_b": {
-    "coord": 12.8,
+    "coord": 43.2,
     "axis": "z",
     "positive_inside": false
+  },
+  "sideline_b": {
+    "coord": -26.2,
+    "axis": "z",
+    "positive_inside": true
   },
   "kick_off": {
     "x": 8.5,
     "y": -60.0,
     "z": 8.5
   },
+  "center_circle_radius": 10.0,
   "team_a_spawn": {
     "gk": {
       "x": 8.5,
       "y": -60.0,
-      "z": 78.0,
-      "yaw": 180.0,
-      "pitch": 0.0
+      "z": 77.5,
+      "yaw": -180.0
     },
-    "players": []
+    "players": [
+      {
+        "x": -1.5,
+        "y": -60.0,
+        "z": 66.5,
+        "yaw": -180.0
+      },
+      {
+        "x": 8.5,
+        "y": -60.0,
+        "z": 66.5,
+        "yaw": -180.0
+      },
+      {
+        "x": 18.5,
+        "y": -60.0,
+        "z": 66.5,
+        "yaw": -180.0
+      },
+      {
+        "x": 28.5,
+        "y": -60.0,
+        "z": 55.5,
+        "yaw": -180.0
+      },
+      {
+        "x": -11.5,
+        "y": -60.0,
+        "z": 55.5,
+        "yaw": -180.0
+      },
+      {
+        "x": 8.5,
+        "y": -60.0,
+        "z": 55.5,
+        "yaw": -180.0
+      },
+      {
+        "x": 13.5,
+        "y": -60.0,
+        "z": 46.5,
+        "yaw": -180.0
+      },
+      {
+        "x": 3.5,
+        "y": -60.0,
+        "z": 46.5,
+        "yaw": -180.0
+      },
+      {
+        "x": 8.5,
+        "y": -60.0,
+        "z": 33.5,
+        "yaw": -180.0
+      },
+      {
+        "x": 3.5,
+        "y": -60.0,
+        "z": 17.5,
+        "yaw": -180.0
+      },
+      {
+        "x": 13.5,
+        "y": -60.0,
+        "z": 17.5,
+        "yaw": -180.0
+      }
+    ]
   },
   "team_b_spawn": {
     "gk": {
       "x": 8.5,
       "y": -60.0,
-      "z": -62.0,
-      "yaw": 0.0,
-      "pitch": 0.0
+      "z": -60.5
     },
-    "players": []
+    "players": [
+      {
+        "x": -1.5,
+        "y": -60.0,
+        "z": -49.5
+      },
+      {
+        "x": 8.5,
+        "y": -60.0,
+        "z": -49.5
+      },
+      {
+        "x": 18.5,
+        "y": -60.0,
+        "z": -49.5
+      },
+      {
+        "x": 28.5,
+        "y": -60.0,
+        "z": -38.5
+      },
+      {
+        "x": -11.5,
+        "y": -60.0,
+        "z": -38.5
+      },
+      {
+        "x": 8.5,
+        "y": -60.0,
+        "z": -38.5
+      },
+      {
+        "x": 13.5,
+        "y": -60.0,
+        "z": -29.5
+      },
+      {
+        "x": 3.5,
+        "y": -60.0,
+        "z": -29.5
+      },
+      {
+        "x": 8.5,
+        "y": -60.0,
+        "z": -16.5
+      },
+      {
+        "x": 13.5,
+        "y": -60.0,
+        "z": -0.5
+      },
+      {
+        "x": 3.5,
+        "y": -60.0,
+        "z": -0.5
+      }
+    ]
   }
 }

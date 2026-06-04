@@ -10,6 +10,7 @@ import net.astrorbits.football.client.config.yacl.controller.PositionAndFacingCo
 import net.astrorbits.football.client.util.YaclOptionUtil.addBoolean
 import net.astrorbits.football.client.util.YaclOptionUtil.addEnum
 import net.astrorbits.football.match.GoalConfig
+import net.astrorbits.football.match.HalfAreaConfig
 import net.astrorbits.football.match.KickPosition
 import net.astrorbits.football.match.MatchConfig
 import net.astrorbits.football.match.SidelineConfig
@@ -44,18 +45,7 @@ object MatchFieldConfigScreen {
                 { s -> ctx.draft = ctx.draft.copy(teamBSpawn = s) },
             ))
             .category(kickOffCategory(ctx))
-            .category(sidelineCategory(
-                ctx,
-                "screen.nmbct-football.field.tab.sideline_a",
-                { ctx.draft.sidelineA },
-                { s -> ctx.draft = ctx.draft.copy(sidelineA = s) },
-            ))
-            .category(sidelineCategory(
-                ctx,
-                "screen.nmbct-football.field.tab.sideline_b",
-                { ctx.draft.sidelineB },
-                { s -> ctx.draft = ctx.draft.copy(sidelineB = s) },
-            ))
+            .category(sidelinesCategory(ctx))
             .save {
                 if (ClientPlayNetworking.canSend(MatchConfigApplyC2SPayload.TYPE)) {
                     ClientPlayNetworking.send(MatchConfigApplyC2SPayload(ctx.draft))
@@ -87,10 +77,8 @@ object MatchFieldConfigScreen {
                     }
                     .build(),
             )
-            .group(kickPointGroup(ctx, side, "screen.nmbct-football.field.gk_kick_header", getter, setter, { it.goalKick }, { g, k -> g.copy(goalKick = k) }))
-            .group(kickPointGroup(ctx, side, "screen.nmbct-football.field.penalty_spot_header", getter, setter, { g -> g.penaltySpot ?: KickPosition.DEFAULT }, { g, k -> g.copy(penaltySpot = k) }))
-            .group(kickPointGroup(ctx, side, "screen.nmbct-football.field.cl_kick_header", getter, setter, { it.cornerKickLeft }, { g, k -> g.copy(cornerKickLeft = k) }))
-            .group(kickPointGroup(ctx, side, "screen.nmbct-football.field.cr_kick_header", getter, setter, { it.cornerKickRight }, { g, k -> g.copy(cornerKickRight = k) }))
+            .group(halfAreaGroup(ctx, getter, setter))
+            .group(footballKickPointsGroup(ctx, side, getter, setter))
             .build()
     }
 
@@ -125,37 +113,108 @@ object MatchFieldConfigScreen {
         )
     }
 
-    private fun kickPointGroup(
+    private fun halfAreaGroup(
         ctx: MatchFieldDraftContext,
-        side: String,
-        headerKey: String,
         getter: () -> GoalConfig,
         setter: (GoalConfig) -> Unit,
-        kickGetter: (GoalConfig) -> KickPosition,
-        kickSetter: (GoalConfig, KickPosition) -> GoalConfig,
     ): OptionGroup = OptionGroup.createBuilder()
-        .name(Component.translatable(headerKey))
-        .description(OptionDescription.of(Component.translatable(MatchYaclDesc.desc(headerKey))))
+        .name(Component.translatable("screen.nmbct-football.field.half_area"))
+        .description(
+            OptionDescription.of(
+                Component.translatable(MatchYaclDesc.desc("screen.nmbct-football.field.half_area")),
+            ),
+        )
         .apply {
             fun g() = getter()
-            fun k() = kickGetter(g())
+            fun ha() = g().halfArea
+            fun setHa(update: (HalfAreaConfig) -> HalfAreaConfig) {
+                setter(g().copy(halfArea = update(ha())))
+            }
             addPosition(
-                nameKey = "screen.nmbct-football.field.$side.${headerSuffix(headerKey)}_pos",
-                descKey = MatchYaclDesc.desc(headerKey),
-                getter = { Vec3(k().x, k().y, k().z) },
-                setter = { v -> setter(kickSetter(g(), KickPosition(v.x, v.y, v.z))) },
+                nameKey = "screen.nmbct-football.field.goal_area_corner1",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.goal_area_corner1"),
+                getter = { Vec3(ha().goalAreaCorner1.x, ha().goalAreaCorner1.y, ha().goalAreaCorner1.z) },
+                setter = { v -> setHa { it.copy(goalAreaCorner1 = KickPosition(v.x, v.y, v.z)) } },
+                ctx = ctx,
+            )
+            addPosition(
+                nameKey = "screen.nmbct-football.field.goal_area_corner2",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.goal_area_corner2"),
+                getter = { Vec3(ha().goalAreaCorner2.x, ha().goalAreaCorner2.y, ha().goalAreaCorner2.z) },
+                setter = { v -> setHa { it.copy(goalAreaCorner2 = KickPosition(v.x, v.y, v.z)) } },
+                ctx = ctx,
+            )
+            addPosition(
+                nameKey = "screen.nmbct-football.field.penalty_area_corner1",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.penalty_area_corner1"),
+                getter = { Vec3(ha().penaltyAreaCorner1.x, ha().penaltyAreaCorner1.y, ha().penaltyAreaCorner1.z) },
+                setter = { v -> setHa { it.copy(penaltyAreaCorner1 = KickPosition(v.x, v.y, v.z)) } },
+                ctx = ctx,
+            )
+            addPosition(
+                nameKey = "screen.nmbct-football.field.penalty_area_corner2",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.penalty_area_corner2"),
+                getter = { Vec3(ha().penaltyAreaCorner2.x, ha().penaltyAreaCorner2.y, ha().penaltyAreaCorner2.z) },
+                setter = { v -> setHa { it.copy(penaltyAreaCorner2 = KickPosition(v.x, v.y, v.z)) } },
+                ctx = ctx,
+            )
+            addDoubleField(
+                nameKey = "screen.nmbct-football.field.penalty_arc_radius",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.penalty_arc_radius"),
+                getter = { ha().penaltyArcRadius },
+                setter = { v -> setHa { it.copy(penaltyArcRadius = v) } },
                 ctx = ctx,
             )
         }
         .build()
 
-    private fun headerSuffix(headerKey: String): String = when {
-        headerKey.contains("gk_kick") -> "gk"
-        headerKey.contains("penalty_spot") -> "penalty"
-        headerKey.contains("cl_kick") -> "cl"
-        headerKey.contains("cr_kick") -> "cr"
-        else -> "kick"
-    }
+    private fun footballKickPointsGroup(
+        ctx: MatchFieldDraftContext,
+        side: String,
+        getter: () -> GoalConfig,
+        setter: (GoalConfig) -> Unit,
+    ): OptionGroup = OptionGroup.createBuilder()
+        .name(Component.translatable("screen.nmbct-football.field.football_positions"))
+        .description(
+            OptionDescription.of(
+                Component.translatable(MatchYaclDesc.desc("screen.nmbct-football.field.football_positions")),
+            ),
+        )
+        .apply {
+            fun g() = getter()
+            addPosition(
+                nameKey = "screen.nmbct-football.field.$side.gk_pos",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.gk_kick_header"),
+                getter = { Vec3(g().goalKick.x, g().goalKick.y, g().goalKick.z) },
+                setter = { v -> setter(g().copy(goalKick = KickPosition(v.x, v.y, v.z))) },
+                ctx = ctx,
+            )
+            addPosition(
+                nameKey = "screen.nmbct-football.field.$side.penalty_pos",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.penalty_spot_header"),
+                getter = {
+                    val p = g().penaltySpot ?: KickPosition.DEFAULT
+                    Vec3(p.x, p.y, p.z)
+                },
+                setter = { v -> setter(g().copy(penaltySpot = KickPosition(v.x, v.y, v.z))) },
+                ctx = ctx,
+            )
+            addPosition(
+                nameKey = "screen.nmbct-football.field.$side.cl_pos",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.cl_kick_header"),
+                getter = { Vec3(g().cornerKickLeft.x, g().cornerKickLeft.y, g().cornerKickLeft.z) },
+                setter = { v -> setter(g().copy(cornerKickLeft = KickPosition(v.x, v.y, v.z))) },
+                ctx = ctx,
+            )
+            addPosition(
+                nameKey = "screen.nmbct-football.field.$side.cr_pos",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.cr_kick_header"),
+                getter = { Vec3(g().cornerKickRight.x, g().cornerKickRight.y, g().cornerKickRight.z) },
+                setter = { v -> setter(g().copy(cornerKickRight = KickPosition(v.x, v.y, v.z))) },
+                ctx = ctx,
+            )
+        }
+        .build()
 
     private fun spawnCategory(
         ctx: MatchFieldDraftContext,
@@ -233,50 +292,65 @@ object MatchFieldConfigScreen {
         )
         .build()
 
-    private fun sidelineCategory(
+    private fun sidelinesCategory(ctx: MatchFieldDraftContext): ConfigCategory = ConfigCategory.createBuilder()
+        .name(Component.translatable("screen.nmbct-football.field.tab.sideline"))
+        .group(
+            sidelineGroup(
+                ctx,
+                groupKey = "screen.nmbct-football.field.sideline.1",
+                getter = { ctx.draft.sidelineA },
+                setter = { s -> ctx.draft = ctx.draft.copy(sidelineA = s) },
+            ),
+        )
+        .group(
+            sidelineGroup(
+                ctx,
+                groupKey = "screen.nmbct-football.field.sideline.2",
+                getter = { ctx.draft.sidelineB },
+                setter = { s -> ctx.draft = ctx.draft.copy(sidelineB = s) },
+            ),
+        )
+        .build()
+
+    private fun sidelineGroup(
         ctx: MatchFieldDraftContext,
-        tabKey: String,
+        groupKey: String,
         getter: () -> SidelineConfig,
         setter: (SidelineConfig) -> Unit,
-    ): ConfigCategory = ConfigCategory.createBuilder()
-        .name(Component.translatable(tabKey))
-        .group(
-            OptionGroup.createBuilder()
-                .name(Component.translatable("screen.nmbct-football.field.sideline.coord"))
-                .description(OptionDescription.of(Component.translatable(MatchYaclDesc.desc("screen.nmbct-football.field.sideline.coord"))))
-                .apply {
-                    fun s() = getter()
-                    addDoubleField(
-                        nameKey = "screen.nmbct-football.field.sideline.coord",
-                        descKey = MatchYaclDesc.desc("screen.nmbct-football.field.sideline.coord"),
-                        getter = { s().coord },
-                        setter = { v -> setter(s().copy(coord = v)) },
-                        ctx = ctx,
-                    )
-                    addFieldButton(ctx, "screen.nmbct-football.field.use_current_pos") {
-                        val coord = MatchFieldPlayerSamples.sidelineCoord(s().axis) ?: return@addFieldButton
-                        setter(getter().copy(coord = coord))
-                    }
-                    addEnum(
-                        nameKey = "screen.nmbct-football.field.sideline.axis",
-                        descKey = MatchYaclDesc.desc("screen.nmbct-football.field.sideline.axis"),
-                        enumClass = SidelineAxis::class.java,
-                        defaultValue = SidelineAxis.Z,
-                        getter = { SidelineAxis.fromString(s().axis) },
-                        setter = { axis -> setter(s().copy(axis = axis.id)) },
-                        valueName = { axis -> Component.translatable(axis.translationKey) },
-                        ctx = ctx,
-                    )
-                    addBoolean(
-                        nameKey = "screen.nmbct-football.field.sideline.inside",
-                        descKey = MatchYaclDesc.desc("screen.nmbct-football.field.sideline.inside"),
-                        defaultValue = SidelineConfig.DEFAULT.positiveInside,
-                        getter = { s().positiveInside },
-                        setter = { v -> setter(s().copy(positiveInside = v)) },
-                        ctx = ctx,
-                    )
-                }
-                .build(),
-        )
+    ): OptionGroup = OptionGroup.createBuilder()
+        .name(Component.translatable(groupKey))
+        .description(OptionDescription.of(Component.translatable(MatchYaclDesc.desc(groupKey))))
+        .apply {
+            fun s() = getter()
+            addDoubleField(
+                nameKey = "screen.nmbct-football.field.sideline.coord",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.sideline.coord"),
+                getter = { s().coord },
+                setter = { v -> setter(s().copy(coord = v)) },
+                ctx = ctx,
+            )
+            addFieldButton(ctx, "screen.nmbct-football.field.use_current_pos") {
+                val coord = MatchFieldPlayerSamples.sidelineCoord(s().axis) ?: return@addFieldButton
+                setter(getter().copy(coord = coord))
+            }
+            addEnum(
+                nameKey = "screen.nmbct-football.field.sideline.axis",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.sideline.axis"),
+                enumClass = SidelineAxis::class.java,
+                defaultValue = SidelineAxis.Z,
+                getter = { SidelineAxis.fromString(s().axis) },
+                setter = { axis -> setter(s().copy(axis = axis.id)) },
+                valueName = { axis -> Component.translatable(axis.translationKey) },
+                ctx = ctx,
+            )
+            addBoolean(
+                nameKey = "screen.nmbct-football.field.sideline.inside",
+                descKey = MatchYaclDesc.desc("screen.nmbct-football.field.sideline.inside"),
+                defaultValue = SidelineConfig.DEFAULT.positiveInside,
+                getter = { s().positiveInside },
+                setter = { v -> setter(s().copy(positiveInside = v)) },
+                ctx = ctx,
+            )
+        }
         .build()
 }

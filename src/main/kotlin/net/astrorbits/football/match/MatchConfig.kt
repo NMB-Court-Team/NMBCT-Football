@@ -115,6 +115,33 @@ data class SidelineConfig(
     }
 }
 
+/** 半场区域：球门区（小禁区）、罚球区（大禁区）与罚球弧。 */
+data class HalfAreaConfig(
+    val goalAreaCorner1: KickPosition = KickPosition.DEFAULT,
+    val goalAreaCorner2: KickPosition = KickPosition.DEFAULT,
+    val penaltyAreaCorner1: KickPosition = KickPosition.DEFAULT,
+    val penaltyAreaCorner2: KickPosition = KickPosition.DEFAULT,
+    val penaltyArcRadius: Double = 10.0,
+) {
+    companion object {
+        val CODEC: Codec<HalfAreaConfig> = RecordCodecBuilder.create { i ->
+            i.group(
+                KickPosition.CODEC.optionalFieldOf("goal_area_corner1", KickPosition.DEFAULT)
+                    .forGetter(HalfAreaConfig::goalAreaCorner1),
+                KickPosition.CODEC.optionalFieldOf("goal_area_corner2", KickPosition.DEFAULT)
+                    .forGetter(HalfAreaConfig::goalAreaCorner2),
+                KickPosition.CODEC.optionalFieldOf("penalty_area_corner1", KickPosition.DEFAULT)
+                    .forGetter(HalfAreaConfig::penaltyAreaCorner1),
+                KickPosition.CODEC.optionalFieldOf("penalty_area_corner2", KickPosition.DEFAULT)
+                    .forGetter(HalfAreaConfig::penaltyAreaCorner2),
+                Codec.DOUBLE.optionalFieldOf("penalty_arc_radius", 10.0).forGetter(HalfAreaConfig::penaltyArcRadius),
+            ).apply(i, ::HalfAreaConfig)
+        }
+
+        val DEFAULT = HalfAreaConfig()
+    }
+}
+
 /** 球门：两个对角 3D 点定义的垂直矩形 + 球门朝向 + 角球点/门球点 */
 data class GoalConfig(
     val x1: Double = 0.0,
@@ -131,6 +158,7 @@ data class GoalConfig(
     val cornerKickRight: KickPosition = KickPosition.DEFAULT,
     /** 点球点；缺省时由门线沿 facing 反方向 11 格推导。 */
     val penaltySpot: KickPosition? = null,
+    val halfArea: HalfAreaConfig = HalfAreaConfig.DEFAULT,
 ) {
     companion object {
         val CODEC: Codec<GoalConfig> = RecordCodecBuilder.create { i ->
@@ -149,8 +177,9 @@ data class GoalConfig(
                 KickPosition.CODEC.optionalFieldOf("corner_kick_right", KickPosition.DEFAULT).forGetter(GoalConfig::cornerKickRight),
                 KickPosition.CODEC.optionalFieldOf("penalty_spot")
                     .forGetter { Optional.ofNullable(it.penaltySpot) },
-            ).apply(i) { x1, y1, z1, x2, y2, z2, fx, fy, fz, gk, cl, cr, pen ->
-                GoalConfig(x1, y1, z1, x2, y2, z2, fx, fy, fz, gk, cl, cr, pen.orElse(null))
+                HalfAreaConfig.CODEC.optionalFieldOf("half_area", HalfAreaConfig.DEFAULT).forGetter(GoalConfig::halfArea),
+            ).apply(i) { x1, y1, z1, x2, y2, z2, fx, fy, fz, gk, cl, cr, pen, half ->
+                GoalConfig(x1, y1, z1, x2, y2, z2, fx, fy, fz, gk, cl, cr, pen.orElse(null), half)
             }
         }
 
