@@ -28,7 +28,7 @@ import kotlin.math.tan
  */
 class DribbleBallOffscreenHudElement : HudElement {
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
-        val center = DribbleBallIndicatorClient.activeBallCenter() ?: run {
+        val center = DribbleBallIndicatorClient.trackedBallCenter() ?: run {
             resetSmoothState()
             lastPathFallback = false
             return

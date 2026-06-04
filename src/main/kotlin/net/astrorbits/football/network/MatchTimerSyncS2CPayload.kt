@@ -23,6 +23,7 @@ data class MatchTimerSyncS2CPayload(
     val enableStoppageTime: Boolean,
     val enableExtraTime: Boolean,
     val enablePenaltyShootout: Boolean,
+    val enableFootballPositionIndicator: Boolean,
     val dynamicStoppageTicks: Int,
 ) : CustomPacketPayload {
     override fun type() = TYPE
@@ -45,6 +46,7 @@ data class MatchTimerSyncS2CPayload(
                 buf.writeBoolean(p.enableStoppageTime)
                 buf.writeBoolean(p.enableExtraTime)
                 buf.writeBoolean(p.enablePenaltyShootout)
+                buf.writeBoolean(p.enableFootballPositionIndicator)
                 buf.writeInt(p.dynamicStoppageTicks)
             },
             { buf ->
@@ -63,6 +65,7 @@ data class MatchTimerSyncS2CPayload(
                     enableStoppageTime = buf.readBoolean(),
                     enableExtraTime = buf.readBoolean(),
                     enablePenaltyShootout = buf.readBoolean(),
+                    enableFootballPositionIndicator = buf.readBoolean(),
                     dynamicStoppageTicks = buf.readInt(),
                 )
             },

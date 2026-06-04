@@ -144,27 +144,47 @@ data class GoalConfig(
 data class MatchConfig(
     val teamAName: String = DEFAULT_TEAM_A_NAME,
     val teamBName: String = DEFAULT_TEAM_B_NAME,
-    val halfTimeMinutes: Int = 5,
-    val enableStoppageTime: Boolean = false,
-    val stoppageTimeMaxMinutes: Int = 3,
-    val enableExtraTime: Boolean = false,
-    val extraTimeHalfMinutes: Int = 3,
-    val enablePenaltyShootout: Boolean = false,
+    val rules: MatchRulesSettings = MatchRulesSettings.DEFAULT,
+    val accessibility: MatchAccessibilitySettings = MatchAccessibilitySettings.DEFAULT,
     val goalA: GoalConfig = GoalConfig.DEFAULT,
     val goalB: GoalConfig = GoalConfig.DEFAULT,
     val sidelineA: SidelineConfig = SidelineConfig.DEFAULT,
     val sidelineB: SidelineConfig = SidelineConfig.DEFAULT,
     val kickOff: KickPosition = KickPosition(8.5, -60.0, 8.5),
-    /** 进球或出界后，延迟多少秒再将球放到复位点；0 表示立即复位。进球复位至开球点，出界复位至判定点。 */
-    val postGoalBallResetDelaySeconds: Int = 3,
     val teamASpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
     val teamBSpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
 ) {
+    val halfTimeMinutes: Int get() = rules.halfTimeMinutes
+    val enableStoppageTime: Boolean get() = rules.enableStoppageTime
+    val stoppageTimeMaxMinutes: Int get() = rules.stoppageTimeMaxMinutes
+    val enableExtraTime: Boolean get() = rules.enableExtraTime
+    val extraTimeHalfMinutes: Int get() = rules.extraTimeHalfMinutes
+    val enablePenaltyShootout: Boolean get() = rules.enablePenaltyShootout
+    val postGoalBallResetDelaySeconds: Int get() = rules.postGoalBallResetDelaySeconds
+
     companion object {
         const val DEFAULT_TEAM_A_NAME = "红队"
         const val DEFAULT_TEAM_B_NAME = "蓝队"
 
-        val CODEC: Codec<MatchConfig> = RecordCodecBuilder.create { i ->
+        private val NESTED_CODEC: Codec<MatchConfig> = RecordCodecBuilder.create { i ->
+            i.group(
+                Codec.STRING.fieldOf("team_a_name").forGetter(MatchConfig::teamAName),
+                Codec.STRING.fieldOf("team_b_name").forGetter(MatchConfig::teamBName),
+                MatchRulesSettings.CODEC.optionalFieldOf("rules", MatchRulesSettings.DEFAULT).forGetter(MatchConfig::rules),
+                MatchAccessibilitySettings.CODEC.optionalFieldOf("accessibility", MatchAccessibilitySettings.DEFAULT)
+                    .forGetter(MatchConfig::accessibility),
+                GoalConfig.CODEC.optionalFieldOf("goal_a", GoalConfig.DEFAULT).forGetter(MatchConfig::goalA),
+                GoalConfig.CODEC.optionalFieldOf("goal_b", GoalConfig.DEFAULT).forGetter(MatchConfig::goalB),
+                SidelineConfig.CODEC.optionalFieldOf("sideline_a", SidelineConfig.DEFAULT).forGetter(MatchConfig::sidelineA),
+                SidelineConfig.CODEC.optionalFieldOf("sideline_b", SidelineConfig.DEFAULT).forGetter(MatchConfig::sidelineB),
+                KickPosition.CODEC.optionalFieldOf("kick_off", KickPosition(8.5, -60.0, 8.5)).forGetter(MatchConfig::kickOff),
+                TeamSpawnConfig.CODEC.optionalFieldOf("team_a_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamASpawn),
+                TeamSpawnConfig.CODEC.optionalFieldOf("team_b_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamBSpawn),
+            ).apply(i, ::MatchConfig)
+        }
+
+        /** 兼容根级 `half_time_minutes` 等字段的旧版 JSON。 */
+        private val FLAT_LEGACY_CODEC: Codec<MatchConfig> = RecordCodecBuilder.create { i ->
             i.group(
                 Codec.STRING.fieldOf("team_a_name").forGetter(MatchConfig::teamAName),
                 Codec.STRING.fieldOf("team_b_name").forGetter(MatchConfig::teamBName),
@@ -179,11 +199,35 @@ data class MatchConfig(
                 SidelineConfig.CODEC.optionalFieldOf("sideline_a", SidelineConfig.DEFAULT).forGetter(MatchConfig::sidelineA),
                 SidelineConfig.CODEC.optionalFieldOf("sideline_b", SidelineConfig.DEFAULT).forGetter(MatchConfig::sidelineB),
                 KickPosition.CODEC.optionalFieldOf("kick_off", KickPosition(8.5, -60.0, 8.5)).forGetter(MatchConfig::kickOff),
-                Codec.INT.optionalFieldOf("post_goal_ball_reset_delay_seconds", 3).forGetter(MatchConfig::postGoalBallResetDelaySeconds),
+                Codec.INT.optionalFieldOf("post_goal_ball_reset_delay_seconds", 3)
+                    .forGetter(MatchConfig::postGoalBallResetDelaySeconds),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_a_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamASpawn),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_b_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamBSpawn),
-            ).apply(i, ::MatchConfig)
+            ).apply(i) { teamAName, teamBName, halfTime, stoppage, stoppageMax, extra, extraHalf, penalty, goalA, goalB, sidelineA, sidelineB, kickOff, postGoal, teamASpawn, teamBSpawn ->
+                MatchConfig(
+                    teamAName = teamAName,
+                    teamBName = teamBName,
+                    rules = MatchRulesSettings(
+                        halfTimeMinutes = halfTime,
+                        enableStoppageTime = stoppage,
+                        stoppageTimeMaxMinutes = stoppageMax,
+                        enableExtraTime = extra,
+                        extraTimeHalfMinutes = extraHalf,
+                        enablePenaltyShootout = penalty,
+                        postGoalBallResetDelaySeconds = postGoal,
+                    ),
+                    goalA = goalA,
+                    goalB = goalB,
+                    sidelineA = sidelineA,
+                    sidelineB = sidelineB,
+                    kickOff = kickOff,
+                    teamASpawn = teamASpawn,
+                    teamBSpawn = teamBSpawn,
+                )
+            }
         }
+
+        val CODEC: Codec<MatchConfig> = Codec.withAlternative(NESTED_CODEC, FLAT_LEGACY_CODEC)
 
         val DEFAULT = MatchConfig()
     }

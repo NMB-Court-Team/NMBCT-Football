@@ -193,6 +193,7 @@ object FootballNetworking {
             enableStoppageTime = cfg.enableStoppageTime,
             enableExtraTime = cfg.enableExtraTime,
             enablePenaltyShootout = cfg.enablePenaltyShootout,
+            enableFootballPositionIndicator = cfg.accessibility.enableFootballPositionIndicator,
             dynamicStoppageTicks = MatchState.dynamicStoppageTicks,
         )
         for (player in server.playerList.players) {
@@ -266,6 +267,7 @@ object FootballNetworking {
             enableStoppageTime = cfg.enableStoppageTime,
             enableExtraTime = cfg.enableExtraTime,
             enablePenaltyShootout = cfg.enablePenaltyShootout,
+            enableFootballPositionIndicator = cfg.accessibility.enableFootballPositionIndicator,
             dynamicStoppageTicks = MatchState.dynamicStoppageTicks,
         ))
     }

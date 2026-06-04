@@ -5,6 +5,7 @@ import dev.isxander.yacl3.api.OptionDescription
 import dev.isxander.yacl3.api.OptionGroup
 import dev.isxander.yacl3.api.YetAnotherConfigLib
 import net.astrorbits.football.match.MatchConfig
+import net.astrorbits.football.match.MatchRulesSettings
 import net.astrorbits.football.client.util.YaclOptionUtil.addBoolean
 import net.astrorbits.football.client.util.YaclOptionUtil.addInt
 import net.astrorbits.football.client.util.YaclOptionUtil.addString
@@ -23,12 +24,16 @@ object MatchSetupConfigScreen {
             .category(teamsCategory({ draft }, { draft = it }, def))
             .category(timingCategory({ draft }, { draft = it }, def))
             .category(extraCategory({ draft }, { draft = it }, def))
+            .category(accessibilityCategory({ draft }, { draft = it }, def))
             .save {
+                val rules = draft.rules
                 val saved = draft.copy(
-                    halfTimeMinutes = draft.halfTimeMinutes.coerceAtLeast(1),
-                    stoppageTimeMaxMinutes = draft.stoppageTimeMaxMinutes.coerceAtLeast(0),
-                    extraTimeHalfMinutes = draft.extraTimeHalfMinutes.coerceAtLeast(1),
-                    postGoalBallResetDelaySeconds = draft.postGoalBallResetDelaySeconds.coerceAtLeast(0),
+                    rules = rules.copy(
+                        halfTimeMinutes = rules.halfTimeMinutes.coerceAtLeast(1),
+                        stoppageTimeMaxMinutes = rules.stoppageTimeMaxMinutes.coerceAtLeast(0),
+                        extraTimeHalfMinutes = rules.extraTimeHalfMinutes.coerceAtLeast(1),
+                        postGoalBallResetDelaySeconds = rules.postGoalBallResetDelaySeconds.coerceAtLeast(0),
+                    ),
                 )
                 if (ClientPlayNetworking.canSend(MatchConfigApplyC2SPayload.TYPE)) {
                     ClientPlayNetworking.send(MatchConfigApplyC2SPayload(saved))
@@ -82,7 +87,7 @@ object MatchSetupConfigScreen {
                         descKey = MatchYaclDesc.desc("screen.nmbct-football.match.half_time_minutes"),
                         defaultValue = def.halfTimeMinutes,
                         getter = { getter().halfTimeMinutes },
-                        setter = { v -> setter(getter().copy(halfTimeMinutes = v)) },
+                        setter = { v -> setRules(getter, setter) { it.copy(halfTimeMinutes = v) } },
                         range = 1..120,
                     )
                     addBoolean(
@@ -90,14 +95,14 @@ object MatchSetupConfigScreen {
                         descKey = MatchYaclDesc.desc("screen.nmbct-football.match.enable_stoppage_time"),
                         defaultValue = def.enableStoppageTime,
                         getter = { getter().enableStoppageTime },
-                        setter = { v -> setter(getter().copy(enableStoppageTime = v)) },
+                        setter = { v -> setRules(getter, setter) { it.copy(enableStoppageTime = v) } },
                     )
                     addInt(
                         nameKey = "screen.nmbct-football.match.stoppage_time_max",
                         descKey = MatchYaclDesc.desc("screen.nmbct-football.match.stoppage_time_max"),
                         defaultValue = def.stoppageTimeMaxMinutes,
                         getter = { getter().stoppageTimeMaxMinutes },
-                        setter = { v -> setter(getter().copy(stoppageTimeMaxMinutes = v)) },
+                        setter = { v -> setRules(getter, setter) { it.copy(stoppageTimeMaxMinutes = v) } },
                         range = 0..30,
                     )
                     addInt(
@@ -105,7 +110,7 @@ object MatchSetupConfigScreen {
                         descKey = MatchYaclDesc.desc("screen.nmbct-football.match.post_goal_ball_reset_delay_seconds"),
                         defaultValue = def.postGoalBallResetDelaySeconds,
                         getter = { getter().postGoalBallResetDelaySeconds },
-                        setter = { v -> setter(getter().copy(postGoalBallResetDelaySeconds = v)) },
+                        setter = { v -> setRules(getter, setter) { it.copy(postGoalBallResetDelaySeconds = v) } },
                         range = 0..60,
                     )
                 },
@@ -128,14 +133,14 @@ object MatchSetupConfigScreen {
                         descKey = MatchYaclDesc.desc("screen.nmbct-football.match.enable_extra_time"),
                         defaultValue = def.enableExtraTime,
                         getter = { getter().enableExtraTime },
-                        setter = { v -> setter(getter().copy(enableExtraTime = v)) },
+                        setter = { v -> setRules(getter, setter) { it.copy(enableExtraTime = v) } },
                     )
                     addInt(
                         nameKey = "screen.nmbct-football.match.extra_time_half",
                         descKey = MatchYaclDesc.desc("screen.nmbct-football.match.extra_time_half"),
                         defaultValue = def.extraTimeHalfMinutes,
                         getter = { getter().extraTimeHalfMinutes },
-                        setter = { v -> setter(getter().copy(extraTimeHalfMinutes = v)) },
+                        setter = { v -> setRules(getter, setter) { it.copy(extraTimeHalfMinutes = v) } },
                         range = 1..30,
                     )
                     addBoolean(
@@ -143,12 +148,46 @@ object MatchSetupConfigScreen {
                         descKey = MatchYaclDesc.desc("screen.nmbct-football.match.enable_penalty_shootout"),
                         defaultValue = def.enablePenaltyShootout,
                         getter = { getter().enablePenaltyShootout },
-                        setter = { v -> setter(getter().copy(enablePenaltyShootout = v)) },
+                        setter = { v -> setRules(getter, setter) { it.copy(enablePenaltyShootout = v) } },
                     )
                 },
             ),
         )
         .build()
+
+    private fun accessibilityCategory(
+        getter: () -> MatchConfig,
+        setter: (MatchConfig) -> Unit,
+        def: MatchConfig,
+    ): ConfigCategory = ConfigCategory.createBuilder()
+        .name(Component.translatable("screen.nmbct-football.match.tab.accessibility"))
+        .group(
+            setupGroup(
+                "screen.nmbct-football.match.tab.accessibility",
+                {
+                    addBoolean(
+                        nameKey = "screen.nmbct-football.match.enable_football_position_indicator",
+                        descKey = MatchYaclDesc.desc("screen.nmbct-football.match.enable_football_position_indicator"),
+                        defaultValue = def.accessibility.enableFootballPositionIndicator,
+                        getter = { getter().accessibility.enableFootballPositionIndicator },
+                        setter = { v ->
+                            val acc = getter().accessibility
+                            setter(getter().copy(accessibility = acc.copy(enableFootballPositionIndicator = v)))
+                        },
+                    )
+                },
+            ),
+        )
+        .build()
+
+    private fun setRules(
+        getter: () -> MatchConfig,
+        setter: (MatchConfig) -> Unit,
+        transform: (MatchRulesSettings) -> MatchRulesSettings,
+    ) {
+        val cfg = getter()
+        setter(cfg.copy(rules = transform(cfg.rules)))
+    }
 
     private fun setupGroup(
         nameKey: String,

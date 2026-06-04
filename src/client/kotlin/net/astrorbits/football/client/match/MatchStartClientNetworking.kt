@@ -94,17 +94,23 @@ object MatchStartClientNetworking {
                 MatchState.teamBName = Component.literal(payload.teamBName)
                 MatchState.isRunning = payload.isRunning
                 MatchState.dynamicStoppageTicks = payload.dynamicStoppageTicks
+                val current = net.astrorbits.football.match.MatchConfigHolder.current
                 net.astrorbits.football.match.MatchConfigHolder.syncFromServer(
-                    net.astrorbits.football.match.MatchConfigHolder.current.copy(
+                    current.copy(
                         teamAName = payload.teamAName,
                         teamBName = payload.teamBName,
-                        halfTimeMinutes = payload.halfTimeMinutes,
-                        stoppageTimeMaxMinutes = payload.stoppageTimeMaxMinutes,
-                        extraTimeHalfMinutes = payload.extraTimeHalfMinutes,
-                        enableStoppageTime = payload.enableStoppageTime,
-                        enableExtraTime = payload.enableExtraTime,
-                        enablePenaltyShootout = payload.enablePenaltyShootout,
-                    )
+                        rules = current.rules.copy(
+                            halfTimeMinutes = payload.halfTimeMinutes,
+                            stoppageTimeMaxMinutes = payload.stoppageTimeMaxMinutes,
+                            extraTimeHalfMinutes = payload.extraTimeHalfMinutes,
+                            enableStoppageTime = payload.enableStoppageTime,
+                            enableExtraTime = payload.enableExtraTime,
+                            enablePenaltyShootout = payload.enablePenaltyShootout,
+                        ),
+                        accessibility = current.accessibility.copy(
+                            enableFootballPositionIndicator = payload.enableFootballPositionIndicator,
+                        ),
+                    ),
                 )
             }
         }
