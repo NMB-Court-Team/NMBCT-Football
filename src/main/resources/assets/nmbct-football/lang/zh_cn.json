@@ -88,6 +88,7 @@
     "hud.nmbct-football.out.kicked_by_unknown": "踢出者：未知",
     "hud.nmbct-football.out.restart": "%s 发球",
     "hud.nmbct-football.match.paused": "比赛暂停",
+    "hud.nmbct-football.match.paused_overlay": "比赛暂停中",
     "hud.nmbct-football.match.resumed": "比赛继续",
     "team_name.nmbct-football.teamA": "红队",
     "team_name.nmbct-football.teamB": "蓝队",

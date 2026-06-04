@@ -87,6 +87,7 @@
     "hud.nmbct-football.out.kicked_by_unknown": "Out by: unknown",
     "hud.nmbct-football.out.restart": "%s to restart",
     "hud.nmbct-football.match.paused": "Match Paused",
+    "hud.nmbct-football.match.paused_overlay": "Match Paused",
     "hud.nmbct-football.match.resumed": "Match Resumed",
     "hud.nmbct-football.out.throw_in": "Throw-in",
     "team_name.nmbct-football.teamA": "Red Team",

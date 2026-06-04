@@ -96,6 +96,7 @@ object MatchStartClientNetworking {
         }
         ClientPlayNetworking.registerGlobalReceiver(MatchPauseS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
+                MatchState.isRunning = !payload.paused
                 MatchPauseClient.show(payload.paused)
             }
         }
