@@ -71,6 +71,7 @@ object NMBCTFootball : ModInitializer {
 		FootballDribbleSessions.registerEvents()
 		GoalkeeperDiveSessions.registerEvents()
 		PostGoalBallResetScheduler.register()
+		FootballPlayerCollisionScheduler.register()
 
 		ServerPlayConnectionEvents.JOIN.register { handler, _, _ ->
 			PlayerRoleState.syncRoleToPlayer(handler.player)

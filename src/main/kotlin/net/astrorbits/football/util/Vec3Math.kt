@@ -4,6 +4,22 @@ import net.minecraft.world.phys.Vec3
 import kotlin.math.sqrt
 
 object Vec3Math {
+    data class PlanarDecomposition(
+        val alongNormal: Vec3,
+        val tangent: Vec3,
+        /** 有符号标量 `velocity · unitNormal`。 */
+        val normalComponent: Double,
+    ) {
+        val tangentSpeed: Double get() = tangent.length()
+    }
+
+    /** 将 [velocity] 分解为沿 [unitNormal] 的分量与切向余量（墙反弹/推球共用）。 */
+    fun decomposePlanar(velocity: Vec3, unitNormal: Vec3): PlanarDecomposition {
+        val component = velocity.dot(unitNormal)
+        val along = unitNormal.scale(component)
+        return PlanarDecomposition(along, velocity.subtract(along), component)
+    }
+
     fun horizontal(vector: Vec3): Vec3 = Vec3(vector.x, 0.0, vector.z)
 
     fun normalizeSafe(vector: Vec3, fallback: Vec3 = Vec3.ZERO): Vec3 {

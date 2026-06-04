@@ -31,17 +31,20 @@ object FootballPlayerBallCollision {
     private const val SWEEP_MAX_STEP = 0.45
     private const val PUSH_DEFLECTION_BIAS = 0.62
     private const val PUSH_DEFLECTION_DEADZONE = 0.02
-    /** 擦角触球时切向速度转入球的比例（相对法向分量）。 */
-    private const val QUASI_STATIC_TANGENTIAL_FRICTION = 0.55
-    /** 重叠且几何法线不可靠时，沿擦角偏转方向的最低速度耦合。 */
+    /** 重叠且几何法线不可靠时，沿推球轴的最低速度耦合。 */
     private const val QUASI_STATIC_OVERLAP_COUPLING = 0.35
 
     fun horizontalContactNormal(contactNormal: Vec3): Vec3 {
         return Vec3Math.normalizeSafe(Vec3(contactNormal.x, 0.0, contactNormal.z))
     }
 
+    /** 准静态推球轴：水平接触法线 + 擦角偏转（唯一擦角模型，不再单独做切向摩擦叠加）。 */
+    fun bodyPushAxis(contactNormal: Vec3, playerHorizontal: Vec3): Vec3 {
+        return deflectBodyPushDirection(horizontalContactNormal(contactNormal), playerHorizontal)
+    }
+
     /**
-     * 身体推球方向：水平接触法线 + 相对移动方向的擦角偏转（与墙反弹同为法线/切向分解）。
+     * 水平接触法线 + 相对移动方向的擦角偏转。
      */
     fun deflectBodyPushDirection(
         contactNormalHorizontal: Vec3,
@@ -190,8 +193,7 @@ object FootballPlayerBallCollision {
     }
 
     /**
-     * 动量交换未触发时：按接触法线分解玩家速度（法向 + 切向，与墙反弹相同思路），
-     * 再经擦角偏转决定最终推力方向；重叠分离轴不可靠时保留最低耦合。
+     * 动量交换未触发时：沿 [bodyPushAxis] 分解玩家速度并施加 capped 推力；重叠时保留最低耦合。
      */
     fun resolveQuasiStaticPush(
         ballVelocity: Vec3,
@@ -209,12 +211,9 @@ object FootballPlayerBallCollision {
             return null
         }
 
-        val nHoriz = horizontalContactNormal(normal)
-        val pushDir = deflectBodyPushDirection(nHoriz, playerHorizontal)
         val deltaV = computeQuasiStaticDeltaVelocity(
             playerHorizontal = playerHorizontal,
-            contactNormalHorizontal = nHoriz,
-            deflectedPushDir = pushDir,
+            contactNormal = normal,
             playerSpeed = playerSpeed,
             pushScale = pushScale,
             pushMax = pushMax,
@@ -233,8 +232,7 @@ object FootballPlayerBallCollision {
 
     internal fun computeQuasiStaticDeltaVelocity(
         playerHorizontal: Vec3,
-        contactNormalHorizontal: Vec3,
-        deflectedPushDir: Vec3,
+        contactNormal: Vec3,
         playerSpeed: Double,
         pushScale: Double,
         pushMax: Double,
@@ -243,46 +241,30 @@ object FootballPlayerBallCollision {
         val eps = FootballPhysicsConfig.EPSILON
         val scale = pushScale.coerceAtLeast(0.0)
         val cap = pushMax.coerceAtLeast(0.0)
-        val moveDir = Vec3Math.normalizeSafe(playerHorizontal)
-        val n = if (contactNormalHorizontal.lengthSqr() > eps * eps) {
-            contactNormalHorizontal
-        } else {
-            deflectedPushDir
+
+        val pushAxis = bodyPushAxis(contactNormal, playerHorizontal)
+        if (pushAxis.lengthSqr() <= eps * eps) {
+            return null
         }
 
-        // 法线/切向分解（与 CollisionUtil 墙反弹同一套 dot 投影）
-        val vDotN = playerHorizontal.dot(n)
-        val approachIntoBall = vDotN.coerceAtLeast(0.0)
-        val tangent = playerHorizontal.subtract(n.scale(vDotN))
+        val decomp = Vec3Math.decomposePlanar(playerHorizontal, pushAxis)
+        var approachSpeed = decomp.normalComponent.coerceAtLeast(0.0)
 
-        var deltaV = Vec3.ZERO
-        if (approachIntoBall > eps) {
-            deltaV = deltaV.add(n.scale(min(approachIntoBall * scale, cap)))
-        }
-
-        val tangentSpeed = tangent.length()
-        if (tangentSpeed > eps) {
-            val tangentImpart = min(tangentSpeed * scale * QUASI_STATIC_TANGENTIAL_FRICTION, cap * 0.65)
-            deltaV = deltaV.add(tangent.scale(tangentImpart / tangentSpeed))
-        }
-
-        if (deltaV.lengthSqr() <= eps * eps) {
-            val coupling = deflectedPushDir.dot(moveDir).coerceAtLeast(QUASI_STATIC_OVERLAP_COUPLING)
+        if (approachSpeed < minPlayerSpeed) {
+            val moveDir = Vec3Math.normalizeSafe(playerHorizontal)
+            val coupling = pushAxis.dot(moveDir).coerceAtLeast(QUASI_STATIC_OVERLAP_COUPLING)
             val fallbackApproach = playerSpeed * coupling
             if (fallbackApproach < minPlayerSpeed) {
                 return null
             }
-            deltaV = deflectedPushDir.scale(min(fallbackApproach * scale, cap))
+            approachSpeed = fallbackApproach
         }
 
-        val deltaLen = deltaV.length()
-        if (deltaLen <= eps) {
+        val imparted = min(approachSpeed * scale, cap)
+        if (imparted <= eps) {
             return null
         }
-        if (deltaLen > cap) {
-            deltaV = deltaV.scale(cap / deltaLen)
-        }
-        return deltaV
+        return pushAxis.scale(imparted)
     }
 
     /**

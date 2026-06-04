@@ -99,16 +99,16 @@ object CollisionUtil {
 
         val normal = Vec3Math.normalizeSafe(blocked)
         val horizontalVelocity = Vec3Math.horizontal(state.linearVelocity)
-        val approachSpeed = horizontalVelocity.dot(normal)
-        if (approachSpeed <= FootballPhysicsConfig.EPSILON) {
+        val decomp = Vec3Math.decomposePlanar(horizontalVelocity, normal)
+        if (decomp.normalComponent <= FootballPhysicsConfig.EPSILON) {
             return false to 0.0
         }
 
         val reflected = horizontalVelocity.subtract(
-            normal.scale(approachSpeed * (1.0 + FootballPhysicsConfig.WALL_RESTITUTION))
+            normal.scale(decomp.normalComponent * (1.0 + FootballPhysicsConfig.WALL_RESTITUTION))
         )
         state.linearVelocity = Vec3(reflected.x, state.linearVelocity.y, reflected.z)
-        return true to approachSpeed
+        return true to decomp.normalComponent
     }
 
     /** 向量法线不可靠时的逐轴兜底（使用位移完成比例而非 actual ≈ 0）。 */

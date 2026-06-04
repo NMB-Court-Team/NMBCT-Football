@@ -5,7 +5,6 @@ import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.FootballKickUtil
 import net.astrorbits.football.util.Vec3Math
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.phys.Vec3
 import kotlin.math.min
 

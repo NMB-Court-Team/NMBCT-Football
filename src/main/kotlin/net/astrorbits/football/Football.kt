@@ -249,16 +249,15 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
 
         FootballPhysicsSimulator.applyAirForces(physicsState)
-        val pushedPlayersThisTick = hashSetOf<UUID>()
 
         val movement = physicsState.linearVelocity
         val worldMotion = advanceWithWorldCollisions(movement)
 
-        resolvePlayerCollisions(
+        FootballPlayerCollisionScheduler.schedule(
+            this,
             worldMotion.beforeMove,
             position(),
             movement,
-            pushedPlayersThisTick,
         )
 
         physicsState.inCobweb = false
@@ -389,11 +388,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     private fun applyPlayerPushFromPlayer(
         player: ServerPlayer,
         contactNormal: Vec3,
-        ballCenter: Vec3 = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0),
         repositionCenter: Vec3? = null,
         now: Long = (level() as? ServerLevel)?.gameTime ?: 0L,
-        overlapping: Boolean = false,
-        sweepT: Double? = null,
     ): Boolean {
         if (isImmovable || isPlayerBallMovementForbidden(player)) {
             return false
@@ -420,6 +416,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             if (sliding) velocity.scale(SLIDE_IMPACT_VELOCITY_SCALE) else velocity
         }
         val preCollisionBallVelocity = physicsState.linearVelocity
+
         val momentum = FootballPlayerBallCollision.resolveMomentum(
             ballVelocity = preCollisionBallVelocity,
             playerVelocity = playerVelocity,
@@ -428,18 +425,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             ballVelocity = preCollisionBallVelocity,
             playerVelocity = playerVelocity,
             normal = pushNormal,
-        ) ?: run {
-            logSkipCode008(
-                player = player,
-                overlapping = overlapping,
-                sweepT = sweepT,
-                sliding = sliding,
-                preCollisionBallVelocity = preCollisionBallVelocity,
-                playerVelocity = playerVelocity,
-                pushNormal = pushNormal,
-            )
-            return false
-        }
+        ) ?: return false
 
         val playerRecoil = FootballPlayerBallCollision.resolvePlayerRecoil(
             ballVelocity = preCollisionBallVelocity,
@@ -547,179 +533,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         return false
     }
 
-    private fun logSkipCode008(
-        player: ServerPlayer,
-        overlapping: Boolean,
-        sweepT: Double?,
-        sliding: Boolean,
-        preCollisionBallVelocity: Vec3,
-        playerVelocity: Vec3,
-        pushNormal: Vec3,
-    ) {
-        val eps = FootballPhysicsConfig.EPSILON
-        val n = Vec3Math.normalizeSafe(pushNormal)
-        val nLenSqr = n.lengthSqr()
-        val relativeNormal = preCollisionBallVelocity.subtract(playerVelocity).dot(n)
-        val ballSpeed = preCollisionBallVelocity.length()
-        val playerSpeed = playerVelocity.length()
-        val playerHorizontal = Vec3Math.horizontal(playerVelocity)
-        val playerHorizontalSpeed = playerHorizontal.length()
-        val minPlayerSpeed = FootballInputConfig.PLAYER_BALL_PUSH_MIN_SPEED
-        val pushScale = FootballInputConfig.PLAYER_BALL_PUSH_SCALE
-        val pushMax = FootballInputConfig.PLAYER_BALL_PUSH_MAX
-        val velDiag = collectPlayerVelocityDiagnostics(player)
-
-        val momentumReason = when {
-            nLenSqr <= eps * eps -> "normal_degenerate"
-            relativeNormal >= -eps -> when {
-                ballSpeed < 1.0e-6 && playerHorizontalSpeed < 1.0e-6 -> "both_stationary"
-                relativeNormal > eps -> "player_pushing_or_ball_receding"
-                else -> "not_closing_within_epsilon"
-            }
-            else -> {
-                val ballMass = FootballPhysicsConfig.MASS
-                val playerMass = FootballInputConfig.PLAYER_MASS
-                val restitution = FootballInputConfig.BALL_PLAYER_RESTITUTION
-                val invMassSum = 1.0 / ballMass + 1.0 / playerMass
-                val impulse = -(1.0 + restitution.coerceIn(0.0, 1.25)) * relativeNormal / invMassSum
-                if (impulse <= eps) "impulse_too_small" else "unexpected_momentum_miss"
-            }
-        }
-
-        val quasiReason: String
-        var approachSpeed = Double.NaN
-        var impartedSpeed = Double.NaN
-        if (playerHorizontalSpeed < minPlayerSpeed) {
-            quasiReason = "player_horizontal_speed_below_min"
-        } else {
-            val nHoriz = FootballPlayerBallCollision.horizontalContactNormal(pushNormal)
-            val pushDir = FootballPlayerBallCollision.deflectBodyPushDirection(nHoriz, playerHorizontal)
-            val previewDelta = FootballPlayerBallCollision.computeQuasiStaticDeltaVelocity(
-                playerHorizontal = playerHorizontal,
-                contactNormalHorizontal = nHoriz,
-                deflectedPushDir = pushDir,
-                playerSpeed = playerHorizontalSpeed,
-                pushScale = pushScale,
-                pushMax = pushMax,
-                minPlayerSpeed = minPlayerSpeed,
-            )
-            approachSpeed = max(
-                playerHorizontal.dot(nHoriz).coerceAtLeast(0.0),
-                playerHorizontal.dot(pushDir).coerceAtLeast(0.0),
-            )
-            impartedSpeed = previewDelta?.length() ?: 0.0
-            quasiReason = when {
-                pushDir.lengthSqr() <= eps * eps -> "push_direction_degenerate"
-                previewDelta == null -> "delta_velocity_unresolved"
-                impartedSpeed <= eps -> "imparted_speed_too_small"
-                else -> "unexpected_quasi_miss"
-            }
-        }
-
-        fun fmt(v: Vec3): String = String.format("%.4f,%.4f,%.4f", v.x, v.y, v.z)
-
-        NMBCTFootball.LOGGER.info(
-            "skip code 008 | player=${player.name.string} ballId=$id tick=${(level() as? ServerLevel)?.gameTime} " +
-                "overlapping=$overlapping sweepT=$sweepT sliding=$sliding",
-        )
-        NMBCTFootball.LOGGER.info(
-            "skip code 008 | vBall=${fmt(preCollisionBallVelocity)} ballSpeed=$ballSpeed " +
-                "vPlayer=${fmt(playerVelocity)} playerSpeed=$playerSpeed playerH=${fmt(playerHorizontal)} " +
-                "playerHSpeed=$playerHorizontalSpeed",
-        )
-        NMBCTFootball.LOGGER.info(
-            "skip code 008 | normal=${fmt(n)} relNorm=$relativeNormal eps=$eps " +
-                "momentumFail=$momentumReason",
-        )
-        NMBCTFootball.LOGGER.info(
-            "skip code 008 | quasiFail=$quasiReason minPlayerSpeed=$minPlayerSpeed " +
-                "approachSpeed=$approachSpeed impartedSpeed=$impartedSpeed pushScale=$pushScale pushMax=$pushMax",
-        )
-        NMBCTFootball.LOGGER.info(
-            "skip code 008 | vel posDelta=${velDiag.fmt(velDiag.positionDeltaH)} h=${velDiag.fmtSpd(velDiag.positionDeltaH)} " +
-                "posStep3=${velDiag.fmt(velDiag.positionDelta3)} " +
-                "deltaField=${velDiag.fmt(velDiag.deltaMovementFieldH)} h=${velDiag.fmtSpd(velDiag.deltaMovementFieldH)} " +
-                "getDelta=${velDiag.fmt(velDiag.getDeltaMovementH)} h=${velDiag.fmtSpd(velDiag.getDeltaMovementH)}",
-        )
-        NMBCTFootball.LOGGER.info(
-            "skip code 008 | vel intent=${velDiag.fmt(velDiag.lastClientMoveIntentH)} h=${velDiag.fmtSpd(velDiag.lastClientMoveIntentH)} " +
-                "inputVec=${velDiag.fmt(velDiag.movementInputVector)} h=${velDiag.fmtSpd(velDiag.movementInputVector)} " +
-                "intended=${velDiag.fmt(velDiag.intendedHorizontal)} h=${velDiag.fmtSpd(velDiag.intendedHorizontal)} " +
-                "pushH=${velDiag.fmt(velDiag.pushHorizontal)} bestH=${velDiag.fmt(velDiag.bestHorizontal)} " +
-                "h=${velDiag.fmtSpd(velDiag.bestHorizontal)} " +
-                "slide=${velDiag.fmt(velDiag.slideHorizontal)} h=${velDiag.fmtSpd(velDiag.slideHorizontal)}",
-        )
-        NMBCTFootball.LOGGER.info(
-            "skip code 008 | vel used=${velDiag.fmt(velDiag.effectiveUsedH)} h=${velDiag.fmtSpd(velDiag.effectiveUsedH)} " +
-                "src=${velDiag.effectiveSource} xxa=${player.xxa} zza=${player.zza} " +
-                "sprint=${player.isSprinting} onGround=${player.onGround()} noPhysics=${player.noPhysics}",
-        )
-    }
-
-    private data class PlayerVelocityDiagnostics(
-        val positionDeltaH: Vec3,
-        val positionDelta3: Vec3,
-        val deltaMovementFieldH: Vec3,
-        val getDeltaMovementH: Vec3,
-        val lastClientMoveIntentH: Vec3,
-        val movementInputVector: Vec3,
-        val intendedHorizontal: Vec3,
-        val pushHorizontal: Vec3,
-        val bestHorizontal: Vec3,
-        val slideHorizontal: Vec3,
-        val effectiveUsedH: Vec3,
-        val effectiveSource: String,
-    ) {
-        fun fmt(v: Vec3): String = String.format("%.4f,%.4f,%.4f", v.x, v.y, v.z)
-
-        fun fmtSpd(v: Vec3): String = String.format("%.4f", Vec3Math.horizontal(v).length())
-    }
-
-    private fun collectPlayerVelocityDiagnostics(player: ServerPlayer): PlayerVelocityDiagnostics {
-        val positionDelta3 = Vec3(player.x - player.xOld, player.y - player.yOld, player.z - player.zOld)
-        val positionDeltaH = Vec3Math.horizontal(positionDelta3)
-        val deltaMovementFieldH = Vec3Math.horizontal(player.deltaMovement)
-        val getDeltaMovementH = Vec3Math.horizontal(player.getDeltaMovement())
-        val lastClientMoveIntentH = Vec3Math.horizontal(player.lastClientMoveIntent)
-        val movementInputVector = FootballMovementInputUtil.movementInputVector(player)
-        val intendedHorizontal = FootballMovementInputUtil.intendedHorizontalVelocity(player)
-        val bestHorizontal = FootballMovementInputUtil.bestHorizontalVelocity(player)
-        val pushHorizontal = bestHorizontal
-        val slideHorizontal = SlideTackleSessions.effectiveHorizontalVelocity(player) ?: Vec3.ZERO
-
-        val effectiveUsedH = effectivePlayerHorizontalMotion(player)
-        val measuredFromPos = positionDeltaH.lengthSqr() > deltaMovementFieldH.lengthSqr()
-        val effectiveSource = when {
-            slideHorizontal.lengthSqr() > 1.0e-12 &&
-                slideHorizontal.lengthSqr() >= effectiveUsedH.lengthSqr() ->
-                "slide"
-            bestHorizontal.lengthSqr() > 1.0e-12 &&
-                bestHorizontal.lengthSqr() >= effectiveUsedH.lengthSqr() ->
-                "bestHorizontal"
-            measuredFromPos && positionDeltaH.lengthSqr() > 1.0e-12 -> "positionDelta"
-            getDeltaMovementH.lengthSqr() > 1.0e-12 -> "getDeltaMovement"
-            deltaMovementFieldH.lengthSqr() > 1.0e-12 -> "deltaMovement"
-            intendedHorizontal.lengthSqr() > 1.0e-12 -> "intended"
-            positionDeltaH.lengthSqr() > 1.0e-12 -> "positionDelta"
-            else -> "none"
-        }
-
-        return PlayerVelocityDiagnostics(
-            positionDeltaH = positionDeltaH,
-            positionDelta3 = positionDelta3,
-            deltaMovementFieldH = deltaMovementFieldH,
-            getDeltaMovementH = getDeltaMovementH,
-            lastClientMoveIntentH = lastClientMoveIntentH,
-            movementInputVector = movementInputVector,
-            intendedHorizontal = intendedHorizontal,
-            pushHorizontal = pushHorizontal,
-            bestHorizontal = bestHorizontal,
-            slideHorizontal = slideHorizontal,
-            effectiveUsedH = effectiveUsedH,
-            effectiveSource = effectiveSource,
-        )
-    }
-
     /** 动量 / 准静态推球 / 后坐力共用：最佳水平速度 + 垂直步进（滑铲 session 优先）。 */
     private fun effectivePlayerVelocity(player: ServerPlayer, verticalStep: Double): Vec3 {
         val horizontal = effectivePlayerHorizontalMotion(player)
@@ -743,6 +556,18 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return Vec3(horizontal.x, player.deltaMovement.y, horizontal.z)
         }
         return player.deltaMovement
+    }
+
+    /** 由 [FootballPlayerCollisionScheduler] 在本 server tick 末尾调用（所有实体已 tick）。 */
+    internal fun runDeferredPlayerCollisions(
+        beforeMove: Vec3,
+        afterMove: Vec3,
+        intendedMotion: Vec3,
+    ) {
+        val pushedPlayersThisTick = hashSetOf<UUID>()
+        resolvePlayerCollisions(beforeMove, afterMove, intendedMotion, pushedPlayersThisTick)
+        deltaMovement = physicsState.linearVelocity
+        syncPhysicsToEntityData()
     }
 
     private fun resolvePlayerCollisions(
@@ -790,8 +615,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 playerEnvelope,
                 radius,
             )
-            val overlappingBeforeSweep = sweepHit == null &&
-                FootballPlayerBallCollision.overlapHitAt(currentCenter, playerEnvelope, radius) != null
             if (sweepHit == null) {
                 sweepHit = FootballPlayerBallCollision.overlapHitAt(currentCenter, playerEnvelope, radius)
             }
@@ -799,7 +622,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 continue
             }
 
-            val overlapping = overlappingBeforeSweep || sweepHit.t <= 1.0e-6
             val repositionCenter = if (sweepHit.t > 1.0e-6) sweepHit.contactCenter else null
             val impactBallCenter = repositionCenter ?: currentCenter
             val pushNormal = FootballPhysicsSimulator.orientContactNormalTowardBall(
@@ -810,20 +632,15 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             val sliding = SlideTackleSessions.isSliding(player)
             val preTouchBottomPos = position()
             val preTouchPhysics = FootballTrajectoryPredictor.copyState(physicsState)
-            var slidePushApplied = false
             if (player.uuid !in pushedPlayersThisTick) {
                 if (applyPlayerPushFromPlayer(
                         player,
                         pushNormal,
-                        impactBallCenter,
                         repositionCenter,
                         now,
-                        overlapping,
-                        sweepHit.t,
                     )
                 ) {
                     pushedPlayersThisTick.add(player.uuid)
-                    slidePushApplied = sliding
                     if (sliding) {
                         recordActiveKick(player, effectivePlayerHorizontalMotion(player))
                     } else {
@@ -1366,22 +1183,13 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             val playerBox = entity.boundingBox
             val geometricContact = FootballPlayerBallCollision.contactAtSphereCenter(ballCenter, playerBox, radius)
                 ?: FootballPlayerBallCollision.overlapHitAt(ballCenter, playerBox, radius)
-            val overlapping = geometricContact != null && geometricContact.t <= 1.0e-6
             val contactNormal = geometricContact?.normal
                 ?: FootballPhysicsSimulator.orientContactNormalTowardBall(
                     Vec3Math.normalizeSafe(Vec3Math.horizontal(ballCenter.subtract(entity.position()))),
                     entity.position(),
                     ballCenter,
                 )
-            if (applyPlayerPushFromPlayer(
-                    entity,
-                    contactNormal,
-                    ballCenter,
-                    now = now,
-                    overlapping = overlapping,
-                    sweepT = geometricContact?.t,
-                )
-            ) {
+            if (applyPlayerPushFromPlayer(entity, contactNormal, now = now)) {
                 syncPhysicsToEntityData()
             }
             return
