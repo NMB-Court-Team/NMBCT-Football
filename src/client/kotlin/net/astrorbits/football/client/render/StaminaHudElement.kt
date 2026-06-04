@@ -12,11 +12,13 @@ import kotlin.math.roundToInt
  */
 class StaminaHudElement : HudElement {
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
+        val client = Minecraft.getInstance()
+        if (client.player?.isCreative == true) return
+
         val stamina = StaminaClient.stamina
         val maxStamina = StaminaClient.maxStamina
         if (stamina >= maxStamina - 1e-3f && StaminaClient.boostBlend <= 0f) return
 
-        val client = Minecraft.getInstance()
         val width = client.window.guiScaledWidth
         val height = client.window.guiScaledHeight
 

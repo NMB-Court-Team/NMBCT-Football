@@ -58,7 +58,6 @@ object StaminaState {
     fun tickPlayer(player: ServerPlayer) {
         if (player.isSpectator || player.isCreative) {
             resetPlayer(player.uuid, sync = true, player)
-            BoostSprintState.setRequested(player, false)
             return
         }
 

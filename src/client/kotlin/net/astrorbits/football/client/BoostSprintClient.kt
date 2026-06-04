@@ -25,7 +25,7 @@ object BoostSprintClient {
                 if (down && !boostPrevTickPressed && player.isSprinting) {
                     toggleActive = !toggleActive
                     sendEnabled(toggleActive && canKeepBoost(player))
-                } else if (!player.isSprinting || StaminaClient.stamina <= 0f) {
+                } else if (!player.isSprinting || staminaBlocksBoost(player)) {
                     if (toggleActive) {
                         toggleActive = false
                         sendEnabled(false)
@@ -44,7 +44,7 @@ object BoostSprintClient {
                 }
             }
         }
-        if (StaminaClient.stamina <= 0f) {
+        if (staminaBlocksBoost(player)) {
             toggleActive = false
             holdSentActive = false
         }
@@ -63,7 +63,10 @@ object BoostSprintClient {
     }
 
     private fun canKeepBoost(player: LocalPlayer): Boolean =
-        player.isSprinting && StaminaClient.stamina > 0f
+        player.isSprinting && !staminaBlocksBoost(player)
+
+    private fun staminaBlocksBoost(player: LocalPlayer): Boolean =
+        !player.isCreative && StaminaClient.stamina <= 0f
 
     private fun sendEnabled(enabled: Boolean) {
         if (!ClientPlayNetworking.canSend(BoostSprintToggleC2SPayload.TYPE)) {

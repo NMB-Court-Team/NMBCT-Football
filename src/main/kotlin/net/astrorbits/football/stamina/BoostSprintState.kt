@@ -20,7 +20,7 @@ object BoostSprintState {
     fun isActive(playerId: UUID): Boolean = activeByPlayer[playerId] == true
 
     fun setRequested(player: ServerPlayer, enabled: Boolean) {
-        if (player.isSpectator || player.isCreative) {
+        if (player.isSpectator) {
             setActive(player, false)
             return
         }
@@ -28,7 +28,7 @@ object BoostSprintState {
             setActive(player, false)
             return
         }
-        if (!player.isSprinting || !hasForwardImpulse(player) || StaminaState.getStamina(player.uuid) <= 0f) {
+        if (!player.isSprinting || !hasForwardImpulse(player) || staminaBlocksBoost(player)) {
             setActive(player, false)
             return
         }
@@ -36,14 +36,14 @@ object BoostSprintState {
     }
 
     fun tickPlayer(player: ServerPlayer) {
-        if (player.isSpectator || player.isCreative) {
+        if (player.isSpectator) {
             setActive(player, false)
             return
         }
         if (!isActive(player.uuid)) {
             return
         }
-        if (!player.isSprinting || !hasForwardImpulse(player) || StaminaState.getStamina(player.uuid) <= 0f) {
+        if (!player.isSprinting || !hasForwardImpulse(player) || staminaBlocksBoost(player)) {
             setActive(player, false)
             return
         }
@@ -91,6 +91,9 @@ object BoostSprintState {
     private fun clearSpeedModifier(player: ServerPlayer) {
         player.getAttribute(Attributes.MOVEMENT_SPEED)?.removeModifier(MODIFIER_ID)
     }
+
+    private fun staminaBlocksBoost(player: ServerPlayer): Boolean =
+        !player.isCreative && StaminaState.getStamina(player.uuid) <= 0f
 
     private fun hasForwardImpulse(player: ServerPlayer): Boolean {
         val intent = FootballMovementInputUtil.movementInputVector(player)

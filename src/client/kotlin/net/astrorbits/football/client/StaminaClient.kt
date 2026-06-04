@@ -69,10 +69,17 @@ object StaminaClient {
             else -> targetBlend
         }
 
-        if (player.isSpectator || player.isCreative) {
+        if (player.isSpectator) {
             val max = FootballConfigs.server.staminaMechanism.maxStamina
             applySync(max, max, false)
             clearSpeedModifiers(player)
+            return
+        }
+        if (player.isCreative) {
+            val max = FootballConfigs.server.staminaMechanism.maxStamina
+            stamina = max
+            maxStamina = max
+            applyCreativeSpeedModifiers(player)
             return
         }
 
@@ -124,6 +131,23 @@ object StaminaClient {
 
         if (boostSprintActive) {
             val boostNeeded = cfg.boostSprintSpeedMultiplier.toDouble() - 1.0
+            val existingBoost = attr.getModifier(BOOST_SPEED_MODIFIER_ID)
+            if (existingBoost == null || existingBoost.amount != boostNeeded) {
+                attr.removeModifier(BOOST_SPEED_MODIFIER_ID)
+                attr.addTransientModifier(
+                    AttributeModifier(BOOST_SPEED_MODIFIER_ID, boostNeeded, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL),
+                )
+            }
+        } else {
+            attr.removeModifier(BOOST_SPEED_MODIFIER_ID)
+        }
+    }
+
+    private fun applyCreativeSpeedModifiers(player: net.minecraft.client.player.LocalPlayer) {
+        val attr = player.getAttribute(Attributes.MOVEMENT_SPEED) ?: return
+        attr.removeModifier(STAMINA_SPEED_MODIFIER_ID)
+        if (boostSprintActive) {
+            val boostNeeded = FootballConfigs.server.staminaMechanism.boostSprintSpeedMultiplier.toDouble() - 1.0
             val existingBoost = attr.getModifier(BOOST_SPEED_MODIFIER_ID)
             if (existingBoost == null || existingBoost.amount != boostNeeded) {
                 attr.removeModifier(BOOST_SPEED_MODIFIER_ID)
