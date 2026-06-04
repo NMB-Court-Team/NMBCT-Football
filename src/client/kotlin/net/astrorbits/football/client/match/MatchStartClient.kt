@@ -38,14 +38,20 @@ object MatchStartClient {
         get() = !isPostGoal && !isGoalLineOut && startTimeMs > 0 && elapsedMs < HUD_DURATION_MS
 
     val isLocked: Boolean
-        get() = KickoffLock.isPlayerLocked(
-            postGoalResetPending = MatchState.postGoalResetPending,
-            kickoffPhaseActive = startTimeMs > 0L && !kickoffTouched,
-            playerTeam = playerTeam,
-            kickoffTeam = kickoffTeam,
-            kickoffElapsedMs = elapsedMs,
-            kickoffLockMs = lockDurationMs,
-        )
+        get() {
+            val client = net.minecraft.client.Minecraft.getInstance().player
+            if (client?.isSpectator == true) {
+                return startTimeMs > 0L && !kickoffTouched
+            }
+            return KickoffLock.isPlayerLocked(
+                postGoalResetPending = MatchState.postGoalResetPending,
+                kickoffPhaseActive = startTimeMs > 0L && !kickoffTouched,
+                playerTeam = playerTeam,
+                kickoffTeam = kickoffTeam,
+                kickoffElapsedMs = elapsedMs,
+                kickoffLockMs = lockDurationMs,
+            )
+        }
 
     val isChoosing: Boolean
         get() = !isPostGoal && !isGoalLineOut && startTimeMs > 0 && elapsedMs < 3000L

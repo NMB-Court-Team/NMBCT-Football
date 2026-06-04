@@ -20,12 +20,16 @@ object PlayerRoleState {
     }
 
     fun isGoalkeeper(player: ServerPlayer): Boolean {
+        if (!MatchParticipation.isParticipating(player)) return false
         if (!MatchState.allowsActiveGoalkeeperRole()) return false
         if (penaltyKickOutfieldOverride.contains(player.uuid)) return false
         return isDesignatedGoalkeeper(player)
     }
 
     fun setOfficialGk(team: TeamSide, player: ServerPlayer?) {
+        if (player != null && !MatchParticipation.isParticipating(player)) {
+            return
+        }
         val previous = when (team) {
             TeamSide.A -> {
                 val old = teamAGoalkeeper
@@ -56,6 +60,9 @@ object PlayerRoleState {
     }
 
     fun setVoluntaryGk(player: ServerPlayer, enabled: Boolean): Boolean {
+        if (enabled && !MatchParticipation.isParticipating(player)) {
+            return false
+        }
         if (enabled) {
             voluntaryGkMode.add(player.uuid)
         } else {
@@ -96,13 +103,20 @@ object PlayerRoleState {
                 TeamSide.B -> teamBGoalkeeper
             }
             if (preset != null && roster.contains(preset)) {
-                server.playerList.getPlayer(preset)?.let { syncRoleToPlayer(it) }
-                continue
+                val online = server.playerList.getPlayer(preset)
+                when {
+                    online == null -> continue
+                    MatchParticipation.isParticipating(online) -> {
+                        syncRoleToPlayer(online)
+                        continue
+                    }
+                }
             }
 
-            roster.shuffled().firstNotNullOfOrNull { server.playerList.getPlayer(it) }?.let { player ->
-                setOfficialGk(team, player)
-            }
+            MatchParticipation.filterParticipatingRoster(roster, server)
+                .shuffled()
+                .firstNotNullOfOrNull { server.playerList.getPlayer(it) }
+                ?.let { player -> setOfficialGk(team, player) }
         }
     }
 

@@ -567,6 +567,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     /** 主动踢球：重置进球归属链（含滑铲推球）。 */
     fun recordActiveKick(player: ServerPlayer, kickDirection: Vec3?) {
+        if (!MatchParticipation.isParticipating(player)) {
+            return
+        }
         if (MatchState.currentPhase == MatchPhase.PENALTIES) {
             PenaltyShootoutState.onKickerTouchedBall(player, this)
         }
@@ -579,6 +582,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     /** 带球触球：仅更新最后物理触球，不重置进球归属链。 */
     fun recordDribbleTouch(player: ServerPlayer) {
+        if (!MatchParticipation.isParticipating(player)) {
+            return
+        }
         lastPhysicalTouch = player.uuid
     }
 
@@ -591,6 +597,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         preTouchPhysics: FootballPhysicsState,
         preTouchBottomPos: Vec3,
     ) {
+        if (!MatchParticipation.isParticipating(player)) {
+            return
+        }
         lastPhysicalTouch = player.uuid
         val serverLevel = level() as? ServerLevel ?: return
         val prediction = FootballTrajectoryPredictor.predictWouldScore(
@@ -1223,7 +1232,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     fun enterHold(player: ServerPlayer) {
-        if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player)) {
+        if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player) ||
+            !MatchParticipation.isParticipating(player)
+        ) {
             return
         }
         holderEntityId = player.id

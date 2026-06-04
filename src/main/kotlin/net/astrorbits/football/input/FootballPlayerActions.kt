@@ -1,5 +1,6 @@
 package net.astrorbits.football.input
 
+import net.astrorbits.football.match.MatchParticipation
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.network.FootballActionC2SPayload
 import net.astrorbits.football.network.FootballActionType
@@ -25,6 +26,9 @@ object FootballPlayerActions {
     private const val DRIBBLE_RESUME_MIN_BALL_SPEED_SQR = 0.01
 
     fun handle(player: ServerPlayer, payload: FootballActionC2SPayload) {
+        if (!MatchParticipation.isParticipating(player)) {
+            return
+        }
         when (payload.action) {
             FootballActionType.SLIDE_TACKLE -> {
                 handleSlideTackle(player, payload)

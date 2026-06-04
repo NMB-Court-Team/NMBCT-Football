@@ -129,6 +129,7 @@ object PenaltyShootoutState {
     }
 
     fun isPenaltyMovementRestricted(player: ServerPlayer): Boolean {
+        if (!MatchParticipation.isParticipating(player)) return false
         if (!isActive()) return false
         if (kickPhase == PenaltyKickPhase.SETUP) return true
         if (player.uuid == currentKickerUuid) return false
@@ -137,6 +138,7 @@ object PenaltyShootoutState {
     }
 
     fun isDefendingGoalkeeper(player: ServerPlayer): Boolean {
+        if (!MatchParticipation.isParticipating(player)) return false
         if (MatchState.getPlayerTeam(player.uuid) != activeDefendingTeam) return false
         val official = when (activeDefendingTeam) {
             TeamSide.A -> PlayerRoleState.teamAGoalkeeper
@@ -258,12 +260,12 @@ object PenaltyShootoutState {
     private fun captureEligibleKickPools(server: MinecraftServer) {
         eligibleKickersA.clear()
         eligibleKickersB.clear()
-        for (uuid in MatchState.teamAPlayers) {
+        for (uuid in MatchParticipation.filterParticipatingRoster(MatchState.teamAPlayers, server)) {
             if (server.playerList.getPlayer(uuid) != null) {
                 eligibleKickersA.add(uuid)
             }
         }
-        for (uuid in MatchState.teamBPlayers) {
+        for (uuid in MatchParticipation.filterParticipatingRoster(MatchState.teamBPlayers, server)) {
             if (server.playerList.getPlayer(uuid) != null) {
                 eligibleKickersB.add(uuid)
             }
@@ -375,6 +377,7 @@ object PenaltyShootoutState {
         for (player in server.playerList.players) {
             if (player.uuid == kickerUuid) continue
             if (gk != null && player.uuid == gk.uuid) continue
+            if (!MatchParticipation.isParticipating(player)) continue
             val team = MatchState.getPlayerTeam(player.uuid) ?: continue
             if (team == TeamSide.A || team == TeamSide.B) {
                 player.teleportTo(level, waitPos.x, waitPos.y, waitPos.z, java.util.HashSet(), player.yRot, player.xRot, false)

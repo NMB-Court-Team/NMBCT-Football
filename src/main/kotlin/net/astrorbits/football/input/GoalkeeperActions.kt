@@ -25,6 +25,9 @@ object GoalkeeperActions {
     private val diveCooldownUntil = ConcurrentHashMap<UUID, Long>()
 
     fun handle(player: ServerPlayer, payload: FootballActionC2SPayload) {
+        if (!net.astrorbits.football.match.MatchParticipation.isParticipating(player)) {
+            return
+        }
         // 服务端双重保险：非发球方球员在开球锁定时拒绝所有足球操作
         if (net.astrorbits.football.match.MatchState.isKickoffInteractionLocked(player)) return
         net.astrorbits.football.match.MatchState.tryNotifyKickoffBallTouched(player)

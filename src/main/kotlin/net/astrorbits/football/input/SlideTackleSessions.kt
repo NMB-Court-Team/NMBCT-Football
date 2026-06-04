@@ -2,6 +2,7 @@ package net.astrorbits.football.input
 
 import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.config.FootballConfigs
+import net.astrorbits.football.match.MatchParticipation
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.stamina.StaminaState
 import net.astrorbits.football.util.FootballKickUtil
@@ -52,6 +53,9 @@ object SlideTackleSessions {
         player: ServerPlayer,
         now: Long,
     ): Boolean {
+        if (!MatchParticipation.isParticipating(player)) {
+            return false
+        }
         if (!player.isSprinting || !player.onGround()) {
             return false
         }

@@ -145,7 +145,7 @@ object GoalCrossingUtil {
         ballCenter: Vec3,
         kickDirection: Vec3,
     ): Boolean {
-        val team = MatchState.getPlayerTeam(player.uuid) ?: return false
+        val team = net.astrorbits.football.match.MatchParticipation.participatingTeam(player) ?: return false
         val goal = opponentGoalForTeam(team, MatchConfigHolder.current)
         val goalCenter = Vec3(
             (goal.x1 + goal.x2) / 2.0,

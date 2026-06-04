@@ -223,6 +223,9 @@ object MatchState {
     }
 
     fun isKickoffInteractionLocked(player: ServerPlayer): Boolean {
+        if (!MatchParticipation.isParticipating(player)) {
+            return true
+        }
         if (PenaltyShootoutState.isPenaltyMovementRestricted(player)) {
             return true
         }
@@ -234,7 +237,7 @@ object MatchState {
         return KickoffLock.isPlayerLocked(
             postGoalResetPending = postGoalResetPending,
             kickoffPhaseActive = phaseActive,
-            playerTeam = getPlayerTeam(player.uuid),
+            playerTeam = MatchParticipation.participatingTeam(player),
             kickoffTeam = kickoffTeam,
             kickoffElapsedMs = elapsed,
             kickoffLockMs = kickoffLockMs,
@@ -316,7 +319,7 @@ object MatchState {
     fun notifyKickoffBallTouched(player: ServerPlayer) {
         if (kickoffTouched) return
         val kt = kickoffTeam ?: return
-        if (getPlayerTeam(player.uuid) != kt) return
+        if (MatchParticipation.participatingTeam(player) != kt) return
         kickoffTouched = true
         val maxTicks = MatchConfigHolder.current.stoppageTimeMaxMinutes * 60 * 20
         if (dynamicStoppageTicks > maxTicks) {
@@ -441,12 +444,12 @@ object MatchState {
         val nameB = getTeamName(TeamSide.B).string
         for (uuid in teamAPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            val isGk = PlayerRoleState.teamAGoalkeeper == uuid
+            val isGk = PlayerRoleState.isGoalkeeper(player)
             FootballNetworking.sendMatchStart(player, TeamSide.A, isGk, kickoff, nameA, nameB)
         }
         for (uuid in teamBPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            val isGk = PlayerRoleState.teamBGoalkeeper == uuid
+            val isGk = PlayerRoleState.isGoalkeeper(player)
             FootballNetworking.sendMatchStart(player, TeamSide.B, isGk, kickoff, nameA, nameB)
         }
     }
@@ -478,10 +481,10 @@ object MatchState {
         spawnCfg: TeamSpawnConfig,
         server: MinecraftServer,
     ) {
-        val online = uuids.mapNotNull { server.playerList.getPlayer(it) }
+        val online = MatchParticipation.onlineParticipating(server, uuids)
         if (online.isEmpty()) return
 
-        val gk = gkUuid?.let { server.playerList.getPlayer(it) }
+        val gk = gkUuid?.let { server.playerList.getPlayer(it) }?.takeIf { MatchParticipation.isParticipating(it) }
         // 门将传至 GK 出生点
         gk?.let { teleportTo(it, spawnCfg.gk) }
 

@@ -20,7 +20,7 @@ object FootballOperabilityClient {
     }
 
     fun canShowFootballHints(player: LocalPlayer): Boolean =
-        player.mainHandItem.isEmpty && !MatchStartClient.isLocked
+        !player.isSpectator && player.mainHandItem.isEmpty && !MatchStartClient.isLocked
 
     /**
      * 右上角单条按键是否应高亮：与客户端实际会处理/发包的条件对齐，而非仅用「附近是否有球」。
