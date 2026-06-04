@@ -127,5 +127,13 @@ object MatchStartClient {
     }
 
     val elapsedMs: Long get() = if (startTimeMs > 0) System.currentTimeMillis() - startTimeMs else 0L
-    fun reset() { startTimeMs = 0L; kickoffTouched = false; isPostGoal = false; isGoalLineOut = false }
+    fun reset() {
+        startTimeMs = 0L
+        kickoffTouched = false
+        isPostGoal = false
+        isGoalLineOut = false
+        halfKickoffActive = false
+        kickoffStartMs = 0L
+        lastStoppageTickMs = 0L
+    }
 }

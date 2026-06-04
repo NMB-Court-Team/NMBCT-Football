@@ -21,7 +21,10 @@ object MatchFieldPlayerSamples {
     }
 
     fun sidelineCoord(axis: String): Double? = withPlayer { player ->
-        if (axis.lowercase() == "x") player.x else player.z
+        when (axis.lowercase()) {
+            "x" -> player.z
+            else -> player.x
+        }
     }
 
     fun <T> withPlayer(block: (net.minecraft.client.player.LocalPlayer) -> T): T? {

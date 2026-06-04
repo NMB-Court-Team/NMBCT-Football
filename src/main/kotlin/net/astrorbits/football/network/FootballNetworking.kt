@@ -4,6 +4,8 @@ import net.astrorbits.football.config.server.FootballServerConfig
 import net.astrorbits.football.config.server.FootballServerConfigHolder
 import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.input.FootballPlayerActions
+import net.astrorbits.football.input.GoalkeeperHoldLock
+import net.astrorbits.football.util.GoalkeeperUtil
 import net.astrorbits.football.match.KickoffWhistleContext
 import net.astrorbits.football.match.MatchKickoffTiming
 import net.astrorbits.football.match.MatchConfig
@@ -415,10 +417,21 @@ object FootballNetworking {
     }
 
     fun resetMatchToPreMatch(server: MinecraftServer) {
+        for (player in server.playerList.players) {
+            GoalkeeperUtil.findHeldFootball(player)?.dropAt(player)
+        }
+        GoalkeeperHoldLock.clearAll(server)
         MatchState.clearScoreboardTeams(server)
         MatchState.reset()
+        syncAllGoalkeeperRoles(server)
         broadcastMatchReset(server)
         broadcastTimerSync(server)
+    }
+
+    private fun syncAllGoalkeeperRoles(server: MinecraftServer) {
+        for (player in server.playerList.players) {
+            sendGoalkeeperRole(player, PlayerRoleState.isGoalkeeper(player))
+        }
     }
 
     fun broadcastMatchReset(server: MinecraftServer) {

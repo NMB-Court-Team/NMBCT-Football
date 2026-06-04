@@ -64,11 +64,11 @@ class FootballHudElement : HudElement {
             var penCx = X + PEN_PAD
             extra.text(font, penLabel, penCx, penCy, PEN_TEXT, true)
             penCx += font.width(penLabel) + PEN_GAP
-            penCx += drawScore(extra, font, penA, penCx, penCy)
+            penCx += drawScore(extra, font, penA, penCx, penCy, penY, PEN_H)
             penCx += PEN_GAP
             extra.text(font, SEP, penCx + D_W / 2 - font.width(SEP) / 2, penCy, DIM, true)
             penCx += D_W + PEN_GAP
-            drawScore(extra, font, penB, penCx, penCy)
+            drawScore(extra, font, penB, penCx, penCy, penY, PEN_H)
         }
 
         // ── 补时面板 ──
@@ -104,8 +104,16 @@ class FootballHudElement : HudElement {
         return NAME_W
     }
 
-    private fun drawScore(extra: GuiGraphicsExtractor, font: Font, text: FormattedCharSequence, x: Int, y: Int): Int {
-        extra.fill(x, Y + 3, x + S_W, Y + H - 3, SCORE_BOX)
+    private fun drawScore(
+        extra: GuiGraphicsExtractor,
+        font: Font,
+        text: FormattedCharSequence,
+        x: Int,
+        y: Int,
+        panelTop: Int = Y,
+        panelHeight: Int = H,
+    ): Int {
+        extra.fill(x, panelTop + 3, x + S_W, panelTop + panelHeight - 3, SCORE_BOX)
         extra.text(font, text, x + S_W / 2 - font.width(text) / 2, y, WHITE, true)
         return S_W
     }

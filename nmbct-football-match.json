@@ -65,14 +65,15 @@
       "z": -64.3
     }
   },
+  "field_config_version": 2,
   "sideline_a": {
     "coord": 4.2,
-    "axis": "x",
+    "axis": "z",
     "positive_inside": true
   },
   "sideline_b": {
     "coord": 12.8,
-    "axis": "x",
+    "axis": "z",
     "positive_inside": false
   },
   "kick_off": {

@@ -13,7 +13,12 @@ object MatchConfigHolder {
     private val configPath = FabricLoader.getInstance().configDir.resolve("nmbct-football-match.json")
 
     fun init() {
-        current = ConfigPersistence.load(configPath, MatchConfig.CODEC, MatchConfig.DEFAULT)
+        val loaded = ConfigPersistence.load(configPath, MatchConfig.CODEC, MatchConfig.DEFAULT)
+        val migrated = MatchConfig.migrateFieldConfigIfNeeded(loaded)
+        if (migrated !== loaded) {
+            ConfigPersistence.save(configPath, MatchConfig.CODEC, migrated)
+        }
+        current = migrated
         MatchState.teamAName = Component.literal(current.teamAName)
         MatchState.teamBName = Component.literal(current.teamBName)
     }

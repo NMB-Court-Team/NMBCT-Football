@@ -36,16 +36,16 @@ object MatchFieldBounds {
 
         return when {
             sidelineAxis == "x" && goalAxis == "z" -> HorizontalRect(
-                minX = sidelineBounds.first,
-                maxX = sidelineBounds.second,
-                minZ = goalBounds(config.goalA, config.goalB, "z").first,
-                maxZ = goalBounds(config.goalA, config.goalB, "z").second,
-            )
-            sidelineAxis == "z" && goalAxis == "x" -> HorizontalRect(
                 minX = goalBounds(config.goalA, config.goalB, "x").first,
                 maxX = goalBounds(config.goalA, config.goalB, "x").second,
                 minZ = sidelineBounds.first,
                 maxZ = sidelineBounds.second,
+            )
+            sidelineAxis == "z" && goalAxis == "x" -> HorizontalRect(
+                minX = sidelineBounds.first,
+                maxX = sidelineBounds.second,
+                minZ = goalBounds(config.goalA, config.goalB, "z").first,
+                maxZ = goalBounds(config.goalA, config.goalB, "z").second,
             )
             else -> null
         }

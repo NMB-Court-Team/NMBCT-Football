@@ -155,4 +155,10 @@ object GoalkeeperStateClient {
         wasHoldingBall = false
         clearHoldReleaseLock()
     }
+
+    /** 比赛重置：与服务端 [PlayerRoleState.reset] 对齐，避免客户端仍按守门员且残留持球锁。 */
+    fun onMatchReset() {
+        isGoalkeeper = false
+        resetHoldState()
+    }
 }

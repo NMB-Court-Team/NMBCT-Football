@@ -1,5 +1,6 @@
 package net.astrorbits.football.client.match
 
+import net.astrorbits.football.client.GoalkeeperStateClient
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.network.KickoffBallTouchedS2CPayload
 import net.astrorbits.football.network.MatchStartS2CPayload
@@ -48,6 +49,7 @@ object MatchStartClientNetworking {
             Minecraft.getInstance().execute {
                 MatchState.reset()
                 MatchStartClient.reset()
+                GoalkeeperStateClient.onMatchReset()
                 PenaltyShootoutClient.reset()
             }
         }

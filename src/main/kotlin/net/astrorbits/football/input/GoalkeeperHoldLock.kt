@@ -1,6 +1,7 @@
 package net.astrorbits.football.input
 
 import net.astrorbits.football.network.FootballNetworking
+import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -43,5 +44,18 @@ object GoalkeeperHoldLock {
 
     private fun syncToPlayer(player: ServerPlayer, now: Long) {
         FootballNetworking.sendHoldReleaseLock(player, remainingTicks(player, now))
+    }
+
+    /** 比赛重置时清除所有持球释放锁定并通知客户端。 */
+    fun clearAll(server: MinecraftServer) {
+        if (releaseLockUntilTick.isEmpty()) {
+            return
+        }
+        val locked = releaseLockUntilTick.keys.toList()
+        releaseLockUntilTick.clear()
+        for (uuid in locked) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            FootballNetworking.sendHoldReleaseLock(player, 0)
+        }
     }
 }

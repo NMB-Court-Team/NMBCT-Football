@@ -254,7 +254,7 @@ object MatchFieldConfigScreen {
                         nameKey = "screen.nmbct-football.field.sideline.axis",
                         descKey = MatchYaclDesc.desc("screen.nmbct-football.field.sideline.axis"),
                         enumClass = SidelineAxis::class.java,
-                        defaultValue = SidelineAxis.X,
+                        defaultValue = SidelineAxis.Z,
                         getter = { SidelineAxis.fromString(s().axis) },
                         setter = { axis -> setter(s().copy(axis = axis.id)) },
                         valueName = { axis -> Component.translatable(axis.translationKey) },

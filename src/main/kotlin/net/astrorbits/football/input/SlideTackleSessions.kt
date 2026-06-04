@@ -267,7 +267,7 @@ object SlideTackleSessions {
             } else {
                 Vec3.ZERO
             }
-            other.setDeltaMovement(other.deltaMovement.add(victimPush.x, 0.0, victimPush.z))
+            other.deltaMovement = other.deltaMovement.add(victimPush.x, 0.0, victimPush.z)
             other.hurtMarked = true
             if (resistanceTicks > 0 && resistanceFactor < 1.0) {
                 tackledResistanceUntil[other.uuid] = TackledResistance(

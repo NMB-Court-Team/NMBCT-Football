@@ -340,7 +340,7 @@ flowchart TB
 
 ### 边线出界 `sideline_a` / `sideline_b`
 
-边线由 `SidelineConfig` 定义：`axis`（`x` 或 `z`）、`coord`、`positive_inside`（哪一侧为场内）。穿越后：
+边线由 `SidelineConfig` 定义：`axis`（`x` 或 `z`，表示边线**延伸方向**）、`coord`（垂直于延伸轴的坐标）、`positive_inside`（哪一侧为场内）。穿越后：
 
 - 发球方 = **最后触球方的对方**（无触球记录时默认 A 队发）
 - 类型固定为 `THROW_IN`（界外球）
@@ -413,7 +413,7 @@ flowchart TB
 
 **`GoalConfig`**：`x1..z2` 门框；`facing_*` 门线法向；`goal_kick`、`corner_kick_left`、`corner_kick_right` 为复位坐标。
 
-**`SidelineConfig`**：`coord` 为边线所在轴坐标；`positive_inside` 为 true 时，该轴正方向一侧为场内（`facing()` 指向场内）。
+**`SidelineConfig`**：`axis` 为边线延伸方向（`x`=沿 X，`z`=沿 Z）；`coord` 为垂直于延伸轴的坐标（沿 X 时填 Z，沿 Z 时填 X）；`positive_inside` 为 true 时，该垂直轴正方向一侧为场内。旧版 JSON（`field_config_version` &lt; 2）在加载时会自动翻转 `axis` 以保持赛场几何不变。
 
 **`TeamSpawnConfig`**：`gk` 单个门将点；`players` 为场上队员坐标列表（可含 `yaw`/`pitch`）。
 

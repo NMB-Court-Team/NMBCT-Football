@@ -67,12 +67,13 @@ data class KickPosition(
 }
 
 /**
- * 边线：选 X 轴则坐标填 X 值，线沿 Z 延伸，场内方向沿 X 正/负。
- * 例：axis=X, coord=50, positiveInside=false → X=50 的线，X<50 是场内。
+ * 边线：`axis` 为边线延伸方向（平行于该轴的触界线）。
+ * - axis=x：边线沿 X，coord 为 Z，场内方向沿 Z 正/负。
+ * - axis=z：边线沿 Z，coord 为 X，场内方向沿 X 正/负。
  */
 data class SidelineConfig(
     val coord: Double = 0.0,
-    val axis: String = "x",
+    val axis: String = "z",
     val positiveInside: Boolean = false,
 ) {
     companion object {
@@ -87,20 +88,29 @@ data class SidelineConfig(
         val DEFAULT = SidelineConfig()
     }
 
+    /** 将旧版「axis=边线法向轴」配置翻转为新版「axis=延伸方向」。 */
+    fun flipLegacyAxis(): SidelineConfig = copy(
+        axis = when (axis.lowercase()) {
+            "x" -> "z"
+            "z" -> "x"
+            else -> axis
+        },
+    )
+
     /** 场内方向：positiveInside=true 时正方向是场内，facing 指向场内 */
     fun facing(): net.minecraft.world.phys.Vec3 {
         val sign = if (positiveInside) 1.0 else -1.0
         return when (axis.lowercase()) {
-            "x" -> net.minecraft.world.phys.Vec3(sign, 0.0, 0.0)
-            else -> net.minecraft.world.phys.Vec3(0.0, 0.0, sign)
+            "x" -> net.minecraft.world.phys.Vec3(0.0, 0.0, sign)
+            else -> net.minecraft.world.phys.Vec3(sign, 0.0, 0.0)
         }
     }
 
-    /** 边线上一点：坐标填哪个轴，就在那个轴上取 coord */
+    /** 边线上一点：延伸轴为 X 时取 Z=coord，延伸轴为 Z 时取 X=coord */
     fun origin(): net.minecraft.world.phys.Vec3 {
         return when (axis.lowercase()) {
-            "x" -> net.minecraft.world.phys.Vec3(coord, 0.0, 0.0)
-            else -> net.minecraft.world.phys.Vec3(0.0, 0.0, coord)
+            "x" -> net.minecraft.world.phys.Vec3(0.0, 0.0, coord)
+            else -> net.minecraft.world.phys.Vec3(coord, 0.0, 0.0)
         }
     }
 }
@@ -149,6 +159,7 @@ data class GoalConfig(
 }
 
 data class MatchConfig(
+    val fieldConfigVersion: Int = FIELD_CONFIG_VERSION,
     val teamAName: String = DEFAULT_TEAM_A_NAME,
     val teamBName: String = DEFAULT_TEAM_B_NAME,
     val rules: MatchRulesSettings = MatchRulesSettings.DEFAULT,
@@ -172,9 +183,13 @@ data class MatchConfig(
     companion object {
         const val DEFAULT_TEAM_A_NAME = "红队"
         const val DEFAULT_TEAM_B_NAME = "蓝队"
+        const val LEGACY_FIELD_CONFIG_VERSION = 1
+        const val FIELD_CONFIG_VERSION = 2
 
         private val NESTED_CODEC: Codec<MatchConfig> = RecordCodecBuilder.create { i ->
             i.group(
+                Codec.INT.optionalFieldOf("field_config_version", LEGACY_FIELD_CONFIG_VERSION)
+                    .forGetter(MatchConfig::fieldConfigVersion),
                 Codec.STRING.fieldOf("team_a_name").forGetter(MatchConfig::teamAName),
                 Codec.STRING.fieldOf("team_b_name").forGetter(MatchConfig::teamBName),
                 MatchRulesSettings.CODEC.optionalFieldOf("rules", MatchRulesSettings.DEFAULT).forGetter(MatchConfig::rules),
@@ -210,32 +225,61 @@ data class MatchConfig(
                     .forGetter(MatchConfig::postGoalBallResetDelaySeconds),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_a_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamASpawn),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_b_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamBSpawn),
-            ).apply(i) { teamAName, teamBName, halfTime, stoppage, stoppageMax, extra, extraHalf, penalty, goalA, goalB, sidelineA, sidelineB, kickOff, postGoal, teamASpawn, teamBSpawn ->
-                MatchConfig(
-                    teamAName = teamAName,
-                    teamBName = teamBName,
-                    rules = MatchRulesSettings(
-                        halfTimeMinutes = halfTime,
-                        enableStoppageTime = stoppage,
-                        stoppageTimeMaxMinutes = stoppageMax,
-                        enableExtraTime = extra,
-                        extraTimeHalfMinutes = extraHalf,
-                        enablePenaltyShootout = penalty,
-                        postGoalBallResetDelaySeconds = postGoal,
-                    ),
-                    goalA = goalA,
-                    goalB = goalB,
-                    sidelineA = sidelineA,
-                    sidelineB = sidelineB,
-                    kickOff = kickOff,
-                    teamASpawn = teamASpawn,
-                    teamBSpawn = teamBSpawn,
-                )
-            }
+            ).apply(i, MatchConfig::fromFlatLegacyFields)
         }
+
+        private fun fromFlatLegacyFields(
+            teamAName: String,
+            teamBName: String,
+            halfTime: Int,
+            stoppage: Boolean,
+            stoppageMax: Int,
+            extra: Boolean,
+            extraHalf: Int,
+            penalty: Boolean,
+            goalA: GoalConfig,
+            goalB: GoalConfig,
+            sidelineA: SidelineConfig,
+            sidelineB: SidelineConfig,
+            kickOff: KickPosition,
+            postGoal: Int,
+            teamASpawn: TeamSpawnConfig,
+            teamBSpawn: TeamSpawnConfig,
+        ): MatchConfig = MatchConfig(
+            fieldConfigVersion = LEGACY_FIELD_CONFIG_VERSION,
+            teamAName = teamAName,
+            teamBName = teamBName,
+            rules = MatchRulesSettings(
+                halfTimeMinutes = halfTime,
+                enableStoppageTime = stoppage,
+                stoppageTimeMaxMinutes = stoppageMax,
+                enableExtraTime = extra,
+                extraTimeHalfMinutes = extraHalf,
+                enablePenaltyShootout = penalty,
+                postGoalBallResetDelaySeconds = postGoal,
+            ),
+            goalA = goalA,
+            goalB = goalB,
+            sidelineA = sidelineA,
+            sidelineB = sidelineB,
+            kickOff = kickOff,
+            teamASpawn = teamASpawn,
+            teamBSpawn = teamBSpawn,
+        )
 
         val CODEC: Codec<MatchConfig> = Codec.withAlternative(NESTED_CODEC, FLAT_LEGACY_CODEC)
 
-        val DEFAULT = MatchConfig()
+        val DEFAULT = MatchConfig(fieldConfigVersion = FIELD_CONFIG_VERSION)
+
+        fun migrateFieldConfigIfNeeded(config: MatchConfig): MatchConfig {
+            if (config.fieldConfigVersion >= FIELD_CONFIG_VERSION) {
+                return config
+            }
+            return config.copy(
+                fieldConfigVersion = FIELD_CONFIG_VERSION,
+                sidelineA = config.sidelineA.flipLegacyAxis(),
+                sidelineB = config.sidelineB.flipLegacyAxis(),
+            )
+        }
     }
 }
