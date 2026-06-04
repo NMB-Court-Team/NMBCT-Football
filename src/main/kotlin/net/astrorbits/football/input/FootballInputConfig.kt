@@ -53,6 +53,7 @@ object FootballInputConfig {
     val BALL_PLAYER_PUSH_SCALE get() = FootballConfigs.server.playerInput.ballPlayerPushScale
     val BALL_PLAYER_MAX_PUSH get() = FootballConfigs.server.playerInput.ballPlayerMaxPush
     val BALL_PLAYER_RESTITUTION get() = FootballConfigs.server.playerInput.ballPlayerRestitution
+    val PLAYER_MASS get() = FootballConfigs.server.playerInput.playerMass
     val PLAYER_BALL_PUSH_MIN_SPEED get() = FootballConfigs.server.playerInput.playerBallPushMinSpeed
     val PLAYER_BALL_PUSH_SCALE get() = FootballConfigs.server.playerInput.playerBallPushScale
     val PLAYER_BALL_PUSH_MAX get() = FootballConfigs.server.playerInput.playerBallPushMax

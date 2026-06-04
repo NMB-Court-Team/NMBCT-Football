@@ -133,17 +133,25 @@ object FootballDribbleSessions {
         cleanupExpiredCollisionGrace(now)
     }
 
-    fun shouldIgnoreCollision(player: ServerPlayer, football: Football, now: Long): Boolean {
-        val session = sessions[player.uuid]
-        if (session != null && session.footballId == football.id) {
-            return true
-        }
+    /** 活跃带球 session 期间完全忽略与该球的碰撞（由带球逻辑接管）。 */
+    fun hasActiveSessionBlockingCollision(player: ServerPlayer, football: Football): Boolean {
+        val session = sessions[player.uuid] ?: return false
+        return session.footballId == football.id
+    }
+
+    /** 结束带球后的短暂 grace：仅抑制重复冲量，不阻断碰撞检测。 */
+    fun shouldSuppressCollisionImpulse(player: ServerPlayer, football: Football, now: Long): Boolean {
         val grace = collisionGrace[player.uuid] ?: return false
         if (now > grace.expiresAtTick) {
             collisionGrace.remove(player.uuid, grace)
             return false
         }
         return grace.footballId == football.id
+    }
+
+    fun removePlayer(playerId: UUID) {
+        sessions.remove(playerId)
+        collisionGrace.remove(playerId)
     }
 
     private fun recordCollisionGrace(playerId: UUID, footballId: Int, now: Long) {

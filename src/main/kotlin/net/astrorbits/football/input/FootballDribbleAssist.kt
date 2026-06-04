@@ -5,7 +5,6 @@ import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.FootballKickUtil
 import net.astrorbits.football.util.Vec3Math
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.entity.ai.attributes.Attributes
 import net.minecraft.world.phys.Vec3
 import kotlin.math.min
 
@@ -138,11 +137,12 @@ object FootballDribbleAssist {
     private fun resolvePlayerHorizontalSpeed(player: ServerPlayer): Double {
         val intent = Vec3Math.horizontal(player.lastClientMoveIntent)
         if (intent.lengthSqr() > 1.0e-4) {
-            val baseSpeed = player.getAttributeValue(Attributes.MOVEMENT_SPEED)
-            val sprintScale = if (player.isSprinting) 1.3 else 1.0
-            return baseSpeed * sprintScale * intent.length().coerceIn(0.0, 1.0)
+            return FootballMovementInputUtil.intendedHorizontalSpeed(
+                player,
+                intent.length().coerceIn(0.0, 1.0),
+            )
         }
 
-        return Vec3Math.horizontal(player.deltaMovement).length()
+        return FootballMovementInputUtil.measuredHorizontalVelocity(player).length()
     }
 }

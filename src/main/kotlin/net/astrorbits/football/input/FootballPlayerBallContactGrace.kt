@@ -6,8 +6,8 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * 身体触球后短暂忽略该球员与同一足球的碰撞分离/推球，避免球速不足时卡在玩家碰撞箱内鬼畜。
- * 接触当 tick 仍正常结算；从下一 tick 起生效。
+ * 身体触球后短暂抑制对该球的重复冲量，避免球速不足时卡在玩家碰撞箱内鬼畜。
+ * 接触当 tick 仍正常结算；从下一 tick 起生效。不阻断碰撞检测。
  */
 object FootballPlayerBallContactGrace {
     private data class GraceEntry(
@@ -35,7 +35,7 @@ object FootballPlayerBallContactGrace {
         )
     }
 
-    fun shouldIgnoreBodyCollision(player: ServerPlayer, football: Football, now: Long): Boolean {
+    fun shouldSuppressBodyImpulse(player: ServerPlayer, football: Football, now: Long): Boolean {
         val entry = graceByPlayer[player.uuid] ?: return false
         if (now > entry.expiresAtTick) {
             graceByPlayer.remove(player.uuid, entry)
@@ -45,6 +45,10 @@ object FootballPlayerBallContactGrace {
             return false
         }
         return entry.footballId == football.id
+    }
+
+    fun removePlayer(playerId: UUID) {
+        graceByPlayer.remove(playerId)
     }
 
     fun cleanupExpired(now: Long) {

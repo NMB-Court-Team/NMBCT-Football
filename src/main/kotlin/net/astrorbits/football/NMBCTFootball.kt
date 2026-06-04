@@ -4,6 +4,8 @@ import net.astrorbits.football.block.Blocks
 import net.astrorbits.football.config.client.FootballClientConfigHolder
 import net.astrorbits.football.config.server.FootballServerConfigHolder
 import net.astrorbits.football.input.FootballDribbleSessions
+import net.astrorbits.football.input.FootballKickPushGrace
+import net.astrorbits.football.input.FootballPlayerBallContactGrace
 import net.astrorbits.football.input.GoalkeeperDiveSessions
 import net.astrorbits.football.input.SlideTackleSessions
 import net.astrorbits.football.item.FootballItemGroups
@@ -69,6 +71,7 @@ object NMBCTFootball : ModInitializer {
 		FootballDribbleSessions.registerEvents()
 		GoalkeeperDiveSessions.registerEvents()
 		PostGoalBallResetScheduler.register()
+		FootballPlayerCollisionScheduler.register()
 
 		ServerPlayConnectionEvents.JOIN.register { handler, _, _ ->
 			PlayerRoleState.syncRoleToPlayer(handler.player)
@@ -76,7 +79,11 @@ object NMBCTFootball : ModInitializer {
 			FootballNetworking.syncPlayerJoin(handler.player)
 		}
 		ServerPlayConnectionEvents.DISCONNECT.register { handler, _ ->
-			StaminaState.removePlayer(handler.player.uuid)
+			val playerId = handler.player.uuid
+			StaminaState.removePlayer(playerId)
+			FootballPlayerBallContactGrace.removePlayer(playerId)
+			FootballKickPushGrace.removePlayer(playerId)
+			FootballDribbleSessions.removePlayer(playerId)
 		}
 
 		LOGGER.info("NMBCT Football initialized")
