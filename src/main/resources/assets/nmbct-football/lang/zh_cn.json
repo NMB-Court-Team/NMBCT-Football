@@ -72,6 +72,8 @@
     "hud.nmbct-football.goal.own_goal": "乌龙球！",
     "hud.nmbct-football.goal.headline": "进球",
     "hud.nmbct-football.goal.headline_own": "乌龙球",
+    "hud.nmbct-football.invalid_goal.headline": "无效进球",
+    "hud.nmbct-football.invalid_goal.scorer": "触球者：%s",
     "hud.nmbct-football.half_kickoff.kickoff": "发球",
     "hud.nmbct-football.result.win": "获胜！",
     "hud.nmbct-football.result.loss": "比赛结果",

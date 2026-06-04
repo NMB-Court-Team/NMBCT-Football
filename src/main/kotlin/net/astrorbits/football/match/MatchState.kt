@@ -47,6 +47,10 @@ object MatchState {
     var lastHalfKickoffTeam: TeamSide? = null
     /** 进球或出界后、等待延迟复位期间为 true，防止重复判例。 */
     var postGoalResetPending: Boolean = false
+    /** 掷界外球/半场开球后：须先由其他球员获得进球归属，否则直接进门无效。 */
+    var directGoalRestricted: Boolean = false
+    private var directGoalRestartKind: DirectGoalRestartKind? = null
+    private var directGoalInitialAttribution: UUID? = null
 
     fun getTeamName(team: TeamSide): Component = when (team) {
         TeamSide.A -> teamAName.copy().withStyle(ChatFormatting.RED)
@@ -130,8 +134,50 @@ object MatchState {
         halfKickoffBroadcasted = false
         lastHalfKickoffTeam = null
         postGoalResetPending = false
+        clearDirectGoalRestriction()
         PlayerRoleState.reset()
     }
+
+    fun beginDirectGoalRestriction(kind: DirectGoalRestartKind) {
+        directGoalRestricted = true
+        directGoalRestartKind = kind
+        directGoalInitialAttribution = null
+    }
+
+    fun clearDirectGoalRestriction() {
+        directGoalRestricted = false
+        directGoalRestartKind = null
+        directGoalInitialAttribution = null
+    }
+
+    /** 新足球放置后重置“首触归属”记录，限制规则仍有效。 */
+    fun onRestrictedRestartBallPlaced() {
+        if (directGoalRestricted) {
+            directGoalInitialAttribution = null
+        }
+    }
+
+    /** 进球归属球员变更时更新直接进球限制状态。 */
+    fun onGoalAttributionChanged(newAttribution: UUID) {
+        if (!directGoalRestricted) return
+        val initial = directGoalInitialAttribution
+        if (initial == null) {
+            directGoalInitialAttribution = newAttribution
+            return
+        }
+        if (newAttribution != initial) {
+            clearDirectGoalRestriction()
+        }
+    }
+
+    fun isDirectGoalInvalid(goalAttributionPlayer: UUID?, lastPhysicalTouch: UUID?): Boolean {
+        if (!directGoalRestricted) return false
+        val current = goalAttributionPlayer ?: lastPhysicalTouch ?: return true
+        val initial = directGoalInitialAttribution ?: return true
+        return current == initial
+    }
+
+    fun peekDirectGoalRestartKind(): DirectGoalRestartKind? = directGoalRestartKind
 
     fun togglePause() {
         isRunning = !isRunning
@@ -254,6 +300,7 @@ object MatchState {
         val p = pos ?: MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
         fb.setPos(p.x, p.y, p.z)
         level.addFreshEntity(fb)
+        onRestrictedRestartBallPlaced()
     }
 
     /** 清除场上所有足球并在指定位置放置一个新足球。 */

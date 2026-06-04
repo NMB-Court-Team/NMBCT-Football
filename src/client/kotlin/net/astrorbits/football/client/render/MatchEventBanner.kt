@@ -86,6 +86,54 @@ object MatchEventBanner {
         drawScoreRow(extra, font, cx, y, scoreRow, withAlpha, SCORE_BOX_GOAL, SCORE_ROW_GOAL, SCORE_GAP_GOAL)
     }
 
+    /** 无效进球：与进球卡片类似，暗红色强调，比分不变。 */
+    fun renderInvalidGoal(
+        extra: GuiGraphicsExtractor,
+        font: Font,
+        screenW: Int,
+        screenH: Int,
+        elapsedMs: Long,
+        durationMs: Long,
+        headline: String,
+        scorerLine: String,
+        scorerColor: Int,
+        scoreRow: ScoreRow,
+    ) {
+        val anim = computeAnim(elapsedMs, durationMs, enterMs = 320L, exitMs = 800L, slidePx = 14)
+        val withAlpha = { color: Int -> applyAlpha(color, anim.alpha) }
+        val pop = 1f + (1f - easeOutCubic((elapsedMs / 380f).coerceIn(0f, 1f))) * 0.08f
+
+        val headlineLine = Line(headline, ACCENT_INVALID_GOAL, bold = true, scale = 2.1f * pop)
+        val contentW = max(
+            GOAL_MIN_W,
+            maxOf(
+                scaledWidth(font, headlineLine),
+                scaledWidth(font, Line(scorerLine, scorerColor, bold = true)),
+                scoreRowWidth(font, scoreRow, SCORE_BOX_GOAL, SCORE_GAP_GOAL),
+            ),
+        )
+        val contentH = lineBlockHeight(font, headlineLine) +
+            lineBlockHeight(font, Line(scorerLine, scorerColor, bold = true)) +
+            SCORE_TOP_GAP_GOAL + SCORE_ROW_GOAL
+        val panelW = contentW + PAD_GOAL * 2
+        val panelH = PAD_GOAL * 2 + contentH + GOAL_BAR_H * 2
+        val panelX = (screenW - panelW) / 2
+        val panelY = (screenH * 0.09f).toInt() + anim.slidePx
+
+        val accent = ACCENT_INVALID_GOAL
+        extra.fill(panelX, panelY, panelX + panelW, panelY + panelH, withAlpha(GOAL_PANEL_BG))
+        extra.fill(panelX, panelY, panelX + panelW, panelY + GOAL_BAR_H, withAlpha(accent))
+        extra.fill(panelX, panelY + panelH - GOAL_BAR_H, panelX + panelW, panelY + panelH, withAlpha(applyAlpha(accent, 0.45f)))
+        extra.fill(panelX, panelY + GOAL_BAR_H, panelX + panelW, panelY + GOAL_BAR_H + 1, withAlpha(INVALID_GOAL_GLOW_LINE))
+
+        val cx = panelX + panelW / 2
+        var y = panelY + GOAL_BAR_H + PAD_GOAL
+        y += drawCenteredLine(extra, font, headlineLine, cx, y, withAlpha(accent))
+        y += drawCenteredLine(extra, font, Line(scorerLine, scorerColor, bold = true), cx, y, withAlpha(scorerColor))
+        y += SCORE_TOP_GAP_GOAL
+        drawScoreRow(extra, font, cx, y, scoreRow, withAlpha, SCORE_BOX_GOAL, SCORE_ROW_GOAL, SCORE_GAP_GOAL)
+    }
+
     /** 出界：上中醒目卡片（避开右侧键位提示），类型 + 提出者 + 发球方 */
     fun renderOut(
         extra: GuiGraphicsExtractor,
@@ -468,6 +516,9 @@ object MatchEventBanner {
     private const val TEAM_B = 0xFF44CCFF.toInt()
 
     const val ACCENT_GOLD = 0xFFFFD700.toInt()
+    /** 无效进球：暗红，与红队得分色 (0xFFFF4444) 区分 */
+    const val ACCENT_INVALID_GOAL = 0xFF6B1A28.toInt()
+    private const val INVALID_GOAL_GLOW_LINE = 0x668B2030
     const val ACCENT_OWN_GOAL = 0xFFCC66FF.toInt()
     const val ACCENT_WIN = 0xFFFFAA00.toInt()
     const val ACCENT_LOSS = 0xFFFF55AA.toInt()

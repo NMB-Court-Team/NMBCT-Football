@@ -442,10 +442,18 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         return applied
     }
 
+    private fun setGoalAttribution(player: ServerPlayer) {
+        val previous = goalAttributionPlayer
+        goalAttributionPlayer = player.uuid
+        if (previous != player.uuid) {
+            MatchState.onGoalAttributionChanged(player.uuid)
+        }
+    }
+
     /** 主动踢球：重置进球归属链（含滑铲推球）。 */
     fun recordActiveKick(player: ServerPlayer, kickDirection: Vec3?) {
         lastPhysicalTouch = player.uuid
-        goalAttributionPlayer = player.uuid
+        setGoalAttribution(player)
         val ballCenter = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         lastActiveKickTowardGoal = kickDirection != null &&
             GoalCrossingUtil.isKickTowardOpponentGoal(player, ballCenter, kickDirection)
@@ -474,7 +482,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             MatchConfigHolder.current,
         )
         if (!prediction.wouldScore) {
-            goalAttributionPlayer = player.uuid
+            setGoalAttribution(player)
         }
     }
 
@@ -791,11 +799,16 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
         if (crossing.inGoal) {
             if (MatchState.postGoalResetPending) return
-            MatchState.postGoalResetPending = true
-            MatchState.onGoal(attackingTeam)
             val scorerUuid = resolveGoalScorerUuid()
             val scorerName = scorerUuid?.let { server.playerList.getPlayer(it)?.gameProfile?.name } ?: "?"
             val scorerTeam = scorerUuid?.let { MatchState.getPlayerTeam(it) } ?: attackingTeam
+            if (MatchState.isDirectGoalInvalid(goalAttributionPlayer, lastPhysicalTouch)) {
+                handleInvalidDirectGoal(server, defendingTeam, scorerName, scorerTeam)
+                return
+            }
+            MatchState.clearDirectGoalRestriction()
+            MatchState.postGoalResetPending = true
+            MatchState.onGoal(attackingTeam)
             val ownGoal = scorerTeam != attackingTeam
             FootballNetworking.broadcastGoalScored(
                 server, attackingTeam, scorerName, scorerTeam, MatchState.teamAScore, MatchState.teamBScore, ownGoal,
@@ -838,7 +851,14 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     ) {
         if (MatchState.postGoalResetPending) return
         MatchState.postGoalResetPending = true
-        PostGoalBallResetScheduler.schedule(level, ballPos, PendingAfterReset.GoalLineOut(restartTeam))
+        PostGoalBallResetScheduler.schedule(
+            level,
+            ballPos,
+            PendingAfterReset.GoalLineOut(
+                restartTeam,
+                throwInDirectGoalRestrict = outType == GoalLineOutType.THROW_IN,
+            ),
+        )
         val (touchName, touchTeam) = resolveLastTouch(server)
         FootballNetworking.broadcastGoalLineOut(
             server, outType, restartTeam, ballPos.x, ballPos.y, ballPos.z, touchName, touchTeam,
@@ -849,6 +869,29 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val uuid = lastPhysicalTouch ?: return "" to null
         val name = server.playerList.getPlayer(uuid)?.gameProfile?.name ?: "?"
         return name to MatchState.getPlayerTeam(uuid)
+    }
+
+    private fun handleInvalidDirectGoal(
+        server: MinecraftServer,
+        defendingTeam: TeamSide,
+        scorerName: String,
+        scorerTeam: TeamSide,
+    ) {
+        if (MatchState.postGoalResetPending) return
+        val restartKind = MatchState.peekDirectGoalRestartKind() ?: return
+        val kickoffTeam = MatchState.kickoffTeam ?: defendingTeam
+        MatchState.postGoalResetPending = true
+        FootballNetworking.broadcastInvalidGoal(
+            server,
+            scorerName,
+            scorerTeam,
+            MatchState.teamAScore,
+            MatchState.teamBScore,
+        )
+        PostGoalBallResetScheduler.schedule(
+            level() as ServerLevel,
+            afterReset = PendingAfterReset.DirectGoalInvalidReset(kickoffTeam, restartKind),
+        )
     }
 
     /**

@@ -13,9 +13,11 @@ import net.astrorbits.football.client.config.FootballConfigNetworking
 import net.astrorbits.football.client.config.MatchConfigNetworking
 import net.astrorbits.football.client.config.MatchFieldConfigNetworking
 import net.astrorbits.football.client.match.GoalScoredClientNetworking
+import net.astrorbits.football.client.match.InvalidGoalClientNetworking
 import net.astrorbits.football.client.match.MatchStartClientNetworking
 import net.astrorbits.football.client.render.GoalLineOutHudElement
 import net.astrorbits.football.client.render.GoalScoredHudElement
+import net.astrorbits.football.client.render.InvalidGoalHudElement
 import net.astrorbits.football.client.render.HalfKickoffHudElement
 import net.astrorbits.football.client.render.KickoffLockHudElement
 import net.astrorbits.football.client.render.MatchResultHudElement
@@ -53,6 +55,7 @@ object NMBCTFootballClient : ClientModInitializer {
 		MatchFieldConfigNetworking.register()
 		MatchStartClientNetworking.register()
 		GoalScoredClientNetworking.register()
+		InvalidGoalClientNetworking.register()
 
 		FootballKeyBindings.init()
 		FootballClientConfigKeyHandler.register()
@@ -89,6 +92,11 @@ object NMBCTFootballClient : ClientModInitializer {
 		HudElementRegistry.addLast(
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "goal_scored_hud"),
 			GoalScoredHudElement()
+		)
+
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "invalid_goal_hud"),
+			InvalidGoalHudElement()
 		)
 
 		HudElementRegistry.addLast(

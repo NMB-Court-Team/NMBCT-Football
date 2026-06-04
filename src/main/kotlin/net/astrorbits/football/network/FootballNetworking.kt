@@ -4,6 +4,7 @@ import net.astrorbits.football.config.server.FootballServerConfig
 import net.astrorbits.football.config.server.FootballServerConfigHolder
 import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.input.FootballPlayerActions
+import net.astrorbits.football.match.DirectGoalRestartKind
 import net.astrorbits.football.match.KickoffWhistleContext
 import net.astrorbits.football.match.MatchKickoffTiming
 import net.astrorbits.football.match.MatchConfig
@@ -53,6 +54,7 @@ object FootballNetworking {
 		registry.register(GoalNetStateS2CPayload.TYPE, GoalNetStateS2CPayload.CODEC)
 		registry.register(GoalNetConnectorSelectionS2CPayload.TYPE, GoalNetConnectorSelectionS2CPayload.CODEC)
 		registry.register(GoalScoredS2CPayload.TYPE, GoalScoredS2CPayload.CODEC)
+		registry.register(InvalidGoalS2CPayload.TYPE, InvalidGoalS2CPayload.CODEC)
 		registry.register(PostGoalKickoffS2CPayload.TYPE, PostGoalKickoffS2CPayload.CODEC)
 		registry.register(MatchResetS2CPayload.TYPE, MatchResetS2CPayload.CODEC)
 		registry.register(HalfKickoffRequestC2SPayload.TYPE, HalfKickoffRequestC2SPayload.CODEC)
@@ -218,6 +220,7 @@ object FootballNetworking {
         ms.lastHalfKickoffTeam = kickoffTeam
         ms.kickoffTeam = kickoffTeam
         ms.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.HALF)
+        ms.beginDirectGoalRestriction(DirectGoalRestartKind.HALF_KICKOFF)
         ms.resetFootball(level)
         val nameA = ms.getTeamName(TeamSide.A).string
         val nameB = ms.getTeamName(TeamSide.B).string
@@ -429,6 +432,26 @@ object FootballNetworking {
             MatchState.getTeamName(TeamSide.B).string,
         )
         StaminaState.onGoalScored(server)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun broadcastInvalidGoal(
+        server: MinecraftServer,
+        scorerName: String,
+        scorerTeam: TeamSide,
+        teamAScore: Int,
+        teamBScore: Int,
+    ) {
+        val payload = InvalidGoalS2CPayload(
+            scorerName,
+            scorerTeam,
+            teamAScore,
+            teamBScore,
+            MatchState.getTeamName(TeamSide.A).string,
+            MatchState.getTeamName(TeamSide.B).string,
+        )
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
         }

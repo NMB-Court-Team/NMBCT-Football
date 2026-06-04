@@ -48,7 +48,27 @@ object PostGoalBallResetScheduler {
             }
             is PendingAfterReset.GoalLineOut -> {
                 MatchState.beginKickoffPhase(MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS, KickoffWhistleContext.GOAL_LINE_OUT)
+                if (action.throwInDirectGoalRestrict) {
+                    MatchState.beginDirectGoalRestriction(DirectGoalRestartKind.THROW_IN)
+                }
                 FootballNetworking.broadcastRestartKickoff(srv, action.kickoffTeam, goalLineOut = true)
+            }
+            is PendingAfterReset.DirectGoalInvalidReset -> {
+                applyDirectGoalInvalidRestart(srv, action)
+            }
+        }
+    }
+
+    private fun applyDirectGoalInvalidRestart(server: MinecraftServer, action: PendingAfterReset.DirectGoalInvalidReset) {
+        MatchState.beginDirectGoalRestriction(action.restartKind)
+        when (action.restartKind) {
+            DirectGoalRestartKind.THROW_IN -> {
+                MatchState.beginKickoffPhase(MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS, KickoffWhistleContext.GOAL_LINE_OUT)
+                FootballNetworking.broadcastRestartKickoff(server, action.kickoffTeam, goalLineOut = true)
+            }
+            DirectGoalRestartKind.HALF_KICKOFF -> {
+                MatchState.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.HALF)
+                FootballNetworking.broadcastRestartKickoff(server, action.kickoffTeam, goalLineOut = false)
             }
         }
     }
