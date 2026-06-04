@@ -5,7 +5,8 @@
 	"client": [
 		"LocalPlayerMixin",
 		"PlayerModelMixin",
-		"AdventureHideHudMixin"
+		"AdventureHideHudMixin",
+		"ListEntryWidgetMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

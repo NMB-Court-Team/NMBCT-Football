@@ -1,12 +1,18 @@
 {
   "team_a_name": "魔法氢棕土",
   "team_b_name": "曲斯特奇奇",
-  "half_time_minutes": 1,
-  "enable_stoppage_time": true,
-  "stoppage_time_max_minutes": 1,
-  "enable_extra_time": true,
-  "extra_time_half_minutes": 1,
-  "enable_penalty_shootout": true,
+  "rules": {
+    "half_time_minutes": 1,
+    "enable_stoppage_time": true,
+    "stoppage_time_max_minutes": 1,
+    "enable_extra_time": true,
+    "extra_time_half_minutes": 1,
+    "enable_penalty_shootout": true,
+    "post_goal_ball_reset_delay_seconds": 3
+  },
+  "accessibility": {
+    "enable_football_position_indicator": false
+  },
   "goal_a": {
     "x1": 12.8,
     "y1": -60.0,
@@ -74,7 +80,6 @@
     "y": -60.0,
     "z": 8.5
   },
-  "post_goal_ball_reset_delay_seconds": 3,
   "team_a_spawn": {
     "gk": {
       "x": 8.5,
