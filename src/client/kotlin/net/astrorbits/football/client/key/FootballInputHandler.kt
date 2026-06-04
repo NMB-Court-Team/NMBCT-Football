@@ -114,15 +114,14 @@ object FootballInputHandler {
             }
 
             tickSprintCounter(player)
-            if (!GoalkeeperStateClient.isGoalkeeper) {
-                BoostSprintClient.tick(player)
-            }
 
             if (client.screen != null || client.isPaused) {
                 resetTransientState(player)
                 updatePrevTickPressed()
                 return@reg
             }
+
+            tickBoostSprint(player)
 
             if (MatchStartClient.isLocked) {
                 handleSlideTacklePress(player)
@@ -131,7 +130,7 @@ object FootballInputHandler {
             }
 
             if (!player.mainHandItem.isEmpty) {
-                resetTransientState(player)
+                resetFootballActionState(player)
                 updatePrevTickPressed()
                 return@reg
             }
@@ -572,7 +571,14 @@ object FootballInputHandler {
         dribbleTickCounter = 0
     }
 
-    private fun resetTransientState(player: LocalPlayer? = null, notifyDribbleEnd: Boolean = true) {
+    private fun tickBoostSprint(player: LocalPlayer) {
+        if (!player.isSpectator) {
+            BoostSprintClient.tick(player)
+        }
+    }
+
+    /** 仅重置足球操作相关状态（踢球蓄力、带球等），不关闭加速疾跑。 */
+    private fun resetFootballActionState(player: LocalPlayer? = null, notifyDribbleEnd: Boolean = true) {
         if (notifyDribbleEnd && player != null && !GoalkeeperStateClient.isGoalkeeper &&
             (dribblePrevTickPressed || FootballKeyBindings.DRIBBLE.isDown)
         ) {
@@ -588,6 +594,10 @@ object FootballInputHandler {
         DribbleBallIndicatorClient.onDribbleEnd()
         resetSlideSprintTicks()
         wasSlidingLastTick = false
+    }
+
+    private fun resetTransientState(player: LocalPlayer? = null, notifyDribbleEnd: Boolean = true) {
+        resetFootballActionState(player, notifyDribbleEnd)
         BoostSprintClient.reset()
     }
 

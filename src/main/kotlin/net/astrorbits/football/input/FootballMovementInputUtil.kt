@@ -1,5 +1,6 @@
 package net.astrorbits.football.input
 
+import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.util.Vec3Math
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.ai.attributes.Attributes
@@ -13,6 +14,24 @@ object FootballMovementInputUtil {
 
     fun hasMovementInput(player: Player, movementYaw: Float): Boolean {
         return movementInputVector(player, movementYaw).lengthSqr() > 1.0e-4
+    }
+
+    /**
+     * 疾跑/加速疾跑体力消耗与激活用：有水平移动意图，且相对 [Player.yRot] 朝向前方分量足够大。
+     * 开球锁定等待期间仅要求有移动输入（便于 reposition），不强制“朝面向方向”前进。
+     */
+    fun hasSprintForwardImpulse(player: ServerPlayer): Boolean {
+        val intent = movementInputVector(player)
+        if (intent.lengthSqr() <= 1.0e-4) {
+            return false
+        }
+        if (MatchState.isKickoffInteractionLocked(player)) {
+            return true
+        }
+        val yawRad = Math.toRadians(player.yRot.toDouble())
+        val forwardX = -kotlin.math.sin(yawRad)
+        val forwardZ = kotlin.math.cos(yawRad)
+        return intent.x * forwardX + intent.z * forwardZ > 0.1
     }
 
     /**

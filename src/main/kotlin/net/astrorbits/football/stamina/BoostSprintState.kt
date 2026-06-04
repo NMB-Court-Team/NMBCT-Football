@@ -28,7 +28,7 @@ object BoostSprintState {
             setActive(player, false)
             return
         }
-        if (!player.isSprinting || !hasForwardImpulse(player) || staminaBlocksBoost(player)) {
+        if (!player.isSprinting || !FootballMovementInputUtil.hasSprintForwardImpulse(player) || staminaBlocksBoost(player)) {
             setActive(player, false)
             return
         }
@@ -43,7 +43,7 @@ object BoostSprintState {
         if (!isActive(player.uuid)) {
             return
         }
-        if (!player.isSprinting || !hasForwardImpulse(player) || staminaBlocksBoost(player)) {
+        if (!player.isSprinting || !FootballMovementInputUtil.hasSprintForwardImpulse(player) || staminaBlocksBoost(player)) {
             setActive(player, false)
             return
         }
@@ -94,15 +94,4 @@ object BoostSprintState {
 
     private fun staminaBlocksBoost(player: ServerPlayer): Boolean =
         !player.isCreative && StaminaState.getStamina(player.uuid) <= 0f
-
-    private fun hasForwardImpulse(player: ServerPlayer): Boolean {
-        val intent = FootballMovementInputUtil.movementInputVector(player)
-        if (intent.lengthSqr() <= 1e-4) {
-            return false
-        }
-        val yawRad = Math.toRadians(player.yRot.toDouble())
-        val forwardX = -kotlin.math.sin(yawRad)
-        val forwardZ = kotlin.math.cos(yawRad)
-        return intent.x * forwardX + intent.z * forwardZ > 0.1
-    }
 }

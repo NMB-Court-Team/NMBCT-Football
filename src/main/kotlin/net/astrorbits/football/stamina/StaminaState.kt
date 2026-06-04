@@ -66,7 +66,7 @@ object StaminaState {
         var stamina = staminaByPlayer.getOrPut(id) { cfg.maxStamina }.coerceIn(0f, cfg.maxStamina)
         var consumed = false
 
-        if (player.isSprinting && hasForwardImpulse(player)) {
+        if (player.isSprinting && FootballMovementInputUtil.hasSprintForwardImpulse(player)) {
             var perSecond = cfg.sprintDrainPerSecond
             if (BoostSprintState.isActive(id)) {
                 perSecond *= cfg.boostSprintStaminaDrainMultiplier
@@ -114,18 +114,6 @@ object StaminaState {
         }
 
         setStamina(player, stamina)
-    }
-
-    private fun hasForwardImpulse(player: ServerPlayer): Boolean {
-        val intent = FootballMovementInputUtil.movementInputVector(player)
-        if (intent.lengthSqr() <= 1e-4) {
-            return false
-        }
-        val yawRad = Math.toRadians(player.yRot.toDouble())
-        val forwardX = -kotlin.math.sin(yawRad)
-        val forwardZ = kotlin.math.cos(yawRad)
-        val forwardDot = intent.x * forwardX + intent.z * forwardZ
-        return forwardDot > 0.1
     }
 
     fun onMatchStart(server: MinecraftServer) {
