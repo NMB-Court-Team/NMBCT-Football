@@ -47,9 +47,8 @@ object MatchState {
     var lastHalfKickoffTeam: TeamSide? = null
     /** 进球或出界后、等待延迟复位期间为 true，防止重复判例。 */
     var postGoalResetPending: Boolean = false
-    /** 掷界外球/半场开球后：须先由其他球员获得进球归属，否则直接进门无效。 */
+    /** 掷界外球（出边线）开球后：须先由其他球员获得进球归属，否则直接进门无效。 */
     var directGoalRestricted: Boolean = false
-    private var directGoalRestartKind: DirectGoalRestartKind? = null
     private var directGoalInitialAttribution: UUID? = null
 
     fun getTeamName(team: TeamSide): Component = when (team) {
@@ -138,15 +137,13 @@ object MatchState {
         PlayerRoleState.reset()
     }
 
-    fun beginDirectGoalRestriction(kind: DirectGoalRestartKind) {
+    fun beginThrowInDirectGoalRestriction() {
         directGoalRestricted = true
-        directGoalRestartKind = kind
         directGoalInitialAttribution = null
     }
 
     fun clearDirectGoalRestriction() {
         directGoalRestricted = false
-        directGoalRestartKind = null
         directGoalInitialAttribution = null
     }
 
@@ -176,8 +173,6 @@ object MatchState {
         val initial = directGoalInitialAttribution ?: return true
         return current == initial
     }
-
-    fun peekDirectGoalRestartKind(): DirectGoalRestartKind? = directGoalRestartKind
 
     fun togglePause() {
         isRunning = !isRunning

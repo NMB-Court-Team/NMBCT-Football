@@ -783,7 +783,17 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             val scorerName = scorerUuid?.let { server.playerList.getPlayer(it)?.gameProfile?.name } ?: "?"
             val scorerTeam = scorerUuid?.let { MatchState.getPlayerTeam(it) } ?: attackingTeam
             if (MatchState.isDirectGoalInvalid(goalAttributionPlayer, lastPhysicalTouch)) {
-                handleInvalidDirectGoal(server, defendingTeam, scorerName, scorerTeam)
+                handleInvalidDirectGoal(
+                    server,
+                    goal,
+                    ix,
+                    iz,
+                    facing,
+                    defendingTeam,
+                    attackingTeam,
+                    scorerName,
+                    scorerTeam,
+                )
                 return
             }
             MatchState.clearDirectGoalRestriction()
@@ -828,6 +838,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         ballPos: Vec3,
         restartTeam: TeamSide,
         outType: GoalLineOutType,
+        broadcastOutHud: Boolean = true,
     ) {
         if (MatchState.postGoalResetPending) return
         MatchState.postGoalResetPending = true
@@ -839,10 +850,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 throwInDirectGoalRestrict = outType == GoalLineOutType.THROW_IN,
             ),
         )
-        val (touchName, touchTeam) = resolveLastTouch(server)
-        FootballNetworking.broadcastGoalLineOut(
-            server, outType, restartTeam, ballPos.x, ballPos.y, ballPos.z, touchName, touchTeam,
-        )
+        if (broadcastOutHud) {
+            val (touchName, touchTeam) = resolveLastTouch(server)
+            FootballNetworking.broadcastGoalLineOut(
+                server, outType, restartTeam, ballPos.x, ballPos.y, ballPos.z, touchName, touchTeam,
+            )
+        }
     }
 
     private fun resolveLastTouch(server: MinecraftServer): Pair<String, TeamSide?> {
@@ -851,16 +864,44 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         return name to MatchState.getPlayerTeam(uuid)
     }
 
+    /**
+     * 掷界外球后的无效直接进球：按射入的球门判定角球/球门球（与底线出界规则一致，以进球归属方代最后触球方）。
+     * - 打进对方球门 → 球门球，守方发球；
+     * - 打进自己球门（乌龙）→ 角球，攻方发球。
+     */
     private fun handleInvalidDirectGoal(
         server: MinecraftServer,
+        goal: GoalConfig,
+        intersectionX: Double,
+        intersectionZ: Double,
+        facing: Vec3,
         defendingTeam: TeamSide,
+        attackingTeam: TeamSide,
         scorerName: String,
         scorerTeam: TeamSide,
     ) {
         if (MatchState.postGoalResetPending) return
-        val restartKind = MatchState.peekDirectGoalRestartKind() ?: return
-        val kickoffTeam = MatchState.kickoffTeam ?: defendingTeam
-        MatchState.postGoalResetPending = true
+        if (!MatchState.directGoalRestricted) return
+
+        val intoOwnGoal = scorerTeam != attackingTeam
+        val outType: GoalLineOutType
+        val restartTeam: TeamSide
+        if (intoOwnGoal) {
+            outType = GoalLineOutType.CORNER_KICK
+            restartTeam = attackingTeam
+        } else {
+            outType = GoalLineOutType.GOAL_KICK
+            restartTeam = defendingTeam
+        }
+
+        val ballPos = if (outType == GoalLineOutType.GOAL_KICK) {
+            val gk = goal.goalKick
+            Vec3(gk.x, gk.y, gk.z)
+        } else {
+            GoalCrossingUtil.cornerKickPosition(goal, facing, intersectionX, intersectionZ)
+        }
+
+        MatchState.clearDirectGoalRestriction()
         FootballNetworking.broadcastInvalidGoal(
             server,
             scorerName,
@@ -868,9 +909,13 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             MatchState.teamAScore,
             MatchState.teamBScore,
         )
-        PostGoalBallResetScheduler.schedule(
+        scheduleOutOfBoundsRestart(
             level() as ServerLevel,
-            afterReset = PendingAfterReset.DirectGoalInvalidReset(kickoffTeam, restartKind),
+            server,
+            ballPos,
+            restartTeam,
+            outType,
+            broadcastOutHud = false,
         )
     }
 

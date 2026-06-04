@@ -4,7 +4,6 @@ import net.astrorbits.football.config.server.FootballServerConfig
 import net.astrorbits.football.config.server.FootballServerConfigHolder
 import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.input.FootballPlayerActions
-import net.astrorbits.football.match.DirectGoalRestartKind
 import net.astrorbits.football.match.KickoffWhistleContext
 import net.astrorbits.football.match.MatchKickoffTiming
 import net.astrorbits.football.match.MatchConfig
@@ -221,7 +220,6 @@ object FootballNetworking {
         ms.lastHalfKickoffTeam = kickoffTeam
         ms.kickoffTeam = kickoffTeam
         ms.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.HALF)
-        ms.beginDirectGoalRestriction(DirectGoalRestartKind.HALF_KICKOFF)
         ms.resetFootball(level)
         val nameA = ms.getTeamName(TeamSide.A).string
         val nameB = ms.getTeamName(TeamSide.B).string

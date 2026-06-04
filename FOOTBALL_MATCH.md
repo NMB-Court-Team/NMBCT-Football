@@ -56,7 +56,6 @@ flowchart TB
 | `match/MatchCommand.kt` | `/match` 命令 |
 | `match/PlayerRoleState.kt` | 官方/自愿守门员 |
 | `match/PostGoalBallResetScheduler.kt` | 进球/出界/无效进球后延迟复位足球 |
-| `match/DirectGoalRestartKind.kt` | 掷界外球/半场开球后的「直接进门无效」场景枚举 |
 | `match/PendingAfterReset.kt` | 足球复位完成后的开球阶段（含无效进球重开） |
 | `match/MatchKickoffTiming.kt` | 开球锁定时长常量 |
 | `Football.kt` | `detectGoal`：门线/边线穿越检测 |
@@ -171,7 +170,7 @@ flowchart TB
 | `dynamicStoppageTicks` | 本半场动态累积的补时时长上限（tick） |
 | `postGoalResetPending` | 进球/无效进球判例后、球复位前，防止重复判例 |
 | `lastHalfKickoffTeam` | 用于半场开球方交替 |
-| `directGoalRestricted` | 掷界外球/半场开球后：须先切换进球归属球员，否则直接进门无效 |
+| `directGoalRestricted` | 掷界外球（出边线）开球后：须先切换进球归属球员，否则直接进门无效 |
 | `directGoalInitialAttribution` | 限制期内首个 `goalAttributionPlayer`（内部字段） |
 
 `reset()` 会清空比分、队伍、开球状态、直接进球限制，并调用 `PlayerRoleState.reset()`。
@@ -305,18 +304,15 @@ flowchart TB
 4. `broadcastGoalScored`、进球粒子、体力回复（`goal_recovery_fraction`）
 5. `PostGoalBallResetScheduler.schedule` — 延迟 `post_goal_ball_reset_delay_seconds` 后将球放到 `kickOff`（0 秒则立即）
 6. 开球方 = **失球方**（`defendingTeam`），进入 `POST_GOAL` 开球锁定，`broadcastPostGoalKickoff`
-7. 清除直接进球限制（正常进球后不再沿用掷界外球/半场开球限制）
+7. 清除直接进球限制（正常进球后不再沿用掷界外球限制）
 
 ### 直接进球限制（无效进球）
 
 **适用场景**（进入限制后，须先由**另一名球员**获得 `goalAttributionPlayer`，否则进门无效）：
 
-| 场景 | 启用时机 | `DirectGoalRestartKind` |
-|------|----------|-------------------------|
-| 掷界外球 | 边线 `THROW_IN` 延迟复位完成、进入 `GOAL_LINE_OUT` 开球锁定时 | `THROW_IN` |
-| 半场开球 | `triggerHalfKickoff` 复位足球时 | `HALF_KICKOFF` |
+- **仅掷界外球**：边线 `THROW_IN` 延迟复位完成、进入 `GOAL_LINE_OUT` 开球锁定时，调用 `beginThrowInDirectGoalRestriction()`。
 
-**不**包含：比赛开始开球（`MATCH_START`）、进球后开球（`POST_GOAL`）、角球/球门球（非 `THROW_IN` 的底线出界）。
+**不**包含：比赛开始开球（`MATCH_START`）、**半场开球**（`HALF`）、进球后开球（`POST_GOAL`）、角球/球门球（非 `THROW_IN` 的底线出界）。半场首次开球允许直接进门得分。
 
 **判定**（`MatchState.isDirectGoalInvalid`）：
 
@@ -328,8 +324,10 @@ flowchart TB
 
 1. 不加分、不吹进球哨（whistle_4）、无进球粒子、无进球体力回复
 2. `broadcastInvalidGoal` → 客户端 `InvalidGoalHudElement`（标题【无效进球】，暗红强调色，显示触球者与**不变**的比分）
-3. `postGoalResetPending = true`，延迟后将球复位至 `kick_off`
-4. `PendingAfterReset.DirectGoalInvalidReset` 重新进入对应开球锁定，并**再次**启用直接进球限制（新球放置后重置「首触归属」记录）
+3. 清除掷界外球直接进球限制，按射入的球门与**进球归属方**套用底线出界复位（以归属方代「最后触球方」）：
+   - **打进对方球门**（归属方 = 攻方）→ 球门球 `GOAL_KICK`，守方在 `goal_kick` 点开球；
+   - **打进自己球门**（乌龙，归属方 = 守方）→ 角球 `CORNER_KICK`，攻方在对应角球点开球。
+4. 与常规底线出界相同：`PostGoalBallResetScheduler` 延迟复位至球门球/角球点、`GOAL_LINE_OUT` 开球锁定（**不**广播角球/球门球 Banner，仅保留【无效进球】HUD；**不**再启用掷界外球直接进球限制）
 
 带球触球（`recordDribbleTouch`）只更新 `lastPhysicalTouch`，**不**改变进球归属，因此同一球员连续带球射门仍可能被判无效，直到其他球员获得归属。
 
@@ -360,11 +358,10 @@ flowchart TB
 服务端 `triggerHalfKickoff`：
 
 - 开球方与上一半场**交替**（`lastHalfKickoffTeam` A→B，B→A）
-- `beginDirectGoalRestriction(HALF_KICKOFF)` — 本半场首次开球适用直接进球限制
 - 足球复位到开球点
 - `beginKickoffPhase`（`HALF`）、吹哨 1，向双方队员发送 `HalfKickoffS2CPayload`
 
-**上半场**不走此流程，仅使用 `/match start` 的 `MatchStart` 流程（**不**启用直接进球限制）。
+**上半场**不走此流程，仅使用 `/match start` 的 `MatchStart` 流程。半场开球**允许**直接进门得分（不启用直接进球限制）。
 
 ## 比赛结束
 
@@ -563,7 +560,7 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 2. **全局 `MatchState`**：同一服务器同时只能进行一场「逻辑比赛」；多赛场需自行约定或未来拆分状态。
 3. **动态补时**：由客户端写入 `MatchState.dynamicStoppageTicks`，无专用服务端校验；无人参赛客户端时可能不累积补时。
 4. **界外球**：边线出界统一为 `THROW_IN`，延迟后球回到中圈开球点，无掷界外球动画或边线落点；开球后适用直接进球限制。
-5. **直接进球限制**：仅掷界外球复位开球与半场开球；比赛开始/进球后/角球/球门球开球不受此规则约束。
+5. **直接进球限制**：仅掷界外球（出边线）复位开球；半场开球、比赛开始、进球后、角球/球门球开球不受此规则约束。
 6. **进球检测**：基于球心线段与平面/矩形相交，高速或极端几何下可能需要调门框与 `facing` 容差。
 7. **足球位置指示**：仅客户端；多球时取范围内距玩家最近的一颗；边线/球门轴配置异常时 `pitchRect` 可能为 null，指示不显示。
 
