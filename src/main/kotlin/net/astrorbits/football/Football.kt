@@ -407,7 +407,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             setCenterWithWorldContactGuards(repositionCenter)
         }
 
-        val sliding = SlideTackleSessions.isSliding(player)
         val resolvedBallCenter = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         val pushNormal = FootballPhysicsSimulator.orientContactNormalTowardBall(
             contactNormal,
@@ -415,9 +414,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             resolvedBallCenter,
         )
         val verticalStep = player.y - player.yOld
-        val playerVelocity = effectivePlayerVelocity(player, verticalStep).let { velocity ->
-            if (sliding) velocity.scale(SLIDE_IMPACT_VELOCITY_SCALE) else velocity
-        }
+        val playerVelocity = effectivePlayerVelocity(player, verticalStep)
         val preCollisionBallVelocity = physicsState.linearVelocity
 
         val momentum = FootballPlayerBallCollision.resolveMomentum(
@@ -446,11 +443,44 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
         deltaMovement = physicsState.linearVelocity
         MatchState.tryNotifyKickoffBallTouched(player)
-        val slideBallImpactSpeed = if (sliding) playerVelocity.horizontalDistance() else 0.0
-        if (sliding) {
-            FootballSounds.playSlideTackleBallHit(player, blockPosition(), slideBallImpactSpeed)
+        FootballPlayerBallContactGrace.record(player, this, now, sliding = false)
+        return true
+    }
+
+    /** 滑铲触球：沿铲向施加普通传球踢击（力度与散布同 [FootballActionType.PASS]）。 */
+    private fun applySlideBallKickFromPlayer(
+        player: ServerPlayer,
+        repositionCenter: Vec3? = null,
+        now: Long,
+    ): Boolean {
+        if (isImmovable || isPlayerBallMovementForbidden(player)) {
+            return false
         }
-        FootballPlayerBallContactGrace.record(player, this, now, sliding)
+        if (shouldSuppressPlayerBodyImpulse(player, now)) {
+            return false
+        }
+        val kickDir = SlideTackleSessions.slideKickDirection(player) ?: return false
+
+        if (repositionCenter != null) {
+            setCenterWithWorldContactGuards(repositionCenter)
+        }
+
+        val params = FootballKickUtil.resolvePassParams()
+        val kickImpulse = FootballKickUtil.buildKickDirection(kickDir, kickDir, params.force, params.angleDegrees)
+        recordActiveKick(player, kickImpulse)
+        FootballKickUtil.applyKickWithHorizontalDirection(
+            football = this,
+            horizontalLook = kickDir,
+            verticalReference = kickDir,
+            params = params,
+            random = player.random,
+            spreadInaccuracy = FootballInputConfig.KICK_SPREAD_INACCURACY,
+        )
+        deltaMovement = physicsState.linearVelocity
+        MatchState.tryNotifyKickoffBallTouched(player)
+        FootballSounds.playKick(player, params.force)
+        FootballParticles.playKick(player, this, params.force)
+        FootballPlayerBallContactGrace.record(player, this, now, sliding = true)
         return true
     }
 
@@ -639,17 +669,14 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             val preTouchBottomPos = position()
             val preTouchPhysics = FootballTrajectoryPredictor.copyState(physicsState)
             if (player.uuid !in pushedPlayersThisTick) {
-                if (applyPlayerPushFromPlayer(
-                        player,
-                        pushNormal,
-                        repositionCenter,
-                        now,
-                    )
-                ) {
+                val applied = if (sliding) {
+                    applySlideBallKickFromPlayer(player, repositionCenter, now)
+                } else {
+                    applyPlayerPushFromPlayer(player, pushNormal, repositionCenter, now)
+                }
+                if (applied) {
                     pushedPlayersThisTick.add(player.uuid)
-                    if (sliding) {
-                        recordActiveKick(player, effectivePlayerHorizontalMotion(player))
-                    } else {
+                    if (!sliding) {
                         recordPassiveBodyTouch(player, preTouchPhysics, preTouchBottomPos)
                     }
                 }
@@ -1256,7 +1283,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                     entity.position(),
                     ballCenter,
                 )
-            if (applyPlayerPushFromPlayer(entity, contactNormal, now = now)) {
+            val applied = if (SlideTackleSessions.isSliding(entity)) {
+                applySlideBallKickFromPlayer(entity, now = now)
+            } else {
+                applyPlayerPushFromPlayer(entity, contactNormal, now = now)
+            }
+            if (applied) {
                 syncPhysicsToEntityData()
             }
             return
@@ -1364,7 +1396,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     companion object {
         /** 球-玩家分离时的皮肤厚度，避免下一 tick 再次嵌入。 */
         private const val PLAYER_SEPARATION_EPSILON = 0.015
-        private const val SLIDE_IMPACT_VELOCITY_SCALE = 1.25
         /** 玩家主动推球的接触余量，用于覆盖玩家本 tick 扫过球边缘但尚未深度重叠的情况。 */
         private const val PLAYER_PUSH_CONTACT_MARGIN = 0.08
 

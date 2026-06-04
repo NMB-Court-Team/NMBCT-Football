@@ -110,6 +110,12 @@ object SlideTackleSessions {
         return if (speed > SLIDE_MOVE_EPSILON) session.direction.scale(speed) else null
     }
 
+    /** 滑铲水平朝向（单位向量），供铲到球时沿铲向普通踢球。 */
+    fun slideKickDirection(player: ServerPlayer): Vec3? {
+        val direction = sessions[player.uuid]?.direction ?: return null
+        return if (direction.lengthSqr() > 1.0e-8) direction else null
+    }
+
     @JvmStatic
     fun isTackledJumpBlocked(playerId: UUID, nowTick: Long): Boolean {
         val expiresAtTick = tackledJumpBlockUntil[playerId] ?: return false
