@@ -7,6 +7,7 @@ import net.astrorbits.football.match.TeamSide
 import net.minecraft.network.FriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
+import net.minecraft.world.phys.Vec3
 import java.util.UUID
 
 /** S2C: 同步当前定位球状态供客户端操作限制预判。 */
@@ -17,6 +18,8 @@ data class SetPieceStateS2CPayload(
     val goalKickPickerUuid: UUID?,
     val throwInTakerUuid: UUID?,
     val movementFrozen: Boolean,
+    val ballPos: Vec3?,
+    val defendingSide: TeamSide?,
 ) : CustomPacketPayload {
     override fun type() = TYPE
 
@@ -28,6 +31,8 @@ data class SetPieceStateS2CPayload(
             goalKickPickerUuid = null,
             throwInTakerUuid = null,
             movementFrozen = false,
+            ballPos = null,
+            defendingSide = null,
         )
 
         val TYPE: CustomPacketPayload.Type<SetPieceStateS2CPayload> =
@@ -45,6 +50,14 @@ data class SetPieceStateS2CPayload(
                 buf.writeBoolean(payload.throwInTakerUuid != null)
                 payload.throwInTakerUuid?.let { buf.writeUUID(it) }
                 buf.writeBoolean(payload.movementFrozen)
+                buf.writeBoolean(payload.ballPos != null)
+                payload.ballPos?.let {
+                    buf.writeDouble(it.x)
+                    buf.writeDouble(it.y)
+                    buf.writeDouble(it.z)
+                }
+                buf.writeBoolean(payload.defendingSide != null)
+                payload.defendingSide?.let { TeamSide.STREAM_CODEC.encode(buf, it) }
             },
             { buf ->
                 val kind = SetPieceKind.STREAM_CODEC.decode(buf)
@@ -53,6 +66,12 @@ data class SetPieceStateS2CPayload(
                 val goalKickPickerUuid = if (buf.readBoolean()) buf.readUUID() else null
                 val throwInTakerUuid = if (buf.readBoolean()) buf.readUUID() else null
                 val movementFrozen = buf.readBoolean()
+                val ballPos = if (buf.readBoolean()) {
+                    Vec3(buf.readDouble(), buf.readDouble(), buf.readDouble())
+                } else {
+                    null
+                }
+                val defendingSide = if (buf.readBoolean()) TeamSide.STREAM_CODEC.decode(buf) else null
                 SetPieceStateS2CPayload(
                     kind = kind,
                     restartTeam = restartTeam,
@@ -60,6 +79,8 @@ data class SetPieceStateS2CPayload(
                     goalKickPickerUuid = goalKickPickerUuid,
                     throwInTakerUuid = throwInTakerUuid,
                     movementFrozen = movementFrozen,
+                    ballPos = ballPos,
+                    defendingSide = defendingSide,
                 )
             },
         )

@@ -68,6 +68,7 @@ object MatchStartClientNetworking {
                     payload.totalKicksTaken,
                     payload.currentKickerTeam,
                     payload.kickerName,
+                    payload.currentKickerUuid,
                     payload.kickPhase,
                     payload.activeDefendingTeam,
                     payload.firstKickTeam,

@@ -33,6 +33,8 @@ object SetPieceClientNetworking {
                     payload.goalKickPickerUuid,
                     payload.throwInTakerUuid,
                     payload.movementFrozen,
+                    payload.ballPos,
+                    payload.defendingSide,
                 )
             }
         }

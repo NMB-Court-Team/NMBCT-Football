@@ -3,6 +3,7 @@ package net.astrorbits.football.client
 import net.astrorbits.football.match.GoalKickPhase
 import net.astrorbits.football.match.SetPieceKind
 import net.astrorbits.football.match.TeamSide
+import net.minecraft.world.phys.Vec3
 import java.util.UUID
 
 object SetPieceClient {
@@ -12,6 +13,8 @@ object SetPieceClient {
     var goalKickPickerUuid: UUID? = null; private set
     var throwInTakerUuid: UUID? = null; private set
     var movementFrozen: Boolean = false; private set
+    var ballPos: Vec3? = null; private set
+    var defendingSide: TeamSide? = null; private set
 
     fun sync(
         kind: SetPieceKind,
@@ -20,6 +23,8 @@ object SetPieceClient {
         goalKickPickerUuid: UUID?,
         throwInTakerUuid: UUID?,
         movementFrozen: Boolean,
+        ballPos: Vec3?,
+        defendingSide: TeamSide?,
     ) {
         this.kind = kind
         this.restartTeam = restartTeam
@@ -27,10 +32,12 @@ object SetPieceClient {
         this.goalKickPickerUuid = goalKickPickerUuid
         this.throwInTakerUuid = throwInTakerUuid
         this.movementFrozen = movementFrozen
+        this.ballPos = ballPos
+        this.defendingSide = defendingSide
     }
 
     fun reset() {
-        sync(SetPieceKind.NONE, null, null, null, null, false)
+        sync(SetPieceKind.NONE, null, null, null, null, false, null, null)
     }
 
     fun isMovementFrozen(playerUuid: UUID): Boolean =

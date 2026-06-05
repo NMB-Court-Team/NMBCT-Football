@@ -325,6 +325,7 @@ object FootballNetworking {
             totalKicksTaken = PenaltyShootoutState.totalKicksTaken,
             currentKickerTeam = PenaltyShootoutState.currentKickerTeam,
             kickerName = kickerName,
+            currentKickerUuid = PenaltyShootoutState.currentKickerUuid,
             kickPhase = PenaltyShootoutState.kickPhase,
             activeDefendingTeam = PenaltyShootoutState.activeDefendingTeam,
             firstKickTeam = PenaltyShootoutState.firstKickTeam,
@@ -680,6 +681,8 @@ object FootballNetworking {
             throwInTakerUuid = ctx.throwInTakerUuid,
             movementFrozen = ctx.kind == net.astrorbits.football.match.SetPieceKind.THROW_IN &&
                 ctx.throwInTakerUuid != null,
+            ballPos = ctx.ballPos,
+            defendingSide = ctx.defendingSide,
         )
     }
 }

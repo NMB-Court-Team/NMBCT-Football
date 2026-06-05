@@ -7,6 +7,8 @@ import net.minecraft.network.FriendlyByteBuf
 import net.minecraft.network.codec.ByteBufCodecs
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
+import java.util.UUID
+
 /** S2C: 点球大战状态同步 */
 data class PenaltyShootoutSyncS2CPayload(
     val active: Boolean,
@@ -16,6 +18,7 @@ data class PenaltyShootoutSyncS2CPayload(
     val totalKicksTaken: Int,
     val currentKickerTeam: TeamSide,
     val kickerName: String,
+    val currentKickerUuid: UUID?,
     val kickPhase: PenaltyKickPhase,
     val activeDefendingTeam: TeamSide,
     val firstKickTeam: TeamSide,
@@ -31,18 +34,36 @@ data class PenaltyShootoutSyncS2CPayload(
             { buf -> PenaltyKickPhase.entries[buf.readInt()] },
         )
 
-        val CODEC: StreamCodec<FriendlyByteBuf, PenaltyShootoutSyncS2CPayload> = StreamCodec.composite(
-            ByteBufCodecs.BOOL, PenaltyShootoutSyncS2CPayload::active,
-            ByteBufCodecs.INT, PenaltyShootoutSyncS2CPayload::penaltyScoreA,
-            ByteBufCodecs.INT, PenaltyShootoutSyncS2CPayload::penaltyScoreB,
-            ByteBufCodecs.BOOL, PenaltyShootoutSyncS2CPayload::suddenDeath,
-            ByteBufCodecs.INT, PenaltyShootoutSyncS2CPayload::totalKicksTaken,
-            TeamSide.STREAM_CODEC, PenaltyShootoutSyncS2CPayload::currentKickerTeam,
-            ByteBufCodecs.STRING_UTF8, PenaltyShootoutSyncS2CPayload::kickerName,
-            PHASE_CODEC, PenaltyShootoutSyncS2CPayload::kickPhase,
-            TeamSide.STREAM_CODEC, PenaltyShootoutSyncS2CPayload::activeDefendingTeam,
-            TeamSide.STREAM_CODEC, PenaltyShootoutSyncS2CPayload::firstKickTeam,
-            ::PenaltyShootoutSyncS2CPayload,
+        val CODEC: StreamCodec<FriendlyByteBuf, PenaltyShootoutSyncS2CPayload> = StreamCodec.of(
+            { buf, payload ->
+                buf.writeBoolean(payload.active)
+                buf.writeInt(payload.penaltyScoreA)
+                buf.writeInt(payload.penaltyScoreB)
+                buf.writeBoolean(payload.suddenDeath)
+                buf.writeInt(payload.totalKicksTaken)
+                TeamSide.STREAM_CODEC.encode(buf, payload.currentKickerTeam)
+                buf.writeUtf(payload.kickerName)
+                buf.writeBoolean(payload.currentKickerUuid != null)
+                payload.currentKickerUuid?.let { buf.writeUUID(it) }
+                buf.writeInt(payload.kickPhase.ordinal)
+                TeamSide.STREAM_CODEC.encode(buf, payload.activeDefendingTeam)
+                TeamSide.STREAM_CODEC.encode(buf, payload.firstKickTeam)
+            },
+            { buf ->
+                PenaltyShootoutSyncS2CPayload(
+                    active = buf.readBoolean(),
+                    penaltyScoreA = buf.readInt(),
+                    penaltyScoreB = buf.readInt(),
+                    suddenDeath = buf.readBoolean(),
+                    totalKicksTaken = buf.readInt(),
+                    currentKickerTeam = TeamSide.STREAM_CODEC.decode(buf),
+                    kickerName = buf.readUtf(),
+                    currentKickerUuid = if (buf.readBoolean()) buf.readUUID() else null,
+                    kickPhase = PenaltyKickPhase.entries[buf.readInt()],
+                    activeDefendingTeam = TeamSide.STREAM_CODEC.decode(buf),
+                    firstKickTeam = TeamSide.STREAM_CODEC.decode(buf),
+                )
+            },
         )
     }
 }

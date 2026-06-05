@@ -2,6 +2,7 @@ package net.astrorbits.football.client.match
 
 import net.astrorbits.football.match.PenaltyKickPhase
 import net.astrorbits.football.match.TeamSide
+import java.util.UUID
 
 object PenaltyShootoutClient {
     var active: Boolean = false
@@ -11,6 +12,7 @@ object PenaltyShootoutClient {
     var totalKicksTaken: Int = 0
     var currentKickerTeam: TeamSide = TeamSide.A
     var kickerName: String = ""
+    var currentKickerUuid: UUID? = null
     var kickPhase: PenaltyKickPhase = PenaltyKickPhase.SETUP
     var activeDefendingTeam: TeamSide = TeamSide.A
     var firstKickTeam: TeamSide = TeamSide.A
@@ -23,6 +25,7 @@ object PenaltyShootoutClient {
         totalKicksTaken: Int,
         currentKickerTeam: TeamSide,
         kickerName: String,
+        currentKickerUuid: UUID?,
         kickPhase: PenaltyKickPhase,
         activeDefendingTeam: TeamSide,
         firstKickTeam: TeamSide,
@@ -34,6 +37,7 @@ object PenaltyShootoutClient {
         this.totalKicksTaken = totalKicksTaken
         this.currentKickerTeam = currentKickerTeam
         this.kickerName = kickerName
+        this.currentKickerUuid = currentKickerUuid
         this.kickPhase = kickPhase
         this.activeDefendingTeam = activeDefendingTeam
         this.firstKickTeam = firstKickTeam
@@ -46,6 +50,7 @@ object PenaltyShootoutClient {
         suddenDeath = false
         totalKicksTaken = 0
         kickerName = ""
+        currentKickerUuid = null
         kickPhase = PenaltyKickPhase.SETUP
     }
 }
