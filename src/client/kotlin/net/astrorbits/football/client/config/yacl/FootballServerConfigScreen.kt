@@ -481,11 +481,28 @@ object FootballServerConfigScreen {
             { v -> setSlide { it.copy(tacklerSpeedDampOnContact = v) } },
             0.0..1.0,
         )
+        addInt(
+            "$PI.slide_contact_distance_penalty_ticks",
+            "$PI.slide_contact_distance_penalty_ticks.desc",
+            PL_SLIDE.contactDistancePenaltyTicks,
+            { slide().contactDistancePenaltyTicks },
+            { v -> setSlide { it.copy(contactDistancePenaltyTicks = v) } },
+            0..40,
+        )
         addDouble("$PI.slide_victim_push_speed", "$PI.slide_victim_push_speed.desc", PL_SLIDE.victimPushSpeed, { slide().victimPushSpeed }, { v -> setSlide { it.copy(victimPushSpeed = v) } }, 0.0..3.0)
+        addDouble(
+            "$PI.slide_victim_knockback_upward",
+            "$PI.slide_victim_knockback_upward.desc",
+            PL_SLIDE.victimKnockbackUpward,
+            { slide().victimKnockbackUpward },
+            { v -> setSlide { it.copy(victimKnockbackUpward = v) } },
+            0.0..1.5,
+        )
         addInt("$PI.slide_victim_resistance_ticks", "$PI.slide_victim_resistance_ticks.desc", PL_SLIDE.victimResistanceTicks, { slide().victimResistanceTicks }, { v -> setSlide { it.copy(victimResistanceTicks = v) } }, 0..120)
         addDouble("$PI.slide_victim_resistance_factor", "$PI.slide_victim_resistance_factor.desc", PL_SLIDE.victimResistanceFactor, { slide().victimResistanceFactor }, { v -> setSlide { it.copy(victimResistanceFactor = v) } }, 0.0..1.0)
         addInt("$PI.slide_victim_jump_block_ticks", "$PI.slide_victim_jump_block_ticks.desc", PL_SLIDE.victimJumpBlockTicks, { slide().victimJumpBlockTicks }, { v -> setSlide { it.copy(victimJumpBlockTicks = v) } }, 0..120)
         addInt("$PI.slide_ball_contact_grace_ticks", "$PI.slide_ball_contact_grace_ticks.desc", PL_SLIDE.ballContactGraceTicks, { slide().ballContactGraceTicks }, { v -> setSlide { it.copy(ballContactGraceTicks = v) } }, 0..60)
+        addDouble("$PI.slide_ball_kick_force", "$PI.slide_ball_kick_force.desc", PL_SLIDE.ballKickForce, { slide().ballKickForce }, { v -> setSlide { it.copy(ballKickForce = v) } }, 0.1..10.0)
     }
 
     private fun OptionGroup.Builder.addStaminaMatchEventOptions(

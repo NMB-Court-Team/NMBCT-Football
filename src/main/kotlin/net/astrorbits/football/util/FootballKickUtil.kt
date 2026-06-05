@@ -63,6 +63,12 @@ object FootballKickUtil {
         heightOffset = 0.0
     )
 
+    fun resolveSlideKickParams(): KickParams = KickParams(
+        force = FootballInputConfig.SLIDE_BALL_KICK_FORCE,
+        angleDegrees = 0.0,
+        heightOffset = 0.0,
+    )
+
     fun resolveShootParams(chargeRatio: Float, sprinting: Boolean, perfectCharge: Boolean = false): KickParams {
         val clamped = chargeRatio.coerceIn(0f, 1f)
         var force = FootballInputConfig.SHOOT_FORCE_MIN +

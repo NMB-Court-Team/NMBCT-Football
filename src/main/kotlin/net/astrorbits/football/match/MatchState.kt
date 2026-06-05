@@ -185,6 +185,7 @@ object MatchState {
         clearPendingOffsideSnapshot()
         PlayerRoleState.reset()
         PenaltyShootoutState.clear()
+        MatchPenaltyKickState.clear()
         SetPieceState.clear()
     }
 
@@ -264,7 +265,13 @@ object MatchState {
         if (PenaltyShootoutState.isPenaltyMovementRestricted(player)) {
             return true
         }
+        if (MatchPenaltyKickState.isMovementRestricted(player)) {
+            return true
+        }
         if (currentPhase == MatchPhase.PENALTIES && !PenaltyShootoutState.isPenaltyFootballInteractionAllowed(player)) {
+            return true
+        }
+        if (MatchPenaltyKickState.isActive() && !MatchPenaltyKickState.isFootballInteractionAllowed(player)) {
             return true
         }
         if (action == net.astrorbits.football.network.FootballActionType.GK_CATCH &&

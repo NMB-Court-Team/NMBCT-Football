@@ -13,12 +13,15 @@ data class PlayerSlideTackleSettings(
     val decayTicks: Int = 14,
     val endSpeedRetain: Double = 0.85,
     val minSprintTicks: Int = 5,
-    val tacklerSpeedDampOnContact: Double = 0.25,
-    val victimPushSpeed: Double = 0.72,
+    val tacklerSpeedDampOnContact: Double = 0.85,
+    val contactDistancePenaltyTicks: Int = 5,
+    val victimPushSpeed: Double = 1.1,
+    val victimKnockbackUpward: Double = 0.28,
     val victimResistanceTicks: Int = 12,
     val victimResistanceFactor: Double = 0.35,
     val victimJumpBlockTicks: Int = 14,
     val ballContactGraceTicks: Int = 14,
+    val ballKickForce: Double = 3.0,
 ) {
     val cooldownTicks: Int
         get() = (cooldownSeconds * TICKS_PER_SECOND).toInt()
@@ -35,14 +38,19 @@ data class PlayerSlideTackleSettings(
                 Codec.INT.optionalFieldOf("slide_decay_ticks", 14).forGetter(PlayerSlideTackleSettings::decayTicks),
                 Codec.DOUBLE.optionalFieldOf("slide_end_speed_retain", 0.85).forGetter(PlayerSlideTackleSettings::endSpeedRetain),
                 Codec.INT.optionalFieldOf("slide_min_sprint_ticks", 5).forGetter(PlayerSlideTackleSettings::minSprintTicks),
-                Codec.DOUBLE.optionalFieldOf("slide_tackler_speed_damp_on_contact", 0.25)
+                Codec.DOUBLE.optionalFieldOf("slide_tackler_speed_damp_on_contact", 0.85)
                     .forGetter(PlayerSlideTackleSettings::tacklerSpeedDampOnContact),
-                Codec.DOUBLE.optionalFieldOf("slide_victim_push_speed", 0.72).forGetter(PlayerSlideTackleSettings::victimPushSpeed),
+                Codec.INT.optionalFieldOf("slide_contact_distance_penalty_ticks", 5)
+                    .forGetter(PlayerSlideTackleSettings::contactDistancePenaltyTicks),
+                Codec.DOUBLE.optionalFieldOf("slide_victim_push_speed", 1.1).forGetter(PlayerSlideTackleSettings::victimPushSpeed),
+                Codec.DOUBLE.optionalFieldOf("slide_victim_knockback_upward", 0.28)
+                    .forGetter(PlayerSlideTackleSettings::victimKnockbackUpward),
                 Codec.INT.optionalFieldOf("slide_victim_resistance_ticks", 12).forGetter(PlayerSlideTackleSettings::victimResistanceTicks),
                 Codec.DOUBLE.optionalFieldOf("slide_victim_resistance_factor", 0.35)
                     .forGetter(PlayerSlideTackleSettings::victimResistanceFactor),
                 Codec.INT.optionalFieldOf("slide_victim_jump_block_ticks", 14).forGetter(PlayerSlideTackleSettings::victimJumpBlockTicks),
                 Codec.INT.optionalFieldOf("slide_ball_contact_grace_ticks", 14).forGetter(PlayerSlideTackleSettings::ballContactGraceTicks),
+                Codec.DOUBLE.optionalFieldOf("slide_ball_kick_force", 3.0).forGetter(PlayerSlideTackleSettings::ballKickForce),
             ).apply(i, ::PlayerSlideTackleSettings)
         }.validate(::validate)
 
@@ -75,8 +83,16 @@ data class PlayerSlideTackleSettings(
                     "slide_tackler_speed_damp_on_contact must be in [0, 1], was ${settings.tacklerSpeedDampOnContact}"
                 }
             }
+            if (settings.contactDistancePenaltyTicks !in 0..40) {
+                return DataResult.error {
+                    "slide_contact_distance_penalty_ticks must be in [0, 40], was ${settings.contactDistancePenaltyTicks}"
+                }
+            }
             if (settings.victimPushSpeed !in 0.0..3.0) {
                 return DataResult.error { "slide_victim_push_speed must be in [0, 3], was ${settings.victimPushSpeed}" }
+            }
+            if (settings.victimKnockbackUpward !in 0.0..1.5) {
+                return DataResult.error { "slide_victim_knockback_upward must be in [0, 1.5], was ${settings.victimKnockbackUpward}" }
             }
             if (settings.victimResistanceTicks !in 0..120) {
                 return DataResult.error { "slide_victim_resistance_ticks must be in [0, 120], was ${settings.victimResistanceTicks}" }
@@ -89,6 +105,9 @@ data class PlayerSlideTackleSettings(
             }
             if (settings.ballContactGraceTicks !in 0..60) {
                 return DataResult.error { "slide_ball_contact_grace_ticks must be in [0, 60], was ${settings.ballContactGraceTicks}" }
+            }
+            if (settings.ballKickForce !in 0.1..10.0) {
+                return DataResult.error { "slide_ball_kick_force must be in [0.1, 10], was ${settings.ballKickForce}" }
             }
             return DataResult.success(settings)
         }

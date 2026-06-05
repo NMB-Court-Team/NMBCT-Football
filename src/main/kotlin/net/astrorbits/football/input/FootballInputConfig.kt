@@ -65,6 +65,7 @@ object FootballInputConfig {
     val SLIDE_MIN_SPRINT_TICKS get() = FootballConfigs.server.playerInput.slideMinSprintTicks
     val PLAYER_BALL_CONTACT_GRACE_TICKS get() = FootballConfigs.server.playerInput.playerBallContactGraceTicks
     val SLIDE_BALL_CONTACT_GRACE_TICKS get() = FootballConfigs.server.playerInput.slideBallContactGraceTicks
+    val SLIDE_BALL_KICK_FORCE get() = FootballConfigs.server.playerInput.slideBallKickForce
     const val FLAG_SPRINT = FootballInputFlags.SPRINT
     const val FLAG_DIVE_USE_LOOK = FootballInputFlags.DIVE_USE_LOOK
     const val FLAG_LOOK_AROUND = FootballInputFlags.LOOK_AROUND

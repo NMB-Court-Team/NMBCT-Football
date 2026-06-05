@@ -20,11 +20,14 @@ class FreeKickAwardHudElement : HudElement {
         val typeKey = when (FreeKickAwardClient.freeKickType) {
             FreeKickType.DIRECT -> "hud.nmbct-football.free_kick.type.direct"
             FreeKickType.INDIRECT -> "hud.nmbct-football.free_kick.type.indirect"
+            FreeKickType.PENALTY -> "hud.nmbct-football.free_kick.type.penalty"
         }
         val reasonKey = when (FreeKickAwardClient.foulReason) {
             FreeKickFoulReason.OFFSIDE -> "hud.nmbct-football.free_kick.reason.offside"
             FreeKickFoulReason.GOALKEEPER_LEFT_PENALTY_AREA ->
                 "hud.nmbct-football.free_kick.reason.goalkeeper_left_penalty_area"
+            FreeKickFoulReason.SLIDE_TACKLE_IN_PENALTY_AREA ->
+                "hud.nmbct-football.free_kick.reason.slide_tackle_in_penalty_area"
         }
         val reasonText = Component.translatable(reasonKey).string
         val playerName = FreeKickAwardClient.foulingPlayerName.ifBlank { "?" }

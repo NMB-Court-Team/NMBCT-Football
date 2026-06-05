@@ -123,10 +123,22 @@ object SetPieceAreaViolationMonitor {
                 }
             }
             SetPieceKind.PENALTY_KICK -> {
-                if (!PenaltyShootoutState.isActive()) return null
-                if (player.uuid == PenaltyShootoutState.currentKickerUuid) return null
-                if (PenaltyShootoutState.isDefendingGoalkeeper(player)) return null
-                val defending = PenaltyShootoutState.activeDefendingTeam
+                val defending: TeamSide
+                val kickerUuid: UUID?
+                when {
+                    PenaltyShootoutState.isActive() -> {
+                        defending = PenaltyShootoutState.activeDefendingTeam
+                        kickerUuid = PenaltyShootoutState.currentKickerUuid
+                    }
+                    MatchPenaltyKickState.isActive() -> {
+                        defending = MatchPenaltyKickState.defendingTeam
+                        kickerUuid = MatchPenaltyKickState.currentKickerUuid
+                    }
+                    else -> return null
+                }
+                if (player.uuid == kickerUuid) return null
+                if (PenaltyShootoutState.isActive() && PenaltyShootoutState.isDefendingGoalkeeper(player)) return null
+                if (MatchPenaltyKickState.isActive() && MatchPenaltyKickState.isDefendingGoalkeeper(player)) return null
                 if (MatchFieldAreaUtil.isPlayerInPenaltyArea(player, defending) ||
                     MatchFieldAreaUtil.isPlayerInPenaltyArc(player, defending)
                 ) {

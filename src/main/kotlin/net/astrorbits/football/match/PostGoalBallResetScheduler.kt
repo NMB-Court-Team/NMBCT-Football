@@ -54,6 +54,7 @@ object PostGoalBallResetScheduler {
                 }
                 FootballNetworking.broadcastRestartKickoff(srv, action.kickoffTeam, goalLineOut = true)
             }
+            is PendingAfterReset.MatchPenaltyKick -> Unit
         }
     }
 
@@ -78,11 +79,21 @@ object PostGoalBallResetScheduler {
         MatchState.resetFootball(level, resetPos)
         afterReset?.let { applyBallLastTouch(level, it) }
         afterReset?.let { applyAfterReset(level.server, it) }
-        afterReset?.let { SetPieceBootstrap.onAfterReset(level, it) }
+        when (afterReset) {
+            is PendingAfterReset.MatchPenaltyKick -> {
+                val server = level.server ?: return
+                MatchPenaltyKickState.begin(server, level, afterReset)
+            }
+            else -> afterReset?.let { SetPieceBootstrap.onAfterReset(level, it) }
+        }
     }
 
     private fun applyBallLastTouch(level: ServerLevel, action: PendingAfterReset) {
-        val uuid = (action as? PendingAfterReset.GoalLineOut)?.lastTouchPlayerUuid ?: return
+        val uuid = when (action) {
+            is PendingAfterReset.GoalLineOut -> action.lastTouchPlayerUuid
+            is PendingAfterReset.MatchPenaltyKick -> action.lastTouchPlayerUuid
+            else -> null
+        } ?: return
         val all = AABB(Vec3(-3.0E7, -3.0E7, -3.0E7), Vec3(3.0E7, 3.0E7, 3.0E7))
         level.getEntitiesOfClass(Football::class.java, all).firstOrNull()?.lastPhysicalTouch = uuid
     }

@@ -48,6 +48,7 @@ object SetPieceBootstrap {
                     null -> Unit
                 }
             }
+            is PendingAfterReset.MatchPenaltyKick -> Unit
         }
         FootballNetworking.broadcastSetPieceState(server)
     }

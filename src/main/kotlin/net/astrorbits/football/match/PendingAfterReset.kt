@@ -18,4 +18,12 @@ sealed interface PendingAfterReset {
         /** 复位后写入新足球的 [net.astrorbits.football.Football.lastPhysicalTouch]（如任意球犯规球员）。 */
         val lastTouchPlayerUuid: UUID? = null,
     ) : PendingAfterReset
+
+    /** 正赛点球：球复位至点球点后进入 [MatchPenaltyKickState]。 */
+    data class MatchPenaltyKick(
+        override val kickoffTeam: TeamSide,
+        val defendingTeam: TeamSide,
+        val preferredKickerUuid: UUID?,
+        val lastTouchPlayerUuid: UUID?,
+    ) : PendingAfterReset
 }

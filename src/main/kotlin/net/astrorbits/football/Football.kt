@@ -507,7 +507,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         return true
     }
 
-    /** 滑铲触球：沿铲向施加普通传球踢击（力度与散布同 [FootballActionType.PASS]）。 */
+    /** 滑铲触球：沿铲向施加踢球（力度见 [FootballKickUtil.resolveSlideKickParams]，散布同传球）。 */
     private fun applySlideBallKickFromPlayer(
         player: ServerPlayer,
         repositionCenter: Vec3? = null,
@@ -525,7 +525,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             setCenterWithWorldContactGuards(repositionCenter)
         }
 
-        val params = FootballKickUtil.resolvePassParams()
+        val params = FootballKickUtil.resolveSlideKickParams()
         val kickImpulse = FootballKickUtil.buildKickDirection(kickDir, kickDir, params.force, params.angleDegrees)
         recordActiveKick(player, kickImpulse)
         FootballKickUtil.applyKickWithHorizontalDirection(
@@ -577,6 +577,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (!MatchParticipation.isParticipating(player)) {
             return
         }
+        MatchPenaltyKickState.onKickerTouchedBall(player, this)
         if (MatchState.currentPhase == MatchPhase.PENALTIES) {
             PenaltyShootoutState.onKickerTouchedBall(player, this)
         }
@@ -820,6 +821,11 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val prevCenter = prevPos.add(0.0, radius, 0.0)
         val currCenter = currPos.add(0.0, radius, 0.0)
 
+        if (MatchPenaltyKickState.isActive()) {
+            detectMatchPenaltyKick(prevCenter, currCenter)
+            return
+        }
+
         if (MatchState.currentPhase == MatchPhase.PENALTIES) {
             detectPenaltyKick(prevCenter, currCenter)
             return
@@ -870,6 +876,20 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             defendingSide = pending.defendingTeam,
         )
         return true
+    }
+
+    private fun detectMatchPenaltyKick(prevCenter: Vec3, currCenter: Vec3) {
+        if (!MatchPenaltyKickState.isResolving()) return
+        val goal = MatchPenaltyKickState.defendingGoal()
+        val defending = MatchPenaltyKickState.defendingTeam
+        val attacking = MatchPenaltyKickState.kickingTeam
+        val crossing = GoalCrossingUtil.segmentCrossesGoalLine(
+            goal, prevCenter, currCenter, defending, attacking,
+        ) ?: return
+        val effectiveInGoal = crossing.inGoal || GoalCrossingUtil.isCenterInGoal(goal, currCenter)
+        MatchPenaltyKickState.onGoalLineCrossing(
+            crossing.copy(inGoal = effectiveInGoal, definiteGoalLineOut = crossing.definiteGoalLineOut && !effectiveInGoal),
+        )
     }
 
     private fun detectPenaltyKick(prevCenter: Vec3, currCenter: Vec3) {

@@ -9,6 +9,7 @@ import net.astrorbits.football.input.GoalkeeperHoldLock
 import net.astrorbits.football.util.GoalkeeperUtil
 import net.astrorbits.football.match.FreeKickFoulReason
 import net.astrorbits.football.match.FreeKickType
+import net.astrorbits.football.match.MatchPenaltyKickState
 import net.astrorbits.football.match.KickoffWhistleContext
 import net.astrorbits.football.match.MatchKickoffTiming
 import net.astrorbits.football.match.MatchConfig
@@ -203,6 +204,7 @@ object FootballNetworking {
             }
 
             PenaltyShootoutState.tick(server)
+            MatchPenaltyKickState.tick(server)
             ThrowInSetPieceFlow.tickMovementFreeze(server)
 
             MatchState.tickKickoffWhistles(server)

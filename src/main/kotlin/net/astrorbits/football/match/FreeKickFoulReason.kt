@@ -6,6 +6,7 @@ import net.minecraft.network.codec.StreamCodec
 enum class FreeKickFoulReason {
     OFFSIDE,
     GOALKEEPER_LEFT_PENALTY_AREA,
+    SLIDE_TACKLE_IN_PENALTY_AREA,
     ;
 
     companion object {
@@ -18,7 +19,9 @@ enum class FreeKickFoulReason {
 
 enum class FreeKickType {
     DIRECT,
-    INDIRECT;
+    INDIRECT,
+    PENALTY,
+    ;
 
     companion object {
         val STREAM_CODEC: StreamCodec<FriendlyByteBuf, FreeKickType> = StreamCodec.of(

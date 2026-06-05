@@ -199,11 +199,14 @@ data class PlayerInputSettings(
     val slideEndSpeedRetain get() = slide.endSpeedRetain
     val slideMinSprintTicks get() = slide.minSprintTicks
     val slideTacklerSpeedDampOnContact get() = slide.tacklerSpeedDampOnContact
+    val slideContactDistancePenaltyTicks get() = slide.contactDistancePenaltyTicks
     val slideVictimPushSpeed get() = slide.victimPushSpeed
+    val slideVictimKnockbackUpward get() = slide.victimKnockbackUpward
     val slideVictimResistanceTicks get() = slide.victimResistanceTicks
     val slideVictimResistanceFactor get() = slide.victimResistanceFactor
     val slideVictimJumpBlockTicks get() = slide.victimJumpBlockTicks
     val slideBallContactGraceTicks get() = slide.ballContactGraceTicks
+    val slideBallKickForce get() = slide.ballKickForce
 
     companion object {
         val CODEC: Codec<PlayerInputSettings> = RecordCodecBuilder.create { i ->

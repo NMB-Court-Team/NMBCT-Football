@@ -2,7 +2,10 @@ package net.astrorbits.football.input
 
 import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.config.FootballConfigs
+import net.astrorbits.football.match.MatchFieldAreaUtil
 import net.astrorbits.football.match.MatchParticipation
+import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.match.PenaltyKickAwards
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.stamina.StaminaState
 import net.astrorbits.football.util.FootballKickUtil
@@ -23,6 +26,8 @@ data class SlideTackleSession(
     var endRequested: Boolean = false,
     val playersContacted: MutableSet<UUID> = mutableSetOf(),
     var contactSpeedScale: Double = 1.0,
+    /** 撞人后叠加的虚拟 elapsed，使位移曲线提前衰减以缩短剩余滑铲距离。 */
+    var contactElapsedPenalty: Long = 0L,
     var sustainBudgetRemaining: Float = 0f,
 )
 
@@ -110,7 +115,8 @@ object SlideTackleSessions {
     fun effectiveHorizontalVelocity(player: ServerPlayer): Vec3? {
         val session = sessions[player.uuid] ?: return null
         val now = player.level()?.gameTime ?: return null
-        val speed = slideSpeedAtTick(now - session.startTick, session.contactSpeedScale)
+        val elapsed = effectiveSlideElapsed(session, now - session.startTick)
+        val speed = slideSpeedAtTick(elapsed, session.contactSpeedScale)
         return if (speed > SLIDE_MOVE_EPSILON) session.direction.scale(speed) else null
     }
 
@@ -129,7 +135,8 @@ object SlideTackleSessions {
     fun end(player: ServerPlayer) {
         val session = sessions[player.uuid] ?: return
         val now = player.level().gameTime
-        applySlideExitVelocity(player, session, now - session.startTick)
+        val elapsed = effectiveSlideElapsed(session, now - session.startTick)
+        applySlideExitVelocity(player, session, elapsed)
         finishSlideSession(player, now)
     }
 
@@ -169,8 +176,9 @@ object SlideTackleSessions {
                 continue
             }
 
-            val elapsed = now - session.startTick
-            if (session.endRequested && elapsed >= slideCfg().minSlideTicks) {
+            val rawElapsed = now - session.startTick
+            val elapsed = effectiveSlideElapsed(session, rawElapsed)
+            if (session.endRequested && rawElapsed >= slideCfg().minSlideTicks) {
                 applySlideExitVelocity(player, session, elapsed)
                 finishSlideSession(player, now)
                 iterator.remove()
@@ -185,7 +193,7 @@ object SlideTackleSessions {
             }
 
             val speed = applySlideMovement(player, session.direction, elapsed, session.contactSpeedScale)
-            if (speed <= SLIDE_MOVE_EPSILON && elapsed >= slideCfg().minSlideTicks) {
+            if (speed <= SLIDE_MOVE_EPSILON && rawElapsed >= slideCfg().minSlideTicks) {
                 applySlideExitVelocity(player, session, elapsed)
                 finishSlideSession(player, now)
                 iterator.remove()
@@ -233,6 +241,9 @@ object SlideTackleSessions {
         return player.isSpectator || player.abilities.flying || player.isFallFlying
     }
 
+    private fun effectiveSlideElapsed(session: SlideTackleSession, rawElapsed: Long): Long =
+        (rawElapsed + session.contactElapsedPenalty).coerceAtLeast(0L)
+
     private fun slideSpeedAtTick(elapsed: Long, contactSpeedScale: Double): Double =
         SlideTackleSoundTiming.slideSpeedAtTick(slideCfg(), elapsed, contactSpeedScale)
 
@@ -255,23 +266,34 @@ object SlideTackleSessions {
             .filter { other -> other.uuid != session.playerId && other.isAlive && !other.isSpectator }
         if (nearbyPlayers.isEmpty()) return
 
-        val pushSpeed = FootballInputConfig.SLIDE_VICTIM_PUSH_SPEED.coerceAtLeast(0.0)
+        val slide = slideCfg()
+        val pushSpeed = slide.victimPushSpeed.coerceAtLeast(0.0)
+        val knockbackUpward = slide.victimKnockbackUpward.coerceAtLeast(0.0)
         val resistanceTicks = FootballInputConfig.SLIDE_VICTIM_RESISTANCE_TICKS.coerceAtLeast(0)
         val resistanceFactor = FootballInputConfig.SLIDE_VICTIM_RESISTANCE_FACTOR.coerceIn(0.0, 1.0)
         val jumpBlockTicks = FootballInputConfig.SLIDE_VICTIM_JUMP_BLOCK_TICKS.coerceAtLeast(0)
-        val pushDirection = Vec3Math.normalizeSafe(Vec3Math.horizontal(session.direction))
+        val slideDirection = Vec3Math.normalizeSafe(Vec3Math.horizontal(session.direction))
 
         var didContact = false
+        var foulAwarded = false
         for (other in nearbyPlayers) {
             if (!session.playersContacted.add(other.uuid)) {
                 continue
             }
-            val victimPush = if (pushDirection.lengthSqr() > 1.0e-8) {
-                pushDirection.scale(pushSpeed)
-            } else {
-                Vec3.ZERO
+            if (tryAwardSlideTacklePenaltyFoul(player, other)) {
+                foulAwarded = true
             }
-            other.deltaMovement = other.deltaMovement.add(victimPush.x, 0.0, victimPush.z)
+            val awayFromTackler = Vec3Math.normalizeSafe(
+                Vec3Math.horizontal(other.position().subtract(player.position())),
+                slideDirection,
+            )
+            if (awayFromTackler.lengthSqr() > 1.0e-8 && pushSpeed > 0.0) {
+                other.setDeltaMovement(
+                    awayFromTackler.x * pushSpeed,
+                    knockbackUpward,
+                    awayFromTackler.z * pushSpeed,
+                )
+            }
             other.hurtMarked = true
             if (resistanceTicks > 0 && resistanceFactor < 1.0) {
                 tackledResistanceUntil[other.uuid] = TackledResistance(
@@ -286,8 +308,30 @@ object SlideTackleSessions {
         }
 
         if (!didContact) return
-        val damp = FootballInputConfig.SLIDE_TACKLER_SPEED_DAMP_ON_CONTACT.coerceIn(0.0, 1.0)
+        if (foulAwarded) {
+            end(player)
+            return
+        }
+        val damp = slide.tacklerSpeedDampOnContact.coerceIn(0.0, 1.0)
         session.contactSpeedScale = (session.contactSpeedScale * damp).coerceIn(0.0, 1.0)
+        session.contactElapsedPenalty += slide.contactDistancePenaltyTicks.coerceAtLeast(0).toLong()
+    }
+
+    private fun tryAwardSlideTacklePenaltyFoul(tackler: ServerPlayer, victim: ServerPlayer): Boolean {
+        if (!MatchParticipation.isParticipating(tackler) || !MatchParticipation.isParticipating(victim)) {
+            return false
+        }
+        val tacklerTeam = MatchState.getPlayerTeam(tackler.uuid) ?: return false
+        val victimTeam = MatchState.getPlayerTeam(victim.uuid) ?: return false
+        if (tacklerTeam == victimTeam) return false
+        if (!MatchFieldAreaUtil.isPlayerInPenaltyArea(tackler, tacklerTeam)) return false
+        val level = tackler.level() as? ServerLevel ?: return false
+        return PenaltyKickAwards.awardSlideTackleInPenaltyArea(
+            level,
+            foulingTeam = tacklerTeam,
+            foulingPlayerUuid = tackler.uuid,
+            fouledPlayerUuid = victim.uuid,
+        )
     }
 
     private fun applyTackledResistance(server: MinecraftServer, now: Long) {
