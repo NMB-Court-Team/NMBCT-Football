@@ -36,6 +36,7 @@ object MatchCommand {
 		})
 
 		registerPhaseCommands(root)
+		registerStageCommand(root)
 
 		root.then(Commands.literal("reset").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes {
 			FootballNetworking.resetMatchToPreMatch(it.source.server)
@@ -190,6 +191,13 @@ object MatchCommand {
 		phaseCmd.then(setCmd)
 
 		root.then(phaseCmd)
+	}
+
+	private fun registerStageCommand(root: LiteralArgumentBuilder<CommandSourceStack>) {
+		// /match stage — return current MatchPhase ordinal for datapacks (execute store result score ...)
+		root.then(Commands.literal("stage").executes {
+			MatchState.currentPhase.ordinal
+		})
 	}
 
 	private fun registerTeamCommands(root: LiteralArgumentBuilder<CommandSourceStack>) {
