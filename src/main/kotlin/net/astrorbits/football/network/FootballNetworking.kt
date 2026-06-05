@@ -17,6 +17,10 @@ import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.PenaltyShootoutState
 import net.astrorbits.football.match.MatchPauseFootballState
 import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.match.GoalKickSetPieceFlow
+import net.astrorbits.football.match.SetPieceAreaViolationMonitor
+import net.astrorbits.football.match.SetPieceBootstrap
+import net.astrorbits.football.match.ThrowInSetPieceFlow
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.match.TeamSide
 import net.astrorbits.football.stamina.BoostSprintState
@@ -78,6 +82,9 @@ object FootballNetworking {
         registry.register(PenaltyKickStartS2CPayload.TYPE, PenaltyKickStartS2CPayload.CODEC)
         registry.register(MatchPauseS2CPayload.TYPE, MatchPauseS2CPayload.CODEC)
         registry.register(FreeKickAwardS2CPayload.TYPE, FreeKickAwardS2CPayload.CODEC)
+        registry.register(SetPieceAreaViolationS2CPayload.TYPE, SetPieceAreaViolationS2CPayload.CODEC)
+        registry.register(SetPieceRestartS2CPayload.TYPE, SetPieceRestartS2CPayload.CODEC)
+        registry.register(SetPieceStateS2CPayload.TYPE, SetPieceStateS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -196,6 +203,7 @@ object FootballNetworking {
             }
 
             PenaltyShootoutState.tick(server)
+            ThrowInSetPieceFlow.tickMovementFreeze(server)
 
             MatchState.tickKickoffWhistles(server)
             MatchState.tickDynamicStoppageAccumulation()
@@ -260,6 +268,9 @@ object FootballNetworking {
         ms.kickoffTeam = kickoffTeam
         ms.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.HALF)
         ms.resetFootball(level)
+        val kickPos = MatchConfigHolder.current.kickOff.let { net.minecraft.world.phys.Vec3(it.x, it.y, it.z) }
+        SetPieceBootstrap.onCenterKickoffBegin(kickoffTeam, kickPos)
+        broadcastSetPieceState(server)
         val nameA = ms.getTeamName(TeamSide.A).string
         val nameB = ms.getTeamName(TeamSide.B).string
         StaminaState.onHalfSwitch(server)
@@ -385,6 +396,8 @@ object FootballNetworking {
     fun syncPlayerJoin(player: ServerPlayer) {
         sendServerConfigSync(player, FootballServerConfigHolder.current, openEditor = false)
         StaminaState.syncToPlayer(player)
+        sendSetPieceState(player)
+        GoalkeeperHoldActionPermissions.syncToClient(player)
     }
 
     fun sendMatchConfigSync(player: ServerPlayer, config: MatchConfig) {
@@ -461,8 +474,12 @@ object FootballNetworking {
         GoalkeeperHoldActionPermissions.clearAll(server)
         MatchPauseFootballState.onResume(server)
         MatchState.reset()
+        GoalKickSetPieceFlow.clear(server)
+        ThrowInSetPieceFlow.clear(server)
+        SetPieceAreaViolationMonitor.clearAll(server)
         syncAllGoalkeeperRoles(server)
         broadcastMatchReset(server)
+        broadcastSetPieceState(server)
         broadcastTimerSync(server)
     }
 
@@ -626,5 +643,43 @@ object FootballNetworking {
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
         }
+    }
+
+    fun sendSetPieceAreaViolation(player: ServerPlayer, areaNameKey: String, secondsRemaining: Int) {
+        ServerPlayNetworking.send(player, SetPieceAreaViolationS2CPayload(areaNameKey, secondsRemaining))
+    }
+
+    fun broadcastSetPieceRestart(server: MinecraftServer, kind: net.astrorbits.football.match.SetPieceRestartKind, restartTeam: TeamSide) {
+        val payload = SetPieceRestartS2CPayload(kind, restartTeam)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun broadcastSetPieceState(server: MinecraftServer) {
+        val payload = buildSetPieceStatePayload()
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun sendSetPieceState(player: ServerPlayer) {
+        ServerPlayNetworking.send(player, buildSetPieceStatePayload())
+    }
+
+    private fun buildSetPieceStatePayload(): SetPieceStateS2CPayload {
+        val ctx = net.astrorbits.football.match.SetPieceState.active
+        if (ctx == null) {
+            return SetPieceStateS2CPayload.CLEAR
+        }
+        return SetPieceStateS2CPayload(
+            kind = ctx.kind,
+            restartTeam = ctx.restartTeam,
+            goalKickPhase = ctx.goalKickPhase,
+            goalKickPickerUuid = ctx.goalKickPickerUuid,
+            throwInTakerUuid = ctx.throwInTakerUuid,
+            movementFrozen = ctx.kind == net.astrorbits.football.match.SetPieceKind.THROW_IN &&
+                ctx.throwInTakerUuid != null,
+        )
     }
 }

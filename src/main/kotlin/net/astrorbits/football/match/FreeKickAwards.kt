@@ -48,6 +48,9 @@ object FreeKickAwards {
         MatchState.clearPendingGoalLineOut()
         MatchState.clearDirectGoalRestriction()
         MatchState.clearPendingOffsideSnapshot()
+        SetPieceState.clear()
+        GoalKickSetPieceFlow.clear(level.server)
+        ThrowInSetPieceFlow.clear(level.server)
         MatchState.postGoalResetPending = true
 
         val awardedTeam = foulingTeam.opponent()
@@ -56,6 +59,7 @@ object FreeKickAwards {
             ballPos,
             PendingAfterReset.GoalLineOut(
                 kickoffTeam = awardedTeam,
+                ballPos = ballPos,
                 throwInDirectGoalRestrict = type == FreeKickType.INDIRECT,
                 lastTouchPlayerUuid = foulingPlayerUuid,
             ),

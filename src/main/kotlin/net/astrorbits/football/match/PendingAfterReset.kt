@@ -1,5 +1,6 @@
 package net.astrorbits.football.match
 
+import net.minecraft.world.phys.Vec3
 import java.util.UUID
 
 /** 足球延迟复位完成后触发的开球阶段。 */
@@ -10,6 +11,9 @@ sealed interface PendingAfterReset {
 
     data class GoalLineOut(
         override val kickoffTeam: TeamSide,
+        val outType: GoalLineOutType? = null,
+        val ballPos: Vec3? = null,
+        val defendingSide: TeamSide? = null,
         val throwInDirectGoalRestrict: Boolean = false,
         /** 复位后写入新足球的 [net.astrorbits.football.Football.lastPhysicalTouch]（如任意球犯规球员）。 */
         val lastTouchPlayerUuid: UUID? = null,

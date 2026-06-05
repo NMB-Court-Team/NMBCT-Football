@@ -1,6 +1,8 @@
 package net.astrorbits.football.client.match
 
 import net.astrorbits.football.client.GoalkeeperStateClient
+import net.astrorbits.football.client.SetPieceAreaViolationClient
+import net.astrorbits.football.client.SetPieceClient
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.network.KickoffBallTouchedS2CPayload
 import net.astrorbits.football.network.MatchStartS2CPayload
@@ -52,6 +54,8 @@ object MatchStartClientNetworking {
                 MatchStartClient.reset()
                 GoalkeeperStateClient.onMatchReset()
                 PenaltyShootoutClient.reset()
+                SetPieceClient.reset()
+                SetPieceAreaViolationClient.clear()
             }
         }
         ClientPlayNetworking.registerGlobalReceiver(PenaltyShootoutSyncS2CPayload.TYPE) { payload, _ ->

@@ -104,6 +104,10 @@ object PenaltyShootoutState {
         eligibleKickersA.clear()
         eligibleKickersB.clear()
         PlayerRoleState.clearPenaltyKickOutfieldOverrides(server)
+        if (SetPieceState.active?.kind == SetPieceKind.PENALTY_KICK) {
+            SetPieceState.clear()
+            server?.let { FootballNetworking.broadcastSetPieceState(it) }
+        }
         resolveTicks = 0
         stationaryTicks = 0
         outcomeRecorded = false
@@ -322,9 +326,19 @@ object PenaltyShootoutState {
         }
         val level = server.overworld()
         placeBallAndPlayers(level, server)
+        val spot = defendingGoal().resolvedPenaltySpot()
+        SetPieceState.begin(
+            SetPieceContext(
+                kind = SetPieceKind.PENALTY_KICK,
+                restartTeam = currentKickerTeam,
+                ballPos = Vec3(spot.x, spot.y, spot.z),
+                defendingSide = activeDefendingTeam,
+            ),
+        )
         kickIntroTicksRemaining = PenaltyShootoutTiming.KICK_INTRO_LOCK_TICKS
         FootballNetworking.broadcastPenaltyShootoutSync(server)
         FootballNetworking.broadcastPenaltyKickStart(server)
+        FootballNetworking.broadcastSetPieceState(server)
     }
 
     private fun placeBallAndPlayers(level: ServerLevel, server: MinecraftServer) {

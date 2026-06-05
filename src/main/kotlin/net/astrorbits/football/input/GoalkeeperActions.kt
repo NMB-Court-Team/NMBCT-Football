@@ -10,6 +10,9 @@ import net.astrorbits.football.stamina.StaminaState
 import net.astrorbits.football.util.FootballKickUtil
 import net.astrorbits.football.util.GoalkeeperUtil
 import net.astrorbits.football.util.KickChargeUtil
+import net.astrorbits.football.match.GoalKickSetPieceFlow
+import net.astrorbits.football.match.SetPieceRestrictionCoordinator
+import net.astrorbits.football.match.ThrowInSetPieceFlow
 import net.astrorbits.football.util.Vec3Math
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.player.Player
@@ -28,11 +31,16 @@ object GoalkeeperActions {
         if (!net.astrorbits.football.match.MatchParticipation.isParticipating(player)) {
             return
         }
-        if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player)) {
+        if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player) &&
+            !SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player)
+        ) {
+            return
+        }
+        if (SetPieceRestrictionCoordinator.isFootballOperationBlocked(player, payload.action)) {
             return
         }
         // 服务端双重保险：非发球方球员在开球锁定时拒绝所有足球操作
-        if (net.astrorbits.football.match.MatchState.isKickoffInteractionLocked(player)) return
+        if (net.astrorbits.football.match.MatchState.isKickoffInteractionLocked(player, payload.action)) return
         net.astrorbits.football.match.MatchState.tryNotifyKickoffBallTouched(player)
         FootballDribbleSessions.end(player)
 
@@ -50,7 +58,10 @@ object GoalkeeperActions {
             return
         }
 
-        if (requiresOwnPenaltyArea(payload.action) && !GoalkeeperActionAccess.canUseDiveAndCatch(player)) {
+        if (requiresOwnPenaltyArea(payload.action) &&
+            !GoalkeeperActionAccess.canUseDiveAndCatch(player) &&
+            !SetPieceRestrictionCoordinator.allowsGoalKickCatch(player)
+        ) {
             return
         }
 
@@ -98,6 +109,9 @@ object GoalkeeperActions {
                 if (!GoalkeeperHoldActionPermissions.canDrop(player) || GoalkeeperHoldLock.isReleaseBlocked(player, now)) {
                     return
                 }
+                if (!GoalKickSetPieceFlow.canDropInGoalArea(player)) {
+                    return
+                }
             }
             else -> Unit
         }
@@ -128,6 +142,7 @@ object GoalkeeperActions {
                     FootballParticles.playGkThrow(player, football)
                     FootballSounds.playGkThrow(player)
                     lastActionTick[player.uuid] = now
+                    ThrowInSetPieceFlow.onBallThrown(player)
                 }
             }
             FootballActionType.GK_THROW_LONG -> {
@@ -152,6 +167,7 @@ object GoalkeeperActions {
                     FootballParticles.playGkThrow(player, football)
                     FootballSounds.playGkThrow(player)
                     lastActionTick[player.uuid] = now
+                    ThrowInSetPieceFlow.onBallThrown(player)
                 }
             }
             FootballActionType.GK_DROP -> {
@@ -163,6 +179,7 @@ object GoalkeeperActions {
                 FootballParticles.playGkCatch(player, football, 0.0)
                 FootballSounds.playGkCatch(player, 0.0)
                 lastActionTick[player.uuid] = now
+                GoalKickSetPieceFlow.onBallDropped(player)
             }
             else -> Unit
         }
@@ -205,6 +222,18 @@ object GoalkeeperActions {
         FootballSounds.playGkCatch(player, speed)
         FootballParticles.playGkCatch(player, football, speed)
         lastActionTick[player.uuid] = now
+        val ctx = net.astrorbits.football.match.SetPieceState.active
+        if (ctx?.kind == net.astrorbits.football.match.SetPieceKind.GOAL_KICK) {
+            when (ctx.goalKickPhase) {
+                net.astrorbits.football.match.GoalKickPhase.WAITING_PICKUP ->
+                    GoalKickSetPieceFlow.onPlayerCaughtBall(player, football)
+                net.astrorbits.football.match.GoalKickPhase.PLACED -> {
+                    val server = player.level().server
+                    if (server != null) GoalKickSetPieceFlow.onBallMoved(server, football)
+                }
+                else -> Unit
+            }
+        }
     }
 
     private fun handlePunch(player: ServerPlayer) {

@@ -145,6 +145,70 @@ object MatchFieldAreaUtil {
         config: MatchConfig = MatchConfigHolder.current,
     ): Boolean = isInOpponentHalf(player.x, player.z, attackingTeam, config)
 
+    /** 球员是否已进入对方半场（开球前越中线判定）。 */
+    fun isPlayerCrossedMidfield(
+        player: Player,
+        team: TeamSide,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Boolean = !isPlayerInHalf(player, team, config)
+
+    fun isInCornerKickPenaltyArea(
+        cornerPos: Vec3,
+        x: Double,
+        z: Double,
+        radius: Double,
+    ): Boolean = horizontalDistanceSquared(x, z, cornerPos.x, cornerPos.z) <= radius * radius
+
+    fun isPlayerInCornerKickPenaltyArea(
+        player: Player,
+        cornerPos: Vec3,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Boolean = isInCornerKickPenaltyArea(cornerPos, player.x, player.z, config.cornerKickPenaltyAreaRadius)
+
+    fun isInThrowInPenaltyArea(
+        spot: Vec3,
+        x: Double,
+        z: Double,
+        radius: Double,
+    ): Boolean = horizontalDistanceSquared(x, z, spot.x, spot.z) <= radius * radius
+
+    fun isPlayerInThrowInPenaltyArea(
+        player: Player,
+        spot: Vec3,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Boolean = isInThrowInPenaltyArea(spot, player.x, player.z, config.throwInPenaltyAreaRadius)
+
+    /**
+     * 将水平坐标投影到 [side] 一侧大禁区矩形边界上的最近点（用于直接任意球落点）。
+     */
+    fun nearestPenaltyAreaBoundary(
+        side: TeamSide,
+        x: Double,
+        z: Double,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Vec3 {
+        val halfArea = goalForSide(config, side).halfArea
+        val rect = horizontalRect(halfArea.penaltyAreaCorner1, halfArea.penaltyAreaCorner2)
+        val clampedX = x.coerceIn(rect.minX, rect.maxX)
+        val clampedZ = z.coerceIn(rect.minZ, rect.maxZ)
+        val inside = rect.containsHorizontal(x, z)
+        if (!inside) {
+            return Vec3(clampedX, config.kickOff.y, clampedZ)
+        }
+        val distLeft = x - rect.minX
+        val distRight = rect.maxX - x
+        val distBottom = z - rect.minZ
+        val distTop = rect.maxZ - z
+        val minDist = minOf(distLeft, distRight, distBottom, distTop)
+        val y = config.kickOff.y
+        return when (minDist) {
+            distLeft -> Vec3(rect.minX, y, z.coerceIn(rect.minZ, rect.maxZ))
+            distRight -> Vec3(rect.maxX, y, z.coerceIn(rect.minZ, rect.maxZ))
+            distBottom -> Vec3(x.coerceIn(rect.minX, rect.maxX), y, rect.minZ)
+            else -> Vec3(x.coerceIn(rect.minX, rect.maxX), y, rect.maxZ)
+        }
+    }
+
     private data class PitchOrientation(
         val longAxis: LongAxis,
         val midfieldCoord: Double,

@@ -6,8 +6,11 @@ import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.Football
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.GoalkeeperInputConfig
+import net.astrorbits.football.match.GoalKickPhase
 import net.astrorbits.football.match.MatchFieldAreaUtil
 import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.match.SetPieceKind
+import net.astrorbits.football.client.SetPieceClient
 import net.minecraft.client.KeyMapping
 import net.minecraft.client.player.LocalPlayer
 import net.minecraft.world.level.Level
@@ -38,8 +41,11 @@ object FootballOperabilityClient {
         return footballHintKeys().any { canUseFootballHint(player, level, it) }
     }
 
-    fun canShowFootballHints(player: LocalPlayer): Boolean =
-        !player.isSpectator && player.mainHandItem.isEmpty && !MatchStartClient.isLocked
+    fun canShowFootballHints(player: LocalPlayer): Boolean {
+        if (player.isSpectator || !player.mainHandItem.isEmpty) return false
+        if (SetPieceClient.isMovementFrozen(player.uuid)) return true
+        return !MatchStartClient.isLocked
+    }
 
     fun canUseFootballHint(player: LocalPlayer, level: Level, key: KeyMapping): Boolean {
         if (!canShowFootballHints(player)) {
@@ -75,9 +81,12 @@ object FootballOperabilityClient {
                 hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
             FootballKeyBindings.GK_DIVE -> canGk && canUseDiveAndCatch(player)
             FootballKeyBindings.GK_CATCH ->
-                canGk && GoalkeeperHoldActionPermissionsClient.canCatch &&
+                (canGk && GoalkeeperHoldActionPermissionsClient.canCatch &&
                     canUseDiveAndCatch(player) &&
-                    hasBallWithinRange(player, level, goalkeeperCatchRange(player))
+                    hasBallWithinRange(player, level, goalkeeperCatchRange(player))) ||
+                    (canUseGoalKickCatch(player) &&
+                        GoalkeeperHoldActionPermissionsClient.canCatch &&
+                        hasBallWithinRange(player, level, goalkeeperCatchRange(player)))
             FootballKeyBindings.SLIDE_TACKLE -> FootballInputHandler.canSlideTackle(player.level()?.gameTime ?: 0L)
             FootballKeyBindings.BOOST_SPRINT -> player.isSprinting && StaminaClient.stamina > 0f
             FootballKeyBindings.INTERRUPT_CHARGE -> FootballInputHandler.isAnyChargeActive()
@@ -105,6 +114,16 @@ object FootballOperabilityClient {
             range += GoalkeeperInputConfig.GK_CROUCH_RANGE_BONUS
         }
         return range
+    }
+
+    private fun canUseGoalKickCatch(player: LocalPlayer): Boolean {
+        if (SetPieceClient.kind != SetPieceKind.GOAL_KICK) return false
+        if (SetPieceClient.restartTeam != MatchStartClient.playerTeam) return false
+        return when (SetPieceClient.goalKickPhase) {
+            GoalKickPhase.WAITING_PICKUP -> true
+            GoalKickPhase.PLACED -> GoalkeeperStateClient.isGoalkeeper
+            else -> false
+        }
     }
 
     private fun hasBallWithinRange(player: LocalPlayer, level: Level, range: Double): Boolean =

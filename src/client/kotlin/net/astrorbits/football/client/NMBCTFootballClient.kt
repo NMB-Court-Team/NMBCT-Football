@@ -14,9 +14,12 @@ import net.astrorbits.football.client.config.MatchConfigNetworking
 import net.astrorbits.football.client.config.MatchFieldConfigNetworking
 import net.astrorbits.football.client.match.GoalScoredClientNetworking
 import net.astrorbits.football.client.match.FreeKickAwardClientNetworking
+import net.astrorbits.football.client.match.SetPieceClientNetworking
 import net.astrorbits.football.client.match.InvalidGoalClientNetworking
 import net.astrorbits.football.client.match.MatchStartClientNetworking
 import net.astrorbits.football.client.render.FreeKickAwardHudElement
+import net.astrorbits.football.client.render.SetPieceAreaViolationHudElement
+import net.astrorbits.football.client.render.SetPieceRestartHudElement
 import net.astrorbits.football.client.render.GoalLineOutHudElement
 import net.astrorbits.football.client.render.GoalScoredHudElement
 import net.astrorbits.football.client.render.InvalidGoalHudElement
@@ -65,6 +68,7 @@ object NMBCTFootballClient : ClientModInitializer {
 		GoalScoredClientNetworking.register()
 		InvalidGoalClientNetworking.register()
 		FreeKickAwardClientNetworking.register()
+		SetPieceClientNetworking.register()
 
 		FootballKeyBindings.init()
 		FootballClientConfigKeyHandler.register()
@@ -92,6 +96,11 @@ object NMBCTFootballClient : ClientModInitializer {
 			net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements.CROSSHAIR,
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "gk_hold_steal_protection_hud"),
 			GoalkeeperHoldStealProtectionHudElement(),
+		)
+		HudElementRegistry.attachElementAfter(
+			net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements.CROSSHAIR,
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "set_piece_area_violation_hud"),
+			SetPieceAreaViolationHudElement(),
 		)
 
 		HudElementRegistry.addLast(
@@ -122,6 +131,11 @@ object NMBCTFootballClient : ClientModInitializer {
 		HudElementRegistry.addLast(
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "free_kick_award_hud"),
 			FreeKickAwardHudElement()
+		)
+
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "set_piece_restart_hud"),
+			SetPieceRestartHudElement()
 		)
 
 		HudElementRegistry.addLast(

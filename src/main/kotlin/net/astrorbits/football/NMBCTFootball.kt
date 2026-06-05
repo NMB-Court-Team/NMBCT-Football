@@ -7,7 +7,7 @@ import net.astrorbits.football.input.FootballDribbleSessions
 import net.astrorbits.football.input.FootballKickPushGrace
 import net.astrorbits.football.input.FootballPlayerBallContactGrace
 import net.astrorbits.football.input.GoalkeeperDiveSessions
-import net.astrorbits.football.input.GoalkeeperPenaltyAreaHoldGuard
+import net.astrorbits.football.match.SetPieceAreaViolationMonitor
 import net.astrorbits.football.input.SlideTackleSessions
 import net.astrorbits.football.item.FootballItemGroups
 import net.astrorbits.football.item.Items
@@ -71,7 +71,7 @@ object NMBCTFootball : ModInitializer {
 		SlideTackleSessions.registerEvents()
 		FootballDribbleSessions.registerEvents()
 		GoalkeeperDiveSessions.registerEvents()
-		GoalkeeperPenaltyAreaHoldGuard.register()
+		SetPieceAreaViolationMonitor.register()
 		PostGoalBallResetScheduler.register()
 		FootballPlayerCollisionScheduler.register()
 

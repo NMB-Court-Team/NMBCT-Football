@@ -12,11 +12,15 @@ import java.util.concurrent.ConcurrentHashMap
 object GoalkeeperHoldLock {
     private val releaseLockUntilTick = ConcurrentHashMap<UUID, Long>()
 
-    fun beginLock(player: ServerPlayer, now: Long) {
-        if (GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS <= 0) {
+    fun beginLock(
+        player: ServerPlayer,
+        now: Long,
+        lockTicks: Int = GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS,
+    ) {
+        if (lockTicks <= 0) {
             return
         }
-        val until = now + GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS
+        val until = now + lockTicks
         releaseLockUntilTick[player.uuid] = until
         syncToPlayer(player, now)
     }

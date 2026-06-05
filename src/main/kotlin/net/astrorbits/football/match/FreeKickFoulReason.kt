@@ -4,7 +4,9 @@ import net.minecraft.network.FriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 
 enum class FreeKickFoulReason {
-    OFFSIDE;
+    OFFSIDE,
+    GOALKEEPER_LEFT_PENALTY_AREA,
+    ;
 
     companion object {
         val STREAM_CODEC: StreamCodec<FriendlyByteBuf, FreeKickFoulReason> = StreamCodec.of(

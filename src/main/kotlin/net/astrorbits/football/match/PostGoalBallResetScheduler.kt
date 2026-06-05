@@ -78,6 +78,7 @@ object PostGoalBallResetScheduler {
         MatchState.resetFootball(level, resetPos)
         afterReset?.let { applyBallLastTouch(level, it) }
         afterReset?.let { applyAfterReset(level.server, it) }
+        afterReset?.let { SetPieceBootstrap.onAfterReset(level, it) }
     }
 
     private fun applyBallLastTouch(level: ServerLevel, action: PendingAfterReset) {

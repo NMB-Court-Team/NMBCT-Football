@@ -23,6 +23,8 @@ class FreeKickAwardHudElement : HudElement {
         }
         val reasonKey = when (FreeKickAwardClient.foulReason) {
             FreeKickFoulReason.OFFSIDE -> "hud.nmbct-football.free_kick.reason.offside"
+            FreeKickFoulReason.GOALKEEPER_LEFT_PENALTY_AREA ->
+                "hud.nmbct-football.free_kick.reason.goalkeeper_left_penalty_area"
         }
         val reasonText = Component.translatable(reasonKey).string
         val playerName = FreeKickAwardClient.foulingPlayerName.ifBlank { "?" }

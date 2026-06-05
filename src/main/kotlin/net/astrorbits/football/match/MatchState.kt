@@ -185,6 +185,15 @@ object MatchState {
         clearPendingOffsideSnapshot()
         PlayerRoleState.reset()
         PenaltyShootoutState.clear()
+        SetPieceState.clear()
+    }
+
+    fun kickoffWhistleContext(): KickoffWhistleContext? = kickoffWhistleContext
+
+    fun forceKickoffBallTouched() {
+        if (kickoffTouched) return
+        kickoffTouched = true
+        clearKickoffWhistleTimers()
     }
 
     fun beginThrowInDirectGoalRestriction() {
@@ -236,8 +245,20 @@ object MatchState {
         }
     }
 
-    fun isKickoffInteractionLocked(player: ServerPlayer): Boolean {
+    fun isKickoffInteractionLocked(player: ServerPlayer): Boolean =
+        isKickoffInteractionLocked(player, action = null)
+
+    fun isKickoffInteractionLocked(player: ServerPlayer, action: net.astrorbits.football.network.FootballActionType?): Boolean {
         if (!MatchParticipation.isParticipating(player)) {
+            return true
+        }
+        if (SetPieceRestrictionCoordinator.isFootballOperationBlocked(player, action)) {
+            return true
+        }
+        if (SetPieceRestrictionCoordinator.isPlayerBallMovementForbidden(player)) {
+            return true
+        }
+        if (ThrowInSetPieceFlow.isMovementFrozen(player)) {
             return true
         }
         if (PenaltyShootoutState.isPenaltyMovementRestricted(player)) {
@@ -245,6 +266,24 @@ object MatchState {
         }
         if (currentPhase == MatchPhase.PENALTIES && !PenaltyShootoutState.isPenaltyFootballInteractionAllowed(player)) {
             return true
+        }
+        if (action == net.astrorbits.football.network.FootballActionType.GK_CATCH &&
+            SetPieceRestrictionCoordinator.allowsGoalKickCatch(player)
+        ) {
+            return false
+        }
+        if (action == net.astrorbits.football.network.FootballActionType.GK_DROP &&
+            SetPieceState.active?.kind == SetPieceKind.GOAL_KICK &&
+            player.uuid == SetPieceState.active?.goalKickPickerUuid
+        ) {
+            return false
+        }
+        if ((action == net.astrorbits.football.network.FootballActionType.GK_THROW_SHORT ||
+                action == net.astrorbits.football.network.FootballActionType.GK_THROW_LONG) &&
+            SetPieceState.active?.kind == SetPieceKind.THROW_IN &&
+            player.uuid == SetPieceState.active?.throwInTakerUuid
+        ) {
+            return false
         }
         val phaseActive = KickoffLock.isKickoffPhaseActive(kickoffTeam, kickoffTouched, kickoffTimerStartMs)
         val elapsed = if (phaseActive) System.currentTimeMillis() - kickoffTimerStartMs else 0L
@@ -341,6 +380,13 @@ object MatchState {
         }
         clearKickoffWhistleTimers()
         val server = player.level().server ?: return
+        when (SetPieceState.active?.kind) {
+            SetPieceKind.CENTER_KICKOFF, SetPieceKind.CORNER_KICK -> {
+                SetPieceState.clear()
+                FootballNetworking.broadcastSetPieceState(server)
+            }
+            else -> Unit
+        }
         FootballNetworking.broadcastKickoffBallTouched(server)
     }
 
@@ -452,6 +498,9 @@ object MatchState {
         kickoffTeam = kickoff
         lastHalfKickoffTeam = kickoff
         beginKickoffPhase(MatchKickoffTiming.MATCH_START_LOCK_MS, KickoffWhistleContext.MATCH_START)
+        val kickPos = MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
+        SetPieceBootstrap.onCenterKickoffBegin(kickoff, kickPos)
+        FootballNetworking.broadcastSetPieceState(server)
         FootballSounds.playMatchWhistle(server, 1)
         StaminaState.onMatchStart(server)
         val nameA = getTeamName(TeamSide.A).string

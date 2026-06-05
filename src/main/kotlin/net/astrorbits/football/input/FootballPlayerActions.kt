@@ -9,6 +9,7 @@ import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.item.FootballItem
 import net.astrorbits.football.Football
 import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.match.SetPieceRestrictionCoordinator
 import net.astrorbits.football.util.FootballKickUtil
 import net.astrorbits.football.util.GoalkeeperUtil
 import net.astrorbits.football.util.KickChargeUtil
@@ -36,7 +37,9 @@ object FootballPlayerActions {
                 FootballActionType.GK_THROW_LONG,
                 FootballActionType.GK_DROP,
                 -> {
-                    if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player)) {
+                    if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player) &&
+                        !SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player)
+                    ) {
                         return
                     }
                     GoalkeeperActions.handle(player, payload)
@@ -62,7 +65,9 @@ object FootballPlayerActions {
             FootballActionType.GK_THROW_LONG,
             FootballActionType.GK_DROP,
             -> {
-                if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player)) {
+                if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player) &&
+                    !SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player)
+                ) {
                     return
                 }
                 GoalkeeperActions.handle(player, payload)
@@ -71,7 +76,8 @@ object FootballPlayerActions {
             else -> Unit
         }
 
-        if (MatchState.isKickoffInteractionLocked(player)) return
+        if (SetPieceRestrictionCoordinator.isFootballOperationBlocked(player, payload.action)) return
+        if (MatchState.isKickoffInteractionLocked(player, payload.action)) return
         MatchState.tryNotifyKickoffBallTouched(player)
         if (payload.action == FootballActionType.ITEM_THROW) {
             FootballItem.tryThrowFromMainHand(player)

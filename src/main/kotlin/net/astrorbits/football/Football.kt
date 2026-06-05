@@ -115,7 +115,14 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (isMatchPaused()) return true
         if (immovableTargetPlayers.contains(player.uuid)) return true
         if (player is ServerPlayer && MatchState.isKickoffInteractionLocked(player)) return true
+        if (player is ServerPlayer && SetPieceRestrictionCoordinator.isPlayerBallMovementForbidden(player)) return true
         return false
+    }
+
+    private fun notifySetPieceGoalKickBallMoved(actingPlayer: ServerPlayer?) {
+        if (SetPieceState.active?.kind != SetPieceKind.GOAL_KICK) return
+        val server = (level() as? ServerLevel)?.server ?: return
+        GoalKickSetPieceFlow.onBallMoved(server, this)
     }
 
     private fun isMatchPaused(): Boolean =
@@ -860,6 +867,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             pending.ballPos,
             pending.restartTeam,
             pending.outType,
+            defendingSide = pending.defendingTeam,
         )
         return true
     }
@@ -1019,6 +1027,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         ballPos: Vec3,
         restartTeam: TeamSide,
         outType: GoalLineOutType,
+        defendingSide: TeamSide? = null,
         broadcastOutHud: Boolean = true,
     ) {
         if (MatchState.postGoalResetPending) return
@@ -1028,7 +1037,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             level,
             ballPos,
             PendingAfterReset.GoalLineOut(
-                restartTeam,
+                kickoffTeam = restartTeam,
+                outType = outType,
+                ballPos = ballPos,
+                defendingSide = defendingSide,
                 throwInDirectGoalRestrict = outType == GoalLineOutType.THROW_IN,
             ),
         )
@@ -1097,6 +1109,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             ballPos,
             restartTeam,
             outType,
+            defendingSide = defendingTeam,
             broadcastOutHud = false,
         )
     }
@@ -1149,6 +1162,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
         syncPhysicsToEntityData()
         syncPacketPositionCodec(x, y, z)
+        actingPlayer?.let { notifySetPieceGoalKickBallMoved(it) }
         return true
     }
 
@@ -1189,6 +1203,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         deltaMovement = Vec3.ZERO
         previousOrientation.set(physicsState.orientation)
         syncPhysicsToEntityData()
+        notifySetPieceGoalKickBallMoved(player)
         return true
     }
 

@@ -1,0 +1,64 @@
+package net.astrorbits.football.match
+
+import net.astrorbits.football.network.FootballNetworking
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.world.phys.Vec3
+
+object SetPieceBootstrap {
+    fun onAfterReset(level: ServerLevel, action: PendingAfterReset) {
+        val server = level.server ?: return
+        SetPieceAreaViolationMonitor.clearAll(server)
+        GoalKickSetPieceFlow.clear(server)
+        ThrowInSetPieceFlow.clear(server)
+        SetPieceState.clear()
+
+        when (action) {
+            is PendingAfterReset.PostGoal -> {
+                val pos = MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
+                SetPieceState.begin(
+                    SetPieceContext(
+                        kind = SetPieceKind.CENTER_KICKOFF,
+                        restartTeam = action.kickoffTeam,
+                        ballPos = pos,
+                    ),
+                )
+            }
+            is PendingAfterReset.GoalLineOut -> {
+                val ballPos = action.ballPos ?: MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
+                when (action.outType) {
+                    GoalLineOutType.GOAL_KICK -> {
+                        val defending = action.defendingSide ?: action.kickoffTeam
+                        GoalKickSetPieceFlow.begin(level, action.kickoffTeam, ballPos, defending)
+                    }
+                    GoalLineOutType.CORNER_KICK -> {
+                        val defending = action.defendingSide ?: action.kickoffTeam.opponent()
+                        SetPieceState.begin(
+                            SetPieceContext(
+                                kind = SetPieceKind.CORNER_KICK,
+                                restartTeam = action.kickoffTeam,
+                                ballPos = ballPos,
+                                defendingSide = defending,
+                                cornerPos = ballPos,
+                            ),
+                        )
+                    }
+                    GoalLineOutType.THROW_IN -> {
+                        ThrowInSetPieceFlow.begin(level, action.kickoffTeam, ballPos)
+                    }
+                    null -> Unit
+                }
+            }
+        }
+        FootballNetworking.broadcastSetPieceState(server)
+    }
+
+    fun onCenterKickoffBegin(restartTeam: TeamSide, ballPos: Vec3) {
+        SetPieceState.begin(
+            SetPieceContext(
+                kind = SetPieceKind.CENTER_KICKOFF,
+                restartTeam = restartTeam,
+                ballPos = ballPos,
+            ),
+        )
+    }
+}
