@@ -41,7 +41,7 @@
     "penalty_spot": {
       "x": 8.5,
       "y": -60.0,
-      "z": 55.5
+      "z": 60.5
     },
     "half_area": {
       "goal_area_corner1": {
@@ -94,7 +94,7 @@
     "penalty_spot": {
       "x": 8.5,
       "y": -60.0,
-      "z": -38.5
+      "z": -43.5
     },
     "half_area": {
       "goal_area_corner1": {
