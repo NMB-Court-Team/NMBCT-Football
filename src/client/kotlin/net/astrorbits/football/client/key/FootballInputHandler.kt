@@ -189,6 +189,12 @@ object FootballInputHandler {
         resetChargeDisplay()
     }
     private fun tickGoalkeeperDiveChargeDrain(player: LocalPlayer) {
+        if (!FootballOperabilityClient.canUseDiveAndCatch(player)) {
+            if (isDiveOrThrowChargeActive() && !GoalkeeperStateClient.isHoldingBall) {
+                cancelDiveCharge()
+            }
+            return
+        }
         val sm = FootballConfigs.server.staminaMechanism
         val display = liveKickChargeDisplay()
         if (
@@ -583,6 +589,12 @@ object FootballInputHandler {
     private fun canSendFootballAction(player: LocalPlayer, action: FootballActionType): Boolean {
         if (!FootballOperabilityClient.canShowFootballHints(player)) {
             return false
+        }
+        when (action) {
+            FootballActionType.GK_DIVE_CHARGE_DRAIN,
+            FootballActionType.GK_DIVE_CHARGE_CANCEL,
+            -> return FootballOperabilityClient.canUseDiveAndCatch(player)
+            else -> Unit
         }
         val key = when (action) {
             FootballActionType.PASS,

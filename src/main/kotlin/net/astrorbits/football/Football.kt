@@ -1266,6 +1266,14 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player)) {
             return
         }
+        forceDropAt(player)
+    }
+
+    /** 服务端强制放下持球（忽略开球锁定等移动限制，仍受 [isImmovable] 约束）。 */
+    fun forceDropAt(player: ServerPlayer) {
+        if (level().isClientSide || isImmovable || holderEntityId != player.id) {
+            return
+        }
         val look = Vec3Math.normalizeSafe(Vec3Math.horizontal(player.lookAngle))
         val dropPos = player.position().add(look.scale(GoalkeeperInputConfig.GK_DROP_DISTANCE))
         releaseHold()

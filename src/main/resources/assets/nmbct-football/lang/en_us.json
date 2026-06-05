@@ -635,6 +635,7 @@
     "match.prep.started": "Pre-match preparation: %s min — adjust keys, discuss tactics, or change GK (/match setGk).",
     "match.announce.goalkeeper": "%s goalkeeper: %s",
     "match.announce.goalkeeper_unassigned": "%s goalkeeper: (unassigned)",
+    "match.gk.penalty_area_hold_forbidden": "You cannot leave the penalty area while holding the ball!",
     "hud.nmbct-football.prep.remaining": "%s remaining",
     "match.phase.first_half": "1st Half",
     "match.phase.first_half_et": "1st Half ET",

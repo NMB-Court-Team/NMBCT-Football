@@ -1,11 +1,12 @@
 package net.astrorbits.football.client
 
-import net.astrorbits.football.Football
 import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.client.key.FootballKeyBindings
 import net.astrorbits.football.client.match.MatchStartClient
+import net.astrorbits.football.Football
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.GoalkeeperInputConfig
+import net.astrorbits.football.match.MatchFieldAreaUtil
 import net.astrorbits.football.match.MatchState
 import net.minecraft.client.KeyMapping
 import net.minecraft.client.player.LocalPlayer
@@ -15,6 +16,20 @@ object FootballOperabilityClient {
     /** 比赛进行中仅守门员可用守门员场地操作；比赛未开始（含准备/结算）时所有球员可用。 */
     fun canUseGoalkeeperActions(): Boolean =
         GoalkeeperStateClient.isGoalkeeper || !MatchState.isDuringMatch()
+
+    /**
+     * 比赛期间守门员捡球 / 鱼跃扑救是否可用（须在己方大禁区内）。
+     * 比赛未开始或赛前准备阶段无区域限制。
+     */
+    fun canUseDiveAndCatch(player: LocalPlayer): Boolean {
+        if (!canUseGoalkeeperActions()) {
+            return false
+        }
+        if (!MatchState.isDuringMatch()) {
+            return true
+        }
+        return MatchFieldAreaUtil.isPlayerInPenaltyArea(player, MatchStartClient.playerTeam)
+    }
 
     fun canOperateFootball(player: LocalPlayer, level: Level): Boolean {
         if (!canShowFootballHints(player)) {
@@ -58,9 +73,10 @@ object FootballOperabilityClient {
                 hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
             FootballKeyBindings.CHIP ->
                 hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
-            FootballKeyBindings.GK_DIVE -> canGk
+            FootballKeyBindings.GK_DIVE -> canGk && canUseDiveAndCatch(player)
             FootballKeyBindings.GK_CATCH ->
                 canGk && GoalkeeperHoldActionPermissionsClient.canCatch &&
+                    canUseDiveAndCatch(player) &&
                     hasBallWithinRange(player, level, goalkeeperCatchRange(player))
             FootballKeyBindings.SLIDE_TACKLE -> FootballInputHandler.canSlideTackle(player.level()?.gameTime ?: 0L)
             FootballKeyBindings.BOOST_SPRINT -> player.isSprinting && StaminaClient.stamina > 0f

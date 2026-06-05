@@ -50,6 +50,10 @@ object GoalkeeperActions {
             return
         }
 
+        if (requiresOwnPenaltyArea(payload.action) && !GoalkeeperActionAccess.canUseDiveAndCatch(player)) {
+            return
+        }
+
         when (payload.action) {
             FootballActionType.GK_CATCH -> {
                 if (GoalkeeperHoldActionPermissions.canCatch(player)) {
@@ -313,4 +317,13 @@ object GoalkeeperActions {
     }
 
     private fun canAct(player: Player): Boolean = player.mainHandItem.isEmpty
+
+    private fun requiresOwnPenaltyArea(action: FootballActionType): Boolean = when (action) {
+        FootballActionType.GK_CATCH,
+        FootballActionType.GK_DIVE,
+        FootballActionType.GK_DIVE_CHARGE_DRAIN,
+        FootballActionType.GK_DIVE_CHARGE_CANCEL,
+        -> true
+        else -> false
+    }
 }
