@@ -29,7 +29,7 @@ object PenaltyKickAwards {
         SetPieceState.clear()
         GoalKickSetPieceFlow.clear(level.server)
         ThrowInSetPieceFlow.clear(level.server)
-        SetPieceAreaViolationMonitor.clearAll(level.server)
+        level.server?.let { SetPieceAreaViolationMonitor.clearAll(it) }
         MatchState.postGoalResetPending = true
 
         PostGoalBallResetScheduler.schedule(
