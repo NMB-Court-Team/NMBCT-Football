@@ -2,6 +2,7 @@ package net.astrorbits.football.match
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.FootballParticles
+import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.util.GoalCrossingUtil
 import net.minecraft.server.MinecraftServer
@@ -104,11 +105,29 @@ object MatchPenaltyKickState {
     fun isMovementRestricted(player: ServerPlayer): Boolean {
         if (!MatchParticipation.isParticipating(player)) return false
         if (!isActive()) return false
-        if (kickPhase == PenaltyKickPhase.SETUP) return true
         if (player.uuid == currentKickerUuid) return false
         if (isDefendingGoalkeeper(player)) return false
         return true
     }
+
+    fun isPenaltyGoalkeeperDiveChargeAllowed(player: ServerPlayer): Boolean {
+        if (!isActive() || !isDefendingGoalkeeper(player)) return false
+        return kickPhase == PenaltyKickPhase.SETUP || kickPhase == PenaltyKickPhase.AWAITING_KICK
+    }
+
+    fun isPenaltyGoalkeeperDiveExecutionAllowed(player: ServerPlayer): Boolean {
+        if (!isActive() || !isDefendingGoalkeeper(player)) return false
+        return kickPhase == PenaltyKickPhase.AWAITING_KICK || kickPhase == PenaltyKickPhase.RESOLVING
+    }
+
+    fun allowsPenaltyGoalkeeperAction(player: ServerPlayer, action: FootballActionType?): Boolean =
+        when (action) {
+            FootballActionType.GK_DIVE_CHARGE_DRAIN,
+            FootballActionType.GK_DIVE_CHARGE_CANCEL,
+            -> isPenaltyGoalkeeperDiveChargeAllowed(player)
+            FootballActionType.GK_DIVE -> isPenaltyGoalkeeperDiveExecutionAllowed(player)
+            else -> false
+        }
 
     fun isDefendingGoalkeeper(player: ServerPlayer): Boolean {
         if (!MatchParticipation.isParticipating(player)) return false

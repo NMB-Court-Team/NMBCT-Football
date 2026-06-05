@@ -72,6 +72,7 @@ object FootballInputHandler {
         if (MatchStartClient.isLocked) return null
         syncDivePressRealtimeClock()
         syncKickPressRealtimeClock()
+        val player = net.minecraft.client.Minecraft.getInstance().player
         val holdingBall = GoalkeeperStateClient.isHoldingBall
         val diveDown = FootballKeyBindings.GK_DIVE.isDown
         val kickDown = FootballKeyBindings.KICK.isDown
@@ -86,7 +87,9 @@ object FootballInputHandler {
                 phase = phase,
             )
         }
-        if (!holdingBall && diveDown && FootballOperabilityClient.canUseGoalkeeperActions()) {
+        if (!holdingBall && diveDown && player != null &&
+            FootballOperabilityClient.canPrepareGoalkeeperDiveCharge(player)
+        ) {
             val start = divePressStartMs ?: return null
             if (diveChargeCancelled) return null
             val heldMs = System.currentTimeMillis() - start
@@ -189,7 +192,7 @@ object FootballInputHandler {
         resetChargeDisplay()
     }
     private fun tickGoalkeeperDiveChargeDrain(player: LocalPlayer) {
-        if (!FootballOperabilityClient.canUseDiveAndCatch(player)) {
+        if (!FootballOperabilityClient.canPrepareGoalkeeperDiveCharge(player)) {
             if (isDiveOrThrowChargeActive() && !GoalkeeperStateClient.isHoldingBall) {
                 cancelDiveCharge()
             }
@@ -230,6 +233,9 @@ object FootballInputHandler {
                 resetThrowChargeDisplay()
                 if (diveChargeCancelled) {
                     diveChargeCancelled = false
+                    return
+                }
+                if (!FootballOperabilityClient.canExecuteGoalkeeperDive(player)) {
                     return
                 }
                 val settings = chargeSettings()
@@ -593,7 +599,9 @@ object FootballInputHandler {
         when (action) {
             FootballActionType.GK_DIVE_CHARGE_DRAIN,
             FootballActionType.GK_DIVE_CHARGE_CANCEL,
-            -> return FootballOperabilityClient.canUseDiveAndCatch(player)
+            -> return FootballOperabilityClient.canPrepareGoalkeeperDiveCharge(player)
+            FootballActionType.GK_DIVE,
+            -> return FootballOperabilityClient.canExecuteGoalkeeperDive(player)
             else -> Unit
         }
         val key = when (action) {
@@ -602,6 +610,7 @@ object FootballInputHandler {
             -> FootballKeyBindings.KICK
             FootballActionType.GK_THROW_SHORT,
             FootballActionType.GK_THROW_LONG,
+            -> FootballKeyBindings.GK_DIVE
             FootballActionType.GK_DIVE,
             -> FootballKeyBindings.GK_DIVE
             FootballActionType.TRAP,
@@ -690,7 +699,9 @@ object FootballInputHandler {
         val down = FootballKeyBindings.GK_DIVE.isDown
         val now = System.currentTimeMillis()
         val holding = GoalkeeperStateClient.isHoldingBall
-        val canTrackDive = !holding && FootballOperabilityClient.canUseGoalkeeperActions()
+        val player = net.minecraft.client.Minecraft.getInstance().player
+        val canTrackDive = !holding && player != null &&
+            FootballOperabilityClient.canPrepareGoalkeeperDiveCharge(player)
         val canTrackThrow = holding && !GoalkeeperStateClient.isHoldReleaseLocked()
         val canTrackCharge = canTrackDive || canTrackThrow
         if (down && !diveRealtimePrevDown && canTrackCharge && divePressStartMs == null) {

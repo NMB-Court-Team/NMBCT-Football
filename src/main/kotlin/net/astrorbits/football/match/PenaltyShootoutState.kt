@@ -2,6 +2,7 @@ package net.astrorbits.football.match
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.FootballSounds
+import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.util.GoalCrossingUtil
 import net.minecraft.network.chat.Component
@@ -70,7 +71,6 @@ object PenaltyShootoutState {
         clear()
         active = true
         lastWinner = null
-        activeDefendingTeam = TeamSide.entries[Random.nextInt(TeamSide.entries.size)]
         firstKickTeam = TeamSide.entries[Random.nextInt(TeamSide.entries.size)]
         suddenDeath = false
         penaltyScoreA = 0
@@ -135,11 +135,31 @@ object PenaltyShootoutState {
     fun isPenaltyMovementRestricted(player: ServerPlayer): Boolean {
         if (!MatchParticipation.isParticipating(player)) return false
         if (!isActive()) return false
-        if (kickPhase == PenaltyKickPhase.SETUP) return true
         if (player.uuid == currentKickerUuid) return false
         if (isDefendingGoalkeeper(player)) return false
         return true
     }
+
+    /** 开踢前/等待主罚：防守门将可按住右键蓄力鱼跃。 */
+    fun isPenaltyGoalkeeperDiveChargeAllowed(player: ServerPlayer): Boolean {
+        if (!isActive() || !isDefendingGoalkeeper(player)) return false
+        return kickPhase == PenaltyKickPhase.SETUP || kickPhase == PenaltyKickPhase.AWAITING_KICK
+    }
+
+    /** 主罚触球后或等待开踢：防守门将可释放鱼跃扑救。 */
+    fun isPenaltyGoalkeeperDiveExecutionAllowed(player: ServerPlayer): Boolean {
+        if (!isActive() || !isDefendingGoalkeeper(player)) return false
+        return kickPhase == PenaltyKickPhase.AWAITING_KICK || kickPhase == PenaltyKickPhase.RESOLVING
+    }
+
+    fun allowsPenaltyGoalkeeperAction(player: ServerPlayer, action: FootballActionType?): Boolean =
+        when (action) {
+            FootballActionType.GK_DIVE_CHARGE_DRAIN,
+            FootballActionType.GK_DIVE_CHARGE_CANCEL,
+            -> isPenaltyGoalkeeperDiveChargeAllowed(player)
+            FootballActionType.GK_DIVE -> isPenaltyGoalkeeperDiveExecutionAllowed(player)
+            else -> false
+        }
 
     fun isDefendingGoalkeeper(player: ServerPlayer): Boolean {
         if (!MatchParticipation.isParticipating(player)) return false
@@ -277,8 +297,8 @@ object PenaltyShootoutState {
     }
 
     /**
-     * 主罚选择：优先尚未踢过的在场 eligible 队员；仅当所有**当前仍在场**的 eligible 都已踢过至少一次后，才允许二踢。
-     * 开球时在线、之后离场的队员不阻塞二踢。
+     * 主罚选择：优先尚未踢过的非门将队员；全员至少踢过一次后才允许二踢。
+     * 开球时在线、之后离场的队员不阻塞二踢（以 eligible 池为准）。
      */
     private fun pickKicker(team: TeamSide, server: MinecraftServer): UUID? {
         val eligible = when (team) {
@@ -294,23 +314,16 @@ object PenaltyShootoutState {
         val present = eligible.mapNotNull { server.playerList.getPlayer(it) }
         if (present.isEmpty()) return null
 
-        val outfield = present.filter { !PlayerRoleState.isDesignatedGoalkeeper(it) }
-        if (outfield.isNotEmpty()) {
-            pickKickerFromPool(outfield, kicked)?.let { return it }
+        val awaitingFirstKick = present.filter { it.uuid !in kicked }
+        if (awaitingFirstKick.isEmpty()) {
+            return present.random().uuid
         }
-        return pickKickerFromPool(present, kicked)
-    }
 
-    private fun pickKickerFromPool(
-        candidates: List<ServerPlayer>,
-        kicked: Set<UUID>,
-    ): UUID? {
-        if (candidates.isEmpty()) return null
-        val awaitingFirstKick = candidates.filter { it.uuid !in kicked }
-        if (awaitingFirstKick.isNotEmpty()) {
-            return awaitingFirstKick.random().uuid
+        val outfieldAwaiting = awaitingFirstKick.filter { !PlayerRoleState.isDesignatedGoalkeeper(it) }
+        if (outfieldAwaiting.isNotEmpty()) {
+            return outfieldAwaiting.random().uuid
         }
-        return candidates.random().uuid
+        return awaitingFirstKick.random().uuid
     }
 
     private fun beginKick(server: MinecraftServer) {
@@ -320,6 +333,7 @@ object PenaltyShootoutState {
         kickPhase = PenaltyKickPhase.SETUP
         outcomeRecorded = false
         currentKickerTeam = teamForKickIndex(totalKicksTaken)
+        activeDefendingTeam = currentKickerTeam.opponent()
         currentKickerUuid = pickKicker(currentKickerTeam, server)
         currentKickerUuid?.let { uuid ->
             server.playerList.getPlayer(uuid)?.let { PlayerRoleState.enterPenaltyKickOutfield(it) }

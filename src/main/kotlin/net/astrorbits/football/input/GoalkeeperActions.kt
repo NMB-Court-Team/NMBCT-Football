@@ -59,8 +59,7 @@ object GoalkeeperActions {
         }
 
         if (requiresOwnPenaltyArea(payload.action) &&
-            !GoalkeeperActionAccess.canUseDiveAndCatch(player) &&
-            !SetPieceRestrictionCoordinator.allowsGoalKickCatch(player)
+            !passesDiveAreaGate(player, payload.action)
         ) {
             return
         }
@@ -346,6 +345,20 @@ object GoalkeeperActions {
     }
 
     private fun canAct(player: Player): Boolean = player.mainHandItem.isEmpty
+
+    private fun passesDiveAreaGate(player: ServerPlayer, action: FootballActionType): Boolean {
+        if (SetPieceRestrictionCoordinator.allowsGoalKickCatch(player)) {
+            return true
+        }
+        return when (action) {
+            FootballActionType.GK_DIVE_CHARGE_DRAIN,
+            FootballActionType.GK_DIVE_CHARGE_CANCEL,
+            -> GoalkeeperActionAccess.canPrepareGoalkeeperDiveCharge(player)
+            FootballActionType.GK_DIVE -> GoalkeeperActionAccess.canExecuteGoalkeeperDive(player)
+            FootballActionType.GK_CATCH -> GoalkeeperActionAccess.canUseDiveAndCatch(player)
+            else -> true
+        }
+    }
 
     private fun requiresOwnPenaltyArea(action: FootballActionType): Boolean = when (action) {
         FootballActionType.GK_CATCH,

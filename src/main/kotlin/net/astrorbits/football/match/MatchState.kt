@@ -334,10 +334,14 @@ object MatchState {
             return true
         }
         if (currentPhase == MatchPhase.PENALTIES && !PenaltyShootoutState.isPenaltyFootballInteractionAllowed(player)) {
-            return true
+            if (!PenaltyShootoutState.allowsPenaltyGoalkeeperAction(player, action)) {
+                return true
+            }
         }
         if (MatchPenaltyKickState.isActive() && !MatchPenaltyKickState.isFootballInteractionAllowed(player)) {
-            return true
+            if (!MatchPenaltyKickState.allowsPenaltyGoalkeeperAction(player, action)) {
+                return true
+            }
         }
         if (action == net.astrorbits.football.network.FootballActionType.GK_CATCH &&
             SetPieceRestrictionCoordinator.allowsGoalKickCatch(player)
@@ -524,9 +528,10 @@ object MatchState {
         startRegularMatch(server)
     }
 
-    /** 上半场开球：分配/同步守门员并广播开赛 HUD。 */
+    /** 上半场开球：分配/同步守门员、传送至出生点并广播开赛 HUD。 */
     fun startRegularMatch(server: MinecraftServer) {
         PlayerRoleState.assignGoalkeepersIfMissing(server)
+        teleportTeamsToSpawnPositions(server)
         broadcastGoalkeepersAnnouncement(server)
         val kickoff = TeamSide.entries.random()
         setPhase(MatchPhase.FIRST_HALF, server)

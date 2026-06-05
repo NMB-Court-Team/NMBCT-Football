@@ -3,22 +3,81 @@ package net.astrorbits.football.client
 import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.client.key.FootballKeyBindings
 import net.astrorbits.football.client.match.MatchStartClient
+import net.astrorbits.football.client.match.PenaltyShootoutClient
 import net.astrorbits.football.Football
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.astrorbits.football.match.GoalKickPhase
 import net.astrorbits.football.match.MatchFieldAreaUtil
+import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.match.PenaltyKickPhase
 import net.astrorbits.football.match.SetPieceKind
+import net.astrorbits.football.match.TeamSide
 import net.astrorbits.football.client.SetPieceClient
 import net.minecraft.client.KeyMapping
 import net.minecraft.client.player.LocalPlayer
 import net.minecraft.world.level.Level
 
 object FootballOperabilityClient {
+    private const val SCOREBOARD_TEAM_A = "football_A"
+    private const val SCOREBOARD_TEAM_B = "football_B"
+
     /** 比赛进行中仅守门员可用守门员场地操作；比赛未开始（含准备/结算）时所有球员可用。 */
     fun canUseGoalkeeperActions(): Boolean =
         GoalkeeperStateClient.isGoalkeeper || !MatchState.isDuringMatch()
+
+    fun resolveLocalPlayerTeam(player: LocalPlayer): TeamSide? {
+        val sbTeam = player.level().scoreboard.getPlayersTeam(player.gameProfile.name) ?: return null
+        return when (sbTeam.name) {
+            SCOREBOARD_TEAM_A -> TeamSide.A
+            SCOREBOARD_TEAM_B -> TeamSide.B
+            else -> null
+        }
+    }
+
+    private fun localPlayerTeam(player: LocalPlayer): TeamSide =
+        resolveLocalPlayerTeam(player) ?: MatchStartClient.playerTeam
+
+    private fun isPenaltyShootoutDefendingGoalkeeper(player: LocalPlayer): Boolean {
+        if (MatchState.currentPhase != MatchPhase.PENALTIES || !PenaltyShootoutClient.active) {
+            return false
+        }
+        if (!GoalkeeperStateClient.isGoalkeeper) {
+            return false
+        }
+        return localPlayerTeam(player) == PenaltyShootoutClient.activeDefendingTeam
+    }
+
+    /** 按住右键鱼跃蓄力（含点球大战 Banner 期间）。 */
+    fun canPrepareGoalkeeperDiveCharge(player: LocalPlayer): Boolean {
+        if (!canUseGoalkeeperActions()) {
+            return false
+        }
+        if (!MatchState.isDuringMatch()) {
+            return true
+        }
+        if (isPenaltyShootoutDefendingGoalkeeper(player)) {
+            return PenaltyShootoutClient.kickPhase == PenaltyKickPhase.SETUP ||
+                PenaltyShootoutClient.kickPhase == PenaltyKickPhase.AWAITING_KICK
+        }
+        return canUseDiveAndCatch(player)
+    }
+
+    /** 释放右键执行鱼跃扑救。 */
+    fun canExecuteGoalkeeperDive(player: LocalPlayer): Boolean {
+        if (!canUseGoalkeeperActions()) {
+            return false
+        }
+        if (!MatchState.isDuringMatch()) {
+            return true
+        }
+        if (isPenaltyShootoutDefendingGoalkeeper(player)) {
+            return PenaltyShootoutClient.kickPhase == PenaltyKickPhase.AWAITING_KICK ||
+                PenaltyShootoutClient.kickPhase == PenaltyKickPhase.RESOLVING
+        }
+        return canUseDiveAndCatch(player)
+    }
 
     /**
      * 比赛期间守门员捡球 / 鱼跃扑救是否可用（须在己方大禁区内）。
@@ -31,7 +90,7 @@ object FootballOperabilityClient {
         if (!MatchState.isDuringMatch()) {
             return true
         }
-        return MatchFieldAreaUtil.isPlayerInPenaltyArea(player, MatchStartClient.playerTeam)
+        return MatchFieldAreaUtil.isPlayerInPenaltyArea(player, localPlayerTeam(player))
     }
 
     fun canOperateFootball(player: LocalPlayer, level: Level): Boolean {
@@ -79,7 +138,8 @@ object FootballOperabilityClient {
                 hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
             FootballKeyBindings.CHIP ->
                 hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
-            FootballKeyBindings.GK_DIVE -> canGk && canUseDiveAndCatch(player)
+            FootballKeyBindings.GK_DIVE ->
+                canGk && (canPrepareGoalkeeperDiveCharge(player) || canExecuteGoalkeeperDive(player))
             FootballKeyBindings.GK_CATCH ->
                 (canGk && GoalkeeperHoldActionPermissionsClient.canCatch &&
                     canUseDiveAndCatch(player) &&

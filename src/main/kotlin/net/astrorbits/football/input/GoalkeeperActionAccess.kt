@@ -1,7 +1,10 @@
 package net.astrorbits.football.input
 
 import net.astrorbits.football.match.MatchFieldAreaUtil
+import net.astrorbits.football.match.MatchPenaltyKickState
+import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.match.PenaltyShootoutState
 import net.astrorbits.football.match.PlayerRoleState
 import net.minecraft.server.level.ServerPlayer
 
@@ -24,5 +27,43 @@ object GoalkeeperActionAccess {
         }
         val team = MatchState.getPlayerTeam(player.uuid) ?: return false
         return MatchFieldAreaUtil.isPlayerInPenaltyArea(player, team)
+    }
+
+    /** 按住右键鱼跃蓄力（含点球大战开踢前的准备阶段）。 */
+    fun canPrepareGoalkeeperDiveCharge(player: ServerPlayer): Boolean {
+        if (!canUseGoalkeeperFieldActions(player)) {
+            return false
+        }
+        if (!MatchState.isDuringMatch()) {
+            return true
+        }
+        if (MatchState.currentPhase == MatchPhase.PENALTIES &&
+            PenaltyShootoutState.isPenaltyGoalkeeperDiveChargeAllowed(player)
+        ) {
+            return true
+        }
+        if (MatchPenaltyKickState.isPenaltyGoalkeeperDiveChargeAllowed(player)) {
+            return true
+        }
+        return canUseDiveAndCatch(player)
+    }
+
+    /** 释放右键执行鱼跃扑救。 */
+    fun canExecuteGoalkeeperDive(player: ServerPlayer): Boolean {
+        if (!canUseGoalkeeperFieldActions(player)) {
+            return false
+        }
+        if (!MatchState.isDuringMatch()) {
+            return true
+        }
+        if (MatchState.currentPhase == MatchPhase.PENALTIES &&
+            PenaltyShootoutState.isPenaltyGoalkeeperDiveExecutionAllowed(player)
+        ) {
+            return true
+        }
+        if (MatchPenaltyKickState.isPenaltyGoalkeeperDiveExecutionAllowed(player)) {
+            return true
+        }
+        return canUseDiveAndCatch(player)
     }
 }
