@@ -3,6 +3,8 @@
     "item.nmbct-football.whistle": "哨子",
     "item.nmbct-football.red_card": "红牌",
     "item.nmbct-football.yellow_card": "黄牌",
+    "item.nmbct-football.goal_net": "球网",
+    "block.nmbct-football.goal_net": "球网",
     "block.nmbct-football.goal_net_anchor": "球网锚点",
     "item.nmbct-football.goal_net_anchor": "球网锚点",
     "item.nmbct-football.goal_net_connector": "球网连接器",
@@ -58,7 +60,6 @@
     "hud.nmbct-football.hint.gk_dive": "(可蓄力) 鱼跃扑救",
     "hud.nmbct-football.hint.interrupt_charge": "打断蓄力",
     "hud.nmbct-football.hint.gk_catch": "捡球",
-    "hud.nmbct-football.hint.gk_dive": "(可蓄力) 鱼跃扑救",
     "hud.nmbct-football.hint.gk_throw": "(可蓄力) 抛出",
     "hud.nmbct-football.hint.gk_drop": "放下",
     "hud.nmbct-football.gk_hold_lock": "持球保护",
@@ -684,7 +685,5 @@
     "hud.nmbct-football.penalty.kick_sudden_death": "突然死亡 第 %s 踢",
     "hud.nmbct-football.result.win_penalties": "点球大战获胜",
     "hud.nmbct-football.result.loss_penalties": "点球大战失利",
-    "match.phase.finished": "结算",
-    "block.nmbct-football.goal_net": "球网",
-    "item.nmbct-football.goal_net": "球网"
+    "match.phase.finished": "结算"
 }
