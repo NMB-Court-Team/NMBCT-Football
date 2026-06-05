@@ -15,8 +15,8 @@ data class PlayerSlideTackleSettings(
     val minSprintTicks: Int = 5,
     val tacklerSpeedDampOnContact: Double = 0.85,
     val contactDistancePenaltyTicks: Int = 5,
-    val victimPushSpeed: Double = 1.1,
-    val victimKnockbackUpward: Double = 0.28,
+    val victimPushSpeed: Double = 2.2,
+    val victimKnockbackUpward: Double = 0.56,
     val victimResistanceTicks: Int = 12,
     val victimResistanceFactor: Double = 0.35,
     val victimJumpBlockTicks: Int = 14,
@@ -42,8 +42,8 @@ data class PlayerSlideTackleSettings(
                     .forGetter(PlayerSlideTackleSettings::tacklerSpeedDampOnContact),
                 Codec.INT.optionalFieldOf("slide_contact_distance_penalty_ticks", 5)
                     .forGetter(PlayerSlideTackleSettings::contactDistancePenaltyTicks),
-                Codec.DOUBLE.optionalFieldOf("slide_victim_push_speed", 1.1).forGetter(PlayerSlideTackleSettings::victimPushSpeed),
-                Codec.DOUBLE.optionalFieldOf("slide_victim_knockback_upward", 0.28)
+                Codec.DOUBLE.optionalFieldOf("slide_victim_push_speed", 2.2).forGetter(PlayerSlideTackleSettings::victimPushSpeed),
+                Codec.DOUBLE.optionalFieldOf("slide_victim_knockback_upward", 0.56)
                     .forGetter(PlayerSlideTackleSettings::victimKnockbackUpward),
                 Codec.INT.optionalFieldOf("slide_victim_resistance_ticks", 12).forGetter(PlayerSlideTackleSettings::victimResistanceTicks),
                 Codec.DOUBLE.optionalFieldOf("slide_victim_resistance_factor", 0.35)
