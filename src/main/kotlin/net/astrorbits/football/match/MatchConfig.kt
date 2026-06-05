@@ -205,6 +205,7 @@ data class MatchConfig(
     val teamBSpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
 ) {
     val halfTimeMinutes: Int get() = rules.halfTimeMinutes
+    val enableOffside: Boolean get() = rules.enableOffside
     val enableStoppageTime: Boolean get() = rules.enableStoppageTime
     val stoppageTimeMaxMinutes: Int get() = rules.stoppageTimeMaxMinutes
     val enableExtraTime: Boolean get() = rules.enableExtraTime

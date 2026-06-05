@@ -13,8 +13,10 @@ import net.astrorbits.football.client.config.FootballConfigNetworking
 import net.astrorbits.football.client.config.MatchConfigNetworking
 import net.astrorbits.football.client.config.MatchFieldConfigNetworking
 import net.astrorbits.football.client.match.GoalScoredClientNetworking
+import net.astrorbits.football.client.match.FreeKickAwardClientNetworking
 import net.astrorbits.football.client.match.InvalidGoalClientNetworking
 import net.astrorbits.football.client.match.MatchStartClientNetworking
+import net.astrorbits.football.client.render.FreeKickAwardHudElement
 import net.astrorbits.football.client.render.GoalLineOutHudElement
 import net.astrorbits.football.client.render.GoalScoredHudElement
 import net.astrorbits.football.client.render.InvalidGoalHudElement
@@ -62,6 +64,7 @@ object NMBCTFootballClient : ClientModInitializer {
 		MatchStartClientNetworking.register()
 		GoalScoredClientNetworking.register()
 		InvalidGoalClientNetworking.register()
+		FreeKickAwardClientNetworking.register()
 
 		FootballKeyBindings.init()
 		FootballClientConfigKeyHandler.register()
@@ -114,6 +117,11 @@ object NMBCTFootballClient : ClientModInitializer {
 		HudElementRegistry.addLast(
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "goal_line_out_hud"),
 			GoalLineOutHudElement()
+		)
+
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "free_kick_award_hud"),
+			FreeKickAwardHudElement()
 		)
 
 		HudElementRegistry.addLast(

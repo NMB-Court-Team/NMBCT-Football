@@ -166,6 +166,13 @@ object MatchSetupConfigScreen {
                         getter = { getter().enablePenaltyShootout },
                         setter = { v -> setRules(getter, setter) { it.copy(enablePenaltyShootout = v) } },
                     )
+                    addBoolean(
+                        nameKey = "screen.nmbct-football.match.enable_offside",
+                        descKey = MatchYaclDesc.desc("screen.nmbct-football.match.enable_offside"),
+                        defaultValue = def.enableOffside,
+                        getter = { getter().enableOffside },
+                        setter = { v -> setRules(getter, setter) { it.copy(enableOffside = v) } },
+                    )
                 },
             ),
         )

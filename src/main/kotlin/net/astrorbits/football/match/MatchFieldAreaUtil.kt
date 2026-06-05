@@ -94,6 +94,57 @@ object MatchFieldAreaUtil {
         return horizontalDistanceSquared(x, z, center.x, center.z) <= radius * radius
     }
 
+    /**
+     * 沿球场长轴、以 [goalSide] 球门为正向的一维坐标；数值越大表示越靠近该侧球门线。
+     * 无法解析球场朝向时返回 null。
+     */
+    fun longitudinalTowardGoal(
+        x: Double,
+        z: Double,
+        goalSide: TeamSide,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Double? {
+        val orientation = pitchOrientation(config) ?: return null
+        val goalCoord = longCoord(goalForSide(config, goalSide).goalCenter(), orientation)
+        val pointCoord = longCoord(x, z, orientation)
+        val towardSign = if (goalCoord >= orientation.midfieldCoord) 1.0 else -1.0
+        return (pointCoord - orientation.midfieldCoord) * towardSign
+    }
+
+    fun longitudinalTowardGoal(
+        player: Player,
+        goalSide: TeamSide,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Double? = longitudinalTowardGoal(player.x, player.z, goalSide, config)
+
+    /** [attackingTeam] 进攻方向上的纵向坐标（即靠近对方球门的坐标）。 */
+    fun longitudinalTowardOpponentGoal(
+        x: Double,
+        z: Double,
+        attackingTeam: TeamSide,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Double? = longitudinalTowardGoal(x, z, attackingTeam.opponent(), config)
+
+    fun longitudinalTowardOpponentGoal(
+        player: Player,
+        attackingTeam: TeamSide,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Double? = longitudinalTowardOpponentGoal(player.x, player.z, attackingTeam, config)
+
+    /** [attackingTeam] 是否处于对方半场。 */
+    fun isInOpponentHalf(
+        x: Double,
+        z: Double,
+        attackingTeam: TeamSide,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Boolean = isInHalf(config, attackingTeam.opponent(), x, z)
+
+    fun isPlayerInOpponentHalf(
+        player: Player,
+        attackingTeam: TeamSide,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Boolean = isInOpponentHalf(player.x, player.z, attackingTeam, config)
+
     private data class PitchOrientation(
         val longAxis: LongAxis,
         val midfieldCoord: Double,

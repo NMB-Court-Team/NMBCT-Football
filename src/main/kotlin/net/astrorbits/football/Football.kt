@@ -578,6 +578,13 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val ballCenter = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         lastActiveKickTowardGoal = kickDirection != null &&
             GoalCrossingUtil.isKickTowardOpponentGoal(player, ballCenter, kickDirection)
+        if (lastActiveKickTowardGoal) {
+            OffsideDetector.recordSnapshot(player, ballCenter)
+        }
+        val serverLevel = level() as? ServerLevel
+        if (serverLevel != null) {
+            OffsideDetector.tryAwardOnTouch(player, ballCenter, serverLevel)
+        }
     }
 
     /** 带球触球：仅更新最后物理触球，不重置进球归属链。 */
@@ -611,6 +618,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (!prediction.wouldScore) {
             setGoalAttribution(player)
         }
+        val ballCenter = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
+        OffsideDetector.tryAwardOnTouch(player, ballCenter, serverLevel)
     }
 
     private fun resolveGoalScorerUuid(): UUID? = goalAttributionPlayer ?: lastPhysicalTouch
@@ -958,6 +967,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 return
             }
             MatchState.clearDirectGoalRestriction()
+            MatchState.clearPendingOffsideSnapshot()
             MatchState.postGoalResetPending = true
             MatchState.onGoal(attackingTeam)
             val ownGoal = scorerTeam != attackingTeam
@@ -1012,6 +1022,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         broadcastOutHud: Boolean = true,
     ) {
         if (MatchState.postGoalResetPending) return
+        MatchState.clearPendingOffsideSnapshot()
         MatchState.postGoalResetPending = true
         PostGoalBallResetScheduler.schedule(
             level,

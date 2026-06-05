@@ -7,6 +7,8 @@ import net.astrorbits.football.input.FootballPlayerActions
 import net.astrorbits.football.input.GoalkeeperHoldActionPermissions
 import net.astrorbits.football.input.GoalkeeperHoldLock
 import net.astrorbits.football.util.GoalkeeperUtil
+import net.astrorbits.football.match.FreeKickFoulReason
+import net.astrorbits.football.match.FreeKickType
 import net.astrorbits.football.match.KickoffWhistleContext
 import net.astrorbits.football.match.MatchKickoffTiming
 import net.astrorbits.football.match.MatchConfig
@@ -75,6 +77,7 @@ object FootballNetworking {
         registry.register(PenaltyShootoutSyncS2CPayload.TYPE, PenaltyShootoutSyncS2CPayload.CODEC)
         registry.register(PenaltyKickStartS2CPayload.TYPE, PenaltyKickStartS2CPayload.CODEC)
         registry.register(MatchPauseS2CPayload.TYPE, MatchPauseS2CPayload.CODEC)
+        registry.register(FreeKickAwardS2CPayload.TYPE, FreeKickAwardS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -591,6 +594,34 @@ object FootballNetworking {
             teamBScore,
             MatchState.getTeamName(TeamSide.A).string,
             MatchState.getTeamName(TeamSide.B).string,
+        )
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun broadcastFreeKickAward(
+        server: MinecraftServer,
+        type: FreeKickType,
+        foulReason: FreeKickFoulReason,
+        foulingTeam: TeamSide,
+        restartTeam: TeamSide,
+        foulingPlayerUuid: UUID,
+        ballX: Double,
+        ballY: Double,
+        ballZ: Double,
+    ) {
+        FootballSounds.playMatchWhistle(server, 6)
+        val foulingPlayerName = server.playerList.getPlayer(foulingPlayerUuid)?.name?.string ?: ""
+        val payload = FreeKickAwardS2CPayload(
+            freeKickType = type,
+            foulReason = foulReason,
+            foulingPlayerName = foulingPlayerName,
+            foulingTeam = foulingTeam,
+            restartTeam = restartTeam,
+            ballX = ballX,
+            ballY = ballY,
+            ballZ = ballZ,
         )
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)

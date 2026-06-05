@@ -1,11 +1,13 @@
 package net.astrorbits.football.match
 
+import net.astrorbits.football.Football
 import net.astrorbits.football.network.FootballNetworking
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.level.Level
+import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 
 /**
@@ -31,8 +33,7 @@ object PostGoalBallResetScheduler {
         val delayTicks = delaySeconds * 20
         cancel(level.dimension())
         if (delayTicks <= 0) {
-            MatchState.resetFootball(level, resetPos)
-            afterReset?.let { applyAfterReset(level.server, it) }
+            finishReset(level, resetPos, afterReset)
             return
         }
         pending.add(Pending(level.dimension(), delayTicks, resetPos, afterReset))
@@ -69,8 +70,19 @@ object PostGoalBallResetScheduler {
             if (entry.ticksRemaining > 0) continue
             iter.remove()
             val level = server.getLevel(entry.dimension) ?: continue
-            MatchState.resetFootball(level, entry.resetPos)
-            entry.afterReset?.let { applyAfterReset(server, it) }
+            finishReset(level, entry.resetPos, entry.afterReset)
         }
+    }
+
+    private fun finishReset(level: ServerLevel, resetPos: Vec3?, afterReset: PendingAfterReset?) {
+        MatchState.resetFootball(level, resetPos)
+        afterReset?.let { applyBallLastTouch(level, it) }
+        afterReset?.let { applyAfterReset(level.server, it) }
+    }
+
+    private fun applyBallLastTouch(level: ServerLevel, action: PendingAfterReset) {
+        val uuid = (action as? PendingAfterReset.GoalLineOut)?.lastTouchPlayerUuid ?: return
+        val all = AABB(Vec3(-3.0E7, -3.0E7, -3.0E7), Vec3(3.0E7, 3.0E7, 3.0E7))
+        level.getEntitiesOfClass(Football::class.java, all).firstOrNull()?.lastPhysicalTouch = uuid
     }
 }

@@ -71,6 +71,19 @@ object MatchState {
     var directGoalRestricted: Boolean = false
     private var directGoalInitialAttribution: UUID? = null
 
+    data class OffsideSnapshot(
+        val passerUuid: UUID,
+        val attackingTeam: TeamSide,
+        val offsidePlayers: Set<UUID>,
+        val gameTime: Long,
+    )
+
+    var pendingOffsideSnapshot: OffsideSnapshot? = null
+
+    fun clearPendingOffsideSnapshot() {
+        pendingOffsideSnapshot = null
+    }
+
     fun getTeamName(team: TeamSide): Component = when (team) {
         TeamSide.A -> teamAName.copy().withStyle(ChatFormatting.RED)
         TeamSide.B -> teamBName.copy().withStyle(ChatFormatting.AQUA)
@@ -169,6 +182,7 @@ object MatchState {
         postGoalResetPending = false
         clearPendingGoalLineOut()
         clearDirectGoalRestriction()
+        clearPendingOffsideSnapshot()
         PlayerRoleState.reset()
         PenaltyShootoutState.clear()
     }
