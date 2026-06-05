@@ -449,7 +449,7 @@ object MatchState {
             dynamicStoppageTicks = maxTicks
         }
         clearKickoffWhistleTimers()
-        val server = player.level().server
+        val server = player.level().server ?: return
         when (SetPieceState.active?.kind) {
             SetPieceKind.CENTER_KICKOFF, SetPieceKind.CORNER_KICK -> {
                 SetPieceState.clear()
@@ -645,7 +645,7 @@ object MatchState {
     }
 
     private fun teleportTo(player: ServerPlayer, pos: SpawnPosition) {
-        val level = player.level()
+        val level = player.level() ?: return
         player.teleportTo(level, pos.x, pos.y, pos.z, java.util.HashSet(), pos.yaw, pos.pitch, false)
     }
 

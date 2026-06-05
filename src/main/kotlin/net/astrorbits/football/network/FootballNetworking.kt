@@ -124,7 +124,7 @@ object FootballNetworking {
         ServerPlayNetworking.registerGlobalReceiver(HalfKickoffRequestC2SPayload.TYPE) { _, context ->
             context.server().execute {
                 val server = context.server()
-                val level = context.player().level()
+                val level = context.player().level() ?: return@execute
                 handleHalfKickoffRequest(level, server)
             }
         }
@@ -442,7 +442,7 @@ object FootballNetworking {
 
     fun syncSlideTackleState(player: ServerPlayer, sliding: Boolean, cooldownUntilTick: Long = 0L) {
         val payload = SlideTackleStateS2CPayload(player.id, sliding, cooldownUntilTick)
-        val server = player.level().server
+        val server = player.level().server ?: return
         for (target in server.playerList.players) {
             ServerPlayNetworking.send(target, payload)
         }
@@ -451,7 +451,7 @@ object FootballNetworking {
     /** 同步哨子吹哨：各客户端在吹哨玩家实体上播放绑定音效。 */
     fun syncWhistleUse(player: ServerPlayer) {
         val payload = WhistleUseS2CPayload(player.id)
-        val server = player.level().server
+        val server = player.level().server ?: return
         for (target in server.playerList.players) {
             ServerPlayNetworking.send(target, payload)
         }
