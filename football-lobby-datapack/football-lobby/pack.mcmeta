@@ -1,0 +1,7 @@
+{
+  "pack": {
+    "description": "足球场大厅控制数据包",
+    "min_format": [101, 1],
+    "max_format": 101
+  }
+}

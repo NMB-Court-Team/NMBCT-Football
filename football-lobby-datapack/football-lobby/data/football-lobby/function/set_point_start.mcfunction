@@ -1,0 +1,1 @@
+function football-lobby:set_start_button
