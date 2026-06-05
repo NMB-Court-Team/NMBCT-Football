@@ -19,6 +19,18 @@ object ConfigPersistence {
             save(path, codec, default)
             return default
         }
+        return loadExisting(path, codec, default)
+    }
+
+    /** 仅当文件已存在时读取；不存在则返回默认值且不创建文件。 */
+    fun <T> loadIfExists(path: Path, codec: Codec<T>, default: T): T {
+        if (!Files.exists(path)) {
+            return default
+        }
+        return loadExisting(path, codec, default)
+    }
+
+    private fun <T> loadExisting(path: Path, codec: Codec<T>, default: T): T {
         return try {
             val text = Files.readString(path)
             val element = JsonParser.parseString(text)
