@@ -62,7 +62,7 @@ object FreeKickAwards {
         )
 
         FootballNetworking.broadcastFreeKickAward(
-            level.server,
+            level.server ?: return false,
             type,
             foulReason,
             foulingTeam,
