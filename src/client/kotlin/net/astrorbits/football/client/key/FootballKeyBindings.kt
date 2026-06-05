@@ -72,6 +72,33 @@ object FootballKeyBindings {
         )
     )
 
+    val GK_DIVE: KeyMapping = KeyMappingHelper.registerKeyMapping(
+        KeyMapping(
+            "key.nmbct-football.gk_dive",
+            InputConstants.Type.MOUSE,
+            GLFW.GLFW_MOUSE_BUTTON_RIGHT,
+            CATEGORY
+        )
+    )
+
+    val GK_CATCH: KeyMapping = KeyMappingHelper.registerKeyMapping(
+        KeyMapping(
+            "key.nmbct-football.gk_catch",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_G,
+            CATEGORY
+        )
+    )
+
+    val INTERRUPT_CHARGE: KeyMapping = KeyMappingHelper.registerKeyMapping(
+        KeyMapping(
+            "key.nmbct-football.interrupt_charge",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_LEFT_SHIFT,
+            CATEGORY
+        )
+    )
+
     val OPEN_CLIENT_CONFIG: KeyMapping = KeyMappingHelper.registerKeyMapping(
         KeyMapping(
             "key.nmbct-football.open_client_config",

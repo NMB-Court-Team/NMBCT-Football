@@ -8,7 +8,6 @@ data class GoalkeeperCatchSettings(
     val crouchRangeBonus: Double = 0.3,
     val catchMaxSpeed: Double = 1.8,
     val catchAngleDeg: Double = 120.0,
-    val holdMaxTicks: Int = 300,
     val holdHeight: Double = 1.05,
     val holdForward: Double = 0.85,
     val holdCrouchHeightOffset: Double = 0.15,
@@ -27,7 +26,6 @@ data class GoalkeeperCatchSettings(
                 Codec.DOUBLE.fieldOf("crouch_range_bonus").forGetter(GoalkeeperCatchSettings::crouchRangeBonus),
                 Codec.DOUBLE.fieldOf("catch_max_speed").forGetter(GoalkeeperCatchSettings::catchMaxSpeed),
                 Codec.DOUBLE.fieldOf("catch_angle_deg").forGetter(GoalkeeperCatchSettings::catchAngleDeg),
-                Codec.INT.fieldOf("hold_max_ticks").forGetter(GoalkeeperCatchSettings::holdMaxTicks),
                 Codec.DOUBLE.fieldOf("hold_height").forGetter(GoalkeeperCatchSettings::holdHeight),
                 Codec.DOUBLE.fieldOf("hold_forward").forGetter(GoalkeeperCatchSettings::holdForward),
                 Codec.DOUBLE.fieldOf("hold_crouch_height_offset").forGetter(GoalkeeperCatchSettings::holdCrouchHeightOffset),
@@ -228,7 +226,6 @@ data class GoalkeeperSettings(
     val crouchRangeBonus get() = catch.crouchRangeBonus
     val catchMaxSpeed get() = catch.catchMaxSpeed
     val catchAngleDeg get() = catch.catchAngleDeg
-    val holdMaxTicks get() = catch.holdMaxTicks
     val holdHeight get() = catch.holdHeight
     val holdForward get() = catch.holdForward
     val holdCrouchHeightOffset get() = catch.holdCrouchHeightOffset

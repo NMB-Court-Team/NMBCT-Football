@@ -1,5 +1,6 @@
 package net.astrorbits.football.match
 
+import net.astrorbits.football.input.GoalkeeperHoldActionPermissions
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.util.GoalkeeperUtil
 import net.minecraft.server.MinecraftServer
@@ -78,6 +79,7 @@ object PlayerRoleState {
     fun syncRoleToPlayer(player: ServerPlayer) {
         val isGk = isGoalkeeper(player)
         FootballNetworking.sendGoalkeeperRole(player, isGk)
+        GoalkeeperHoldActionPermissions.syncToClient(player)
         if (!isGk) {
             releaseHeldFootballOnRoleExit(player)
         }

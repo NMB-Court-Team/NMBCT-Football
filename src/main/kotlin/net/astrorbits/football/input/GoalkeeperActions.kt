@@ -28,6 +28,9 @@ object GoalkeeperActions {
         if (!net.astrorbits.football.match.MatchParticipation.isParticipating(player)) {
             return
         }
+        if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player)) {
+            return
+        }
         // 服务端双重保险：非发球方球员在开球锁定时拒绝所有足球操作
         if (net.astrorbits.football.match.MatchState.isKickoffInteractionLocked(player)) return
         net.astrorbits.football.match.MatchState.tryNotifyKickoffBallTouched(player)
@@ -48,9 +51,12 @@ object GoalkeeperActions {
         }
 
         when (payload.action) {
-            FootballActionType.GK_CATCH -> handleCatch(player)
+            FootballActionType.GK_CATCH -> {
+                if (GoalkeeperHoldActionPermissions.canCatch(player)) {
+                    handleCatch(player)
+                }
+            }
             FootballActionType.GK_DIVE -> handleDive(player, payload)
-            FootballActionType.GK_PUNCH -> handlePunch(player)
             FootballActionType.GK_DIVE_CHARGE_DRAIN -> handleDiveChargeDrain(player)
             FootballActionType.GK_DIVE_CHARGE_CANCEL -> handleDiveChargeCancel(player)
             else -> Unit
@@ -79,9 +85,13 @@ object GoalkeeperActions {
         when (payload.action) {
             FootballActionType.GK_THROW_SHORT,
             FootballActionType.GK_THROW_LONG,
-            FootballActionType.GK_DROP,
             -> {
-                if (GoalkeeperHoldLock.isReleaseBlocked(player, now)) {
+                if (!GoalkeeperHoldActionPermissions.canThrow(player) || GoalkeeperHoldLock.isReleaseBlocked(player, now)) {
+                    return
+                }
+            }
+            FootballActionType.GK_DROP -> {
+                if (!GoalkeeperHoldActionPermissions.canDrop(player) || GoalkeeperHoldLock.isReleaseBlocked(player, now)) {
                     return
                 }
             }

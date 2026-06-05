@@ -3,6 +3,7 @@ package net.astrorbits.football.client
 import net.astrorbits.football.Football
 import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.input.GoalkeeperInputConfig
+import net.astrorbits.football.network.GoalkeeperHoldActionPermissionsS2CPayload
 import net.astrorbits.football.network.GoalkeeperHoldLockS2CPayload
 import net.astrorbits.football.network.GoalkeeperRoleS2CPayload
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
@@ -37,6 +38,14 @@ object GoalkeeperStateClient {
 
         ClientPlayNetworking.registerGlobalReceiver(GoalkeeperHoldLockS2CPayload.TYPE) { payload, _ ->
             applyHoldReleaseLock(payload.lockTicksRemaining)
+        }
+
+        ClientPlayNetworking.registerGlobalReceiver(GoalkeeperHoldActionPermissionsS2CPayload.TYPE) { payload, _ ->
+            GoalkeeperHoldActionPermissionsClient.apply(
+                canCatch = payload.canCatch,
+                canDrop = payload.canDrop,
+                canThrow = payload.canThrow,
+            )
         }
 
         ClientTickEvents.END_CLIENT_TICK.register { client ->
@@ -94,7 +103,7 @@ object GoalkeeperStateClient {
     }
 
     private fun updateHoldingState(player: LocalPlayer?) {
-        if (player == null || !isGoalkeeper) {
+        if (player == null) {
             resetHoldState()
             return
         }
@@ -108,8 +117,10 @@ object GoalkeeperStateClient {
         ).any { it.getHolderEntityId() == player.id }
 
         if (holding && !wasHoldingBall) {
-            predictHoldReleaseLock(level.gameTime)
-            GoalkeeperHoldStealProtectionClient.onGoalkeeperBeganHolding(player, level.gameTime)
+            if (isGoalkeeper) {
+                predictHoldReleaseLock(level.gameTime)
+                GoalkeeperHoldStealProtectionClient.onGoalkeeperBeganHolding(player, level.gameTime)
+            }
             FootballInputHandler.onGoalkeeperBeganHoldingBall()
         }
 
@@ -161,6 +172,7 @@ object GoalkeeperStateClient {
     fun onMatchReset() {
         isGoalkeeper = false
         resetHoldState()
+        GoalkeeperHoldActionPermissionsClient.reset()
         GoalkeeperHoldStealProtectionClient.onMatchReset()
     }
 }

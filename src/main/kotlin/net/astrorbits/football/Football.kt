@@ -1294,11 +1294,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return
         }
 
-        if (level().gameTime - holdStartTick > GoalkeeperInputConfig.GK_HOLD_MAX_TICKS) {
-            dropAt(holder)
-            return
-        }
-
         updateHeldPosition(holder)
         updateHeldOrientation(holder)
         physicsState.linearVelocity = Vec3.ZERO

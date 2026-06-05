@@ -6,87 +6,85 @@ import net.astrorbits.football.client.key.FootballKeyBindings
 import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.GoalkeeperInputConfig
+import net.astrorbits.football.match.MatchState
 import net.minecraft.client.KeyMapping
 import net.minecraft.client.player.LocalPlayer
 import net.minecraft.world.level.Level
 
 object FootballOperabilityClient {
-    /** 与 [canUseFootballHint] 一致：是否存在至少一项当前可用的足球操作（用于旧调用方）。 */
+    /** 比赛进行中仅守门员可用守门员场地操作；比赛未开始（含准备/结算）时所有球员可用。 */
+    fun canUseGoalkeeperActions(): Boolean =
+        GoalkeeperStateClient.isGoalkeeper || !MatchState.isDuringMatch()
+
     fun canOperateFootball(player: LocalPlayer, level: Level): Boolean {
         if (!canShowFootballHints(player)) {
             return false
         }
-        return footballHintKeys(player).any { canUseFootballHint(player, level, it) }
+        return footballHintKeys().any { canUseFootballHint(player, level, it) }
     }
 
     fun canShowFootballHints(player: LocalPlayer): Boolean =
         !player.isSpectator && player.mainHandItem.isEmpty && !MatchStartClient.isLocked
 
-    /**
-     * 右上角单条按键是否应高亮：与客户端实际会处理/发包的条件对齐，而非仅用「附近是否有球」。
-     */
     fun canUseFootballHint(player: LocalPlayer, level: Level, key: KeyMapping): Boolean {
         if (!canShowFootballHints(player)) {
             return false
         }
 
-        if (GoalkeeperStateClient.isGoalkeeper) {
-            if (GoalkeeperStateClient.isHoldingBall) {
-                return !GoalkeeperStateClient.isHoldReleaseLocked()
-            }
+        val holdingBall = GoalkeeperStateClient.isHoldingBall
+        val canGk = canUseGoalkeeperActions()
+
+        if (holdingBall) {
             return when (key) {
-                FootballKeyBindings.KICK -> true
-                FootballKeyBindings.DRIBBLE -> FootballInputHandler.isGoalkeeperDiveChargeActive()
-                FootballKeyBindings.TRAP -> hasBallWithinRange(player, level, goalkeeperCatchRange(player))
-                FootballKeyBindings.CHIP -> hasBallWithinRange(player, level, goalkeeperPunchRange(player))
+                FootballKeyBindings.GK_DIVE ->
+                    canGk && GoalkeeperHoldActionPermissionsClient.canThrow &&
+                        !GoalkeeperStateClient.isHoldReleaseLocked()
+                FootballKeyBindings.GK_CATCH ->
+                    canGk && GoalkeeperHoldActionPermissionsClient.canDrop &&
+                        !GoalkeeperStateClient.isHoldReleaseLocked()
+                FootballKeyBindings.BOOST_SPRINT -> player.isSprinting && StaminaClient.stamina > 0f
+                FootballKeyBindings.INTERRUPT_CHARGE -> FootballInputHandler.isAnyChargeActive()
+                FootballKeyBindings.LOOK_AROUND -> true
                 else -> false
             }
         }
 
         return when (key) {
-            FootballKeyBindings.KICK,
-            FootballKeyBindings.DRIBBLE,
-            FootballKeyBindings.TRAP,
-            FootballKeyBindings.CHIP,
-            -> hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
+            FootballKeyBindings.KICK ->
+                hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
+            FootballKeyBindings.DRIBBLE ->
+                hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
+            FootballKeyBindings.TRAP ->
+                hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
+            FootballKeyBindings.CHIP ->
+                hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
+            FootballKeyBindings.GK_DIVE -> canGk
+            FootballKeyBindings.GK_CATCH ->
+                canGk && GoalkeeperHoldActionPermissionsClient.canCatch &&
+                    hasBallWithinRange(player, level, goalkeeperCatchRange(player))
+            FootballKeyBindings.SLIDE_TACKLE -> FootballInputHandler.canSlideTackle(player.level()?.gameTime ?: 0L)
+            FootballKeyBindings.BOOST_SPRINT -> player.isSprinting && StaminaClient.stamina > 0f
+            FootballKeyBindings.INTERRUPT_CHARGE -> FootballInputHandler.isAnyChargeActive()
+            FootballKeyBindings.LOOK_AROUND -> true
             else -> false
         }
     }
 
-    private fun footballHintKeys(player: LocalPlayer): List<KeyMapping> {
-        if (GoalkeeperStateClient.isGoalkeeper) {
-            return if (GoalkeeperStateClient.isHoldingBall) {
-                listOf(FootballKeyBindings.KICK, FootballKeyBindings.TRAP)
-            } else {
-                val keys = mutableListOf(
-                    FootballKeyBindings.KICK,
-                    FootballKeyBindings.TRAP,
-                    FootballKeyBindings.CHIP,
-                )
-                if (FootballInputHandler.isGoalkeeperDiveChargeActive()) {
-                    keys += FootballKeyBindings.DRIBBLE
-                }
-                keys
-            }
-        }
-        return listOf(
-            FootballKeyBindings.KICK,
-            FootballKeyBindings.DRIBBLE,
-            FootballKeyBindings.TRAP,
-            FootballKeyBindings.CHIP,
-        )
-    }
+    private fun footballHintKeys(): List<KeyMapping> = listOf(
+        FootballKeyBindings.KICK,
+        FootballKeyBindings.DRIBBLE,
+        FootballKeyBindings.TRAP,
+        FootballKeyBindings.CHIP,
+        FootballKeyBindings.GK_DIVE,
+        FootballKeyBindings.GK_CATCH,
+        FootballKeyBindings.SLIDE_TACKLE,
+        FootballKeyBindings.BOOST_SPRINT,
+        FootballKeyBindings.INTERRUPT_CHARGE,
+        FootballKeyBindings.LOOK_AROUND,
+    )
 
     private fun goalkeeperCatchRange(player: LocalPlayer): Double {
         var range = GoalkeeperInputConfig.GK_CATCH_RANGE
-        if (player.isShiftKeyDown) {
-            range += GoalkeeperInputConfig.GK_CROUCH_RANGE_BONUS
-        }
-        return range
-    }
-
-    private fun goalkeeperPunchRange(player: LocalPlayer): Double {
-        var range = GoalkeeperInputConfig.GK_PUNCH_RANGE
         if (player.isShiftKeyDown) {
             range += GoalkeeperInputConfig.GK_CROUCH_RANGE_BONUS
         }

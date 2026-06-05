@@ -10,6 +10,7 @@ import net.astrorbits.football.item.FootballItem
 import net.astrorbits.football.Football
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.util.FootballKickUtil
+import net.astrorbits.football.util.GoalkeeperUtil
 import net.astrorbits.football.util.KickChargeUtil
 import net.astrorbits.football.util.Vec3Math
 import net.minecraft.server.level.ServerPlayer
@@ -29,6 +30,21 @@ object FootballPlayerActions {
         if (!MatchParticipation.isParticipating(player)) {
             return
         }
+        if (GoalkeeperUtil.findHeldFootball(player) != null) {
+            when (payload.action) {
+                FootballActionType.GK_THROW_SHORT,
+                FootballActionType.GK_THROW_LONG,
+                FootballActionType.GK_DROP,
+                -> {
+                    if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player)) {
+                        return
+                    }
+                    GoalkeeperActions.handle(player, payload)
+                }
+                else -> Unit
+            }
+            return
+        }
         when (payload.action) {
             FootballActionType.SLIDE_TACKLE -> {
                 handleSlideTackle(player, payload)
@@ -40,10 +56,16 @@ object FootballPlayerActions {
             }
             FootballActionType.GK_DIVE_CHARGE_DRAIN,
             FootballActionType.GK_DIVE_CHARGE_CANCEL,
+            FootballActionType.GK_CATCH,
+            FootballActionType.GK_DIVE,
+            FootballActionType.GK_THROW_SHORT,
+            FootballActionType.GK_THROW_LONG,
+            FootballActionType.GK_DROP,
             -> {
-                if (PlayerRoleState.isGoalkeeper(player)) {
-                    GoalkeeperActions.handle(player, payload)
+                if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player)) {
+                    return
                 }
+                GoalkeeperActions.handle(player, payload)
                 return
             }
             else -> Unit
@@ -53,10 +75,6 @@ object FootballPlayerActions {
         MatchState.tryNotifyKickoffBallTouched(player)
         if (payload.action == FootballActionType.ITEM_THROW) {
             FootballItem.tryThrowFromMainHand(player)
-            return
-        }
-        if (PlayerRoleState.isGoalkeeper(player)) {
-            GoalkeeperActions.handle(player, payload)
             return
         }
         if (isBlockedBySlideState(player, payload.action)) {

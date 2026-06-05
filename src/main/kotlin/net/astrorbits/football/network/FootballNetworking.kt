@@ -4,6 +4,7 @@ import net.astrorbits.football.config.server.FootballServerConfig
 import net.astrorbits.football.config.server.FootballServerConfigHolder
 import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.input.FootballPlayerActions
+import net.astrorbits.football.input.GoalkeeperHoldActionPermissions
 import net.astrorbits.football.input.GoalkeeperHoldLock
 import net.astrorbits.football.util.GoalkeeperUtil
 import net.astrorbits.football.match.KickoffWhistleContext
@@ -49,6 +50,7 @@ object FootballNetworking {
     private fun registerS2CPayloadType(registry: PayloadTypeRegistry<RegistryFriendlyByteBuf>) {
         registry.register(GoalkeeperRoleS2CPayload.TYPE, GoalkeeperRoleS2CPayload.CODEC)
         registry.register(GoalkeeperHoldLockS2CPayload.TYPE, GoalkeeperHoldLockS2CPayload.CODEC)
+        registry.register(GoalkeeperHoldActionPermissionsS2CPayload.TYPE, GoalkeeperHoldActionPermissionsS2CPayload.CODEC)
         registry.register(ServerConfigSyncS2CPayload.TYPE, ServerConfigSyncS2CPayload.CODEC)
         registry.register(MatchConfigSyncS2CPayload.TYPE, MatchConfigSyncS2CPayload.CODEC)
 		registry.register(MatchFieldConfigSyncS2CPayload.TYPE, MatchFieldConfigSyncS2CPayload.CODEC)
@@ -403,6 +405,18 @@ object FootballNetworking {
         ServerPlayNetworking.send(player, GoalkeeperHoldLockS2CPayload(lockTicksRemaining))
     }
 
+    fun sendGoalkeeperHoldActionPermissions(
+        player: ServerPlayer,
+        canCatch: Boolean,
+        canDrop: Boolean,
+        canThrow: Boolean,
+    ) {
+        ServerPlayNetworking.send(
+            player,
+            GoalkeeperHoldActionPermissionsS2CPayload(canCatch, canDrop, canThrow),
+        )
+    }
+
     fun syncSlideTackleState(player: ServerPlayer, sliding: Boolean, cooldownUntilTick: Long = 0L) {
         val payload = SlideTackleStateS2CPayload(player.id, sliding, cooldownUntilTick)
         val server = player.level().server ?: return
@@ -441,6 +455,7 @@ object FootballNetworking {
             GoalkeeperUtil.findHeldFootball(player)?.dropAt(player)
         }
         GoalkeeperHoldLock.clearAll(server)
+        GoalkeeperHoldActionPermissions.clearAll(server)
         MatchPauseFootballState.onResume(server)
         MatchState.reset()
         syncAllGoalkeeperRoles(server)

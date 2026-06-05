@@ -3,15 +3,13 @@ package net.astrorbits.football.input
 import net.astrorbits.football.config.FootballConfigs
 
 /**
- * @deprecated 请使用 [net.astrorbits.football.config.FootballConfigs.server.goalkeeper]。
- */
+ * @deprecated ????[net.astrorbits.football.config.FootballConfigs.server.goalkeeper]?? */
 //@Deprecated("Use FootballConfigs.server.goalkeeper", ReplaceWith("FootballConfigs.server.goalkeeper"))
 object GoalkeeperInputConfig {
     val GK_CATCH_RANGE get() = FootballConfigs.server.goalkeeper.catchRange
     val GK_CROUCH_RANGE_BONUS get() = FootballConfigs.server.goalkeeper.crouchRangeBonus
     val GK_CATCH_MAX_SPEED get() = FootballConfigs.server.goalkeeper.catchMaxSpeed
     val GK_CATCH_ANGLE_DEG get() = FootballConfigs.server.goalkeeper.catchAngleDeg
-    val GK_HOLD_MAX_TICKS get() = FootballConfigs.server.goalkeeper.holdMaxTicks
     val GK_HOLD_HEIGHT get() = FootballConfigs.server.goalkeeper.holdHeight
     val GK_HOLD_FORWARD get() = FootballConfigs.server.goalkeeper.holdForward
     val GK_HOLD_CROUCH_HEIGHT_OFFSET get() = FootballConfigs.server.goalkeeper.holdCrouchHeightOffset
