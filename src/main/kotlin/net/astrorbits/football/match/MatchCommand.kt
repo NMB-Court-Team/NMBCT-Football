@@ -262,7 +262,13 @@ object MatchCommand {
 					Commands.argument("player", EntityArgument.player())
 						.executes { ctx ->
 							val player = EntityArgument.getPlayer(ctx, "player")
-							PlayerRoleState.setOfficialGk(team, player)
+							val server = ctx.source.server
+							if (!PlayerRoleState.setOfficialGk(team, player, server)) {
+								ctx.source.sendFailure(
+									Component.translatable("command.nmbct-football.match.set_gk_not_participating"),
+								)
+								return@executes 0
+							}
 							ctx.source.sendSuccess({
 								Component.translatable(
 									"command.nmbct-football.match.set_gk",
@@ -291,23 +297,5 @@ object MatchCommand {
 			)
 		}
 		root.then(clearGk)
-
-		root.then(
-			Commands.literal("gk").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).then(
-				Commands.literal("on").executes { ctx ->
-					val player = ctx.source.playerOrException
-					PlayerRoleState.setVoluntaryGk(player, true)
-					ctx.source.sendSuccess({ Component.translatable("command.nmbct-football.match.gk_on") }, true)
-					1
-				}
-			).then(
-				Commands.literal("off").executes { ctx ->
-					val player = ctx.source.playerOrException
-					PlayerRoleState.setVoluntaryGk(player, false)
-					ctx.source.sendSuccess({ Component.translatable("command.nmbct-football.match.gk_off") }, true)
-					1
-				}
-			)
-		)
 	}
 }

@@ -11,51 +11,42 @@ import java.util.concurrent.ConcurrentHashMap
 object PlayerRoleState {
     var teamAGoalkeeper: UUID? = null
     var teamBGoalkeeper: UUID? = null
-    val voluntaryGkMode: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
     /** 点球主罚轮次中临时按场外球员操作（仍保留正式门将登记）。 */
     private val penaltyKickOutfieldOverride: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
     fun isDesignatedGoalkeeper(player: ServerPlayer): Boolean {
         val uuid = player.uuid
-        return uuid == teamAGoalkeeper || uuid == teamBGoalkeeper || voluntaryGkMode.contains(uuid)
+        return uuid == teamAGoalkeeper || uuid == teamBGoalkeeper
     }
 
     fun isGoalkeeper(player: ServerPlayer): Boolean {
         if (!MatchParticipation.isParticipating(player)) return false
         if (penaltyKickOutfieldOverride.contains(player.uuid)) return false
-        // 自愿门将模式（/football match gk on）可在比赛外用于测试守门员操作
-        if (voluntaryGkMode.contains(player.uuid)) return true
         if (!MatchState.allowsActiveGoalkeeperRole()) return false
         val uuid = player.uuid
         return uuid == teamAGoalkeeper || uuid == teamBGoalkeeper
     }
 
-    fun setOfficialGk(team: TeamSide, player: ServerPlayer?) {
-        if (player != null && !MatchParticipation.isParticipating(player)) {
-            return
+    fun setOfficialGk(team: TeamSide, player: ServerPlayer, server: MinecraftServer): Boolean {
+        if (!MatchParticipation.isParticipating(player)) {
+            return false
         }
+        val playerUuid = player.uuid
+        clearOfficialGkSlotIfHeldBy(team.opponent(), playerUuid)
+
         val previous = when (team) {
-            TeamSide.A -> {
-                val old = teamAGoalkeeper
-                teamAGoalkeeper = player?.uuid
-                old
-            }
-            TeamSide.B -> {
-                val old = teamBGoalkeeper
-                teamBGoalkeeper = player?.uuid
-                old
-            }
+            TeamSide.A -> teamAGoalkeeper.also { teamAGoalkeeper = playerUuid }
+            TeamSide.B -> teamBGoalkeeper.also { teamBGoalkeeper = playerUuid }
         }
 
-        player?.let { voluntaryGkMode.remove(it.uuid) }
-        val server = player?.level()?.server
-        previous?.let { uuid ->
-            FootballNetworking.syncGoalkeeperRole(uuid, server)
+        if (previous != null && previous != playerUuid) {
+            FootballNetworking.syncGoalkeeperRole(previous, server)
         }
-        player?.let { syncRoleToPlayer(it) }
+        syncRoleToPlayer(player)
+        return true
     }
 
-    fun clearOfficialGk(team: TeamSide, server: net.minecraft.server.MinecraftServer?) {
+    fun clearOfficialGk(team: TeamSide, server: MinecraftServer?) {
         val previous = when (team) {
             TeamSide.A -> teamAGoalkeeper.also { teamAGoalkeeper = null }
             TeamSide.B -> teamBGoalkeeper.also { teamBGoalkeeper = null }
@@ -63,17 +54,11 @@ object PlayerRoleState {
         previous?.let { FootballNetworking.syncGoalkeeperRole(it, server) }
     }
 
-    fun setVoluntaryGk(player: ServerPlayer, enabled: Boolean): Boolean {
-        if (enabled && !MatchParticipation.isParticipating(player)) {
-            return false
+    private fun clearOfficialGkSlotIfHeldBy(team: TeamSide, uuid: UUID) {
+        when (team) {
+            TeamSide.A -> if (teamAGoalkeeper == uuid) teamAGoalkeeper = null
+            TeamSide.B -> if (teamBGoalkeeper == uuid) teamBGoalkeeper = null
         }
-        if (enabled) {
-            voluntaryGkMode.add(player.uuid)
-        } else {
-            voluntaryGkMode.remove(player.uuid)
-        }
-        syncRoleToPlayer(player)
-        return enabled
     }
 
     fun syncRoleToPlayer(player: ServerPlayer) {
@@ -121,13 +106,13 @@ object PlayerRoleState {
             MatchParticipation.filterParticipatingRoster(roster, server)
                 .shuffled()
                 .firstNotNullOfOrNull { server.playerList.getPlayer(it) }
-                ?.let { player -> setOfficialGk(team, player) }
+                ?.let { player -> setOfficialGk(team, player, server) }
         }
     }
 
     fun assignGoalkeepersOnMatchStart(server: MinecraftServer) = assignGoalkeepersIfMissing(server)
 
-    /** 主罚点球时切换为场外操作（门将/自愿门将）。 */
+    /** 主罚点球时切换为场外操作（门将）。 */
     fun enterPenaltyKickOutfield(player: ServerPlayer) {
         if (!isDesignatedGoalkeeper(player)) return
         if (!penaltyKickOutfieldOverride.add(player.uuid)) return
@@ -150,9 +135,8 @@ object PlayerRoleState {
         }
     }
 
-    /** 复位比赛进程时调用：保留正式门将登记，仅清除临时门将状态。 */
+    /** 复位比赛进程时调用：保留正式门将登记，仅清除点球主罚时的场外操作覆盖。 */
     fun reset() {
-        voluntaryGkMode.clear()
         penaltyKickOutfieldOverride.clear()
     }
 }
