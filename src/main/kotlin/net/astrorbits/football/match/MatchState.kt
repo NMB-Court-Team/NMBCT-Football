@@ -112,9 +112,11 @@ object MatchState {
     /** 正式比赛或赛前准备：守门员身份与相关输入生效。 */
     fun allowsActiveGoalkeeperRole(): Boolean = isDuringMatch() || isPreMatchPreparationPhase()
 
-    /** 比赛计时是否暂停（含赛前准备阶段，即 [isRunning] 为 false 且仍在可计时阶段）。 */
+    /** 比赛计时是否暂停（含赛前准备阶段，即 [isRunning] 为 false 且仍在可计时阶段）。点球大战不计时，但不视为暂停。 */
     fun isMatchTimerPaused(): Boolean =
-        (isDuringMatch() || isPreMatchPreparationPhase()) && !isRunning
+        (isDuringMatch() || isPreMatchPreparationPhase())
+            && !isRunning
+            && currentPhase != MatchPhase.PENALTIES
 
     fun addPlayer(team: TeamSide, uuid: UUID) {
         when (team) {
