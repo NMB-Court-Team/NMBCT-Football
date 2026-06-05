@@ -10,6 +10,7 @@
 - **可配置的赛场几何**：球门矩形、底线朝向、边线、开球点、角球/门球点、双方出生点均来自 `MatchConfig`。
 - **自动判例**：球每 tick 位移后检测是否穿越门线或边线，区分进球、无效进球、角球、球门球、界外球；可选越位检测与间接任意球判罚。
 - **开球纪律**：非发球方在开球锁定期间无法操作足球；拖延开球会累积动态补时并触发裁判哨声。
+- **定位球区域与操作规则**：中圈开球、球门球、角球、界外球、点球大战等场景下，对球员位置（软限制，3 秒警告后判罚/重新发球）与足球/门将操作（硬限制）分别约束；守门员持球出大禁区改为判直接任意球，不再强制放球。
 - **GM 可控**：`/match` 命令管理开赛、阶段、比分、队伍与守门员；配置文件与 GUI 编辑赛场参数。
 - **可选赛前准备**：开赛前可配置倒计时，供调整按键、换守门员与战术讨论；亮绿色 Banner 与聊天公示守门员。
 - **可选辅助功能**：比赛设置中可开启全场足球位置指示，帮助参赛玩家在球出屏时定位足球（纯客户端 HUD，不改变物理或判例）。
@@ -51,10 +52,18 @@ flowchart TB
 | `match/MatchPhase.kt` | 比赛阶段枚举与线性 `next` 链 |
 | `match/MatchConfig.kt` | 赛场与规则配置（Codec）；含 `rules`、`accessibility` 嵌套段 |
 | `match/MatchRulesSettings.kt` | 时长、补时、加时、点球、越位开关、复位延迟等规则 |
-| `match/MatchFieldAreaUtil.kt` | 半场/禁区/中圈判定；越位用纵向坐标与对方半场 API |
+| `match/MatchFieldAreaUtil.kt` | 半场/禁区/中圈/角球与界外球罚球区判定；越位用纵向坐标与对方半场 API；`nearestPenaltyAreaBoundary` |
 | `match/OffsideDetector.kt` | 越位快照、越位线计算、触球 involvement 吹罚 |
 | `match/FreeKickAwards.kt` | 直接/间接任意球判罚与球复位调度 |
-| `match/FreeKickFoulReason.kt` | 任意球犯规原因与类型枚举（`FreeKickType`） |
+| `match/FreeKickFoulReason.kt` | 任意球犯规原因与类型枚举（`FreeKickType`；含 `OFFSIDE`、`GOALKEEPER_LEFT_PENALTY_AREA`） |
+| `match/SetPieceContext.kt` | 定位球上下文：`SetPieceKind`、`GoalKickPhase`、`SetPieceState` |
+| `match/SetPieceRestrictionCoordinator.kt` | 定位球期间硬性操作限制（球门球/界外球等） |
+| `match/SetPieceAreaViolationMonitor.kt` | 区域违规 3 秒计时与判罚/重新发球 |
+| `match/SetPieceAreaViolationType.kt` | 区域违规类型与 HUD 区域名称键 |
+| `match/SetPieceRestartAwards.kt` | 重新开球/门球/角球/界外球（`whistle_6` + 任意球配色 Banner） |
+| `match/SetPieceBootstrap.kt` | 足球复位后初始化定位球状态与各 Flow |
+| `match/GoalKickSetPieceFlow.kt` | 球门球特殊流程（全员捡球、5s 放球锁、小禁区放下） |
+| `match/ThrowInSetPieceFlow.kt` | 界外球特殊流程（选人传送、持球、移动冻结、仅可抛球） |
 | `match/MatchAccessibilitySettings.kt` | 辅助功能开关（如足球位置指示） |
 | `match/MatchFieldBounds.kt` | 由球门/边线推导球场水平矩形及指示范围 |
 | `match/MatchConfigHolder.kt` | 加载/保存 `config/nmbct-football-match.json` |
@@ -67,7 +76,17 @@ flowchart TB
 | `client/render/PreMatchPrepHudElement.kt` | 赛前准备阶段亮绿色 Banner（含暂停时合并「比赛暂停中」） |
 | `client/render/MatchPauseOverlayHudElement.kt` | 正式比赛暂停期间顶部大字「比赛暂停中」（准备阶段已并入准备 Banner） |
 | `client/GoalkeeperHoldStealProtectionClient.kt` | 比赛期间抢球保护窗口（客户端，供 HUD） |
-| `client/render/GoalkeeperHoldStealProtectionHudElement.kt` | 准心下方「抢球保护中」提示 |
+| `client/render/GoalkeeperHoldStealProtectionHudElement.kt` | 准心下方「抢球保护中」提示（offset 11px） |
+| `client/render/SetPieceAreaViolationHudElement.kt` | 准心下方区域违规倒计时警告（红色粗体，offset 26px） |
+| `client/render/SetPieceRestartHudElement.kt` | 重新开球/门球/角球/界外球 Banner（复用任意球亮紫配色） |
+| `client/FootballOperabilityClient.kt` | 客户端足球/门将操作可用性预判（含定位球硬性限制） |
+| `client/SetPieceClient.kt` | 定位球状态客户端镜像（`SetPieceStateS2CPayload`） |
+| `client/SetPieceAreaViolationClient.kt` | 区域违规警告客户端状态 |
+| `client/match/SetPieceRestartClient.kt` | 重新发球 Banner 客户端状态（4s） |
+| `client/match/SetPieceClientNetworking.kt` | 定位球相关 S2C 包注册 |
+| `network/SetPieceAreaViolationS2CPayload.kt` | S2C：区域违规警告（仅违规玩家本人） |
+| `network/SetPieceRestartS2CPayload.kt` | S2C：重新发球 Banner |
+| `network/SetPieceStateS2CPayload.kt` | S2C：定位球状态同步 |
 | `match/PostGoalBallResetScheduler.kt` | 进球/出界/无效进球/任意球判罚后延迟复位足球 |
 | `match/PendingAfterReset.kt` | 足球复位完成后的开球阶段（含无效进球重开） |
 | `match/MatchKickoffTiming.kt` | 开球锁定时长常量 |
@@ -237,6 +256,20 @@ flowchart TB
 
 实现：`Football.kt`（权威判定）、`GoalkeeperHoldStealProtectionClient.kt`（客户端跟踪保护窗口与 HUD 可见性）。配置见服务端 YACL **守门员 → 接球 → 抢球保护时长**。
 
+#### 守门员持球出大禁区
+
+**旧行为（已移除）**：`GoalkeeperPenaltyAreaHoldGuard` 每 tick 强制 `forceDropAt` 并发送聊天警告。
+
+**现行行为**（`SetPieceAreaViolationMonitor`）：
+
+| 项 | 说明 |
+|----|------|
+| 检测 | 比赛进行中，守门员持球且不在**己方大禁区**内 |
+| 警告 | 准心下方（offset 26px，避开抢球保护 HUD）红色粗体倒计时（`hud.nmbct-football.area_violation.warning`，区域名「大禁区」） |
+| 计时 | 持续处于违规状态 **3 秒**（60 tick）；回到大禁区内立即清零 |
+| 判罚 | 对方获得**直接任意球**，落点为犯规位置在己方大禁区边界上的最近点（`MatchFieldAreaUtil.nearestPenaltyAreaBoundary`） |
+| 反馈 | 全场 `whistle_6` + `FreeKickAwardS2CPayload`（犯规原因：`GOALKEEPER_LEFT_PENALTY_AREA`） |
+
 ## 比赛阶段 `MatchPhase`
 
 阶段按枚举 `next` 形成**默认线性顺序**；实际推进时 `getNextPhaseForAutoAdvance()` 可能跳过补时或插入加时/点球阶段。
@@ -332,12 +365,96 @@ flowchart TB
 
 ### 规则
 
-- **非发球方**：`MatchState.isNonKickoffBlocked(player)` 为 true 时，服务端拒绝一切足球操作包（`FootballPlayerActions`、`GoalkeeperActions`）。
+- **非发球方**：`MatchState.isKickoffInteractionLocked(player)` 为 true 时，服务端拒绝足球操作包（`FootballPlayerActions`、`GoalkeeperActions`）；定位球特殊流程下由 `SetPieceRestrictionCoordinator` 进一步细化权限。
 - **发球方首次操作**：`notifyKickoffBallTouched` → 广播 `KickoffBallTouchedS2CPayload`，客户端解锁非发球方。
 - **拖延哨**：倒计时结束后，进球场景吹 whistle_1；之后每 10s 未触球吹 whistle_3，再 10s 吹 whistle_5。出界开球倒计时结束不吹 whistle_1。
-- **判停哨**：边线出界（`broadcastGoalLineOut`）与任意球判罚（`broadcastFreeKickAward`）均吹 **whistle_6**。
+- **判停哨**：边线出界（`broadcastGoalLineOut`）、任意球判罚（`broadcastFreeKickAward`）、**重新发球**（`SetPieceRestartAwards`）均吹 **whistle_6**。
 
 客户端 `MatchStartClient` 维护倒计时 HUD；`isLocked` 在锁定期内或非发球方未触球时为 true。
+
+## 定位球区域限制与操作规则
+
+定位球期间采用**两类限制**分工：
+
+| 类型 | 含义 | 实现 |
+|------|------|------|
+| **硬性操作限制** | 直接取消玩家使用某足球/门将操作的权限 | 服务端：`SetPieceRestrictionCoordinator` → `MatchState.isKickoffInteractionLocked(player, action)`、`Football.isPlayerBallMovementForbidden`；客户端：`SetPieceStateS2CPayload` → `SetPieceClient` → `FootballOperabilityClient` 预判按键高亮与输入拦截 |
+| **软性区域限制** | 进入禁区仅警告，持续 3 秒后才判罚 | `SetPieceAreaViolationMonitor` 每 tick 检测 → `SetPieceAreaViolationS2CPayload` → `SetPieceAreaViolationHudElement` |
+
+`SetPieceState.active` 持有当前定位球上下文（`SetPieceKind`、`restartTeam`、`ballPos`、球门球子阶段等）。足球延迟复位完成后由 `SetPieceBootstrap.onAfterReset` 初始化；`/match reset` 与重新发球时会清除。
+
+### 区域违规通用规则
+
+- **计时**：玩家持续处于违规区域内累计 3 秒；离开区域立即清零。
+- **警告 HUD**：仅发给违规玩家本人；准心下方 offset **26px**（抢球保护在 11px，避免重叠）；红色粗体文案键 `hud.nmbct-football.area_violation.warning`。
+- **重新发球**：`SetPieceRestartAwards` 清除违规计时 → 重置球位 → 重新进入对应开球/定位球流程；广播 `SetPieceRestartS2CPayload` + `whistle_6`；Banner 复用 `MatchEventBanner.renderFreeKick`（亮紫配色），标题为「重新开球/发球门球/发角球/发界外球」，副标题「%s 发球」。
+
+**相关语言键**（`zh_cn` / `en_us`）：
+
+| 键 | 用途 |
+|----|------|
+| `hud.nmbct-football.area_violation.warning` | 区域违规倒计时（`%1$s` 区域名，`%2$d` 剩余秒数） |
+| `hud.nmbct-football.area.penalty_area` | 大禁区 |
+| `hud.nmbct-football.area.center_circle` | 中圈 |
+| `hud.nmbct-football.area.opponent_half` | 对方半场（中圈开球越中线） |
+| `hud.nmbct-football.area.corner_area` | 角球罚球区 |
+| `hud.nmbct-football.area.throw_in_area` | 界外球罚球区 |
+| `hud.nmbct-football.area.penalty_arc_or_area` | 罚球弧或大禁区（点球大战） |
+| `hud.nmbct-football.restart.kickoff` / `.goal_kick` / `.corner_kick` / `.throw_in` | 重新发球 Banner 标题 |
+| `hud.nmbct-football.free_kick.reason.goalkeeper_left_penalty_area` | 守门员持球出大禁区 → 直接任意球原因 |
+
+### 中圈开球区域限制
+
+**生效窗口**：`SetPieceKind.CENTER_KICKOFF` 且 `!kickoffTouched`（比赛开始 `MATCH_START`、进球后 `POST_GOAL`、半场/加时半场 `HALF`）。
+
+| 违规 | 检测 | 满 3 秒 |
+|------|------|---------|
+| 非发球方进入中圆 | `MatchFieldAreaUtil.isPlayerInCenterCircle` | **重新开球**（不判犯规） |
+| 双方越过中线进入对方半场 | `MatchFieldAreaUtil.isPlayerCrossedMidfield` | 同上 |
+
+角球/球门球/界外球/任意球复位（`GOAL_LINE_OUT`）**不**启用中圈开球区域限制。
+
+### 球门球特殊流程 `GoalKickSetPieceFlow`
+
+底线出界判为 `GOAL_KICK` 且足球复位至 `goal_kick` 点后进入。状态机：
+
+```
+WaitingPickup →（发球方任一球员捡球）→ Placing →（小禁区内放球）→ Placed →（球被移动）→ 解除
+```
+
+| 阶段 | 发球方 | 对方 |
+|------|--------|------|
+| **WaitingPickup** | 仅允许 `GK_CATCH`（**非门将也可捡球**）；禁止其他足球/门将操作；位置不限 | 禁止一切足球/门将操作；**不得进入守方大禁区**（软，3s→重新发球门球） |
+| **Placing**（捡球者持球） | 捡球者：仅可 `GK_DROP`；`GoalkeeperHoldLock` 强制 **5 秒**（100 tick）；须在小禁区内方可放下；其他队员禁止一切操作 | 同 WaitingPickup |
+| **Placed**（已放下、球未动） | 恢复正常角色权限（门将可再捡，非门将不可捡） | 仍禁止操作 + 大禁区软限制 |
+| **球被移动** | 全员限制解除；`notifyKickoffBallTouched` 解锁常规开球锁 | 同上 |
+
+非门将捡球路径：`SetPieceRestrictionCoordinator.allowsGoalKickCatch` 临时绕过 `GoalkeeperActionAccess.canUseGoalkeeperFieldActions`，仍走 `Football.enterHold`。
+
+### 界外球特殊流程 `ThrowInSetPieceFlow`
+
+边线 `THROW_IN` 复位完成后：
+
+1. 在发球方**非守门员**球员中，选距发球点水平距离最近者作为发球者；
+2. 将其传送至发球点并 `enterHold`；
+3. **硬性限制**：发球者仅可 `GK_THROW_SHORT` / `GK_THROW_LONG`；禁止其他足球操作；**移动冻结**（服务端每 tick 重置至锚点，保留 yaw/pitch 旋转视角）；
+4. 对方在抛出前**不得进入界外球罚球区**（`throw_in_penalty_area_radius`，默认 2.5 格；软，3s→重新发界外球）；
+5. 发球者完成手抛后 → `ThrowInSetPieceFlow.clear` + `notifyKickoffBallTouched`。
+
+> 边线出界仍会延迟复位并启用掷界外球直接进球限制；界外球流程与上述特殊操作规则叠加。
+
+### 角球区域限制
+
+`SetPieceKind.CORNER_KICK` 且 `!kickoffTouched` 期间：
+
+- 发球方：沿用常规开球锁，无额外区域/操作限制；
+- 非发球方进入**角球罚球区**（以角球点为圆心、`corner_kick_penalty_area_radius`，默认 10 格）→ 3 秒后 **重新发角球**。
+
+### 点球大战区域限制
+
+`PenaltyShootoutState` 每轮 `beginKick` 时将 `SetPieceKind` 设为 `PENALTY_KICK`（架构预留比赛内犯规点球入口）。
+
+除主罚球员与防守方门外，其他球员进入防守方**大禁区或罚球弧** → 区域警告（`PENALTY_KICK_INTRUSION`；大战中其他人已传送至中圈，主要作兜底）。
 
 ## 进球与出界判定
 
@@ -405,8 +522,8 @@ flowchart TB
 
 | 最后触球方 | 结果 | 开球方 | 球位置 |
 |------------|------|--------|--------|
-| 攻方 | 球门球 `GOAL_KICK` | 守方 | `goal_* .goal_kick` |
-| 守方或无归属 | 角球 `CORNER_KICK` | 攻方 | 根据穿越点选 `corner_kick_left` 或 `corner_kick_right` |
+| 攻方 | 球门球 `GOAL_KICK` | 守方 | `goal_* .goal_kick`；复位后进入 [`GoalKickSetPieceFlow`](#球门球特殊流程-goalkicksetpieceflow) |
+| 守方或无归属 | 角球 `CORNER_KICK` | 攻方 | 根据穿越点选 `corner_kick_left` 或 `corner_kick_right`；复位后启用角球罚球区监测 |
 
 ### 边线出界 `sideline_a` / `sideline_b`
 
@@ -415,7 +532,8 @@ flowchart TB
 - 发球方 = **最后触球方的对方**（无触球记录时默认 A 队发）
 - 类型固定为 `THROW_IN`（界外球）
 - 开球锁定 + `broadcastGoalLineOut`（哨声 6）
-- **延迟复位**：与进球相同，使用 `post_goal_ball_reset_delay_seconds`，由 `PostGoalBallResetScheduler` 将足球传回 `kick_off`（赛场中心）；延迟期间 `postGoalResetPending` 为 true，不再重复判例
+- **延迟复位**：使用 `post_goal_ball_reset_delay_seconds`，由 `PostGoalBallResetScheduler` 将足球复位至**边线穿越点**；延迟期间 `postGoalResetPending` 为 true，不再重复判例
+- 复位完成后进入 [`ThrowInSetPieceFlow`](#界外球特殊流程-throwinsetpieceflow)（选人、传送、持球、移动冻结）
 - **直接进球限制**：`THROW_IN` 复位开球完成后启用（见上文「无效进球」）
 
 ## 越位判罚
@@ -478,16 +596,18 @@ flowchart TB
 |------|------|
 | `foulingTeam` | 犯下犯规、被判罚的球队 |
 | `foulingPlayerUuid` | 犯规球员 UUID（须属于 `foulingTeam`） |
-| `foulReason` | `FreeKickFoulReason`（当前：`OFFSIDE`） |
+| `foulReason` | `FreeKickFoulReason`：`OFFSIDE`（间接）、`GOALKEEPER_LEFT_PENALTY_AREA`（直接） |
 | `type` | `FreeKickType.DIRECT` 或 `INDIRECT` |
 
-判罚成功后：`broadcastFreeKickAward`（`whistle_6`）→ 延迟复位 → 间接任意球时 `beginThrowInDirectGoalRestriction()`。
+判罚成功后：`broadcastFreeKickAward`（`whistle_6`）→ 延迟复位 → 间接任意球时 `beginThrowInDirectGoalRestriction()`。判罚前会清除进行中的定位球 Flow 与区域违规计时。
 
 **客户端 Banner**（`FreeKickAwardHudElement`，亮紫 `#CC66FF`）三行：
 
 1. 任意球类型（直接 / 间接）
-2. 犯规原因与球员（如「犯规：越位 · 张三」）
+2. 犯规原因与球员（如「犯规：越位 · 张三」「犯规：守门员持球离开大禁区 · 李四」）
 3. 发球方队名
+
+**重新发球 Banner**（`SetPieceRestartHudElement`）复用同一 `renderFreeKick` 样式，标题为重新开球/门球/角球/界外球，副标题仍为「%s 发球」。
 
 ## 半场开球
 
@@ -569,6 +689,9 @@ flowchart TB
 | `goal_a` / `goal_b` | 球门几何与角球/门球点 | 见 `GoalConfig` |
 | `sideline_a` / `sideline_b` | 边线 | 见 `SidelineConfig` |
 | `kick_off` | 中圈开球点 | (8.5, -60, 8.5) |
+| `center_circle_radius` | 中圈半径（开球区域限制；`MatchFieldAreaUtil.isPlayerInCenterCircle`） | 10.0 |
+| `corner_kick_penalty_area_radius` | 角球罚球区半径（`isPlayerInCornerKickPenaltyArea`） | 10.0 |
+| `throw_in_penalty_area_radius` | 界外球罚球区半径（`isPlayerInThrowInPenaltyArea`） | 2.5 |
 | `team_a_spawn` / `team_b_spawn` | 出生点 | `TeamSpawnConfig` |
 
 **`rules` 对象**（`MatchRulesSettings`）：
@@ -690,6 +813,9 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 | `InvalidGoalS2CPayload` | S→C | 无效进球 HUD（比分不变） |
 | `GoalLineOutS2CPayload` | S→C | 出界类型与发球方 |
 | `FreeKickAwardS2CPayload` | S→C | 任意球类型、犯规原因、犯规球员、发球方 |
+| `SetPieceAreaViolationS2CPayload` | S→C | 区域违规警告（`areaNameKey`、`secondsRemaining`；仅违规玩家） |
+| `SetPieceRestartS2CPayload` | S→C | 重新开球/门球/角球/界外球 Banner |
+| `SetPieceStateS2CPayload` | S→C | 定位球状态（种类、发球方、球门球阶段、界外球发球者、移动冻结） |
 | `KickoffBallTouchedS2CPayload` | S→C | 开球已触球，解锁对方 |
 | `MatchResultS2CPayload` | S→C | 终场比分 |
 | `MatchResetS2CPayload` | S→C | 重置客户端 UI 状态 |
@@ -714,6 +840,8 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 | `InvalidGoalHudElement` | 无效进球 Banner（暗红 `#6B1A28`，与红队得分色区分） |
 | `GoalLineOutHudElement` | 出界类型 Banner（角球/球门球/出边线） |
 | `FreeKickAwardHudElement` | 任意球判罚 Banner（亮紫 `#CC66FF`：类型 + 犯规原因 + 发球方） |
+| `SetPieceAreaViolationHudElement` | 区域违规倒计时警告（准心下 26px，红色粗体） |
+| `SetPieceRestartHudElement` | 重新开球/门球/角球/界外球 Banner（亮紫配色，4s） |
 | `MatchPauseHudElement` | 比赛暂停/继续 Banner（橙色，4s 淡出；准备阶段叠在准备 Banner 下方） |
 | `MatchPauseOverlayHudElement` | 正式比赛暂停期间顶部大字「比赛暂停中」（准备阶段已并入准备 Banner） |
 | `PreMatchPrepHudElement` | 赛前准备 Banner（亮绿 `#66FF66`；暂停时双行 + 橙色倒计时） |
@@ -758,11 +886,13 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 1. **点球大战**：MVP 已实现（见 [PENALTY_SHOOTOUT.md](./PENALTY_SHOOTOUT.md)）；主罚顺序、红牌剔除、人数不均等见该文档 Backlog。
 2. **全局 `MatchState`**：同一服务器同时只能进行一场「逻辑比赛」；多赛场需自行约定或未来拆分状态。
 3. **动态补时**：由客户端写入 `MatchState.dynamicStoppageTicks`，无专用服务端校验；无人参赛客户端时可能不累积补时。
-4. **界外球**：边线出界统一为 `THROW_IN`，延迟后球回到中圈开球点，无掷界外球动画或边线落点；开球后适用直接进球限制。
+4. **界外球**：边线出界为 `THROW_IN`，延迟后球复位至边线穿越点；自动选最近非门将传送持球、移动冻结、仅可手抛；开球后适用直接进球限制。
 5. **直接进球限制**：掷界外球与**间接任意球**复位开球；半场开球、比赛开始、进球后、角球/球门球、直接任意球开球不受此规则约束。
-6. **越位**：球员位置取脚下 `x/z`；角球/门球/界外球后首触未单独豁免；界外球/角球重启类型标记为二期扩展。
-7. **进球检测**：基于球心线段与平面/矩形相交，高速或极端几何下可能需要调门框与 `facing` 容差。
-8. **足球位置指示**：仅客户端；多球时取范围内距玩家最近的一颗；边线/球门轴配置异常时 `pitchRect` 可能为 null，指示不显示。
+6. **越位**：球员位置取脚下 `x/z`；角球/门球/界外球后首触未单独豁免。
+7. **比赛内犯规点球**：点球大战区域限制已接入；由禁区内犯规触发点球的完整流程仍为二期扩展。
+8. **进球检测**：基于球心线段与平面/矩形相交，高速或极端几何下可能需要调门框与 `facing` 容差。
+9. **足球位置指示**：仅客户端；多球时取范围内距玩家最近的一颗；边线/球门轴配置异常时 `pitchRect` 可能为 null，指示不显示。
+10. **界外球移动冻结**：依赖服务端每 tick 重置位置；高延迟下客户端可能出现轻微抖动。
 
 ## 与物理模块的衔接
 
@@ -777,6 +907,7 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 
 | 提交 | 主题 | 文档章节 |
 |------|------|----------|
+| 定位球区域与操作规则 | 中圈开球/球门球/角球/界外球/点球大战的区域与操作限制；`SetPieceAreaViolationMonitor` 3 秒警告；重新发球 Banner；球门球全员捡球 + 5s 放球锁；界外球传送持球冻结；守门员持球出禁区改判直接任意球（移除 `GoalkeeperPenaltyAreaHoldGuard`） | 「定位球区域限制与操作规则」「守门员持球出大禁区」「开球锁定」「进球与出界判定」「任意球判罚」「网络同步」「客户端 HUD」 |
 | 越位检测 | FIFA 标准越位线；toward-goal 踢球快照、越位球员触球吹间接任意球；`enable_offside` 配置；`FreeKickAwards` 重命名（`foulingTeam` 等）；`whistle_6` + 亮紫任意球 Banner | 「越位判罚」「任意球判罚 `FreeKickAwards`」「直接进球限制」「配置 `MatchConfig`」「网络同步」「客户端 HUD」 |
 | 赛前准备阶段 | `/match setup` 可配置准备时长与开关；`PRE_MATCH_PREP` 阶段、亮绿 Banner、守门员公示与随机分配 | 「比赛阶段」「开赛流程」「配置 `MatchConfig`」「客户端 HUD」「守门员」 |
 | 准备阶段暂停 HUD | 准备 Banner 暂停时不隐藏；「比赛暂停中」并入 Banner；倒计时改橙色；4s 暂停 Banner 下移 | 「比赛暂停 `/match pause`」 |
