@@ -448,7 +448,23 @@ v_new      = v_remain + v_forward * 0.15 + recoil
 
 ### 撞人与被撞
 
-与下文「滑铲撞人」相同；参数现位于 `player_input.slide`（不再放在 `player_input.collision`）。
+参数位于 `player_input.slide`（不再放在 `player_input.collision`）。逻辑在 [`SlideTackleSessions.tryResolvePlayerContact`](src/main/kotlin/net/astrorbits/football/input/SlideTackleSessions.kt)。
+
+- **铲人者**：每次新命中一名对方球员时
+  - 剩余滑铲距离略缩短：对 session 叠加虚拟 elapsed `contactElapsedPenalty`（每次 + `slide_contact_distance_penalty_ticks`，默认 `5`），使位移衰减曲线提前推进；
+  - 当前速度乘 `slide_tackler_speed_damp_on_contact`（默认 `0.85`，轻微减速）。
+- **被铲者**：
+  - 沿**远离铲人者**的水平方向获得向后动量（`setDeltaMovement`，非叠加原速度）；
+  - 水平初速 `slide_victim_push_speed`（默认 `1.1` blocks/tick），竖直初速 `slide_victim_knockback_upward`（默认 `0.28`）；
+  - 随后进入高阻力窗口（`slide_victim_resistance_ticks` / `slide_victim_resistance_factor`）与禁跳（`slide_victim_jump_block_ticks`）。
+- **禁区内滑铲犯规**：若铲人者位于**己方大禁区**内且撞到**对方球员**，正赛期间判对方获得点球（见 [FOOTBALL_MATCH.md](./FOOTBALL_MATCH.md)「正赛点球判罚」）；判罚成功后立即结束本次滑铲 session。
+
+### 滑铲触球（铲到足球）
+
+[`Football.applySlideBallKickFromPlayer`](src/main/kotlin/net/astrorbits/football/Football.kt) 沿铲向施加踢球冲量，散布与传球相同（`kick_spread_inaccuracy`）。
+
+- 力度独立配置 `slide_ball_kick_force`（默认 `3.0`；短按传球 `pass_force` 默认 `1.5`），由 [`FootballKickUtil.resolveSlideKickParams`](src/main/kotlin/net/astrorbits/football/util/FootballKickUtil.kt) 解析。
+- 碰撞检测与带球推球共用 `SlideTackleSessions.effectiveHorizontalVelocity`（实体 tick 前采样滑铲速度）。
 
 ## 加速疾跑（`Z` 键）
 
@@ -489,8 +505,9 @@ v_new      = v_remain + v_forward * 0.15 + recoil
    - 玩家正在带球时，自己与该球忽略碰撞。
    - 带球结束后进入短暂 `grace` 窗口，仍忽略与“刚刚那颗球”的碰撞。
 3. **滑铲撞人**
-   - 滑铲命中其他玩家后，滑铲者当前速度会立即乘衰减系数（快速降速）。
-   - 被铲者会沿滑铲方向被推开，并进入短时高阻力状态（水平速度每 tick 额外衰减）。
+   - 滑铲命中对方球员后，铲人者剩余滑铲距离略缩短（虚拟 elapsed 惩罚 + 轻微速度乘数），详见上文「撞人与被撞」。
+   - 被铲者沿远离铲人者方向被铲飞（水平 + 可选向上初速），并进入短时高阻力与禁跳状态。
+   - 己方大禁区内滑铲撞对方球员 → 正赛判点球（见 [FOOTBALL_MATCH.md](./FOOTBALL_MATCH.md)）。
 
 ## 新增配置项（服务端 `nmbct-football-server.json`）
 
@@ -527,12 +544,15 @@ v_new      = v_remain + v_forward * 0.15 + recoil
 | `slide_decay_ticks` | `14` | 衰减 tick 数 |
 | `slide_end_speed_retain` | `0.85` | 结束时水平速度保留比例 |
 | `slide_min_sprint_ticks` | `5` | 起手前至少疾跑 tick |
-| `slide_tackler_speed_damp_on_contact` | `0.25` | 铲到人后自身速度保留比例 |
-| `slide_victim_push_speed` | `0.72` | 被铲瞬时推开速度 |
+| `slide_tackler_speed_damp_on_contact` | `0.85` | 铲到人后自身速度保留比例 |
+| `slide_contact_distance_penalty_ticks` | `5` | 每次铲到球员时缩短剩余滑铲距离的虚拟 tick |
+| `slide_victim_push_speed` | `1.1` | 被铲向后水平速度（blocks/tick） |
+| `slide_victim_knockback_upward` | `0.28` | 被铲向上初速（铲飞） |
 | `slide_victim_resistance_ticks` | `12` | 被铲高阻力 tick |
 | `slide_victim_resistance_factor` | `0.35` | 高阻力每 tick 速度保留 |
 | `slide_victim_jump_block_ticks` | `14` | 被铲禁止起跳 tick |
 | `slide_ball_contact_grace_ticks` | `14` | 滑铲后与球碰撞豁免 tick |
+| `slide_ball_kick_force` | `3.0` | 滑铲触球踢球力度（传球默认 `1.5`） |
 
 ### `player_input.collision`（球↔人，非滑铲专用）
 
@@ -560,6 +580,8 @@ v_new      = v_remain + v_forward * 0.15 + recoil
 调参建议：
 
 - 若对抗过“粘”，优先降低 `slide_victim_resistance_ticks` 或提高 `slide_victim_resistance_factor`。
+- 若滑铲触球偏弱/偏强，调 `slide_ball_kick_force`（参考 `pass_force` 与 `shoot_force_*`）。
+- 若铲飞感不足，提高 `slide_victim_push_speed` / `slide_victim_knockback_upward`；若铲人者滑太远，提高 `slide_contact_distance_penalty_ticks` 或降低 `slide_tackler_speed_damp_on_contact`。
 - 若球撞人过“硬”，先降低 `ball_player_push_scale`，再考虑下调 `ball_player_restitution`。
 - 若带球仍偶发被自己球体挤动，可适当提高 `dribble_collision_grace_ticks`。
 - 若推球太“轻/重”，优先调 `player_ball_push_scale` 与 `player_ball_push_max`；球越“沉”可略增 `physics.mass`。
