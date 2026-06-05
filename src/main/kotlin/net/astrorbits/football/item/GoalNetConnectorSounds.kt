@@ -140,31 +140,43 @@ object GoalNetConnectorSounds {
     }
 
     fun playAnchorSelect(player: ServerPlayer, anchorBlock: BlockPos) {
-        playAt(player.level(), resolveAnchorSoundPos(player.level(), anchorBlock), ANCHOR_SELECT, player.random)
+        playLocalAt(
+            player.level(),
+            player,
+            resolveAnchorSoundPos(player.level(), anchorBlock),
+            ANCHOR_SELECT,
+            player.random,
+        )
     }
 
     fun playAnchorDuplicate(player: ServerPlayer, anchorBlock: BlockPos) {
-        playAt(player.level(), resolveAnchorSoundPos(player.level(), anchorBlock), ANCHOR_DUPLICATE, player.random)
+        playLocalAt(
+            player.level(),
+            player,
+            resolveAnchorSoundPos(player.level(), anchorBlock),
+            ANCHOR_DUPLICATE,
+            player.random,
+        )
     }
 
     fun playNetCreated(player: ServerPlayer) {
-        play(player.level(), player.blockPosition(), NET_CREATED, player.random)
+        playLocal(player.level(), player, player.blockPosition(), NET_CREATED, player.random)
     }
 
     fun playNetFail(player: ServerPlayer) {
-        play(player.level(), player.blockPosition(), NET_FAIL, player.random)
+        playLocal(player.level(), player, player.blockPosition(), NET_FAIL, player.random)
     }
 
     fun playSelectionClear(player: ServerPlayer) {
-        play(player.level(), player.blockPosition(), SELECTION_CLEAR, player.random)
+        playLocal(player.level(), player, player.blockPosition(), SELECTION_CLEAR, player.random)
     }
 
     fun playSlackIncrease(player: ServerPlayer, net: GoalNetEntity) {
-        playAt(player.level(), net.position(), SLACK_INCREASE, player.random)
+        playLocalAt(player.level(), player, net.position(), SLACK_INCREASE, player.random)
     }
 
     fun playSlackDecrease(player: ServerPlayer, net: GoalNetEntity) {
-        playAt(player.level(), net.position(), SLACK_DECREASE, player.random)
+        playLocalAt(player.level(), player, net.position(), SLACK_DECREASE, player.random)
     }
 
     fun playNetDestroy(player: ServerPlayer, net: GoalNetEntity) {
@@ -179,6 +191,28 @@ object GoalNetConnectorSounds {
     private fun playAt(level: Level, pos: Vec3, spec: SoundSpec, random: RandomSource) {
         val pitch = spec.resolvePitch(random).coerceAtMost(MAX_PITCH)
         level.playSound(null, pos.x, pos.y, pos.z, spec.event, spec.source, spec.volume, pitch)
+    }
+
+    private fun playLocal(
+        level: Level,
+        player: ServerPlayer,
+        pos: BlockPos,
+        spec: SoundSpec,
+        random: RandomSource,
+    ) {
+        val pitch = spec.resolvePitch(random).coerceAtMost(MAX_PITCH)
+        level.playSound(player, pos, spec.event, spec.source, spec.volume, pitch)
+    }
+
+    private fun playLocalAt(
+        level: Level,
+        player: ServerPlayer,
+        pos: Vec3,
+        spec: SoundSpec,
+        random: RandomSource,
+    ) {
+        val pitch = spec.resolvePitch(random).coerceAtMost(MAX_PITCH)
+        level.playSound(player, pos.x, pos.y, pos.z, spec.event, spec.source, spec.volume, pitch)
     }
 
     private fun resolveAnchorSoundPos(level: Level, anchorBlock: BlockPos): Vec3 {
