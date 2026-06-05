@@ -71,6 +71,7 @@ object PenaltyShootoutState {
         clear()
         active = true
         lastWinner = null
+        activeDefendingTeam = TeamSide.entries[Random.nextInt(TeamSide.entries.size)]
         firstKickTeam = TeamSide.entries[Random.nextInt(TeamSide.entries.size)]
         suddenDeath = false
         penaltyScoreA = 0
@@ -312,6 +313,7 @@ object PenaltyShootoutState {
         if (eligible.isEmpty()) return null
 
         val present = eligible.mapNotNull { server.playerList.getPlayer(it) }
+            .filter { MatchParticipation.isParticipating(it) }
         if (present.isEmpty()) return null
 
         val awaitingFirstKick = present.filter { it.uuid !in kicked }
@@ -320,10 +322,8 @@ object PenaltyShootoutState {
         }
 
         val outfieldAwaiting = awaitingFirstKick.filter { !PlayerRoleState.isDesignatedGoalkeeper(it) }
-        if (outfieldAwaiting.isNotEmpty()) {
-            return outfieldAwaiting.random().uuid
-        }
-        return awaitingFirstKick.random().uuid
+        val pool = outfieldAwaiting.ifEmpty { awaitingFirstKick }
+        return pool.sortedBy { it.uuid }.first().uuid
     }
 
     private fun beginKick(server: MinecraftServer) {
@@ -333,7 +333,6 @@ object PenaltyShootoutState {
         kickPhase = PenaltyKickPhase.SETUP
         outcomeRecorded = false
         currentKickerTeam = teamForKickIndex(totalKicksTaken)
-        activeDefendingTeam = currentKickerTeam.opponent()
         currentKickerUuid = pickKicker(currentKickerTeam, server)
         currentKickerUuid?.let { uuid ->
             server.playerList.getPlayer(uuid)?.let { PlayerRoleState.enterPenaltyKickOutfield(it) }
@@ -379,6 +378,11 @@ object PenaltyShootoutState {
         val facing = goal.goalLineFacing()
         val towardGoal = facing.scale(-1.0)
         val kickerUuid = currentKickerUuid
+        val defendingGkUuid = when (activeDefendingTeam) {
+            TeamSide.A -> PlayerRoleState.teamAGoalkeeper
+            TeamSide.B -> PlayerRoleState.teamBGoalkeeper
+        }
+
         if (kickerUuid != null) {
             val kicker = server.playerList.getPlayer(kickerUuid)
             if (kicker != null) {
@@ -389,27 +393,42 @@ object PenaltyShootoutState {
             }
         }
 
-        val gkUuid = when (activeDefendingTeam) {
-            TeamSide.A -> PlayerRoleState.teamAGoalkeeper
-            TeamSide.B -> PlayerRoleState.teamBGoalkeeper
-        }
-        val gk = gkUuid?.let { server.playerList.getPlayer(it) }
-            ?: server.playerList.players.firstOrNull { isDefendingGoalkeeper(it) }
+        val gk = defendingGkUuid?.let { server.playerList.getPlayer(it) }
+            ?.takeIf { it.uuid != kickerUuid && MatchParticipation.isParticipating(it) }
+            ?: server.playerList.players.firstOrNull {
+                it.uuid != kickerUuid && isDefendingGoalkeeper(it)
+            }
         if (gk != null) {
             val center = goal.goalCenter()
             val gkYaw = Math.toDegrees(kotlin.math.atan2(facing.x, -facing.z)).toFloat()
             gk.teleportTo(level, center.x, center.y, center.z, java.util.HashSet(), gkYaw, 0f, false)
         }
 
+        teleportWaitingParticipants(level, server, kickerUuid, gk?.uuid)
+    }
+
+    /** 其余参赛队员传至中圈开球点等待。 */
+    private fun teleportWaitingParticipants(
+        level: ServerLevel,
+        server: MinecraftServer,
+        kickerUuid: UUID?,
+        defendingGkUuid: UUID?,
+    ) {
         val waitPos = MatchConfigHolder.current.kickOff.toVec3()
-        for (player in server.playerList.players) {
-            if (player.uuid == kickerUuid) continue
-            if (gk != null && player.uuid == gk.uuid) continue
+        for (uuid in MatchState.teamAPlayers + MatchState.teamBPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
             if (!MatchParticipation.isParticipating(player)) continue
-            val team = MatchState.getPlayerTeam(player.uuid) ?: continue
-            if (team == TeamSide.A || team == TeamSide.B) {
-                player.teleportTo(level, waitPos.x, waitPos.y, waitPos.z, java.util.HashSet(), player.yRot, player.xRot, false)
-            }
+            if (player.uuid == kickerUuid || player.uuid == defendingGkUuid) continue
+            player.teleportTo(
+                level,
+                waitPos.x,
+                waitPos.y,
+                waitPos.z,
+                java.util.HashSet(),
+                player.yRot,
+                player.xRot,
+                false,
+            )
         }
     }
 
