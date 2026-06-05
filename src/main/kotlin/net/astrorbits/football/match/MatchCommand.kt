@@ -206,7 +206,7 @@ object MatchCommand {
 			joinCmd.then(
 				Commands.literal(team.name).executes { ctx ->
 					val player = ctx.source.playerOrException
-					MatchState.removePlayer(player.uuid)
+					MatchState.removePlayer(player.uuid, ctx.source.server)
 					MatchState.addPlayer(team, player.uuid)
 					MatchState.syncPlayerScoreboard(player.uuid, team, ctx.source.server)
 					ctx.source.sendSuccess({
@@ -216,11 +216,22 @@ object MatchCommand {
 				}
 			)
 		}
+		joinCmd.then(
+			Commands.literal("spec").executes { ctx ->
+				val player = ctx.source.playerOrException
+				MatchState.removePlayer(player.uuid, ctx.source.server)
+				MatchState.addSpectator(player, ctx.source.server)
+				ctx.source.sendSuccess({
+					Component.translatable("command.nmbct-football.match.join", Component.translatable("team_name.nmbct-football.spec"))
+				}, true)
+				1
+			}
+		)
 		root.then(joinCmd)
 
 		root.then(Commands.literal("leave").executes { ctx ->
 			val player = ctx.source.playerOrException
-			if (MatchState.removePlayer(player.uuid)) {
+			if (MatchState.removePlayer(player.uuid, ctx.source.server)) {
 				MatchState.syncPlayerScoreboard(player.uuid, null, ctx.source.server)
 				ctx.source.sendSuccess({ Component.translatable("command.nmbct-football.match.leave") }, true)
 			} else {
@@ -231,9 +242,11 @@ object MatchCommand {
 
 		val clearCmd = Commands.literal("clear").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 			.executes { ctx ->
+				MatchState.restoreSpectators(ctx.source.server)
 				MatchState.clearScoreboardTeams(ctx.source.server)
 				MatchState.teamAPlayers.clear()
 				MatchState.teamBPlayers.clear()
+				MatchState.spectatorPlayers.clear()
 				ctx.source.sendSuccess({ Component.translatable("command.nmbct-football.match.clear_all") }, true)
 				1
 			}
@@ -258,6 +271,22 @@ object MatchCommand {
 				}
 			)
 		}
+		clearCmd.then(
+			Commands.literal("spec").executes { ctx ->
+				val players = MatchState.spectatorPlayers.toList()
+				for (uuid in players) {
+					MatchState.removePlayer(uuid, ctx.source.server)
+					MatchState.syncPlayerScoreboard(uuid, null, ctx.source.server)
+				}
+				ctx.source.sendSuccess({
+					Component.translatable(
+						"command.nmbct-football.match.clear_team",
+						Component.translatable("team_name.nmbct-football.spec"),
+					)
+				}, true)
+				1
+			}
+		)
 		root.then(clearCmd)
 	}
 

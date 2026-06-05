@@ -113,6 +113,7 @@
     "hud.nmbct-football.out.throw_in": "Throw-in",
     "team_name.nmbct-football.teamA": "Red Team",
     "team_name.nmbct-football.teamB": "Blue Team",
+    "team_name.nmbct-football.spec": "Spectators",
     "command.nmbct-football.config.player_only": "Only players can open the config screen",
     "command.nmbct-football.config.opened": "Opened server football config (saved changes sync to server)",
     "command.nmbct-football.config.applied": "Server football config applied",

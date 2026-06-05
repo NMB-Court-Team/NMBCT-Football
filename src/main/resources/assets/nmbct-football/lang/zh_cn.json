@@ -114,6 +114,7 @@
     "hud.nmbct-football.match.resumed": "比赛继续",
     "team_name.nmbct-football.teamA": "红队",
     "team_name.nmbct-football.teamB": "蓝队",
+    "team_name.nmbct-football.spec": "旁观",
     "command.nmbct-football.config.player_only": "仅玩家可打开配置界面",
     "command.nmbct-football.config.opened": "已打开服务端足球配置（保存后同步到服务器）",
     "command.nmbct-football.config.applied": "服务端足球配置已应用",

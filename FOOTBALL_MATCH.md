@@ -220,7 +220,7 @@ flowchart TB
 - **A**：红队样式（计分板队伍 `football_A`）
 - **B**：蓝/青队样式（`football_B`）
 
-玩家通过 `/match join A|B` 加入；`/match leave` 退出。加入时会同步原版计分板队伍颜色与显示名。
+玩家通过 `/match join A|B` 加入；使用 `/match join spec` 加入灰色旁观队伍（计分板队伍 ID 为 `spec`）；`/match leave` 退出。旁观者在开赛后切换为旁观模式并传送到球场中点，可接收比赛计时、比分、事件 HUD 与声音；比赛结束、复位或离队时恢复原游戏模式。加入时会同步原版计分板队伍颜色与显示名。
 
 ### 守门员 `PlayerRoleState`
 
@@ -832,7 +832,7 @@ YACL `ListEntryWidget` 的 `keyPressed` / `charTyped` 只发给其 `focused` 子
 | `phase set <PHASE>` | GM | 设置阶段（会重置阶段相关计时） |
 | `scoreA` / `scoreB <n>` | GM | 设置比分 |
 | `nameA` / `nameB <文本>` | GM | 设置队名 |
-| `join A\|B` | 玩家 | 加入队伍 |
+| `join A\|B\|spec` | 玩家 | 加入参赛队伍或旁观队伍 |
 | `leave` | 玩家 | 离开队伍 |
 | `clear` / `clear A\|B` | GM | 清空队员 |
 | `setGk` / `clearGk` / `gk on\|off` | 见上文 | 守门员管理 |

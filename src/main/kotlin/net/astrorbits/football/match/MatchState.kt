@@ -11,14 +11,17 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
+import net.minecraft.world.level.GameType
 import java.util.UUID
 
 object MatchState {
     private val DEFAULT_TEAM_A_NAME = Component.translatable("team_name.nmbct-football.teamA").withStyle(ChatFormatting.RED)
     private val DEFAULT_TEAM_B_NAME = Component.translatable("team_name.nmbct-football.teamB").withStyle(ChatFormatting.BLUE)
+    private val SPECTATOR_TEAM_NAME = Component.translatable("team_name.nmbct-football.spec").withStyle(ChatFormatting.GRAY)
 
     private const val SCOREBOARD_TEAM_A = "football_A"
     private const val SCOREBOARD_TEAM_B = "football_B"
+    private const val SCOREBOARD_TEAM_SPEC = "spec"
 
     var timerTicks = 0
     var stoppageTimerTicks = 0
@@ -30,6 +33,8 @@ object MatchState {
     var teamBScore = 0
     val teamAPlayers: MutableSet<UUID> = mutableSetOf()
     val teamBPlayers: MutableSet<UUID> = mutableSetOf()
+    val spectatorPlayers: MutableSet<UUID> = mutableSetOf()
+    private val spectatorPreviousGameModes: MutableMap<UUID, GameType> = mutableMapOf()
     var kickoffTeam: TeamSide? = null
     var kickoffTouched: Boolean = false
     private var kickoffTimerStartMs: Long = 0L
@@ -118,23 +123,43 @@ object MatchState {
         }
     }
 
-    fun removePlayer(uuid: UUID): Boolean {
-        return teamAPlayers.remove(uuid) || teamBPlayers.remove(uuid)
+    fun addSpectator(player: ServerPlayer, server: MinecraftServer) {
+        spectatorPlayers.add(player.uuid)
+        syncPlayerScoreboard(player.uuid, null, server, spectator = true)
+        if (currentPhase != MatchPhase.PRE_MATCH && currentPhase != MatchPhase.FINISHED) {
+            activateSpectator(player)
+        }
     }
 
-    fun syncPlayerScoreboard(uuid: UUID, team: TeamSide?, server: MinecraftServer) {
+    fun removePlayer(uuid: UUID, server: MinecraftServer? = null): Boolean {
+        val removed = teamAPlayers.remove(uuid) or teamBPlayers.remove(uuid) or spectatorPlayers.remove(uuid)
+        if (removed && server != null) {
+            restoreSpectator(server.playerList.getPlayer(uuid))
+        }
+        return removed
+    }
+
+    fun syncPlayerScoreboard(uuid: UUID, team: TeamSide?, server: MinecraftServer, spectator: Boolean = false) {
         val player = server.playerList.getPlayer(uuid) ?: return
         val playerName = player.gameProfile.name
         val scoreboard = server.scoreboard
 
-        for (teamKey in listOf(SCOREBOARD_TEAM_A, SCOREBOARD_TEAM_B)) {
+        for (teamKey in listOf(SCOREBOARD_TEAM_A, SCOREBOARD_TEAM_B, SCOREBOARD_TEAM_SPEC)) {
             val sbTeam = scoreboard.getPlayerTeam(teamKey) ?: continue
             if (sbTeam.players.contains(playerName)) {
                 scoreboard.removePlayerFromTeam(playerName, sbTeam)
             }
         }
 
-        if (team != null) {
+        if (spectator) {
+            val sbTeam = scoreboard.getPlayerTeam(SCOREBOARD_TEAM_SPEC) ?: run {
+                val t = scoreboard.addPlayerTeam(SCOREBOARD_TEAM_SPEC)
+                t.setColor(ChatFormatting.GRAY)
+                t.displayName = SPECTATOR_TEAM_NAME
+                t
+            }
+            scoreboard.addPlayerToTeam(playerName, sbTeam)
+        } else if (team != null) {
             val teamKey = when (team) {
                 TeamSide.A -> SCOREBOARD_TEAM_A
                 TeamSide.B -> SCOREBOARD_TEAM_B
@@ -155,7 +180,7 @@ object MatchState {
 
     fun clearScoreboardTeams(server: MinecraftServer) {
         val scoreboard = server.scoreboard
-        for (teamKey in listOf(SCOREBOARD_TEAM_A, SCOREBOARD_TEAM_B)) {
+        for (teamKey in listOf(SCOREBOARD_TEAM_A, SCOREBOARD_TEAM_B, SCOREBOARD_TEAM_SPEC)) {
             scoreboard.getPlayerTeam(teamKey)?.let { team ->
                 val players = team.players.toList()
                 for (playerName in players) {
@@ -163,6 +188,44 @@ object MatchState {
                 }
             }
         }
+    }
+
+    fun activateSpectators(server: MinecraftServer) {
+        for (uuid in spectatorPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            activateSpectator(player)
+        }
+    }
+
+    fun restoreSpectators(server: MinecraftServer) {
+        for (uuid in spectatorPreviousGameModes.keys.toList()) {
+            restoreSpectator(server.playerList.getPlayer(uuid))
+        }
+    }
+
+    private fun activateSpectator(player: ServerPlayer) {
+        spectatorPreviousGameModes.putIfAbsent(
+            player.uuid,
+            player.gameMode.gameModeForPlayer,
+        )
+        player.setGameMode(GameType.SPECTATOR)
+        val center = MatchConfigHolder.current.kickOff
+        player.teleportTo(
+            player.level(),
+            center.x,
+            center.y,
+            center.z,
+            java.util.HashSet(),
+            player.yRot,
+            player.xRot,
+            false,
+        )
+    }
+
+    private fun restoreSpectator(player: ServerPlayer?) {
+        if (player == null) return
+        val previous = spectatorPreviousGameModes.remove(player.uuid) ?: return
+        player.setGameMode(previous)
     }
 
     fun reset() {
@@ -426,6 +489,7 @@ object MatchState {
         }
         resetFootball(level)
         teleportTeamsToSpawnPositions(server)
+        activateSpectators(server)
         val cfg = MatchConfigHolder.current
         if (cfg.startsWithPenaltyShootout()) {
             PlayerRoleState.assignGoalkeepersIfMissing(server)
@@ -495,7 +559,7 @@ object MatchState {
     }
 
     private fun broadcastToMatchPlayers(server: MinecraftServer, message: Component) {
-        for (uuid in teamAPlayers + teamBPlayers) {
+        for (uuid in teamAPlayers + teamBPlayers + spectatorPlayers) {
             server.playerList.getPlayer(uuid)?.sendSystemMessage(message)
         }
     }
@@ -717,6 +781,9 @@ object MatchState {
             MatchPhase.FINISHED -> timerTicks
         }
         isRunning = phase != MatchPhase.PRE_MATCH && phase != MatchPhase.FINISHED && phase != MatchPhase.PENALTIES
+        if (phase == MatchPhase.FINISHED && server != null) {
+            restoreSpectators(server)
+        }
         if (phase == MatchPhase.PENALTIES && server != null && teamAScore == teamBScore) {
             PenaltyShootoutState.start(server)
         }

@@ -289,6 +289,10 @@ object FootballNetworking {
             val player = server.playerList.getPlayer(uuid) ?: continue
             ServerPlayNetworking.send(player, HalfKickoffS2CPayload(kickoffTeam, kickoffTeam == TeamSide.B, phaseKey, teamAName, teamBName))
         }
+        for (uuid in MatchState.spectatorPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            ServerPlayNetworking.send(player, HalfKickoffS2CPayload(kickoffTeam, false, phaseKey, teamAName, teamBName))
+        }
     }
 
     fun broadcastMatchResult(
@@ -467,6 +471,10 @@ object FootballNetworking {
             val player = server.playerList.getPlayer(uuid) ?: continue
             ServerPlayNetworking.send(player, PostGoalKickoffS2CPayload(kickoffTeam, kickoffTeam == TeamSide.B, goalLineOut))
         }
+        for (uuid in MatchState.spectatorPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            ServerPlayNetworking.send(player, PostGoalKickoffS2CPayload(kickoffTeam, false, goalLineOut))
+        }
     }
 
     fun resetMatchToPreMatch(server: MinecraftServer) {
@@ -476,6 +484,7 @@ object FootballNetworking {
         GoalkeeperHoldLock.clearAll(server)
         GoalkeeperHoldActionPermissions.clearAll(server)
         MatchPauseFootballState.onResume(server)
+        MatchState.restoreSpectators(server)
         MatchState.reset()
         GoalKickSetPieceFlow.clear(server)
         ThrowInSetPieceFlow.clear(server)
@@ -540,6 +549,16 @@ object FootballNetworking {
                 player,
                 GoalLineOutS2CPayload(
                     outType, restartTeam, restartTeam == TeamSide.B,
+                    ballX, ballY, ballZ, lastTouchPlayerName, touchCode,
+                ),
+            )
+        }
+        for (uuid in MatchState.spectatorPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            ServerPlayNetworking.send(
+                player,
+                GoalLineOutS2CPayload(
+                    outType, restartTeam, false,
                     ballX, ballY, ballZ, lastTouchPlayerName, touchCode,
                 ),
             )
