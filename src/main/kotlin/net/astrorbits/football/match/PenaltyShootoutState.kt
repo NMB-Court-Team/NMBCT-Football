@@ -91,6 +91,8 @@ object PenaltyShootoutState {
     }
 
     fun clear(server: MinecraftServer? = null) {
+        MatchState.clearKickoffWhistleTimers()
+        MatchState.kickoffTeam = null
         active = false
         penaltyScoreA = 0
         penaltyScoreB = 0
@@ -350,6 +352,7 @@ object PenaltyShootoutState {
         )
         SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
         kickIntroTicksRemaining = PenaltyShootoutTiming.KICK_INTRO_LOCK_TICKS
+        MatchState.beginPenaltyKickWhistlePhase(currentKickerTeam)
         FootballNetworking.broadcastPenaltyShootoutSync(server)
         FootballNetworking.broadcastPenaltyKickStart(server)
         FootballNetworking.broadcastSetPieceState(server)
@@ -376,8 +379,8 @@ object PenaltyShootoutState {
             activeFootballId = -1
         }
 
-        val facing = goal.goalLineFacing()
-        val towardGoal = facing.scale(-1.0)
+        val towardGoal = goal.penaltyKickTowardGoal()
+        val behindBall = goal.penaltyKickBehindBall()
         val kickerUuid = currentKickerUuid
         val defendingGkUuid = when (activeDefendingTeam) {
             TeamSide.A -> PlayerRoleState.teamAGoalkeeper
@@ -387,8 +390,8 @@ object PenaltyShootoutState {
         if (kickerUuid != null) {
             val kicker = server.playerList.getPlayer(kickerUuid)
             if (kicker != null) {
-                val kx = spot.x + towardGoal.x * KICKER_OFFSET_BLOCKS
-                val kz = spot.z + towardGoal.z * KICKER_OFFSET_BLOCKS
+                val kx = spot.x + behindBall.x * KICKER_OFFSET_BLOCKS
+                val kz = spot.z + behindBall.z * KICKER_OFFSET_BLOCKS
                 val yaw = Math.toDegrees(kotlin.math.atan2(-towardGoal.x, towardGoal.z)).toFloat()
                 kicker.teleportTo(level, kx, spot.y, kz, java.util.HashSet(), yaw, 0f, false)
             }
@@ -401,7 +404,7 @@ object PenaltyShootoutState {
             }
         if (gk != null) {
             val center = goal.goalCenter()
-            val gkYaw = Math.toDegrees(kotlin.math.atan2(facing.x, -facing.z)).toFloat()
+            val gkYaw = Math.toDegrees(kotlin.math.atan2(-behindBall.x, behindBall.z)).toFloat()
             gk.teleportTo(level, center.x, center.y, center.z, java.util.HashSet(), gkYaw, 0f, false)
         }
 

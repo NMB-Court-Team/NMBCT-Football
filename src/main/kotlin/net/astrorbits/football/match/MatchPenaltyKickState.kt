@@ -58,9 +58,6 @@ object MatchPenaltyKickState {
         currentKickerUuid = resolveKicker(kickingTeam, pending.preferredKickerUuid, server)
         kickPhase = PenaltyKickPhase.SETUP
         outcomeRecorded = false
-        MatchState.clearKickoffWhistleTimers()
-        MatchState.kickoffTeam = null
-        MatchState.kickoffTouched = false
         MatchState.postGoalResetPending = false
 
         placeBallAndPlayers(level, server)
@@ -75,10 +72,15 @@ object MatchPenaltyKickState {
         )
         SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
         kickIntroTicksRemaining = PenaltyShootoutTiming.KICK_INTRO_LOCK_TICKS
+        MatchState.beginPenaltyKickWhistlePhase(kickingTeam)
         FootballNetworking.broadcastSetPieceState(server)
     }
 
     fun clear(server: MinecraftServer? = null) {
+        if (active && MatchState.kickoffTeam == kickingTeam && !MatchState.kickoffTouched) {
+            MatchState.clearKickoffWhistleTimers()
+            MatchState.kickoffTeam = null
+        }
         active = false
         currentKickerUuid = null
         kickPhase = PenaltyKickPhase.SETUP
@@ -272,14 +274,14 @@ object MatchPenaltyKickState {
             activeFootballId = -1
         }
 
-        val facing = goal.goalLineFacing()
-        val towardGoal = facing.scale(-1.0)
+        val towardGoal = goal.penaltyKickTowardGoal()
+        val behindBall = goal.penaltyKickBehindBall()
         val kickerUuid = currentKickerUuid
         if (kickerUuid != null) {
             val kicker = server.playerList.getPlayer(kickerUuid)
             if (kicker != null) {
-                val kx = spot.x + towardGoal.x * KICKER_OFFSET_BLOCKS
-                val kz = spot.z + towardGoal.z * KICKER_OFFSET_BLOCKS
+                val kx = spot.x + behindBall.x * KICKER_OFFSET_BLOCKS
+                val kz = spot.z + behindBall.z * KICKER_OFFSET_BLOCKS
                 val yaw = Math.toDegrees(kotlin.math.atan2(-towardGoal.x, towardGoal.z)).toFloat()
                 kicker.teleportTo(level, kx, spot.y, kz, java.util.HashSet(), yaw, 0f, false)
                 PlayerRoleState.enterPenaltyKickOutfield(kicker)
@@ -294,7 +296,7 @@ object MatchPenaltyKickState {
             ?: server.playerList.players.firstOrNull { isDefendingGoalkeeper(it) }
         if (gk != null) {
             val center = goal.goalCenter()
-            val gkYaw = Math.toDegrees(kotlin.math.atan2(facing.x, -facing.z)).toFloat()
+            val gkYaw = Math.toDegrees(kotlin.math.atan2(-behindBall.x, behindBall.z)).toFloat()
             gk.teleportTo(level, center.x, center.y, center.z, java.util.HashSet(), gkYaw, 0f, false)
         }
 

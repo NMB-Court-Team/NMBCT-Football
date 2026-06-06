@@ -40,3 +40,9 @@ fun GoalConfig.goalLineFacing(): Vec3 {
     val f = Vec3(facingX, facingY, facingZ)
     return if (f.lengthSqr() < 1e-6) f else f.normalize()
 }
+
+/** 点球点踢向球门的水平方向（与 [goalLineFacing] 一致）。 */
+fun GoalConfig.penaltyKickTowardGoal(): Vec3 = goalLineFacing()
+
+/** 点球点背向球门、主罚员应站立的一侧。 */
+fun GoalConfig.penaltyKickBehindBall(): Vec3 = goalLineFacing().scale(-1.0)
