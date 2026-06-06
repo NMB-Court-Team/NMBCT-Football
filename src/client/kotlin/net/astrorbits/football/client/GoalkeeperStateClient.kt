@@ -119,7 +119,6 @@ object GoalkeeperStateClient {
         if (holding && !wasHoldingBall) {
             if (isGoalkeeper) {
                 predictHoldReleaseLock(level.gameTime)
-                GoalkeeperHoldStealProtectionClient.onGoalkeeperBeganHolding(player, level.gameTime)
             }
             FootballInputHandler.onGoalkeeperBeganHoldingBall()
         }

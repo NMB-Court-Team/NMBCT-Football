@@ -81,6 +81,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         entityData.define(DATA_ANGULAR_VEL, Vector3f())
         entityData.define(DATA_ON_GROUND, false)
         entityData.define(DATA_HOLDER_ID, -1)
+        entityData.define(DATA_HOLD_START_GAME_TIME, -1L)
         entityData.define(DATA_IMMOVABLE, false)
         entityData.define(DATA_IMMOVABLE_TARGET_PLAYERS, emptySet())
     }
@@ -462,6 +463,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
         if (shouldSuppressPlayerBodyImpulse(player, now)) {
             return false
+        }
+        if (holderEntityId >= 0) {
+            releaseHold()
         }
         if (repositionCenter != null) {
             setCenterWithWorldContactGuards(repositionCenter)
@@ -1359,18 +1363,37 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
      * 守门员持球后的抢球保护：仅在 [MatchState.isDuringMatch] 且 [GoalkeeperInputConfig.GK_HOLD_STEAL_PROTECTION_TICKS] 内，
      * 除持球者外的玩家无法通过踢球、停球、碰撞推球等方式把球从守门员手上夺走。
      */
-    fun isHoldStealProtectedFrom(actingPlayer: ServerPlayer?): Boolean {
-        if (level().isClientSide || holderEntityId < 0 || !MatchState.isDuringMatch()) {
+    /** 持球开始时的关卡 gameTime（同步到客户端，供抢球保护 HUD 与判定对齐）。 */
+    fun getHoldStartGameTime(): Long = entityData.get(DATA_HOLD_START_GAME_TIME)
+
+    /** 抢球保护是否仍在生效（不含“是否针对某球员”的持球者豁免）。 */
+    fun isHoldStealProtectionActive(gameTime: Long = level().gameTime): Boolean {
+        if (getHolderEntityId() < 0 || !MatchState.isDuringMatch()) {
             return false
         }
         val protectionTicks = GoalkeeperInputConfig.GK_HOLD_STEAL_PROTECTION_TICKS
         if (protectionTicks <= 0) {
             return false
         }
-        if (actingPlayer != null && actingPlayer.id == holderEntityId) {
+        val startTick = getHoldStartGameTime()
+        if (startTick < 0L) {
             return false
         }
-        return level().gameTime - holdStartTick < protectionTicks
+        return gameTime - startTick < protectionTicks
+    }
+
+    fun isHoldStealProtectedFrom(actingPlayer: ServerPlayer?): Boolean {
+        if (level().isClientSide) {
+            return false
+        }
+        val holderId = getHolderEntityId()
+        if (holderId < 0) {
+            return false
+        }
+        if (actingPlayer != null && actingPlayer.id == holderId) {
+            return false
+        }
+        return isHoldStealProtectionActive()
     }
 
     fun enterHold(player: ServerPlayer) {
@@ -1380,6 +1403,13 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             (isPlayerBallMovementForbidden(player) && !goalKickCatchAllowed && !throwInHoldAllowed) ||
             !MatchParticipation.isParticipating(player)
         ) {
+            return
+        }
+        if (holderEntityId == player.id) {
+            updateHeldPosition(player)
+            updateHeldOrientation(player)
+            syncPhysicsToEntityData()
+            syncPacketPositionCodec(x, y, z)
             return
         }
         holderEntityId = player.id
@@ -1490,6 +1520,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     private fun syncHolderToEntityData() {
         entityData.set(DATA_HOLDER_ID, holderEntityId)
+        entityData.set(
+            DATA_HOLD_START_GAME_TIME,
+            if (holderEntityId >= 0) holdStartTick else -1L,
+        )
     }
 
     fun getPhysicsState(): FootballPhysicsState = physicsState
@@ -1744,6 +1778,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         private val DATA_HOLDER_ID: EntityDataAccessor<Int> = SynchedEntityData.defineId(
             Football::class.java,
             EntityDataSerializers.INT
+        )
+        private val DATA_HOLD_START_GAME_TIME: EntityDataAccessor<Long> = SynchedEntityData.defineId(
+            Football::class.java,
+            EntityDataSerializers.LONG
         )
         private val DATA_IMMOVABLE: EntityDataAccessor<Boolean> = SynchedEntityData.defineId(
             Football::class.java,

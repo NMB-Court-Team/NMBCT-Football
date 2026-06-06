@@ -189,7 +189,7 @@ object FootballPlayerActions {
 
         val football = FootballKickUtil.findNearestFootball(player, FootballInputConfig.PLAYER_KICK_RANGE) ?: return
 
-        if (football.isHeld()) {
+        if (football.isHeld() && football.isHoldStealProtectedFrom(player)) {
             return
         }
         if (football.isPlayerBallMovementForbidden(player)) {
