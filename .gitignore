@@ -30,7 +30,8 @@ bin/
 *.__pycache__/
 # fabric
 
-run/
+/run/
+/run[0-9]*/
 
 # java
 
