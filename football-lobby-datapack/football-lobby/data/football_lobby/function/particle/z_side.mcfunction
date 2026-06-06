@@ -1,0 +1,3 @@
+function football_lobby:particle/generate_random_offset
+function football_lobby:particle/z_generate_particle_pos with storage football_lobby:particle
+function football_lobby:particle/summon_particle with storage football_lobby:particle

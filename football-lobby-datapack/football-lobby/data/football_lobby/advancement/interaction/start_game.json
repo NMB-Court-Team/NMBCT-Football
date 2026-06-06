@@ -1,0 +1,16 @@
+{
+    "criteria": {
+        "interact": {
+            "trigger": "player_interacted_with_entity",
+            "conditions": {
+                "entity": {
+                    "type": "interaction",
+                    "nbt": "{Tags:['football_lobby_entity', 'football_lobby_start']}"
+                }
+            }
+        }
+    },
+    "rewards": {
+        "function": "football_lobby:interaction/start_game"
+    }
+}

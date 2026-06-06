@@ -1,1 +1,0 @@
-function football-lobby:set_settings_button

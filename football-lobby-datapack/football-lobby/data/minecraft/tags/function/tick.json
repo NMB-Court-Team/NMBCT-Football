@@ -1,5 +1,6 @@
 {
-  "values": [
-    "football-lobby:tick"
-  ]
+    "values": [
+        "football_lobby:tick"
+    ],
+    "replace": false
 }

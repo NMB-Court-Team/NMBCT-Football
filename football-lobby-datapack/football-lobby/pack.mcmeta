@@ -1,6 +1,6 @@
 {
   "pack": {
-    "description": "足球场大厅控制数据包",
+    "description": "柠檬杯风驰足球地图大厅控制数据包",
     "min_format": [101, 1],
     "max_format": 101
   }
