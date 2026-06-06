@@ -11,7 +11,7 @@ import net.minecraft.resources.Identifier
 import kotlin.math.roundToInt
 
 /**
- * 加速疾跑：屏幕边缘紫色晕影（向外浓、向内透明）+ 体力条上方状态图标（透明度与 [StaminaClient.boostBlend] 同步）。
+ * 加速疾跑：屏幕边缘紫色晕影（向外浓、向内透明）+ 左下角状态图标（快捷栏上方，透明度与 [StaminaClient.boostBlend] 同步）。
  */
 class BoostSprintHudElement : HudElement {
     override fun extractRenderState(extra: GuiGraphicsExtractor, delta: DeltaTracker) {
@@ -30,10 +30,9 @@ class BoostSprintHudElement : HudElement {
         }
 
         if (blend > 0f) {
-            val displayW = (ICON_TEX_W * ICON_SCALE).roundToInt()
             val displayH = (ICON_TEX_H * ICON_SCALE).roundToInt()
-            val iconX = 12
-            val iconY = height - 72
+            val iconX = ICON_MARGIN_LEFT
+            val iconY = height - HOTBAR_HEIGHT - displayH - ICON_MARGIN_BOTTOM
             drawBoostSprintIcon(extra, iconX, iconY, blend)
         }
     }
@@ -123,6 +122,11 @@ class BoostSprintHudElement : HudElement {
         /** 相对图标中心的平移（GUI 像素，正 X 向右、正 Y 向下）。同上文件 companion 修改。 */
         const val ICON_TRANSLATE_X = 0f
         const val ICON_TRANSLATE_Y = 0f
+
+        /** 与原版快捷栏底边对齐的参考高度。 */
+        private const val HOTBAR_HEIGHT = 22
+        private const val ICON_MARGIN_LEFT = 6
+        private const val ICON_MARGIN_BOTTOM = 4
 
         private const val VIOLET_RGB = 0x9C27B0
 
