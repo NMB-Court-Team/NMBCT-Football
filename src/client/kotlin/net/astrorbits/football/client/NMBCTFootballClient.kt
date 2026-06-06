@@ -25,6 +25,7 @@ import net.astrorbits.football.client.render.GoalLineOutHudElement
 import net.astrorbits.football.client.render.GoalScoredHudElement
 import net.astrorbits.football.client.render.InvalidGoalHudElement
 import net.astrorbits.football.client.render.HalfKickoffHudElement
+import net.astrorbits.football.client.render.GoalKickHintHudElement
 import net.astrorbits.football.client.render.KickoffLockHudElement
 import net.astrorbits.football.client.render.MatchPauseHudElement
 import net.astrorbits.football.client.render.MatchPauseOverlayHudElement
@@ -113,6 +114,10 @@ object NMBCTFootballClient : ClientModInitializer {
 		HudElementRegistry.addLast(
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "kickoff_lock_hud"),
 			KickoffLockHudElement()
+		)
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "goal_kick_hint_hud"),
+			GoalKickHintHudElement()
 		)
 
 		HudElementRegistry.addLast(

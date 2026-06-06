@@ -73,6 +73,8 @@
     "hud.nmbct-football.kickoff_lock.countdown": "⚠ Kicks locked. Kickoff in %ss.",
     "hud.nmbct-football.kickoff_lock.wait_opponent": "Wait for opponent kickoff.",
     "hud.nmbct-football.kickoff_lock.wait_touch": "⚠ Kicks locked. Waiting for kickoff touch.",
+    "hud.nmbct-football.goal_kick.hint.pickup": "Go to the goal line and pick up the ball",
+    "hud.nmbct-football.goal_kick.hint.place": "Place the ball in the penalty area and take the kick",
     "hud.nmbct-football.goal.goal": "Goal!",
     "hud.nmbct-football.goal.own_goal": "Own goal!",
     "hud.nmbct-football.goal.headline": "GOAL",
