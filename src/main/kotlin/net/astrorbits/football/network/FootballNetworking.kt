@@ -476,6 +476,7 @@ object FootballNetworking {
         for (player in server.playerList.players) {
             GoalkeeperUtil.findHeldFootball(player)?.dropAt(player)
         }
+        MatchState.clearAllFootballs(server)
         GoalkeeperHoldLock.clearAll(server)
         GoalkeeperHoldActionPermissions.clearAll(server)
         MatchPauseFootballState.onResume(server)

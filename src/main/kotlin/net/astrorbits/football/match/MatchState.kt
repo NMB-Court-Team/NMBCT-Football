@@ -512,6 +512,17 @@ object MatchState {
 
     fun matchFieldLevel(server: MinecraftServer): ServerLevel = server.overworld()
 
+    /** 进入新半场/加时/点球等会重新摆球的阶段前，先清掉场上多余足球。 */
+    private fun shouldClearFootballsBeforePhaseBallPlacement(phase: MatchPhase): Boolean = when (phase) {
+        MatchPhase.FIRST_HALF,
+        MatchPhase.SECOND_HALF,
+        MatchPhase.EXTRA_FIRST,
+        MatchPhase.EXTRA_SECOND,
+        MatchPhase.PENALTIES,
+        -> true
+        else -> false
+    }
+
     /** 清除服务器所有维度上的足球实体（持球状态一并释放）。 */
     fun clearAllFootballs(server: MinecraftServer) {
         for (level in server.allLevels) {
@@ -581,6 +592,7 @@ object MatchState {
     /** 准备时间结束后进入上半场并执行常规开赛流程。 */
     fun finishPreMatchPreparation(server: MinecraftServer) {
         if (currentPhase != MatchPhase.PRE_MATCH_PREP) return
+        clearAllFootballs(server)
         startRegularMatch(server)
     }
 
@@ -822,6 +834,9 @@ object MatchState {
         val wasPenalties = currentPhase == MatchPhase.PENALTIES
         if (wasPenalties && phase != MatchPhase.PENALTIES && phase != MatchPhase.FINISHED) {
             PenaltyShootoutState.clear(server)
+        }
+        if (server != null && shouldClearFootballsBeforePhaseBallPlacement(phase)) {
+            clearAllFootballs(server)
         }
         currentPhase = phase
         stoppageTimerTicks = 0

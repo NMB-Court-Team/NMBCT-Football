@@ -29,6 +29,8 @@ object PostGoalBallResetScheduler {
     }
 
     fun schedule(level: ServerLevel, resetPos: Vec3? = null, afterReset: PendingAfterReset? = null) {
+        val server = level.server ?: return
+        MatchState.clearAllFootballs(server)
         val delaySeconds = MatchConfigHolder.current.postGoalBallResetDelaySeconds.coerceAtLeast(0)
         val delayTicks = delaySeconds * 20
         cancel(level.dimension())
