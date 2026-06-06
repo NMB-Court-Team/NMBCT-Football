@@ -110,8 +110,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     fun isPlayerBallMovementForbidden(player: Player): Boolean {
         if (isMatchPaused()) return true
         if (immovableTargetPlayers.contains(player.uuid)) return true
-        if (player is ServerPlayer && MatchState.isKickoffInteractionLocked(player)) return true
-        if (player is ServerPlayer && SetPieceRestrictionCoordinator.isPlayerBallMovementForbidden(player)) return true
+        if (player is ServerPlayer) {
+            // 界外球主罚员：踢球层放开（掷出与否由 GoalkeeperActions / allowsThrowAction 把关）
+            if (ThrowInSetPieceFlow.isMovementFrozen(player)) return false
+            if (SetPieceRestrictionCoordinator.isPlayerBallMovementForbidden(player)) return true
+            if (MatchState.isKickoffInteractionLocked(player)) return true
+        }
         return false
     }
 
@@ -1146,18 +1150,23 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (MatchState.postGoalResetPending) return
         MatchState.clearPendingOffsideSnapshot()
         MatchState.postGoalResetPending = true
+        val resolvedBallPos = if (outType == GoalLineOutType.THROW_IN) {
+            ThrowInSetPieceFlow.resolveGroundBallPosition(level, ballPos)
+        } else {
+            ballPos
+        }
         val throwInTakerUuid = if (outType == GoalLineOutType.THROW_IN) {
-            ThrowInSetPieceFlow.pickThrowInTaker(server, restartTeam, ballPos)?.uuid
+            ThrowInSetPieceFlow.pickThrowInTaker(server, restartTeam, resolvedBallPos)?.uuid
         } else {
             null
         }
         PostGoalBallResetScheduler.schedule(
             level,
-            ballPos,
+            resolvedBallPos,
             PendingAfterReset.GoalLineOut(
                 kickoffTeam = restartTeam,
                 outType = outType,
-                ballPos = ballPos,
+                ballPos = resolvedBallPos,
                 defendingSide = defendingSide,
                 throwInDirectGoalRestrict = outType == GoalLineOutType.THROW_IN,
                 throwInTakerUuid = throwInTakerUuid,
@@ -1166,7 +1175,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (broadcastOutHud) {
             val (touchName, touchTeam) = resolveLastTouch(server)
             FootballNetworking.broadcastGoalLineOut(
-                server, outType, restartTeam, ballPos.x, ballPos.y, ballPos.z, touchName, touchTeam,
+                server, outType, restartTeam, resolvedBallPos.x, resolvedBallPos.y, resolvedBallPos.z, touchName, touchTeam,
             )
         }
     }
@@ -1425,7 +1434,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         updateHeldOrientation(player)
         syncPhysicsToEntityData()
         syncPacketPositionCodec(x, y, z)
-        GoalkeeperHoldLock.beginLock(player, level().gameTime)
+        if (!throwInHoldAllowed) {
+            GoalkeeperHoldLock.beginLock(player, level().gameTime)
+        }
     }
 
     fun releaseHold() {

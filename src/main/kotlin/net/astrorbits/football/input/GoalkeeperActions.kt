@@ -102,7 +102,11 @@ object GoalkeeperActions {
             FootballActionType.GK_THROW_SHORT,
             FootballActionType.GK_THROW_LONG,
             -> {
-                if (!GoalkeeperHoldActionPermissions.canThrow(player) || GoalkeeperHoldLock.isReleaseBlocked(player, now)) {
+                val throwInRelease = ThrowInSetPieceFlow.allowsThrowAction(player, payload.action)
+                if (!GoalkeeperHoldActionPermissions.canThrow(player)) {
+                    return
+                }
+                if (!throwInRelease && GoalkeeperHoldLock.isReleaseBlocked(player, now)) {
                     return
                 }
             }
@@ -127,7 +131,6 @@ object GoalkeeperActions {
         when (payload.action) {
             FootballActionType.GK_THROW_SHORT -> {
                 val params = GoalkeeperUtil.resolveThrowShortParams()
-                football.releaseHold()
                 FootballKickUtil.recordActiveKickForPlayerLook(
                     player, football, payload.lookYaw, payload.lookPitch, params,
                 )
@@ -152,7 +155,6 @@ object GoalkeeperActions {
                 val perfect = KickChargeUtil.isPerfectCharge(payload.chargeHeldMs, chargeSettings)
                 val chargeRatio = KickChargeUtil.computeRatio(payload.chargeHeldMs, chargeSettings)
                 val params = GoalkeeperUtil.resolveThrowLongParams(chargeRatio, sprinting, perfect)
-                football.releaseHold()
                 FootballKickUtil.recordActiveKickForPlayerLook(
                     player, football, payload.lookYaw, payload.lookPitch, params,
                 )

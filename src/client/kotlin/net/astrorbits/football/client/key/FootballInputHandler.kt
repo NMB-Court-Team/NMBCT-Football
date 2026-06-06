@@ -157,9 +157,13 @@ object FootballInputHandler {
             handleSlideTacklePress(player)
             return
         }
-        val holdingBall = GoalkeeperStateClient.isHoldingBall
+        val throwInTaker = FootballOperabilityClient.isThrowInTaker(player)
+        val holdingBall = GoalkeeperStateClient.isHoldingBall ||
+            (throwInTaker && SetPieceClient.isMovementFrozen(player.uuid))
         tryInterruptCharges(player)
-        val releaseLocked = holdingBall && GoalkeeperStateClient.isHoldReleaseLocked()
+        val releaseLocked = holdingBall &&
+            GoalkeeperStateClient.isHoldReleaseLocked() &&
+            !throwInTaker
         val canGk = FootballOperabilityClient.canUseGoalkeeperActions()
         if (holdingBall) {
             if (!releaseLocked) {

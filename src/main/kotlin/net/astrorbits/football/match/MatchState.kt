@@ -23,6 +23,7 @@ object MatchState {
 
     private const val SCOREBOARD_TEAM_A = "football_A"
     private const val SCOREBOARD_TEAM_B = "football_B"
+    private val ALL_FOOTBALLS_AABB = AABB(Vec3(-3.0E7, -3.0E7, -3.0E7), Vec3(3.0E7, 3.0E7, 3.0E7))
     private const val SCOREBOARD_TEAM_SPEC = "spec"
 
     var timerTicks = 0
@@ -509,12 +510,23 @@ object MatchState {
         FootballNetworking.broadcastKickoffBallTouched(server)
     }
 
+    fun matchFieldLevel(server: MinecraftServer): ServerLevel = server.overworld()
+
+    /** 清除服务器所有维度上的足球实体（持球状态一并释放）。 */
+    fun clearAllFootballs(server: MinecraftServer) {
+        for (level in server.allLevels) {
+            for (football in level.getEntitiesOfClass(Football::class.java, ALL_FOOTBALLS_AABB)) {
+                football.releaseHold()
+                football.discard()
+            }
+        }
+    }
+
     /** 清除场上所有足球并在开球点（或指定位置）放置一个新足球。 */
     fun resetFootball(level: ServerLevel, pos: Vec3? = null) {
         PostGoalBallResetScheduler.cancel(level.dimension())
         postGoalResetPending = false
-        val all = AABB(Vec3(-3.0E7, -3.0E7, -3.0E7), Vec3(3.0E7, 3.0E7, 3.0E7))
-        level.getEntitiesOfClass(Football::class.java, all).forEach { it.discard() }
+        clearAllFootballs(level.server)
         val fb = Football(Football.ENTITY_TYPE, level)
         val p = pos ?: MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
         fb.setPos(p.x, p.y, p.z)
@@ -537,7 +549,7 @@ object MatchState {
             reset()
         }
         syncOnlineRostersFromScoreboard(server)
-        resetFootball(level)
+        clearAllFootballs(server)
         teleportTeamsToSpawnPositions(server)
         activateSpectators(server)
         val cfg = MatchConfigHolder.current
@@ -651,6 +663,7 @@ object MatchState {
         lastHalfKickoffTeam = kickoff
         beginKickoffPhase(MatchKickoffTiming.MATCH_START_LOCK_MS, KickoffWhistleContext.MATCH_START)
         val kickPos = MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
+        resetFootball(matchFieldLevel(server), kickPos)
         SetPieceBootstrap.onCenterKickoffBegin(kickoff, kickPos, server)
         FootballNetworking.broadcastSetPieceState(server)
         FootballSounds.playMatchWhistle(server, 1)

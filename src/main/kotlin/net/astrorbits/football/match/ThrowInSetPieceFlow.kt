@@ -4,18 +4,39 @@ import net.astrorbits.football.Football
 import net.astrorbits.football.input.GoalkeeperHoldActionPermissions
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.network.FootballNetworking
+import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.GoalkeeperUtil
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.level.levelgen.Heightmap
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
+import kotlin.math.floor
 import kotlin.math.sqrt
 
 object ThrowInSetPieceFlow {
     private val anchorPositions = mutableMapOf<java.util.UUID, Vec3>()
     private const val POSITION_SNAP_THRESHOLD_SQ = 0.01
+
+    data class GroundSpot(
+        val ballPos: Vec3,
+        val takerFeetY: Double,
+    )
+
+    /** 将出界交点落到场地地面：球心贴地，主罚员脚踩地面。 */
+    fun resolveGroundSpot(level: ServerLevel, approximatePos: Vec3): GroundSpot {
+        val groundY = fieldGroundY(level, approximatePos.x, approximatePos.z)
+        val ballY = groundY + FootballPhysicsConfig.RADIUS
+        return GroundSpot(
+            ballPos = Vec3(approximatePos.x, ballY, approximatePos.z),
+            takerFeetY = groundY,
+        )
+    }
+
+    fun resolveGroundBallPosition(level: ServerLevel, approximatePos: Vec3): Vec3 =
+        resolveGroundSpot(level, approximatePos).ballPos
 
     fun begin(
         level: ServerLevel,
@@ -24,10 +45,23 @@ object ThrowInSetPieceFlow {
         preferredTakerUuid: UUID? = null,
     ) {
         val server = level.server
-        val taker = resolveThrowInTaker(server, restartTeam, ballPos, preferredTakerUuid) ?: return
-        val football = findFootballNear(level, ballPos) ?: return
+        val spot = resolveGroundSpot(level, ballPos)
+        val groundBallPos = spot.ballPos
+        val taker = resolveThrowInTaker(server, restartTeam, groundBallPos, preferredTakerUuid) ?: return
+        val football = findFootballNear(level, groundBallPos) ?: return
 
-        taker.teleportTo(level, ballPos.x, ballPos.y, ballPos.z, java.util.HashSet(), taker.yRot, taker.xRot, false)
+        football.setPos(groundBallPos.x, groundBallPos.y, groundBallPos.z)
+
+        taker.teleportTo(
+            level,
+            groundBallPos.x,
+            spot.takerFeetY,
+            groundBallPos.z,
+            java.util.HashSet(),
+            taker.yRot,
+            taker.xRot,
+            false,
+        )
         taker.setDeltaMovement(Vec3.ZERO)
 
         GoalkeeperHoldActionPermissions.setAll(taker, catch = false, drop = false, throwBall = true)
@@ -36,7 +70,7 @@ object ThrowInSetPieceFlow {
             SetPieceContext(
                 kind = SetPieceKind.THROW_IN,
                 restartTeam = restartTeam,
-                ballPos = ballPos,
+                ballPos = groundBallPos,
                 throwInTakerUuid = taker.uuid,
             ),
         )
@@ -138,9 +172,18 @@ object ThrowInSetPieceFlow {
 
     private fun distanceToOutPoint(player: ServerPlayer, outPos: Vec3): Double {
         val dx = player.x - outPos.x
-        val dy = player.y - outPos.y
         val dz = player.z - outPos.z
-        return sqrt(dx * dx + dy * dy + dz * dz)
+        return sqrt(dx * dx + dz * dz)
+    }
+
+    private fun fieldGroundY(level: ServerLevel, x: Double, z: Double): Double {
+        val configured = MatchConfigHolder.current.kickOff.y
+        val surfaceY = level.getHeight(
+            Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+            floor(x).toInt(),
+            floor(z).toInt(),
+        ).toDouble()
+        return maxOf(configured, surfaceY)
     }
 
     private fun findFootballNear(level: ServerLevel, pos: Vec3): Football? {

@@ -123,7 +123,9 @@ object FootballOperabilityClient {
             return false
         }
 
-        val holdingBall = GoalkeeperStateClient.isHoldingBall
+        val throwInTaker = isThrowInTaker(player)
+        val holdingBall = GoalkeeperStateClient.isHoldingBall ||
+            (throwInTaker && SetPieceClient.isMovementFrozen(player.uuid))
         val canGk = canUseGoalkeeperActions()
         val kickoffLocked = MatchStartClient.isLocked
         if (isBlockedByGoalKickSetPiece(player, key)) {
@@ -145,12 +147,12 @@ object FootballOperabilityClient {
             return when (key) {
                 FootballKeyBindings.GK_DIVE ->
                     !kickoffLocked && GoalkeeperHoldActionPermissionsClient.canThrow &&
-                        !GoalkeeperStateClient.isHoldReleaseLocked() &&
-                        (canGk || isThrowInTaker(player))
+                        (!GoalkeeperStateClient.isHoldReleaseLocked() || throwInTaker) &&
+                        (canGk || throwInTaker)
                 FootballKeyBindings.GK_CATCH ->
                     GoalkeeperHoldActionPermissionsClient.canDrop &&
-                        !GoalkeeperStateClient.isHoldReleaseLocked() &&
-                        (canUseGoalKickDrop(player) || (!kickoffLocked && canGk && !isThrowInTaker(player)))
+                        (!GoalkeeperStateClient.isHoldReleaseLocked() || throwInTaker) &&
+                        (canUseGoalKickDrop(player) || (!kickoffLocked && canGk && !throwInTaker))
                 FootballKeyBindings.BOOST_SPRINT -> player.isSprinting && StaminaClient.stamina > 0f
                 FootballKeyBindings.INTERRUPT_CHARGE -> FootballInputHandler.isAnyChargeActive()
                 FootballKeyBindings.LOOK_AROUND -> true

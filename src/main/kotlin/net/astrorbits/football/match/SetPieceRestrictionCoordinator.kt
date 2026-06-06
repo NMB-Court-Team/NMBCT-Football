@@ -96,14 +96,20 @@ object SetPieceRestrictionCoordinator {
         action: FootballActionType?,
     ): Boolean {
         if (player.uuid == ctx.throwInTakerUuid) {
-            return action != FootballActionType.GK_THROW_SHORT &&
-                action != FootballActionType.GK_THROW_LONG
+            return when (action) {
+                FootballActionType.GK_THROW_SHORT,
+                FootballActionType.GK_THROW_LONG,
+                -> false
+                null -> false
+                else -> true
+            }
         }
         if (team != ctx.restartTeam) return false
         return true
     }
 
     fun isPlayerBallMovementForbidden(player: ServerPlayer): Boolean {
+        if (ThrowInSetPieceFlow.isMovementFrozen(player)) return false
         if (isGeneralFootballBlocked(player)) return true
         val ctx = SetPieceState.active ?: return false
         if (ctx.kind == SetPieceKind.GOAL_KICK) {
