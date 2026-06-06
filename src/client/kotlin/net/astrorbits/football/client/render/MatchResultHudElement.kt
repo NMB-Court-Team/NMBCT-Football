@@ -1,5 +1,6 @@
 package net.astrorbits.football.client.render
 
+import net.astrorbits.football.client.FootballOperabilityClient
 import net.astrorbits.football.client.match.MatchHudTeams
 import net.astrorbits.football.client.match.MatchResultClient
 import net.astrorbits.football.client.match.MatchStartClient
@@ -17,8 +18,9 @@ class MatchResultHudElement : HudElement {
         val client = Minecraft.getInstance()
         if (client.isPaused) return
 
-        val myTeam = MatchStartClient.playerTeam
-        val otherTeam = if (myTeam == TeamSide.A) TeamSide.B else TeamSide.A
+        val myTeam = client.player?.let { FootballOperabilityClient.resolveLocalPlayerTeam(it) }
+            ?: MatchStartClient.playerTeam
+        val otherTeam = myTeam.opponent()
         val myScore = if (myTeam == TeamSide.A) MatchResultClient.teamAScore else MatchResultClient.teamBScore
         val otherScore = if (myTeam != TeamSide.A) MatchResultClient.teamAScore else MatchResultClient.teamBScore
         val myName = (if (myTeam == TeamSide.A) MatchResultClient.teamAName else MatchResultClient.teamBName)
@@ -33,9 +35,17 @@ class MatchResultHudElement : HudElement {
                 MatchEventBanner.ACCENT_DRAW,
             )
             MatchResultClient.wonByPenalties -> {
-                val myPen = if (myTeam == TeamSide.A) MatchResultClient.penaltyScoreA else MatchResultClient.penaltyScoreB
-                val otherPen = if (myTeam == TeamSide.A) MatchResultClient.penaltyScoreB else MatchResultClient.penaltyScoreA
-                if (myPen > otherPen) {
+                val winner = MatchResultClient.penaltyWinner
+                val iWon = when (winner) {
+                    myTeam -> true
+                    null -> {
+                        val myPen = if (myTeam == TeamSide.A) MatchResultClient.penaltyScoreA else MatchResultClient.penaltyScoreB
+                        val otherPen = if (myTeam == TeamSide.A) MatchResultClient.penaltyScoreB else MatchResultClient.penaltyScoreA
+                        myPen > otherPen
+                    }
+                    else -> false
+                }
+                if (iWon) {
                     Triple("hud.nmbct-football.result.win_penalties", MatchEventBanner.ACCENT_WIN, MatchEventBanner.ACCENT_WIN)
                 } else {
                     Triple("hud.nmbct-football.result.loss_penalties", MatchEventBanner.ACCENT_LOSS, MatchEventBanner.ACCENT_LOSS)

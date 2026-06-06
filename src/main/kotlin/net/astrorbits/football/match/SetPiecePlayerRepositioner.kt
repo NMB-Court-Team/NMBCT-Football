@@ -59,7 +59,7 @@ object SetPiecePlayerRepositioner {
     private fun penaltyKickTarget(player: ServerPlayer, context: SetPieceContext): Vec3? {
         val defending = when {
             MatchPenaltyKickState.isActive() -> MatchPenaltyKickState.defendingTeam
-            PenaltyShootoutState.isActive() -> PenaltyShootoutState.activeDefendingTeam
+            PenaltyShootoutState.isActive() -> PenaltyShootoutState.penaltyGoalTeam
             else -> context.defendingSide
         } ?: return null
         val kickerUuid = when {

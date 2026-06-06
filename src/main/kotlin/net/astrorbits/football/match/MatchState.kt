@@ -607,6 +607,36 @@ object MatchState {
         }
     }
 
+    /** 点球大战开始前向双方在线队员同步客户端本队身份（不触发开球锁定）。 */
+    private fun syncPlayerTeamsToClients(server: MinecraftServer) {
+        val nameA = getTeamName(TeamSide.A).string
+        val nameB = getTeamName(TeamSide.B).string
+        for (uuid in teamAPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            if (!MatchParticipation.isParticipating(player)) continue
+            FootballNetworking.sendMatchStart(
+                player,
+                TeamSide.A,
+                PlayerRoleState.isGoalkeeper(player),
+                TeamSide.A,
+                nameA,
+                nameB,
+            )
+        }
+        for (uuid in teamBPlayers) {
+            val player = server.playerList.getPlayer(uuid) ?: continue
+            if (!MatchParticipation.isParticipating(player)) continue
+            FootballNetworking.sendMatchStart(
+                player,
+                TeamSide.B,
+                PlayerRoleState.isGoalkeeper(player),
+                TeamSide.A,
+                nameA,
+                nameB,
+            )
+        }
+    }
+
     /** 向双方在线队员广播比赛开始 HUD 信息。 */
     fun broadcastMatchStart(server: MinecraftServer, kickoff: TeamSide) {
         kickoffTeam = kickoff
@@ -831,6 +861,7 @@ object MatchState {
             restoreSpectators(server)
         }
         if (phase == MatchPhase.PENALTIES && server != null && teamAScore == teamBScore) {
+            syncPlayerTeamsToClients(server)
             PenaltyShootoutState.start(server)
         }
     }

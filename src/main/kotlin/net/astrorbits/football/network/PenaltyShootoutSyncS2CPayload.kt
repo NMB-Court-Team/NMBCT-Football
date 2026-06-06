@@ -20,6 +20,7 @@ data class PenaltyShootoutSyncS2CPayload(
     val kickerName: String,
     val currentKickerUuid: UUID?,
     val kickPhase: PenaltyKickPhase,
+    val penaltyGoalTeam: TeamSide,
     val activeDefendingTeam: TeamSide,
     val firstKickTeam: TeamSide,
 ) : CustomPacketPayload {
@@ -46,6 +47,7 @@ data class PenaltyShootoutSyncS2CPayload(
                 buf.writeBoolean(payload.currentKickerUuid != null)
                 payload.currentKickerUuid?.let { buf.writeUUID(it) }
                 buf.writeInt(payload.kickPhase.ordinal)
+                TeamSide.STREAM_CODEC.encode(buf, payload.penaltyGoalTeam)
                 TeamSide.STREAM_CODEC.encode(buf, payload.activeDefendingTeam)
                 TeamSide.STREAM_CODEC.encode(buf, payload.firstKickTeam)
             },
@@ -60,6 +62,7 @@ data class PenaltyShootoutSyncS2CPayload(
                     kickerName = buf.readUtf(),
                     currentKickerUuid = if (buf.readBoolean()) buf.readUUID() else null,
                     kickPhase = PenaltyKickPhase.entries[buf.readInt()],
+                    penaltyGoalTeam = TeamSide.STREAM_CODEC.decode(buf),
                     activeDefendingTeam = TeamSide.STREAM_CODEC.decode(buf),
                     firstKickTeam = TeamSide.STREAM_CODEC.decode(buf),
                 )

@@ -62,7 +62,7 @@ class FootballHudElement : HudElement {
             val infoY = penBaseY
             val scoreY = penBaseY + PEN_INFO_H + PEN_ROW_GAP
 
-            val goalTeam = MatchHudTeams.name(PenaltyShootoutClient.activeDefendingTeam)
+            val goalTeam = MatchHudTeams.name(PenaltyShootoutClient.penaltyGoalTeam)
             val kickTeam = MatchHudTeams.name(PenaltyShootoutClient.currentKickerTeam)
             val kicker = PenaltyShootoutClient.kickerName.ifBlank { "?" }
 
@@ -92,7 +92,7 @@ class FootballHudElement : HudElement {
                 infoCy,
                 goalLabel,
                 goalValue,
-                MatchEventBanner.teamColor(PenaltyShootoutClient.activeDefendingTeam),
+                MatchEventBanner.teamColor(PenaltyShootoutClient.penaltyGoalTeam),
             )
             infoCx += PEN_SEGMENT_GAP
             infoCx += drawLabelValue(

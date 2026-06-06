@@ -993,8 +993,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     private fun detectPenaltyKick(prevCenter: Vec3, currCenter: Vec3) {
         if (!PenaltyShootoutState.isActive()) return
         val goal = PenaltyShootoutState.defendingGoal()
-        val defending = PenaltyShootoutState.activeDefendingTeam
-        val attacking = defending.opponent()
+        val defending = PenaltyShootoutState.penaltyGoalTeam
+        val attacking = PenaltyShootoutState.currentKickerTeam
         val crossing = GoalCrossingUtil.segmentCrossesGoalLine(
             goal, prevCenter, currCenter, defending, attacking,
         ) ?: return

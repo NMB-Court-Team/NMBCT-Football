@@ -14,6 +14,7 @@ object PenaltyShootoutClient {
     var kickerName: String = ""
     var currentKickerUuid: UUID? = null
     var kickPhase: PenaltyKickPhase = PenaltyKickPhase.SETUP
+    var penaltyGoalTeam: TeamSide = TeamSide.A
     var activeDefendingTeam: TeamSide = TeamSide.A
     var firstKickTeam: TeamSide = TeamSide.A
 
@@ -27,6 +28,7 @@ object PenaltyShootoutClient {
         kickerName: String,
         currentKickerUuid: UUID?,
         kickPhase: PenaltyKickPhase,
+        penaltyGoalTeam: TeamSide,
         activeDefendingTeam: TeamSide,
         firstKickTeam: TeamSide,
     ) {
@@ -39,6 +41,7 @@ object PenaltyShootoutClient {
         this.kickerName = kickerName
         this.currentKickerUuid = currentKickerUuid
         this.kickPhase = kickPhase
+        this.penaltyGoalTeam = penaltyGoalTeam
         this.activeDefendingTeam = activeDefendingTeam
         this.firstKickTeam = firstKickTeam
     }

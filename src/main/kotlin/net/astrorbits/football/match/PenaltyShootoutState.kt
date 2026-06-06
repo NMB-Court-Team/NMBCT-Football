@@ -32,6 +32,10 @@ object PenaltyShootoutState {
         private set
     var penaltyScoreB: Int = 0
         private set
+    /** 本轮被攻打的球门所属队伍（恒为主罚方对手，避免本队踢本队门）。 */
+    var penaltyGoalTeam: TeamSide = TeamSide.A
+        private set
+    /** 本轮站在球门前的防守方（与 [penaltyGoalTeam] 相同）。 */
     var activeDefendingTeam: TeamSide = TeamSide.A
         private set
     var firstKickTeam: TeamSide = TeamSide.A
@@ -58,6 +62,8 @@ object PenaltyShootoutState {
     /** 点球大战开始时在线的队员；全员至少踢一次后才允许二踢。 */
     private val eligibleKickersA = mutableSetOf<UUID>()
     private val eligibleKickersB = mutableSetOf<UUID>()
+    /** 主罚被选次数；优先次数较少的非门将。 */
+    private val kickCountByPlayer = mutableMapOf<UUID, Int>()
     private var resolveTicks = 0
     private var stationaryTicks = 0
     private var outcomeRecorded = false
@@ -71,7 +77,6 @@ object PenaltyShootoutState {
         clear()
         active = true
         lastWinner = null
-        activeDefendingTeam = TeamSide.entries[Random.nextInt(TeamSide.entries.size)]
         firstKickTeam = TeamSide.entries[Random.nextInt(TeamSide.entries.size)]
         suddenDeath = false
         penaltyScoreA = 0
@@ -106,6 +111,7 @@ object PenaltyShootoutState {
         kickedPlayersB.clear()
         eligibleKickersA.clear()
         eligibleKickersB.clear()
+        kickCountByPlayer.clear()
         PlayerRoleState.clearPenaltyKickOutfieldOverrides(server)
         if (SetPieceState.active?.kind == SetPieceKind.PENALTY_KICK) {
             SetPieceState.clear()
@@ -117,11 +123,12 @@ object PenaltyShootoutState {
         activeFootballId = -1
         pendingAdvance = false
         kickIntroTicksRemaining = 0
+        lastWinner = null
     }
 
     fun defendingGoal(): GoalConfig {
         val config = MatchConfigHolder.current
-        return when (activeDefendingTeam) {
+        return when (penaltyGoalTeam) {
             TeamSide.A -> config.goalA
             TeamSide.B -> config.goalB
         }
@@ -188,7 +195,7 @@ object PenaltyShootoutState {
 
     fun onGoalLineCrossing(crossing: GoalCrossingUtil.GoalLineCrossing) {
         if (!isActive() || kickPhase != PenaltyKickPhase.RESOLVING || outcomeRecorded) return
-        if (crossing.defendingTeam != activeDefendingTeam) return
+        if (crossing.defendingTeam != penaltyGoalTeam) return
         if (crossing.inGoal && crossing.attackingTeam == currentKickerTeam) {
             applyOutcome(scored = true)
         } else if (!crossing.inGoal) {
@@ -241,6 +248,7 @@ object PenaltyShootoutState {
         if (outcomeRecorded || !active) return
         outcomeRecorded = true
         currentKickerUuid?.let { uuid ->
+            kickCountByPlayer[uuid] = (kickCountByPlayer[uuid] ?: 0) + 1
             when (currentKickerTeam) {
                 TeamSide.A -> kickedPlayersA.add(uuid)
                 TeamSide.B -> kickedPlayersB.add(uuid)
@@ -300,10 +308,15 @@ object PenaltyShootoutState {
     }
 
     /**
-     * 主罚选择：优先尚未踢过的非门将队员；全员至少踢过一次后才允许二踢。
-     * 开球时在线、之后离场的队员不阻塞二踢（以 eligible 池为准）。
+     * 主罚选择：场上有非门将时绝不选门将（仅全队只剩门将在线时才由门将主罚）。
+     * 开球时登记在 eligible 池中的队员须至少各踢一次后才允许任何人二踢。
+     * 同优先级下优先被选次数较少的球员。
      */
     private fun pickKicker(team: TeamSide, server: MinecraftServer): UUID? {
+        val roster = when (team) {
+            TeamSide.A -> MatchState.teamAPlayers
+            TeamSide.B -> MatchState.teamBPlayers
+        }
         val eligible = when (team) {
             TeamSide.A -> eligibleKickersA
             TeamSide.B -> eligibleKickersB
@@ -312,20 +325,29 @@ object PenaltyShootoutState {
             TeamSide.A -> kickedPlayersA
             TeamSide.B -> kickedPlayersB
         }
-        if (eligible.isEmpty()) return null
 
-        val present = eligible.mapNotNull { server.playerList.getPlayer(it) }
-            .filter { MatchParticipation.isParticipating(it) }
+        val present = MatchParticipation.onlineParticipating(server, roster)
         if (present.isEmpty()) return null
 
-        val awaitingFirstKick = present.filter { it.uuid !in kicked }
-        if (awaitingFirstKick.isEmpty()) {
-            return present.random().uuid
+        val officialGkUuid = when (team) {
+            TeamSide.A -> PlayerRoleState.teamAGoalkeeper
+            TeamSide.B -> PlayerRoleState.teamBGoalkeeper
         }
+        fun kickCount(uuid: UUID) = kickCountByPlayer[uuid] ?: 0
+        fun isOutfield(player: ServerPlayer): Boolean =
+            officialGkUuid == null || player.uuid != officialGkUuid
 
-        val outfieldAwaiting = awaitingFirstKick.filter { !PlayerRoleState.isDesignatedGoalkeeper(it) }
-        val pool = outfieldAwaiting.ifEmpty { awaitingFirstKick }
-        return pool.sortedBy { it.uuid }.first().uuid
+        val outfieldPresent = present.filter { isOutfield(it) }
+        val candidateBase = outfieldPresent.ifEmpty { present }
+
+        val awaitingEligibleFirstKick = candidateBase.filter { player ->
+            player.uuid in eligible && player.uuid !in kicked
+        }
+        val pool = awaitingEligibleFirstKick.ifEmpty { candidateBase }
+
+        val minCount = pool.minOf { kickCount(it.uuid) }
+        val candidates = pool.filter { kickCount(it.uuid) == minCount }
+        return candidates.random().uuid
     }
 
     private fun beginKick(server: MinecraftServer) {
@@ -335,6 +357,8 @@ object PenaltyShootoutState {
         kickPhase = PenaltyKickPhase.SETUP
         outcomeRecorded = false
         currentKickerTeam = teamForKickIndex(totalKicksTaken)
+        penaltyGoalTeam = currentKickerTeam.opponent()
+        activeDefendingTeam = penaltyGoalTeam
         currentKickerUuid = pickKicker(currentKickerTeam, server)
         currentKickerUuid?.let { uuid ->
             server.playerList.getPlayer(uuid)?.let { PlayerRoleState.enterPenaltyKickOutfield(it) }
@@ -347,7 +371,7 @@ object PenaltyShootoutState {
                 kind = SetPieceKind.PENALTY_KICK,
                 restartTeam = currentKickerTeam,
                 ballPos = Vec3(spot.x, spot.y, spot.z),
-                defendingSide = activeDefendingTeam,
+                defendingSide = penaltyGoalTeam,
             ),
         )
         SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }

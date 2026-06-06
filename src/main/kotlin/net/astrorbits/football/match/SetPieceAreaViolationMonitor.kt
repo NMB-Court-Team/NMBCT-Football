@@ -131,7 +131,7 @@ object SetPieceAreaViolationMonitor {
                 val kickerUuid: UUID?
                 when {
                     PenaltyShootoutState.isActive() -> {
-                        defending = PenaltyShootoutState.activeDefendingTeam
+                        defending = PenaltyShootoutState.penaltyGoalTeam
                         kickerUuid = PenaltyShootoutState.currentKickerUuid
                     }
                     MatchPenaltyKickState.isActive() -> {
@@ -293,7 +293,7 @@ object SetPieceAreaViolationMonitor {
 
     private fun penaltyKickSafePosition(player: ServerPlayer, config: MatchConfig): Vec3? {
         val defending = when {
-            PenaltyShootoutState.isActive() -> PenaltyShootoutState.activeDefendingTeam
+            PenaltyShootoutState.isActive() -> PenaltyShootoutState.penaltyGoalTeam
             MatchPenaltyKickState.isActive() -> MatchPenaltyKickState.defendingTeam
             else -> return null
         }

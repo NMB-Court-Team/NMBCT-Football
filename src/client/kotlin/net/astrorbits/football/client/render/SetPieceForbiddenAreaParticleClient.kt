@@ -43,9 +43,13 @@ object SetPieceForbiddenAreaParticleClient {
         }
 
         val penaltyDefendingTeam = when {
-            PenaltyShootoutClient.active -> PenaltyShootoutClient.activeDefendingTeam
+            PenaltyShootoutClient.active -> PenaltyShootoutClient.penaltyGoalTeam
             SetPieceClient.kind == SetPieceKind.PENALTY_KICK -> SetPieceClient.defendingSide
             else -> null
+        }
+        val penaltyGoalkeeperTeam = when {
+            PenaltyShootoutClient.active -> PenaltyShootoutClient.activeDefendingTeam
+            else -> penaltyDefendingTeam
         }
         val penaltyKickerUuid = when {
             PenaltyShootoutClient.active -> PenaltyShootoutClient.currentKickerUuid
@@ -70,8 +74,8 @@ object SetPieceForbiddenAreaParticleClient {
             penaltyKickerUuid = penaltyKickerUuid,
             penaltyDefendingTeam = penaltyDefendingTeam,
             isDefendingGoalkeeper = GoalkeeperStateClient.isGoalkeeper &&
-                penaltyDefendingTeam != null &&
-                MatchStartClient.playerTeam == penaltyDefendingTeam,
+                penaltyGoalkeeperTeam != null &&
+                MatchStartClient.playerTeam == penaltyGoalkeeperTeam,
             config = MatchConfigHolder.current,
         )
         if (zones.isEmpty()) {

@@ -66,6 +66,13 @@ object MatchStartClient {
     /** 服务端逐玩家计算后下发，直接决定客户端锁定逻辑，不依赖本地 playerTeam */
     var isKickoffTeam: Boolean = false; private set
 
+    /** 仅同步本队身份（点球大战等不触发开球锁的场景）。 */
+    fun assignTeam(team: TeamSide, nameA: String, nameB: String) {
+        playerTeam = team
+        teamAName = nameA
+        teamBName = nameB
+    }
+
     fun startMatch(team: TeamSide, gk: Boolean, kickoff: TeamSide, nameA: String, nameB: String) {
         playerTeam = team; isGk = gk; kickoffTeam = kickoff
         isKickoffTeam = team == kickoff

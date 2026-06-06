@@ -3,6 +3,7 @@ package net.astrorbits.football.client.match
 import net.astrorbits.football.client.GoalkeeperStateClient
 import net.astrorbits.football.client.SetPieceAreaViolationClient
 import net.astrorbits.football.client.SetPieceClient
+import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.network.KickoffBallTouchedS2CPayload
 import net.astrorbits.football.network.MatchStartS2CPayload
@@ -26,12 +27,16 @@ object MatchStartClientNetworking {
             Minecraft.getInstance().execute {
                 MatchState.teamAName = Component.literal(payload.teamAName)
                 MatchState.teamBName = Component.literal(payload.teamBName)
-                MatchState.teamAScore = 0
-                MatchState.teamBScore = 0
-                MatchStartClient.startMatch(
-                    payload.playerTeam, payload.isGk, payload.kickoffTeam,
-                    payload.teamAName, payload.teamBName,
-                )
+                if (MatchState.currentPhase == MatchPhase.PENALTIES) {
+                    MatchStartClient.assignTeam(payload.playerTeam, payload.teamAName, payload.teamBName)
+                } else {
+                    MatchState.teamAScore = 0
+                    MatchState.teamBScore = 0
+                    MatchStartClient.startMatch(
+                        payload.playerTeam, payload.isGk, payload.kickoffTeam,
+                        payload.teamAName, payload.teamBName,
+                    )
+                }
             }
         }
         ClientPlayNetworking.registerGlobalReceiver(PostGoalKickoffS2CPayload.TYPE) { payload, _ ->
@@ -70,6 +75,7 @@ object MatchStartClientNetworking {
                     payload.kickerName,
                     payload.currentKickerUuid,
                     payload.kickPhase,
+                    payload.penaltyGoalTeam,
                     payload.activeDefendingTeam,
                     payload.firstKickTeam,
                 )

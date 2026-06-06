@@ -334,6 +334,7 @@ object FootballNetworking {
             kickerName = kickerName,
             currentKickerUuid = PenaltyShootoutState.currentKickerUuid,
             kickPhase = PenaltyShootoutState.kickPhase,
+            penaltyGoalTeam = PenaltyShootoutState.penaltyGoalTeam,
             activeDefendingTeam = PenaltyShootoutState.activeDefendingTeam,
             firstKickTeam = PenaltyShootoutState.firstKickTeam,
         )
