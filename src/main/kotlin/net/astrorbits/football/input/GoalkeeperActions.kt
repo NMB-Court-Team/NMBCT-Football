@@ -33,7 +33,8 @@ object GoalkeeperActions {
         }
         if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player) &&
             !SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player) &&
-            !SetPieceRestrictionCoordinator.allowsGoalKickDrop(player)
+            !SetPieceRestrictionCoordinator.allowsGoalKickDrop(player) &&
+            !ThrowInSetPieceFlow.isMovementFrozen(player)
         ) {
             return
         }

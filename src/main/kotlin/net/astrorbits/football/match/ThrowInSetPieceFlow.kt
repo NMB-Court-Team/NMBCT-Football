@@ -2,7 +2,9 @@ package net.astrorbits.football.match
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.input.GoalkeeperHoldActionPermissions
+import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.network.FootballNetworking
+import net.astrorbits.football.util.GoalkeeperUtil
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -12,6 +14,7 @@ import kotlin.math.sqrt
 
 object ThrowInSetPieceFlow {
     private val anchorPositions = mutableMapOf<java.util.UUID, Vec3>()
+    private const val POSITION_SNAP_THRESHOLD_SQ = 0.01
 
     fun begin(level: ServerLevel, restartTeam: TeamSide, ballPos: Vec3) {
         val server = level.server
@@ -19,8 +22,7 @@ object ThrowInSetPieceFlow {
         val football = findFootballNear(level, ballPos) ?: return
 
         taker.teleportTo(level, ballPos.x, ballPos.y, ballPos.z, java.util.HashSet(), taker.yRot, taker.xRot, false)
-        football.enterHold(taker)
-        anchorPositions[taker.uuid] = Vec3(ballPos.x, ballPos.y, ballPos.z)
+        taker.setDeltaMovement(Vec3.ZERO)
 
         GoalkeeperHoldActionPermissions.setAll(taker, catch = false, drop = false, throwBall = true)
 
@@ -33,6 +35,9 @@ object ThrowInSetPieceFlow {
             ),
         )
         SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
+
+        anchorPositions[taker.uuid] = Vec3(taker.x, taker.y, taker.z)
+        ensureTakerHoldingBall(taker, football)
         FootballNetworking.broadcastSetPieceState(server)
     }
 
@@ -49,21 +54,36 @@ object ThrowInSetPieceFlow {
         if (ctx.kind != SetPieceKind.THROW_IN) return
         val takerUuid = ctx.throwInTakerUuid ?: return
         val taker = server.playerList.getPlayer(takerUuid) ?: return
+        val level = taker.level() as? ServerLevel ?: return
         val anchor = anchorPositions[takerUuid] ?: ctx.ballPos
-        if (taker.x != anchor.x || taker.y != anchor.y || taker.z != anchor.z) {
-            taker.teleportTo(
-                taker.level(),
-                anchor.x, anchor.y, anchor.z,
-                java.util.HashSet(),
-                taker.yRot, taker.xRot, false,
-            )
-        }
+
         taker.setDeltaMovement(Vec3.ZERO)
+
+        val dx = taker.x - anchor.x
+        val dy = taker.y - anchor.y
+        val dz = taker.z - anchor.z
+        if (dx * dx + dy * dy + dz * dz > POSITION_SNAP_THRESHOLD_SQ) {
+            taker.setPos(anchor.x, anchor.y, anchor.z)
+        }
+
+        val football = GoalkeeperUtil.findHeldFootball(taker) ?: findFootballNear(level, anchor)
+        if (football != null) {
+            ensureTakerHoldingBall(taker, football)
+        }
     }
 
     fun isMovementFrozen(player: ServerPlayer): Boolean {
         val ctx = SetPieceState.active ?: return false
         return ctx.kind == SetPieceKind.THROW_IN && player.uuid == ctx.throwInTakerUuid
+    }
+
+    /** 界外球主罚员在开球锁定倒计时结束后方可抛出。 */
+    fun allowsThrowAction(player: ServerPlayer, action: FootballActionType?): Boolean {
+        if (!isMovementFrozen(player)) return false
+        if (action != FootballActionType.GK_THROW_SHORT && action != FootballActionType.GK_THROW_LONG) {
+            return false
+        }
+        return !MatchState.isKickoffCountdownActive()
     }
 
     fun clear(server: MinecraftServer?) {
@@ -100,5 +120,13 @@ object ThrowInSetPieceFlow {
     private fun findFootballNear(level: ServerLevel, pos: Vec3): Football? {
         val box = AABB.ofSize(pos, 4.0, 4.0, 4.0)
         return level.getEntitiesOfClass(Football::class.java, box).minByOrNull { it.distanceToSqr(pos) }
+    }
+
+    private fun ensureTakerHoldingBall(taker: ServerPlayer, football: Football) {
+        if (!football.isHeldBy(taker)) {
+            football.enterHold(taker)
+        } else {
+            football.syncHeldPose(taker)
+        }
     }
 }

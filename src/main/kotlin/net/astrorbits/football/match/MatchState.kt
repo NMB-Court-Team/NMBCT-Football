@@ -361,7 +361,7 @@ object MatchState {
         if (SetPieceRestrictionCoordinator.isPlayerBallMovementForbidden(player)) {
             return true
         }
-        if (ThrowInSetPieceFlow.isMovementFrozen(player)) {
+        if (ThrowInSetPieceFlow.isMovementFrozen(player) && !ThrowInSetPieceFlow.allowsThrowAction(player, action)) {
             return true
         }
         if (PenaltyShootoutState.isPenaltyMovementRestricted(player)) {
@@ -380,13 +380,6 @@ object MatchState {
                 return true
             }
         }
-        if ((action == net.astrorbits.football.network.FootballActionType.GK_THROW_SHORT ||
-                action == net.astrorbits.football.network.FootballActionType.GK_THROW_LONG) &&
-            SetPieceState.active?.kind == SetPieceKind.THROW_IN &&
-            player.uuid == SetPieceState.active?.throwInTakerUuid
-        ) {
-            return false
-        }
         val phaseActive = KickoffLock.isKickoffPhaseActive(kickoffTeam, kickoffTouched, kickoffTimerStartMs)
         val elapsed = if (phaseActive) System.currentTimeMillis() - kickoffTimerStartMs else 0L
         return KickoffLock.isPlayerLocked(
@@ -402,6 +395,13 @@ object MatchState {
     fun tryNotifyKickoffBallTouched(player: ServerPlayer) {
         if (isKickoffInteractionLocked(player)) return
         notifyKickoffBallTouched(player)
+    }
+
+    /** 开球锁定倒计时是否仍在进行（全员不可触球/开球）。 */
+    fun isKickoffCountdownActive(): Boolean {
+        val phaseActive = KickoffLock.isKickoffPhaseActive(kickoffTeam, kickoffTouched, kickoffTimerStartMs)
+        if (!phaseActive) return false
+        return System.currentTimeMillis() - kickoffTimerStartMs < kickoffLockMs
     }
 
     /** 进入开球锁定阶段（重置触球标记与开球哨计时）。 */

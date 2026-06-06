@@ -6,7 +6,8 @@
 		"PlayerSlidePoseMixin",
 		"SlideTackleSwimAmountMixin",
 		"SlideTackleJumpBlockMixin",
-		"JumpHorizontalDragMixin"
+		"JumpHorizontalDragMixin",
+		"ThrowInMovementFreezeMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

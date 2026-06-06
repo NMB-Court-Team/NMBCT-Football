@@ -10,8 +10,8 @@ import net.minecraft.server.level.ServerPlayer
 object SetPieceRestrictionCoordinator {
     fun isFootballOperationBlocked(player: ServerPlayer, action: FootballActionType? = null): Boolean {
         if (ThrowInSetPieceFlow.isMovementFrozen(player)) {
-            return action != FootballActionType.GK_THROW_SHORT &&
-                action != FootballActionType.GK_THROW_LONG
+            if (ThrowInSetPieceFlow.allowsThrowAction(player, action)) return false
+            return true
         }
         return isGeneralFootballBlocked(player, action)
     }
@@ -40,6 +40,8 @@ object SetPieceRestrictionCoordinator {
     }
 
     fun allowsCatchDespiteRole(player: ServerPlayer): Boolean = allowsGoalKickCatch(player)
+
+    fun allowsThrowInHold(player: ServerPlayer): Boolean = ThrowInSetPieceFlow.isMovementFrozen(player)
 
     fun allowsGoalKickDrop(player: ServerPlayer): Boolean {
         val ctx = SetPieceState.active ?: return false

@@ -1375,8 +1375,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     fun enterHold(player: ServerPlayer) {
         val goalKickCatchAllowed = SetPieceRestrictionCoordinator.allowsGoalKickCatch(player)
+        val throwInHoldAllowed = SetPieceRestrictionCoordinator.allowsThrowInHold(player)
         if (level().isClientSide || isImmovable ||
-            (isPlayerBallMovementForbidden(player) && !goalKickCatchAllowed) ||
+            (isPlayerBallMovementForbidden(player) && !goalKickCatchAllowed && !throwInHoldAllowed) ||
             !MatchParticipation.isParticipating(player)
         ) {
             return

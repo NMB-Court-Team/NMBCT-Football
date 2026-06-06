@@ -6,7 +6,8 @@
 		"LocalPlayerMixin",
 		"PlayerModelMixin",
 		"AdventureHideHudMixin",
-		"ListEntryWidgetMixin"
+		"ListEntryWidgetMixin",
+		"ThrowInMovementFreezeClientMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

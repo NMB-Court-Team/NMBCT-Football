@@ -117,16 +117,20 @@ object FootballOperabilityClient {
         if (isBlockedByGoalKickSetPiece(player, key)) {
             return false
         }
+        if (isBlockedByThrowInSetPiece(player, key)) {
+            return false
+        }
 
         if (holdingBall) {
             return when (key) {
                 FootballKeyBindings.GK_DIVE ->
-                    !kickoffLocked && canGk && GoalkeeperHoldActionPermissionsClient.canThrow &&
-                        !GoalkeeperStateClient.isHoldReleaseLocked()
+                    !kickoffLocked && GoalkeeperHoldActionPermissionsClient.canThrow &&
+                        !GoalkeeperStateClient.isHoldReleaseLocked() &&
+                        (canGk || isThrowInTaker(player))
                 FootballKeyBindings.GK_CATCH ->
                     GoalkeeperHoldActionPermissionsClient.canDrop &&
                         !GoalkeeperStateClient.isHoldReleaseLocked() &&
-                        (canUseGoalKickDrop(player) || (!kickoffLocked && canGk))
+                        (canUseGoalKickDrop(player) || (!kickoffLocked && canGk && !isThrowInTaker(player)))
                 FootballKeyBindings.BOOST_SPRINT -> player.isSprinting && StaminaClient.stamina > 0f
                 FootballKeyBindings.INTERRUPT_CHARGE -> FootballInputHandler.isAnyChargeActive()
                 FootballKeyBindings.LOOK_AROUND -> true
@@ -196,6 +200,29 @@ object FootballOperabilityClient {
         SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
             SetPieceClient.goalKickPhase == GoalKickPhase.PLACING &&
             SetPieceClient.goalKickPickerUuid == player.uuid
+
+    private fun isThrowInTaker(player: LocalPlayer): Boolean =
+        SetPieceClient.kind == SetPieceKind.THROW_IN &&
+            SetPieceClient.throwInTakerUuid == player.uuid
+
+    private fun isBlockedByThrowInSetPiece(player: LocalPlayer, key: KeyMapping): Boolean {
+        if (SetPieceClient.kind != SetPieceKind.THROW_IN) return false
+        if (isThrowInTaker(player)) {
+            if (MatchStartClient.isLocked) {
+                return key != FootballKeyBindings.LOOK_AROUND
+            }
+            return when (key) {
+                FootballKeyBindings.GK_DIVE,
+                FootballKeyBindings.LOOK_AROUND,
+                -> false
+                else -> true
+            }
+        }
+        if (SetPieceClient.restartTeam == MatchStartClient.playerTeam) {
+            return key != FootballKeyBindings.BOOST_SPRINT && key != FootballKeyBindings.LOOK_AROUND
+        }
+        return false
+    }
 
     private fun isBlockedByGoalKickSetPiece(player: LocalPlayer, key: KeyMapping): Boolean {
         if (SetPieceClient.kind != SetPieceKind.GOAL_KICK) return false
