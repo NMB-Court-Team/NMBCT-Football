@@ -159,17 +159,17 @@ object GoalCrossingUtil {
         return towardGoal.normalize().dot(kickHoriz.normalize()) >= KICK_TOWARD_GOAL_DOT_THRESHOLD
     }
 
+    /**
+     * 按 IFAB：角球在球离开场地一侧、距出界点最近的角旗区发球。
+     * 「右」为面向球门（沿 [facing]）时的右侧，而非固定世界坐标正负。
+     */
     fun cornerKickPosition(goal: GoalConfig, facing: Vec3, ix: Double, iz: Double): Vec3 {
-        val gx1 = goal.x1
-        val gz1 = goal.z1
-        val gx2 = goal.x2
-        val gz2 = goal.z2
-        val goalCenterX = (gx1 + gx2) / 2.0
-        val goalCenterZ = (gz1 + gz2) / 2.0
+        val goalCenterX = (goal.x1 + goal.x2) / 2.0
+        val goalCenterZ = (goal.z1 + goal.z2) / 2.0
         val onRight = if (abs(facing.x) > abs(facing.z)) {
-            iz > goalCenterZ
+            (iz - goalCenterZ) * facing.x > 0.0
         } else {
-            ix > goalCenterX
+            (ix - goalCenterX) * facing.z > 0.0
         }
         val corner = if (onRight) goal.cornerKickRight else goal.cornerKickLeft
         return Vec3(corner.x, corner.y, corner.z)
