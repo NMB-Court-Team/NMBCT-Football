@@ -12,20 +12,24 @@ import net.astrorbits.football.match.SetPieceKind
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.minecraft.client.Minecraft
 import net.minecraft.client.multiplayer.ClientLevel
-import net.minecraft.client.player.LocalPlayer
 import net.minecraft.core.BlockPos
-import net.minecraft.core.particles.DustParticleOptions
+import net.minecraft.core.particles.TrailParticleOption
 import net.minecraft.world.level.levelgen.Heightmap
+import net.minecraft.world.phys.Vec3
+
 /**
- * 当本地球员靠近或处于定位球禁止区域时，在区域边缘显示红色 dust 粒子。
+ * 当本地球员靠近或处于定位球禁止区域时，在区域边缘显示红色 trail 粒子。
+ * 相邻采样点首尾相连；首尾间距超过 [MAX_HEAD_TAIL_CONNECT_DISTANCE] 格时不闭合。
  */
 object SetPieceForbiddenAreaParticleClient {
-    private const val PARTICLE_SIZE = 1.5f
     private const val GROUND_OFFSET = 0.5
     private const val MAX_RENDER_DISTANCE_SQ = 48.0 * 48.0
+    private const val MAX_HEAD_TAIL_CONNECT_DISTANCE = 8.0
+    private const val MAX_HEAD_TAIL_CONNECT_DISTANCE_SQ =
+        MAX_HEAD_TAIL_CONNECT_DISTANCE * MAX_HEAD_TAIL_CONNECT_DISTANCE
     private const val PARTICLE_SUBSAMPLE = 2
-
-    private val redDust = DustParticleOptions(0xFFFF3B3B.toInt(), PARTICLE_SIZE)
+    private const val TRAIL_COLOR = 0xFFFF3B3B.toInt()
+    private const val TRAIL_DURATION_TICKS = 20
 
     fun register() {
         ClientTickEvents.END_CLIENT_TICK.register(::tick)
@@ -78,35 +82,49 @@ object SetPieceForbiddenAreaParticleClient {
         val pz = player.z
         for (zone in zones) {
             val points = zone.sampleBoundaryPoints(MatchConfigHolder.current)
-            var index = 0
-            for (point in points) {
-                if (index++ % PARTICLE_SUBSAMPLE != 0) {
-                    continue
-                }
-                val dx = point.x - px
-                val dz = point.z - pz
+            val sampled = points.filterIndexed { index, _ -> index % PARTICLE_SUBSAMPLE == 0 }
+            if (sampled.size < 2) {
+                continue
+            }
+            val first = sampled.first()
+            val last = sampled.last()
+            val headTailDx = first.x - last.x
+            val headTailDz = first.z - last.z
+            val closeLoop = headTailDx * headTailDx + headTailDz * headTailDz <= MAX_HEAD_TAIL_CONNECT_DISTANCE_SQ
+            val segmentCount = if (closeLoop) sampled.size else sampled.size - 1
+            for (index in 0 until segmentCount) {
+                val current = sampled[index]
+                val next = sampled[(index + 1) % sampled.size]
+                val dx = current.x - px
+                val dz = current.z - pz
                 if (dx * dx + dz * dz > MAX_RENDER_DISTANCE_SQ) {
                     continue
                 }
-                spawnGroundParticle(level, player, point.x, point.z)
+                spawnTrailSegment(level, current.x, current.z, next.x, next.z)
             }
         }
     }
 
-    private fun spawnGroundParticle(level: ClientLevel, player: LocalPlayer, x: Double, z: Double) {
-        val groundY = level.getHeight(
-            Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-            BlockPos.containing(x, 0.0, z).x,
-            BlockPos.containing(x, 0.0, z).z,
-        ).toDouble() + GROUND_OFFSET
-        level.addParticle(
-            redDust,
-            x,
-            groundY,
-            z,
-            0.0,
-            0.0,
-            0.0,
+    private fun spawnTrailSegment(
+        level: ClientLevel,
+        startX: Double,
+        startZ: Double,
+        endX: Double,
+        endZ: Double,
+    ) {
+        val startY = groundY(level, startX, startZ)
+        val endY = groundY(level, endX, endZ)
+        val trail = TrailParticleOption(
+            Vec3(endX, endY, endZ),
+            TRAIL_COLOR,
+            TRAIL_DURATION_TICKS,
         )
+        level.addParticle(trail, startX, startY, startZ, 0.0, 0.0, 0.0)
+    }
+
+    private fun groundY(level: ClientLevel, x: Double, z: Double): Double {
+        val blockPos = BlockPos.containing(x, 0.0, z)
+        return level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, blockPos.x, blockPos.z).toDouble() +
+            GROUND_OFFSET
     }
 }
