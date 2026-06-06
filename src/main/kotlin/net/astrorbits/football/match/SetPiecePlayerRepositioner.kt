@@ -14,6 +14,7 @@ object SetPiecePlayerRepositioner {
 
     fun repositionInitialViolators(server: MinecraftServer, context: SetPieceContext) {
         for (player in server.playerList.players) {
+            if (PenaltyShootoutState.isActive() && PenaltyShootoutState.isPenaltyWaitingSpectator(player)) continue
             if (!MatchParticipation.isParticipating(player)) continue
             val team = MatchState.getPlayerTeam(player.uuid) ?: continue
             val target = when (context.kind) {

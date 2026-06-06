@@ -127,6 +127,9 @@ object SetPieceAreaViolationMonitor {
                 }
             }
             SetPieceKind.PENALTY_KICK -> {
+                if (PenaltyShootoutState.isActive() && PenaltyShootoutState.isPenaltyWaitingSpectator(player)) {
+                    return null
+                }
                 val defending: TeamSide
                 val kickerUuid: UUID?
                 when {

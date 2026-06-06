@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.level.GameType
 import net.minecraft.world.phys.Vec3
 import java.util.*
 import kotlin.random.Random
@@ -26,6 +27,8 @@ object PenaltyShootoutState {
     private const val STATIONARY_SPEED_SQR = 0.002
     private const val STATIONARY_TICKS_NEEDED = 20
     private const val KICKER_OFFSET_BLOCKS = 2.5
+    /** 等待区：点球点正上方（旁观模式俯瞰罚球）。 */
+    private const val WAITING_SPECTATOR_Y_OFFSET = 5.0
 
     var active: Boolean = false
         private set
@@ -33,10 +36,10 @@ object PenaltyShootoutState {
         private set
     var penaltyScoreB: Int = 0
         private set
-    /** 本轮被攻打的球门所属队伍（恒为主罚方对手，避免本队踢本队门）。 */
+    /** 掷币选定、整场不变的罚球球门所属队伍（IFAB 固定球门）。 */
     var penaltyGoalTeam: TeamSide = TeamSide.A
         private set
-    /** 本轮站在球门前的防守方（与 [penaltyGoalTeam] 相同）。 */
+    /** 本轮站在固定球门前的防守方（主罚方对手的门将）。 */
     var activeDefendingTeam: TeamSide = TeamSide.A
         private set
     var firstKickTeam: TeamSide = TeamSide.A
@@ -71,13 +74,19 @@ object PenaltyShootoutState {
     private var activeFootballId: Int = -1
     private var pendingAdvance = false
     private var kickIntroTicksRemaining = 0
+    private val penaltyWaitingSpectators = mutableSetOf<UUID>()
+    private val penaltyWaitingPreviousGameModes = mutableMapOf<UUID, GameType>()
 
     fun isActive(): Boolean = active && MatchState.currentPhase == MatchPhase.PENALTIES
+
+    fun isPenaltyWaitingSpectator(player: ServerPlayer): Boolean =
+        player.uuid in penaltyWaitingSpectators
 
     fun start(server: MinecraftServer) {
         clear()
         active = true
         lastWinner = null
+        penaltyGoalTeam = TeamSide.entries[Random.nextInt(TeamSide.entries.size)]
         firstKickTeam = TeamSide.entries[Random.nextInt(TeamSide.entries.size)]
         suddenDeath = false
         penaltyScoreA = 0
@@ -93,6 +102,12 @@ object PenaltyShootoutState {
 
         captureEligibleKickPools(server)
         FootballSounds.playMatchWhistle(server, 1)
+        val goalName = MatchState.getTeamName(penaltyGoalTeam).string
+        val firstName = MatchState.getTeamName(firstKickTeam).string
+        server.playerList.broadcastSystemMessage(
+            Component.translatable("match.penalty.toss", goalName, firstName),
+            false,
+        )
         beginKick(server)
     }
 
@@ -125,6 +140,7 @@ object PenaltyShootoutState {
         pendingAdvance = false
         kickIntroTicksRemaining = 0
         lastWinner = null
+        restoreAllPenaltyWaitingSpectators(server)
     }
 
     fun defendingGoal(): GoalConfig {
@@ -158,8 +174,9 @@ object PenaltyShootoutState {
     }
 
     fun isPenaltyMovementRestricted(player: ServerPlayer): Boolean {
-        if (!MatchParticipation.isParticipating(player)) return false
         if (!isActive()) return false
+        if (isPenaltyWaitingSpectator(player)) return false
+        if (!MatchParticipation.isParticipating(player)) return false
         if (player.uuid == currentKickerUuid) return false
         if (isDefendingGoalkeeper(player)) return false
         return true
@@ -341,7 +358,8 @@ object PenaltyShootoutState {
             TeamSide.B -> kickedPlayersB
         }
 
-        val present = MatchParticipation.onlineParticipating(server, roster)
+        val present = roster.mapNotNull { server.playerList.getPlayer(it) }
+            .filter { MatchParticipation.isParticipating(it) || isPenaltyWaitingSpectator(it) }
         if (present.isEmpty()) return null
 
         val officialGkUuid = when (team) {
@@ -366,14 +384,25 @@ object PenaltyShootoutState {
     }
 
     private fun beginKick(server: MinecraftServer) {
-        currentKickerUuid?.let { uuid ->
-            server.playerList.getPlayer(uuid)?.let { PlayerRoleState.releasePenaltyKickOutfield(it) }
+        val previousKickerUuid = currentKickerUuid
+        val previousGkUuid = if (totalKicksTaken > 0) {
+            resolveDefendingGoalkeeperUuid(server, activeDefendingTeam, previousKickerUuid)
+        } else {
+            null
+        }
+        previousKickerUuid?.let { uuid ->
+            server.playerList.getPlayer(uuid)?.let { player ->
+                PlayerRoleState.releasePenaltyKickOutfield(player)
+                enterPenaltyWaitingSpectator(player, server)
+            }
+        }
+        previousGkUuid?.takeIf { it != previousKickerUuid }?.let { uuid ->
+            server.playerList.getPlayer(uuid)?.let { enterPenaltyWaitingSpectator(it, server) }
         }
         kickPhase = PenaltyKickPhase.SETUP
         outcomeRecorded = false
         currentKickerTeam = teamForKickIndex(totalKicksTaken)
-        penaltyGoalTeam = currentKickerTeam.opponent()
-        activeDefendingTeam = penaltyGoalTeam
+        activeDefendingTeam = currentKickerTeam.opponent()
         currentKickerUuid = pickKicker(currentKickerTeam, server)
         currentKickerUuid?.let { uuid ->
             server.playerList.getPlayer(uuid)?.let { PlayerRoleState.enterPenaltyKickOutfield(it) }
@@ -421,14 +450,11 @@ object PenaltyShootoutState {
         val towardGoal = goal.penaltyKickTowardGoal()
         val behindBall = goal.penaltyKickBehindBall()
         val kickerUuid = currentKickerUuid
-        val defendingGkUuid = when (activeDefendingTeam) {
-            TeamSide.A -> PlayerRoleState.teamAGoalkeeper
-            TeamSide.B -> PlayerRoleState.teamBGoalkeeper
-        }
 
         if (kickerUuid != null) {
             val kicker = server.playerList.getPlayer(kickerUuid)
             if (kicker != null) {
+                activatePenaltyParticipant(kicker)
                 val kx = spot.x + behindBall.x * KICKER_OFFSET_BLOCKS
                 val kz = spot.z + behindBall.z * KICKER_OFFSET_BLOCKS
                 val yaw = Math.toDegrees(kotlin.math.atan2(-towardGoal.x, towardGoal.z)).toFloat()
@@ -436,43 +462,103 @@ object PenaltyShootoutState {
             }
         }
 
-        val gk = defendingGkUuid?.let { server.playerList.getPlayer(it) }
-            ?.takeIf { it.uuid != kickerUuid && MatchParticipation.isParticipating(it) }
-            ?: server.playerList.players.firstOrNull {
-                it.uuid != kickerUuid && isDefendingGoalkeeper(it)
-            }
+        val gkUuid = resolveDefendingGoalkeeperUuid(server, activeDefendingTeam, kickerUuid)
+        val gk = gkUuid?.let { server.playerList.getPlayer(it) }
         if (gk != null) {
+            activatePenaltyParticipant(gk)
             val center = goal.goalCenter()
             val gkYaw = Math.toDegrees(kotlin.math.atan2(-behindBall.x, behindBall.z)).toFloat()
             gk.teleportTo(level, center.x, center.y, center.z, java.util.HashSet(), gkYaw, 0f, false)
         }
 
-        teleportWaitingParticipants(level, server, kickerUuid, gk?.uuid)
+        placePenaltyWaitingSpectators(server, kickerUuid, gkUuid)
     }
 
-    /** 其余参赛队员传至中圈开球点等待。 */
-    private fun teleportWaitingParticipants(
-        level: ServerLevel,
+    private fun penaltyWaitingPosition(): Vec3 {
+        val spot = defendingGoal().resolvedPenaltySpot()
+        return Vec3(spot.x, spot.y + WAITING_SPECTATOR_Y_OFFSET, spot.z)
+    }
+
+    private fun enterPenaltyWaitingSpectator(player: ServerPlayer, server: MinecraftServer) {
+        if (player.uuid !in MatchState.teamAPlayers && player.uuid !in MatchState.teamBPlayers) return
+        penaltyWaitingPreviousGameModes.putIfAbsent(player.uuid, player.gameMode.gameModeForPlayer)
+        penaltyWaitingSpectators.add(player.uuid)
+        player.setGameMode(GameType.SPECTATOR)
+        val pos = penaltyWaitingPosition()
+        val level = server.overworld()
+        player.teleportTo(
+            level,
+            pos.x,
+            pos.y,
+            pos.z,
+            java.util.HashSet(),
+            player.yRot,
+            player.xRot,
+            false,
+        )
+    }
+
+    private fun ensurePenaltyWaitingSpectator(player: ServerPlayer, server: MinecraftServer) {
+        if (isPenaltyWaitingSpectator(player)) return
+        enterPenaltyWaitingSpectator(player, server)
+    }
+
+    private fun activatePenaltyParticipant(player: ServerPlayer) {
+        if (!isPenaltyWaitingSpectator(player)) return
+        penaltyWaitingSpectators.remove(player.uuid)
+        val previous = penaltyWaitingPreviousGameModes.remove(player.uuid) ?: GameType.ADVENTURE
+        player.setGameMode(previous)
+    }
+
+    /** 其余队员旁观等待于点球点上方；已在等待区的玩家位置不变。 */
+    private fun placePenaltyWaitingSpectators(
         server: MinecraftServer,
         kickerUuid: UUID?,
         defendingGkUuid: UUID?,
     ) {
-        val waitPos = MatchConfigHolder.current.kickOff.toVec3()
         for (uuid in MatchState.teamAPlayers + MatchState.teamBPlayers) {
             val player = server.playerList.getPlayer(uuid) ?: continue
-            if (!MatchParticipation.isParticipating(player)) continue
             if (player.uuid == kickerUuid || player.uuid == defendingGkUuid) continue
-            player.teleportTo(
-                level,
-                waitPos.x,
-                waitPos.y,
-                waitPos.z,
-                java.util.HashSet(),
-                player.yRot,
-                player.xRot,
-                false,
-            )
+            ensurePenaltyWaitingSpectator(player, server)
         }
+    }
+
+    private fun resolveDefendingGoalkeeperUuid(
+        server: MinecraftServer,
+        defendingTeam: TeamSide,
+        excludingUuid: UUID?,
+    ): UUID? {
+        val official = when (defendingTeam) {
+            TeamSide.A -> PlayerRoleState.teamAGoalkeeper
+            TeamSide.B -> PlayerRoleState.teamBGoalkeeper
+        }
+        val officialPlayer = official?.let { server.playerList.getPlayer(it) }
+            ?.takeIf { it.uuid != excludingUuid && MatchState.getPlayerTeam(it.uuid) == defendingTeam }
+        if (officialPlayer != null) return officialPlayer.uuid
+        return server.playerList.players.firstOrNull { player ->
+            player.uuid != excludingUuid &&
+                MatchState.getPlayerTeam(player.uuid) == defendingTeam &&
+                PlayerRoleState.isGoalkeeper(player)
+        }?.uuid
+    }
+
+    private fun restorePenaltyWaitingSpectator(player: ServerPlayer) {
+        penaltyWaitingSpectators.remove(player.uuid)
+        val previous = penaltyWaitingPreviousGameModes.remove(player.uuid) ?: return
+        player.setGameMode(previous)
+    }
+
+    private fun restoreAllPenaltyWaitingSpectators(server: MinecraftServer?) {
+        if (server == null) {
+            penaltyWaitingSpectators.clear()
+            penaltyWaitingPreviousGameModes.clear()
+            return
+        }
+        for (uuid in (penaltyWaitingSpectators + penaltyWaitingPreviousGameModes.keys).toSet()) {
+            server.playerList.getPlayer(uuid)?.let { restorePenaltyWaitingSpectator(it) }
+        }
+        penaltyWaitingSpectators.clear()
+        penaltyWaitingPreviousGameModes.clear()
     }
 
     private fun checkWinner(): TeamSide? {
@@ -500,6 +586,7 @@ object PenaltyShootoutState {
 
     private fun finish(server: MinecraftServer, winner: TeamSide) {
         PlayerRoleState.clearPenaltyKickOutfieldOverrides(server)
+        restoreAllPenaltyWaitingSpectators(server)
         active = false
         lastWinner = winner
         kickPhase = PenaltyKickPhase.SETUP
