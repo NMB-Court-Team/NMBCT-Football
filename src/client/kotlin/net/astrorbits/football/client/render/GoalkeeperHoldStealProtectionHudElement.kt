@@ -38,8 +38,8 @@ class GoalkeeperHoldStealProtectionHudElement : HudElement {
     companion object {
         private const val LABEL_KEY = "hud.nmbct-football.gk_hold_steal_protection"
         private const val LABEL_COLOR = 0xFF42A5F5.toInt()
-        private const val TEXT_SCALE = 0.85f
-        /** 准心中心略下方（准心约 15px 高）。 */
-        private const val CROSSHAIR_BELOW_OFFSET = 11f
+        private const val TEXT_SCALE = 1.0f
+        /** 准心中心略下方（准心约 15px 高）；与区域违规警告错开。 */
+        private const val CROSSHAIR_BELOW_OFFSET = 12f
     }
 }

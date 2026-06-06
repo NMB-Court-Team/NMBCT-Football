@@ -39,7 +39,8 @@ class SetPieceAreaViolationHudElement : HudElement {
 
     companion object {
         private const val LABEL_COLOR = 0xFFFF4444.toInt()
-        private const val TEXT_SCALE = 0.9f
-        private const val CROSSHAIR_BELOW_OFFSET = 26f
+        private const val TEXT_SCALE = 1.0f
+        /** 在抢球保护提示下方，留出约一行字高的间距。 */
+        private const val CROSSHAIR_BELOW_OFFSET = 32f
     }
 }
