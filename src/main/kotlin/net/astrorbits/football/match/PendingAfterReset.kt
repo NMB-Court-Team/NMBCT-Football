@@ -15,6 +15,8 @@ sealed interface PendingAfterReset {
         val ballPos: Vec3? = null,
         val defendingSide: TeamSide? = null,
         val throwInDirectGoalRestrict: Boolean = false,
+        /** 界外球：出界瞬间距出界点最近的非门将（延迟复位期间不变）。 */
+        val throwInTakerUuid: UUID? = null,
         /** 复位后写入新足球的 [net.astrorbits.football.Football.lastPhysicalTouch]（如任意球犯规球员）。 */
         val lastTouchPlayerUuid: UUID? = null,
     ) : PendingAfterReset

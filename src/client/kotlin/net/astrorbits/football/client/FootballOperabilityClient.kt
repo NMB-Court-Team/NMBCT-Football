@@ -221,7 +221,7 @@ object FootballOperabilityClient {
             SetPieceClient.goalKickPhase == GoalKickPhase.PLACING &&
             SetPieceClient.goalKickPickerUuid == player.uuid
 
-    private fun isThrowInTaker(player: LocalPlayer): Boolean =
+    fun isThrowInTaker(player: LocalPlayer): Boolean =
         SetPieceClient.kind == SetPieceKind.THROW_IN &&
             SetPieceClient.throwInTakerUuid == player.uuid
 

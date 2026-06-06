@@ -10,15 +10,21 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
+import java.util.UUID
 import kotlin.math.sqrt
 
 object ThrowInSetPieceFlow {
     private val anchorPositions = mutableMapOf<java.util.UUID, Vec3>()
     private const val POSITION_SNAP_THRESHOLD_SQ = 0.01
 
-    fun begin(level: ServerLevel, restartTeam: TeamSide, ballPos: Vec3) {
+    fun begin(
+        level: ServerLevel,
+        restartTeam: TeamSide,
+        ballPos: Vec3,
+        preferredTakerUuid: UUID? = null,
+    ) {
         val server = level.server
-        val taker = pickThrowInTaker(server, restartTeam, ballPos) ?: return
+        val taker = resolveThrowInTaker(server, restartTeam, ballPos, preferredTakerUuid) ?: return
         val football = findFootballNear(level, ballPos) ?: return
 
         taker.teleportTo(level, ballPos.x, ballPos.y, ballPos.z, java.util.HashSet(), taker.yRot, taker.xRot, false)
@@ -77,13 +83,25 @@ object ThrowInSetPieceFlow {
         return ctx.kind == SetPieceKind.THROW_IN && player.uuid == ctx.throwInTakerUuid
     }
 
-    /** 界外球主罚员在开球锁定倒计时结束后方可抛出。 */
+    /** 界外球主罚员在开球锁定倒计时结束后方可右键抛球（短按/长按蓄力均可）。 */
     fun allowsThrowAction(player: ServerPlayer, action: FootballActionType?): Boolean {
         if (!isMovementFrozen(player)) return false
         if (action != FootballActionType.GK_THROW_SHORT && action != FootballActionType.GK_THROW_LONG) {
             return false
         }
         return !MatchState.isKickoffCountdownActive()
+    }
+
+    /** 出界瞬间：距出界点最近的在线非门将队员。 */
+    fun pickThrowInTaker(server: MinecraftServer, restartTeam: TeamSide, outPos: Vec3): ServerPlayer? {
+        val roster = when (restartTeam) {
+            TeamSide.A -> MatchState.teamAPlayers
+            TeamSide.B -> MatchState.teamBPlayers
+        }
+        return roster.mapNotNull { server.playerList.getPlayer(it) }
+            .filter { MatchParticipation.isParticipating(it) }
+            .filter { !PlayerRoleState.isDesignatedGoalkeeper(it) }
+            .minByOrNull { distanceToOutPoint(it, outPos) }
     }
 
     fun clear(server: MinecraftServer?) {
@@ -99,22 +117,30 @@ object ThrowInSetPieceFlow {
         server?.let { FootballNetworking.broadcastSetPieceState(it) }
     }
 
-    private fun pickThrowInTaker(server: MinecraftServer, restartTeam: TeamSide, ballPos: Vec3): ServerPlayer? {
-        val gkUuid = when (restartTeam) {
-            TeamSide.A -> PlayerRoleState.teamAGoalkeeper
-            TeamSide.B -> PlayerRoleState.teamBGoalkeeper
+    private fun resolveThrowInTaker(
+        server: MinecraftServer,
+        restartTeam: TeamSide,
+        outPos: Vec3,
+        preferredTakerUuid: UUID?,
+    ): ServerPlayer? {
+        preferredTakerUuid?.let { uuid ->
+            server.playerList.getPlayer(uuid)?.let { player ->
+                if (MatchParticipation.isParticipating(player) &&
+                    MatchState.getPlayerTeam(player.uuid) == restartTeam &&
+                    !PlayerRoleState.isDesignatedGoalkeeper(player)
+                ) {
+                    return player
+                }
+            }
         }
-        return server.playerList.players
-            .filter { MatchParticipation.isParticipating(it) }
-            .filter { MatchState.getPlayerTeam(it.uuid) == restartTeam }
-            .filter { it.uuid != gkUuid && !PlayerRoleState.isGoalkeeper(it) }
-            .minByOrNull { horizontalDistance(it, ballPos) }
+        return pickThrowInTaker(server, restartTeam, outPos)
     }
 
-    private fun horizontalDistance(player: ServerPlayer, pos: Vec3): Double {
-        val dx = player.x - pos.x
-        val dz = player.z - pos.z
-        return sqrt(dx * dx + dz * dz)
+    private fun distanceToOutPoint(player: ServerPlayer, outPos: Vec3): Double {
+        val dx = player.x - outPos.x
+        val dy = player.y - outPos.y
+        val dz = player.z - outPos.z
+        return sqrt(dx * dx + dy * dy + dz * dz)
     }
 
     private fun findFootballNear(level: ServerLevel, pos: Vec3): Football? {

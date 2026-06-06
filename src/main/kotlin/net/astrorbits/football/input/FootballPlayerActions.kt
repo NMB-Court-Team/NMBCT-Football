@@ -8,6 +8,7 @@ import net.astrorbits.football.match.MatchParticipation
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.match.SetPieceRestrictionCoordinator
+import net.astrorbits.football.match.ThrowInSetPieceFlow
 import net.astrorbits.football.network.FootballActionC2SPayload
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.util.FootballKickUtil
@@ -37,10 +38,7 @@ object FootballPlayerActions {
                 FootballActionType.GK_THROW_LONG,
                 FootballActionType.GK_DROP,
                 -> {
-                    if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player) &&
-                        !SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player) &&
-                        !SetPieceRestrictionCoordinator.allowsGoalKickDrop(player)
-                    ) {
+                    if (!canRouteToGoalkeeperHoldActions(player)) {
                         return
                     }
                     GoalkeeperActions.handle(player, payload)
@@ -66,10 +64,7 @@ object FootballPlayerActions {
             FootballActionType.GK_THROW_LONG,
             FootballActionType.GK_DROP,
             -> {
-                if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player) &&
-                    !SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player) &&
-                    !SetPieceRestrictionCoordinator.allowsGoalKickDrop(player)
-                ) {
+                if (!canRouteToGoalkeeperHoldActions(player)) {
                     return
                 }
                 GoalkeeperActions.handle(player, payload)
@@ -288,4 +283,11 @@ object FootballPlayerActions {
 
         return toBall.normalize().dot(speed.normalize()) > 0.0
     }
+
+    /** 持球后的守门员动作路由：含界外球主罚员（非门将也可抛球）。 */
+    private fun canRouteToGoalkeeperHoldActions(player: ServerPlayer): Boolean =
+        GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player) ||
+            SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player) ||
+            SetPieceRestrictionCoordinator.allowsGoalKickDrop(player) ||
+            ThrowInSetPieceFlow.isMovementFrozen(player)
 }

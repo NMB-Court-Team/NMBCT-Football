@@ -45,7 +45,12 @@ object SetPieceBootstrap {
                         SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
                     }
                     GoalLineOutType.THROW_IN -> {
-                        ThrowInSetPieceFlow.begin(level, action.kickoffTeam, ballPos)
+                        ThrowInSetPieceFlow.begin(
+                            level,
+                            action.kickoffTeam,
+                            ballPos,
+                            action.throwInTakerUuid,
+                        )
                     }
                     null -> Unit
                 }

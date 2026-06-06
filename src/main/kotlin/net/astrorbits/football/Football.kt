@@ -1146,6 +1146,11 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (MatchState.postGoalResetPending) return
         MatchState.clearPendingOffsideSnapshot()
         MatchState.postGoalResetPending = true
+        val throwInTakerUuid = if (outType == GoalLineOutType.THROW_IN) {
+            ThrowInSetPieceFlow.pickThrowInTaker(server, restartTeam, ballPos)?.uuid
+        } else {
+            null
+        }
         PostGoalBallResetScheduler.schedule(
             level,
             ballPos,
@@ -1155,6 +1160,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 ballPos = ballPos,
                 defendingSide = defendingSide,
                 throwInDirectGoalRestrict = outType == GoalLineOutType.THROW_IN,
+                throwInTakerUuid = throwInTakerUuid,
             ),
         )
         if (broadcastOutHud) {

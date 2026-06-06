@@ -78,6 +78,7 @@ object SetPieceRestartAwards {
                 outType = GoalLineOutType.THROW_IN,
                 ballPos = ctx.ballPos,
                 throwInDirectGoalRestrict = true,
+                throwInTakerUuid = ctx.throwInTakerUuid,
             ),
         )
         broadcastRestart(server, SetPieceRestartKind.THROW_IN, ctx.restartTeam)
