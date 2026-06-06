@@ -70,6 +70,12 @@ object PlayerRoleState {
         }
     }
 
+    fun syncRolesToOnlinePlayers(server: MinecraftServer) {
+        for (player in server.playerList.players) {
+            syncRoleToPlayer(player)
+        }
+    }
+
     /** 退出守门员身份时放下手中足球，避免球仍粘在实体上却无法操作。 */
     private fun releaseHeldFootballOnRoleExit(player: ServerPlayer) {
         GoalkeeperUtil.findHeldFootball(player)?.dropAt(player)

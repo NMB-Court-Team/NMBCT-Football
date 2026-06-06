@@ -788,6 +788,9 @@ object MatchState {
             MatchPhase.FINISHED -> timerTicks
         }
         isRunning = phase != MatchPhase.PRE_MATCH && phase != MatchPhase.FINISHED && phase != MatchPhase.PENALTIES
+        if (server != null) {
+            PlayerRoleState.syncRolesToOnlinePlayers(server)
+        }
         if (phase == MatchPhase.FINISHED && server != null) {
             restoreSpectators(server)
         }
