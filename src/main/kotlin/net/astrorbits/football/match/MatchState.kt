@@ -416,6 +416,12 @@ object MatchState {
         lastDynamicStoppageAccumMs = 0L
     }
 
+    /** 点球开踢：接入拖延哨（3/5）与正赛动态补时累积。 */
+    fun beginPenaltyKickWhistlePhase(kickTeam: TeamSide) {
+        kickoffTeam = kickTeam
+        beginKickoffPhase(PenaltyShootoutTiming.KICK_INTRO_LOCK_MS, KickoffWhistleContext.PENALTY_KICK)
+    }
+
     fun clearKickoffWhistleTimers() {
         kickoffTimerStartMs = 0L
         kickoffLockMs = 0L
@@ -431,6 +437,7 @@ object MatchState {
      */
     fun tickDynamicStoppageAccumulation() {
         if (postGoalResetPending) return
+        if (currentPhase == MatchPhase.PENALTIES) return
         if (kickoffTeam == null || kickoffTouched || kickoffTimerStartMs == 0L) return
         val now = System.currentTimeMillis()
         val graceEnd = kickoffTimerStartMs + kickoffLockMs + MatchKickoffTiming.LATE_KICKOFF_WARN_MS
@@ -454,7 +461,9 @@ object MatchState {
         val elapsed = System.currentTimeMillis() - kickoffTimerStartMs
         if (!kickoffCountdownEndHandled && elapsed >= kickoffLockMs) {
             kickoffCountdownEndHandled = true
-            if (kickoffWhistleContext == KickoffWhistleContext.POST_GOAL) {
+            if (kickoffWhistleContext == KickoffWhistleContext.POST_GOAL ||
+                kickoffWhistleContext == KickoffWhistleContext.PENALTY_KICK
+            ) {
                 FootballSounds.playMatchWhistle(server, 1)
             }
         }
