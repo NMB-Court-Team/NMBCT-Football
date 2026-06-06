@@ -20,6 +20,7 @@ data class SetPieceStateS2CPayload(
     val movementFrozen: Boolean,
     val ballPos: Vec3?,
     val defendingSide: TeamSide?,
+    val penaltyKickerUuid: UUID?,
 ) : CustomPacketPayload {
     override fun type() = TYPE
 
@@ -33,6 +34,7 @@ data class SetPieceStateS2CPayload(
             movementFrozen = false,
             ballPos = null,
             defendingSide = null,
+            penaltyKickerUuid = null,
         )
 
         val TYPE: CustomPacketPayload.Type<SetPieceStateS2CPayload> =
@@ -58,6 +60,8 @@ data class SetPieceStateS2CPayload(
                 }
                 buf.writeBoolean(payload.defendingSide != null)
                 payload.defendingSide?.let { TeamSide.STREAM_CODEC.encode(buf, it) }
+                buf.writeBoolean(payload.penaltyKickerUuid != null)
+                payload.penaltyKickerUuid?.let { buf.writeUUID(it) }
             },
             { buf ->
                 val kind = SetPieceKind.STREAM_CODEC.decode(buf)
@@ -72,6 +76,7 @@ data class SetPieceStateS2CPayload(
                     null
                 }
                 val defendingSide = if (buf.readBoolean()) TeamSide.STREAM_CODEC.decode(buf) else null
+                val penaltyKickerUuid = if (buf.readBoolean()) buf.readUUID() else null
                 SetPieceStateS2CPayload(
                     kind = kind,
                     restartTeam = restartTeam,
@@ -81,6 +86,7 @@ data class SetPieceStateS2CPayload(
                     movementFrozen = movementFrozen,
                     ballPos = ballPos,
                     defendingSide = defendingSide,
+                    penaltyKickerUuid = penaltyKickerUuid,
                 )
             },
         )

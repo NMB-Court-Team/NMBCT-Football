@@ -704,6 +704,11 @@ object FootballNetworking {
         if (ctx == null) {
             return SetPieceStateS2CPayload.CLEAR
         }
+        val penaltyKickerUuid = when {
+            MatchPenaltyKickState.isActive() -> MatchPenaltyKickState.currentKickerUuid
+            PenaltyShootoutState.isActive() -> PenaltyShootoutState.currentKickerUuid
+            else -> null
+        }
         return SetPieceStateS2CPayload(
             kind = ctx.kind,
             restartTeam = ctx.restartTeam,
@@ -714,6 +719,7 @@ object FootballNetworking {
                 ctx.throwInTakerUuid != null,
             ballPos = ctx.ballPos,
             defendingSide = ctx.defendingSide,
+            penaltyKickerUuid = penaltyKickerUuid,
         )
     }
 }

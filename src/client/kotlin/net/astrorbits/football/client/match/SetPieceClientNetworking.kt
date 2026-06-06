@@ -35,6 +35,7 @@ object SetPieceClientNetworking {
                     payload.movementFrozen,
                     payload.ballPos,
                     payload.defendingSide,
+                    payload.penaltyKickerUuid,
                 )
             }
         }

@@ -8,6 +8,7 @@ import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.match.MatchParticipation
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.match.SetPieceForbiddenZoneResolver
+import net.astrorbits.football.match.SetPieceKind
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.minecraft.client.Minecraft
 import net.minecraft.client.multiplayer.ClientLevel
@@ -37,6 +38,16 @@ object SetPieceForbiddenAreaParticleClient {
             return
         }
 
+        val penaltyDefendingTeam = when {
+            PenaltyShootoutClient.active -> PenaltyShootoutClient.activeDefendingTeam
+            SetPieceClient.kind == SetPieceKind.PENALTY_KICK -> SetPieceClient.defendingSide
+            else -> null
+        }
+        val penaltyKickerUuid = when {
+            PenaltyShootoutClient.active -> PenaltyShootoutClient.currentKickerUuid
+            SetPieceClient.kind == SetPieceKind.PENALTY_KICK -> SetPieceClient.penaltyKickerUuid
+            else -> null
+        }
         val zones = SetPieceForbiddenZoneResolver.resolve(
             playerX = player.x,
             playerZ = player.z,
@@ -52,10 +63,11 @@ object SetPieceForbiddenAreaParticleClient {
             ballPos = SetPieceClient.ballPos,
             cornerPos = SetPieceClient.ballPos,
             penaltyShootoutActive = PenaltyShootoutClient.active,
-            penaltyKickerUuid = PenaltyShootoutClient.currentKickerUuid,
-            penaltyDefendingTeam = PenaltyShootoutClient.activeDefendingTeam,
+            penaltyKickerUuid = penaltyKickerUuid,
+            penaltyDefendingTeam = penaltyDefendingTeam,
             isDefendingGoalkeeper = GoalkeeperStateClient.isGoalkeeper &&
-                MatchStartClient.playerTeam == PenaltyShootoutClient.activeDefendingTeam,
+                penaltyDefendingTeam != null &&
+                MatchStartClient.playerTeam == penaltyDefendingTeam,
             config = MatchConfigHolder.current,
         )
         if (zones.isEmpty()) {

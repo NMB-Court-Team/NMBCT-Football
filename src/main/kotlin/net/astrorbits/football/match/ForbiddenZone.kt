@@ -224,7 +224,6 @@ object SetPieceForbiddenZoneResolver {
                 }
             }
             SetPieceKind.PENALTY_KICK -> {
-                if (!penaltyShootoutActive) return zones
                 if (playerUuid == penaltyKickerUuid) return zones
                 if (isDefendingGoalkeeper) return zones
                 val defending = penaltyDefendingTeam ?: defendingSide ?: return zones
