@@ -3,7 +3,7 @@ package net.astrorbits.football.match
 import net.astrorbits.football.network.FootballNetworking
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.phys.Vec3
-import java.util.UUID
+import java.util.*
 
 /**
  * 比赛中任意球判罚（内部 API，供犯规检测等模块调用）。

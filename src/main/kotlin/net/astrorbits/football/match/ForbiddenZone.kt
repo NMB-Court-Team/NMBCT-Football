@@ -1,12 +1,7 @@
 package net.astrorbits.football.match
 
-import kotlin.math.PI
-import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.min
-import kotlin.math.sin
-import kotlin.math.sqrt
 import net.minecraft.world.phys.Vec3
+import kotlin.math.*
 
 /**
  * 定位球期间「球员不应进入」的区域边界，用于客户端近距提示粒子。

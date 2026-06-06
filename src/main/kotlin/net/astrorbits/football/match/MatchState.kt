@@ -2,6 +2,8 @@ package net.astrorbits.football.match
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.FootballSounds
+import net.astrorbits.football.match.MatchState.isRunning
+import net.astrorbits.football.match.MatchState.tryNotifyKickoffBallTouched
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.stamina.StaminaState
 import net.minecraft.ChatFormatting
@@ -9,10 +11,10 @@ import net.minecraft.network.chat.Component
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.level.GameType
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
-import net.minecraft.world.level.GameType
-import java.util.UUID
+import java.util.*
 
 object MatchState {
     private val DEFAULT_TEAM_A_NAME = Component.translatable("team_name.nmbct-football.teamA").withStyle(ChatFormatting.RED)

@@ -1,7 +1,7 @@
 package net.astrorbits.football.util
 
-import kotlin.math.exp
 import net.astrorbits.football.config.server.KickChargeSettings
+import kotlin.math.exp
 
 object KickChargeUtil {
     /** 过头蓄力衰减下限（满格为 1.0）。 */

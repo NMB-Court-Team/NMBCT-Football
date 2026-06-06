@@ -2,6 +2,7 @@ package net.astrorbits.football.input
 
 import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.config.FootballConfigs
+import net.astrorbits.football.input.SlideTackleSessions.applySlideMovement
 import net.astrorbits.football.match.MatchFieldAreaUtil
 import net.astrorbits.football.match.MatchParticipation
 import net.astrorbits.football.match.MatchState
@@ -16,7 +17,7 @@ import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 data class SlideTackleSession(

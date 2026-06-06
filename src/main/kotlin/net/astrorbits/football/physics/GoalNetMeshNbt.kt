@@ -1,6 +1,7 @@
 package net.astrorbits.football.physics
 
 import com.mojang.serialization.Codec
+import net.astrorbits.football.physics.GoalNetMeshNbt.ACTIVE_TICKS
 import net.minecraft.world.level.storage.ValueInput
 import net.minecraft.world.level.storage.ValueOutput
 import net.minecraft.world.phys.Vec3

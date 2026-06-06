@@ -2,6 +2,7 @@ package net.astrorbits.football.config.server
 
 import com.mojang.serialization.Codec
 import com.mojang.serialization.codecs.RecordCodecBuilder
+import net.astrorbits.football.config.server.FootballServerConfig.Companion.CODEC
 
 /**
  * 服务端权威配置根对象，按物理 / 球员输入 / 守门员 / 粒子 / 体力机制分类。

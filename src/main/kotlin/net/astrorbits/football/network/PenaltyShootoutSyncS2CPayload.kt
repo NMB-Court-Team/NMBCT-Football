@@ -4,10 +4,9 @@ import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.match.PenaltyKickPhase
 import net.astrorbits.football.match.TeamSide
 import net.minecraft.network.FriendlyByteBuf
-import net.minecraft.network.codec.ByteBufCodecs
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
-import java.util.UUID
+import java.util.*
 
 /** S2C: 点球大战状态同步 */
 data class PenaltyShootoutSyncS2CPayload(

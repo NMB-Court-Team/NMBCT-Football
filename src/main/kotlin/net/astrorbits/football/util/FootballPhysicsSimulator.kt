@@ -1,9 +1,9 @@
 package net.astrorbits.football.util
 
-import net.minecraft.world.phys.Vec3
 import net.astrorbits.football.physics.CollisionBounceResult
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
+import net.minecraft.world.phys.Vec3
 import org.joml.Quaternionf
 
 object FootballPhysicsSimulator {

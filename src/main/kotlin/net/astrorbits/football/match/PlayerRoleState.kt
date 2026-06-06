@@ -5,7 +5,7 @@ import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.util.GoalkeeperUtil
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 object PlayerRoleState {

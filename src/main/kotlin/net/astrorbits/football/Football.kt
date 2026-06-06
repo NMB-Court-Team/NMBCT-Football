@@ -4,11 +4,7 @@ import net.astrorbits.football.input.*
 import net.astrorbits.football.item.Items
 import net.astrorbits.football.match.*
 import net.astrorbits.football.network.FootballNetworking
-import net.astrorbits.football.physics.FootballNetInteraction
-import net.astrorbits.football.physics.FootballPhysicsConfig
-import net.astrorbits.football.physics.FootballPhysicsNbt
-import net.astrorbits.football.physics.FootballPhysicsState
-import net.astrorbits.football.physics.FootballPlayerBallCollision
+import net.astrorbits.football.physics.*
 import net.astrorbits.football.util.*
 import net.fabricmc.fabric.api.`object`.builder.v1.entity.FabricEntityDataRegistry
 import net.minecraft.core.Registry
@@ -47,7 +43,6 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector3fc
 import java.util.*
-import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
 

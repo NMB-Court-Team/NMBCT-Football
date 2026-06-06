@@ -4,11 +4,8 @@ import net.astrorbits.football.client.GoalkeeperStateClient
 import net.astrorbits.football.client.SetPieceClient
 import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.client.match.PenaltyShootoutClient
-import net.astrorbits.football.match.MatchConfigHolder
-import net.astrorbits.football.match.MatchParticipation
-import net.astrorbits.football.match.MatchState
-import net.astrorbits.football.match.SetPieceForbiddenZoneResolver
-import net.astrorbits.football.match.SetPieceKind
+import net.astrorbits.football.client.render.SetPieceForbiddenAreaParticleClient.MAX_HEAD_TAIL_CONNECT_DISTANCE
+import net.astrorbits.football.match.*
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.minecraft.client.Minecraft
 import net.minecraft.client.multiplayer.ClientLevel

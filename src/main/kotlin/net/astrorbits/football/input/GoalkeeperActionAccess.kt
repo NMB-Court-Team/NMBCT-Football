@@ -1,11 +1,6 @@
 package net.astrorbits.football.input
 
-import net.astrorbits.football.match.MatchFieldAreaUtil
-import net.astrorbits.football.match.MatchPenaltyKickState
-import net.astrorbits.football.match.MatchPhase
-import net.astrorbits.football.match.MatchState
-import net.astrorbits.football.match.PenaltyShootoutState
-import net.astrorbits.football.match.PlayerRoleState
+import net.astrorbits.football.match.*
 import net.minecraft.server.level.ServerPlayer
 
 /** 守门员专属场地操作（鱼跃、捡球、抛出、放下）的生效范围判定。 */

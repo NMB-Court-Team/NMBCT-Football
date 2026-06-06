@@ -9,7 +9,7 @@ import net.minecraft.network.FriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload
 import net.minecraft.world.phys.Vec3
-import java.util.UUID
+import java.util.*
 
 /** S2C: 同步当前定位球状态供客户端操作限制预判。 */
 data class SetPieceStateS2CPayload(

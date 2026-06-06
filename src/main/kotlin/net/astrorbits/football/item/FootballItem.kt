@@ -6,11 +6,11 @@ import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.FootballKickUtil
 import net.astrorbits.football.util.Vec3Math
+import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.InteractionResult
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.Item
-import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.Vec3

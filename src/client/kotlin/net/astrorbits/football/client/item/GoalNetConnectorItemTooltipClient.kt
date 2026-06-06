@@ -1,9 +1,9 @@
 package net.astrorbits.football.client.item
 
 import net.astrorbits.football.item.Items
+import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
-import net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback
 
 object GoalNetConnectorItemTooltipClient {
     fun register() {

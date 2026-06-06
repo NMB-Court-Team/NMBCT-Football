@@ -1,12 +1,12 @@
 package net.astrorbits.football.util
 
-import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.GoalNetEntity
+import net.astrorbits.football.NMBCTFootball
+import net.minecraft.core.BlockPos
 import net.minecraft.core.registries.Registries
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.core.BlockPos
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.Items

@@ -3,14 +3,8 @@ package net.astrorbits.football.client.util
 import dev.isxander.yacl3.api.Option
 import dev.isxander.yacl3.api.OptionDescription
 import dev.isxander.yacl3.api.OptionGroup
+import dev.isxander.yacl3.api.controller.*
 import net.astrorbits.football.client.config.yacl.MatchFieldDraftContext
-import dev.isxander.yacl3.api.controller.DoubleSliderControllerBuilder
-import dev.isxander.yacl3.api.controller.EnumControllerBuilder
-import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder
-import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder
-import dev.isxander.yacl3.api.controller.LongSliderControllerBuilder
-import dev.isxander.yacl3.api.controller.StringControllerBuilder
-import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder
 import net.minecraft.network.chat.Component
 
 object YaclOptionUtil {

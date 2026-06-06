@@ -5,7 +5,7 @@ import net.astrorbits.football.match.PenaltyKickPhase
 import net.astrorbits.football.match.SetPieceKind
 import net.astrorbits.football.match.TeamSide
 import net.minecraft.world.phys.Vec3
-import java.util.UUID
+import java.util.*
 
 object SetPieceClient {
     var kind: SetPieceKind = SetPieceKind.NONE; private set

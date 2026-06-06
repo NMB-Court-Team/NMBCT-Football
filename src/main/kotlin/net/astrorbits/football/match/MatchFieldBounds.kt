@@ -1,5 +1,6 @@
 package net.astrorbits.football.match
 
+import net.astrorbits.football.match.MatchFieldBounds.INDICATOR_EXPANSION
 import kotlin.math.abs
 
 /**

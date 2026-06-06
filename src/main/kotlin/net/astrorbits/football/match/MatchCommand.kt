@@ -3,12 +3,12 @@ package net.astrorbits.football.match
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
+import net.astrorbits.football.network.FootballNetworking
 import net.minecraft.commands.CommandBuildContext
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
 import net.minecraft.commands.arguments.ComponentArgument
 import net.minecraft.commands.arguments.EntityArgument
-import net.astrorbits.football.network.FootballNetworking
 import net.minecraft.network.chat.Component
 
 object MatchCommand {

@@ -2,7 +2,7 @@ package net.astrorbits.football.client.match
 
 import net.astrorbits.football.match.PenaltyKickPhase
 import net.astrorbits.football.match.TeamSide
-import java.util.UUID
+import java.util.*
 
 object PenaltyShootoutClient {
     var active: Boolean = false

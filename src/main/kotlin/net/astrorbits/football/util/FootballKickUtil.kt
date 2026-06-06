@@ -1,7 +1,5 @@
 package net.astrorbits.football.util
 
-import kotlin.math.cos
-import kotlin.math.sin
 import net.astrorbits.football.Football
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.FootballMovementInputUtil
@@ -11,6 +9,8 @@ import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.Level
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
+import kotlin.math.cos
+import kotlin.math.sin
 
 data class KickParams(
     val force: Double,

@@ -2,7 +2,7 @@ package net.astrorbits.football.input
 
 import net.astrorbits.football.Football
 import net.minecraft.server.level.ServerPlayer
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 /**

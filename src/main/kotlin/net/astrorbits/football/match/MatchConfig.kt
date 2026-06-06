@@ -2,7 +2,7 @@ package net.astrorbits.football.match
 
 import com.mojang.serialization.Codec
 import com.mojang.serialization.codecs.RecordCodecBuilder
-import java.util.Optional
+import java.util.*
 
 /** 出生点坐标 */
 data class SpawnPosition(

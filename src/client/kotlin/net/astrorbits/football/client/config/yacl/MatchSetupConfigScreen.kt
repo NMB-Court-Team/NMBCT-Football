@@ -4,11 +4,11 @@ import dev.isxander.yacl3.api.ConfigCategory
 import dev.isxander.yacl3.api.OptionDescription
 import dev.isxander.yacl3.api.OptionGroup
 import dev.isxander.yacl3.api.YetAnotherConfigLib
-import net.astrorbits.football.match.MatchConfig
-import net.astrorbits.football.match.MatchRulesSettings
 import net.astrorbits.football.client.util.YaclOptionUtil.addBoolean
 import net.astrorbits.football.client.util.YaclOptionUtil.addInt
 import net.astrorbits.football.client.util.YaclOptionUtil.addString
+import net.astrorbits.football.match.MatchConfig
+import net.astrorbits.football.match.MatchRulesSettings
 import net.astrorbits.football.network.MatchConfigApplyC2SPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.gui.screens.Screen

@@ -1,8 +1,8 @@
 package net.astrorbits.football.util
 
 import net.astrorbits.football.Football
-import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.astrorbits.football.input.FootballInputConfig
+import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.Vec3

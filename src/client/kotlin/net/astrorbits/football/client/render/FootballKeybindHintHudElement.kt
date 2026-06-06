@@ -3,37 +3,20 @@ package net.astrorbits.football.client.render
 
 
 import net.astrorbits.football.client.FootballOperabilityClient
-
-import net.astrorbits.football.client.StaminaClient
-
-import net.astrorbits.football.client.util.FootballHudVisibility
-
 import net.astrorbits.football.client.GoalkeeperStateClient
-
 import net.astrorbits.football.client.key.FootballInputHandler
-
 import net.astrorbits.football.client.key.FootballKeyBindings
-
+import net.astrorbits.football.client.util.FootballHudVisibility
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
-
 import net.minecraft.client.DeltaTracker
-
 import net.minecraft.client.KeyMapping
-
 import net.minecraft.client.Minecraft
-
 import net.minecraft.client.gui.Font
-
 import net.minecraft.client.gui.GuiGraphicsExtractor
-
 import net.minecraft.client.gui.screens.ChatScreen
-
 import net.minecraft.client.player.LocalPlayer
-
 import net.minecraft.network.chat.Component
-
 import net.minecraft.world.level.Level
-
 
 
 class FootballKeybindHintHudElement : HudElement {

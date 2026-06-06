@@ -1,13 +1,12 @@
 package net.astrorbits.football.util
 
-import kotlin.math.abs
 import net.astrorbits.football.match.GoalConfig
 import net.astrorbits.football.match.MatchConfig
 import net.astrorbits.football.match.MatchConfigHolder
-import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.match.TeamSide
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.Vec3
+import kotlin.math.abs
 
 object GoalCrossingUtil {
     private const val GOAL_Z_TOLERANCE = 1.01

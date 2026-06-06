@@ -1,6 +1,7 @@
 package net.astrorbits.football.block
 
 import com.mojang.serialization.MapCodec
+import net.astrorbits.football.block.GoalNetAnchorBlock.Companion.POSITION
 import net.astrorbits.football.util.GoalNetAnchorLinks
 import net.astrorbits.football.util.VoxelShapeUtil
 import net.astrorbits.football.util.VoxelShapeUtil.generateAllFacingShapes

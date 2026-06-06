@@ -1,6 +1,5 @@
 package net.astrorbits.football.util
 
-import kotlin.math.abs
 import net.astrorbits.football.match.MatchConfig
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
@@ -9,6 +8,7 @@ import net.minecraft.world.level.Level
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import org.joml.Quaternionf
+import kotlin.math.abs
 
 object FootballTrajectoryPredictor {
     private const val MAX_TICKS = 160

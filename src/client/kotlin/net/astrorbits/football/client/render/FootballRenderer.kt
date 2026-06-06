@@ -4,8 +4,9 @@ import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
 import net.astrorbits.football.Football
 import net.astrorbits.football.NMBCTFootball
-import net.astrorbits.football.config.client.FootballClientConfigHolder
+import net.astrorbits.football.client.render.FootballRenderer.Companion.BILLBOARD_TEXTURE
 import net.astrorbits.football.client.util.use
+import net.astrorbits.football.config.client.FootballClientConfigHolder
 import net.astrorbits.football.item.Items
 import net.astrorbits.football.util.GoalkeeperHoldPoseUtil
 import net.minecraft.client.Minecraft

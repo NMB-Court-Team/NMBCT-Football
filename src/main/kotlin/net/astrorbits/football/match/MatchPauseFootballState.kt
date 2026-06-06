@@ -4,7 +4,7 @@ import net.astrorbits.football.Football
 import net.minecraft.server.MinecraftServer
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
-import java.util.UUID
+import java.util.*
 
 /** 比赛暂停时全场足球的速度清零、仅受重力下坠，并记录/恢复各球的可操作状态。 */
 object MatchPauseFootballState {

@@ -9,7 +9,7 @@ import net.astrorbits.football.NMBCTFootball
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
-import java.util.Optional
+import java.util.*
 
 object ConfigPersistence {
     private val prettyGson = GsonBuilder().setPrettyPrinting().create()

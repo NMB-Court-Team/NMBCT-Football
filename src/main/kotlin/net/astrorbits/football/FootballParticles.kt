@@ -6,6 +6,7 @@ import net.astrorbits.football.FootballParticles.playGkCatch
 import net.astrorbits.football.FootballParticles.playGkDive
 import net.astrorbits.football.FootballParticles.playGkPunch
 import net.astrorbits.football.FootballParticles.playGkThrow
+import net.astrorbits.football.FootballParticles.playGoal
 import net.astrorbits.football.FootballParticles.playGroundBounce
 import net.astrorbits.football.FootballParticles.playHighSpeedDrag
 import net.astrorbits.football.FootballParticles.playKick

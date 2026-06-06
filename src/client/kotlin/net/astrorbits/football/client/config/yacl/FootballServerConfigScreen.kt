@@ -1,20 +1,12 @@
 package net.astrorbits.football.client.config.yacl
 
-import dev.isxander.yacl3.api.ConfigCategory
-import dev.isxander.yacl3.api.ListOption
-import dev.isxander.yacl3.api.OptionDescription
-import dev.isxander.yacl3.api.OptionGroup
-import dev.isxander.yacl3.api.YetAnotherConfigLib
-import net.astrorbits.football.config.server.StaminaActionCostsSettings
-import net.astrorbits.football.config.server.StaminaMechanismSettings
-import net.astrorbits.football.config.server.StaminaSpeedTier
+import dev.isxander.yacl3.api.*
 import net.astrorbits.football.NMBCTFootball
-import net.astrorbits.football.config.server.*
-import net.astrorbits.football.client.util.YaclOptionUtil.addBoolean
 import net.astrorbits.football.client.util.YaclOptionUtil.addDouble
 import net.astrorbits.football.client.util.YaclOptionUtil.addFloat
 import net.astrorbits.football.client.util.YaclOptionUtil.addInt
 import net.astrorbits.football.client.util.YaclOptionUtil.addLong
+import net.astrorbits.football.config.server.*
 import net.astrorbits.football.network.ServerConfigApplyC2SPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.gui.screens.Screen

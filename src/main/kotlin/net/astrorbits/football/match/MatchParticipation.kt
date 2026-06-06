@@ -3,7 +3,7 @@ package net.astrorbits.football.match
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.player.Player
-import java.util.UUID
+import java.util.*
 
 /**
  * 比赛参与身份：旁观模式玩家可保留队伍登记与 HUD，但不参与选人、站位、开球队伍判定与足球操作。

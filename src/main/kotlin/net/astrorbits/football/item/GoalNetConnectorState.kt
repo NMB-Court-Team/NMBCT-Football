@@ -1,7 +1,7 @@
 package net.astrorbits.football.item
 
 import net.minecraft.core.BlockPos
-import java.util.UUID
+import java.util.*
 
 /**
  * 记录每个玩家手持球网连接器时已选择的锚点序列（服务端）。

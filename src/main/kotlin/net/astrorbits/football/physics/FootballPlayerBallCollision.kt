@@ -1,14 +1,12 @@
 package net.astrorbits.football.physics
 
 import net.astrorbits.football.input.FootballInputConfig
+import net.astrorbits.football.physics.FootballPlayerBallCollision.bodyPushAxis
+import net.astrorbits.football.physics.FootballPlayerBallCollision.contactAtSphereCenter
 import net.astrorbits.football.util.Vec3Math
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
-import kotlin.math.abs
-import kotlin.math.ceil
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.sign
+import kotlin.math.*
 
 /**
  * 球心（半径 [FootballPhysicsConfig.RADIUS]）与玩家 AABB 的扫掠/重叠检测，

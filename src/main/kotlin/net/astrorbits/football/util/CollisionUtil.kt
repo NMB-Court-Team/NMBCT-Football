@@ -1,10 +1,10 @@
 package net.astrorbits.football.util
 
-import kotlin.math.abs
-import net.minecraft.world.phys.Vec3
+import net.astrorbits.football.physics.CollisionBounceResult
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.physics.FootballPhysicsState
-import net.astrorbits.football.physics.CollisionBounceResult
+import net.minecraft.world.phys.Vec3
+import kotlin.math.abs
 
 object CollisionUtil {
     fun resolveCollisions(

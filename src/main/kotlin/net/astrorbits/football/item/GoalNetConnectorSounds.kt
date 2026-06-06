@@ -1,8 +1,24 @@
 package net.astrorbits.football.item
 
+import net.astrorbits.football.GoalNetEntity
 import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.block.GoalNetAnchorBlock
-import net.astrorbits.football.GoalNetEntity
+import net.astrorbits.football.item.GoalNetConnectorSounds.ANCHOR_DUPLICATE
+import net.astrorbits.football.item.GoalNetConnectorSounds.ANCHOR_SELECT
+import net.astrorbits.football.item.GoalNetConnectorSounds.NET_CREATED
+import net.astrorbits.football.item.GoalNetConnectorSounds.NET_DESTROY
+import net.astrorbits.football.item.GoalNetConnectorSounds.NET_FAIL
+import net.astrorbits.football.item.GoalNetConnectorSounds.SELECTION_CLEAR
+import net.astrorbits.football.item.GoalNetConnectorSounds.SLACK_DECREASE
+import net.astrorbits.football.item.GoalNetConnectorSounds.SLACK_INCREASE
+import net.astrorbits.football.item.GoalNetConnectorSounds.playAnchorDuplicate
+import net.astrorbits.football.item.GoalNetConnectorSounds.playAnchorSelect
+import net.astrorbits.football.item.GoalNetConnectorSounds.playNetCreated
+import net.astrorbits.football.item.GoalNetConnectorSounds.playNetDestroy
+import net.astrorbits.football.item.GoalNetConnectorSounds.playNetFail
+import net.astrorbits.football.item.GoalNetConnectorSounds.playSelectionClear
+import net.astrorbits.football.item.GoalNetConnectorSounds.playSlackDecrease
+import net.astrorbits.football.item.GoalNetConnectorSounds.playSlackIncrease
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Registry
 import net.minecraft.core.registries.BuiltInRegistries

@@ -1,7 +1,7 @@
 package net.astrorbits.football.match
 
 import net.minecraft.world.phys.Vec3
-import java.util.UUID
+import java.util.*
 
 /** 足球延迟复位完成后触发的开球阶段。 */
 sealed interface PendingAfterReset {

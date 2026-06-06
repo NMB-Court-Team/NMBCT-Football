@@ -5,7 +5,6 @@ import net.astrorbits.football.config.FootballConfigs
 import net.astrorbits.football.config.client.BoostSprintInputMode
 import net.astrorbits.football.network.BoostSprintToggleC2SPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
-import net.minecraft.client.Minecraft
 import net.minecraft.client.player.LocalPlayer
 
 object BoostSprintClient {

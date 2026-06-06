@@ -1,21 +1,16 @@
 ﻿package net.astrorbits.football.client.key
-import net.astrorbits.football.client.FootballOperabilityClient
-import net.astrorbits.football.client.GoalkeeperStateClient
-import net.astrorbits.football.client.SlideTackleStateClient
-import net.astrorbits.football.client.BoostSprintClient
-import net.astrorbits.football.client.DribbleBallIndicatorClient
-import net.astrorbits.football.client.StaminaClient
+import net.astrorbits.football.client.*
 import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.config.FootballConfigs
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.FootballMovementInputUtil
-import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.network.FootballActionC2SPayload
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.util.KickChargeUtil
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.player.LocalPlayer
+
 object FootballInputHandler {
     private var kickPrevTickPressed = false
     private var divePrevTickPressed = false

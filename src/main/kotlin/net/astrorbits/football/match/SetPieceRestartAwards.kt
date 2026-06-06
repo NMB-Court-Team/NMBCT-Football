@@ -3,7 +3,6 @@ package net.astrorbits.football.match
 import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.network.FootballNetworking
 import net.minecraft.server.MinecraftServer
-import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.phys.Vec3
 
 object SetPieceRestartAwards {

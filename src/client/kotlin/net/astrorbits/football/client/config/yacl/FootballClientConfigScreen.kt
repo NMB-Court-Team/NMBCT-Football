@@ -4,14 +4,13 @@ import dev.isxander.yacl3.api.ConfigCategory
 import dev.isxander.yacl3.api.OptionGroup
 import dev.isxander.yacl3.api.YetAnotherConfigLib
 import net.astrorbits.football.NMBCTFootball
-import net.astrorbits.football.config.client.FootballClientConfig
-import net.astrorbits.football.config.client.FootballClientConfigHolder
-import net.astrorbits.football.config.client.BoostSprintInputMode
-import net.astrorbits.football.config.client.GoalNetRenderMode
 import net.astrorbits.football.client.util.YaclOptionUtil.addDouble
 import net.astrorbits.football.client.util.YaclOptionUtil.addEnum
 import net.astrorbits.football.client.util.YaclOptionUtil.addInt
-import net.astrorbits.football.client.util.YaclOptionUtil.addString
+import net.astrorbits.football.config.client.BoostSprintInputMode
+import net.astrorbits.football.config.client.FootballClientConfig
+import net.astrorbits.football.config.client.FootballClientConfigHolder
+import net.astrorbits.football.config.client.GoalNetRenderMode
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 

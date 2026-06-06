@@ -1,20 +1,13 @@
 package net.astrorbits.football.client
 
+import net.astrorbits.football.Football
 import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.client.key.FootballKeyBindings
 import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.client.match.PenaltyShootoutClient
-import net.astrorbits.football.Football
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.GoalkeeperInputConfig
-import net.astrorbits.football.match.GoalKickPhase
-import net.astrorbits.football.match.MatchFieldAreaUtil
-import net.astrorbits.football.match.MatchPhase
-import net.astrorbits.football.match.MatchState
-import net.astrorbits.football.match.PenaltyKickPhase
-import net.astrorbits.football.match.SetPieceKind
-import net.astrorbits.football.match.TeamSide
-import net.astrorbits.football.client.SetPieceClient
+import net.astrorbits.football.match.*
 import net.minecraft.client.KeyMapping
 import net.minecraft.client.player.LocalPlayer
 import net.minecraft.world.level.Level

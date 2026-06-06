@@ -12,9 +12,9 @@ import net.astrorbits.football.util.FootballKickUtil
 import net.minecraft.ChatFormatting
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
+import net.minecraft.commands.arguments.EntityArgument
 import net.minecraft.commands.arguments.coordinates.Vec3Argument
 import net.minecraft.network.chat.Component
-import net.minecraft.commands.arguments.EntityArgument
 
 object FootballCommand {
     private val NOT_A_FOOTBALL = SimpleCommandExceptionType(

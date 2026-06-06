@@ -3,12 +3,12 @@
 	"package": "net.astrorbits.football.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"LocalPlayerMixin",
-		"PlayerModelMixin",
-		"AdventureHideHudMixin",
-		"ListEntryWidgetMixin",
-		"ThrowInMovementFreezeClientMixin"
-	],
+        "AdventureHideHudMixin",
+        "ListEntryWidgetMixin",
+        "LocalPlayerMixin",
+        "PlayerModelMixin",
+        "ThrowInMovementFreezeClientMixin"
+    ],
 	"injectors": {
 		"defaultRequire": 1
 	},

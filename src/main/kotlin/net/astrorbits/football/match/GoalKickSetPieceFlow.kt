@@ -4,13 +4,12 @@ import net.astrorbits.football.Football
 import net.astrorbits.football.input.GoalkeeperHoldActionPermissions
 import net.astrorbits.football.input.GoalkeeperHoldLock
 import net.astrorbits.football.network.FootballNetworking
-import net.astrorbits.football.util.GoalkeeperUtil
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
-import java.util.UUID
+import java.util.*
 
 object GoalKickSetPieceFlow {
     private const val GOAL_KICK_HOLD_LOCK_TICKS = 100

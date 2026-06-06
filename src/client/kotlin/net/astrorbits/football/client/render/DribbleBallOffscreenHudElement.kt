@@ -13,12 +13,7 @@ import net.minecraft.world.phys.Vec3
 import org.joml.Quaternionf
 import org.joml.Vector2f
 import org.joml.Vector3f
-import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.exp
-import kotlin.math.roundToInt
-import kotlin.math.sin
-import kotlin.math.tan
+import kotlin.math.*
 
 /**
  * 足球不在视野内时绘制屏幕边缘指示箭头与足球图标。
@@ -63,7 +58,7 @@ class DribbleBallOffscreenHudElement : HudElement {
         val ax = (edge.first - arrowW / 2f).coerceIn(margin, maxX)
         val ay = (edge.second - arrowH / 2f).coerceIn(margin, maxY)
 
-        val dirAngle = kotlin.math.atan2(
+        val dirAngle = atan2(
             placement.direction.y.toDouble(),
             placement.direction.x.toDouble(),
         )

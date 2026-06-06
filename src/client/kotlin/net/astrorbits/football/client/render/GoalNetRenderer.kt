@@ -2,17 +2,17 @@ package net.astrorbits.football.client.render
 
 import com.mojang.blaze3d.vertex.PoseStack
 import com.mojang.blaze3d.vertex.VertexConsumer
+import net.astrorbits.football.GoalNetEntity
 import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.config.client.FootballClientConfigHolder
 import net.astrorbits.football.config.client.GoalNetRenderMode
-import net.astrorbits.football.GoalNetEntity
 import net.astrorbits.football.physics.GoalNetConfig
 import net.minecraft.client.renderer.SubmitNodeCollector
 import net.minecraft.client.renderer.entity.EntityRenderer
 import net.minecraft.client.renderer.entity.EntityRendererProvider
-import net.minecraft.client.renderer.texture.OverlayTexture
 import net.minecraft.client.renderer.rendertype.RenderTypes
 import net.minecraft.client.renderer.state.level.CameraRenderState
+import net.minecraft.client.renderer.texture.OverlayTexture
 import net.minecraft.resources.Identifier
 import kotlin.math.sqrt
 

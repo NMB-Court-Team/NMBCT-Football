@@ -1,14 +1,14 @@
 package net.astrorbits.football.util
 
-import net.astrorbits.football.block.GoalNetAnchorBlock
 import net.astrorbits.football.GoalNetEntity
+import net.astrorbits.football.block.GoalNetAnchorBlock
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents
 import net.minecraft.core.BlockPos
 import net.minecraft.resources.ResourceKey
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.level.Level
-import java.util.UUID
+import java.util.*
 
 /**
  * 维护「锚点方块 ↔ 球网实体」的双向索引，供锚点破坏时销毁关联网。

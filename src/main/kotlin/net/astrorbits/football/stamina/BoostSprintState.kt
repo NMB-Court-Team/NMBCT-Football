@@ -1,15 +1,14 @@
 package net.astrorbits.football.stamina
 
 import net.astrorbits.football.FootballParticles
+import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.config.FootballConfigs
 import net.astrorbits.football.input.FootballMovementInputUtil
-import net.astrorbits.football.network.FootballNetworking
+import net.minecraft.resources.Identifier
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.entity.ai.attributes.AttributeModifier
 import net.minecraft.world.entity.ai.attributes.Attributes
-import net.astrorbits.football.NMBCTFootball
-import net.minecraft.resources.Identifier
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 object BoostSprintState {

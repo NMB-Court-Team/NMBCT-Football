@@ -6,10 +6,10 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.Vec3
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.math.sqrt
-import java.util.UUID
-import java.util.concurrent.ConcurrentHashMap
 
 object SetPieceAreaViolationMonitor {
     private const val VIOLATION_TICKS = 60

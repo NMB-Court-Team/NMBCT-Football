@@ -1,5 +1,6 @@
 package net.astrorbits.football.input
 
+import net.astrorbits.football.input.FootballMovementInputUtil.bestHorizontalVelocity
 import net.astrorbits.football.match.MatchState
 import net.astrorbits.football.util.Vec3Math
 import net.minecraft.server.level.ServerPlayer

@@ -4,7 +4,6 @@ import net.astrorbits.football.Football
 import net.astrorbits.football.util.GoalkeeperHoldPoseUtil
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.minecraft.world.entity.player.Player
-import kotlin.jvm.JvmStatic
 
 object GoalkeeperHoldPoseClient {
     private val holdingPlayerIds = mutableSetOf<Int>()

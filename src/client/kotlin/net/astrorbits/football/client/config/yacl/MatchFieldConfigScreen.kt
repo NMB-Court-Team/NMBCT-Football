@@ -1,21 +1,11 @@
 package net.astrorbits.football.client.config.yacl
 
-import dev.isxander.yacl3.api.ConfigCategory
-import dev.isxander.yacl3.api.ListOption
-import dev.isxander.yacl3.api.OptionDescription
-import dev.isxander.yacl3.api.OptionGroup
-import dev.isxander.yacl3.api.YetAnotherConfigLib
+import dev.isxander.yacl3.api.*
 import net.astrorbits.football.client.config.yacl.controller.PositionAndFacing
 import net.astrorbits.football.client.config.yacl.controller.PositionAndFacingController
 import net.astrorbits.football.client.util.YaclOptionUtil.addBoolean
 import net.astrorbits.football.client.util.YaclOptionUtil.addEnum
-import net.astrorbits.football.match.GoalConfig
-import net.astrorbits.football.match.HalfAreaConfig
-import net.astrorbits.football.match.KickPosition
-import net.astrorbits.football.match.MatchConfig
-import net.astrorbits.football.match.SidelineConfig
-import net.astrorbits.football.match.SpawnPosition
-import net.astrorbits.football.match.TeamSpawnConfig
+import net.astrorbits.football.match.*
 import net.astrorbits.football.network.MatchConfigApplyC2SPayload
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.gui.screens.Screen

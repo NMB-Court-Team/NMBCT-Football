@@ -2,7 +2,6 @@ package net.astrorbits.football.client
 
 import net.astrorbits.football.input.SlideTacklePoseTuning
 import net.minecraft.client.model.player.PlayerModel
-import kotlin.jvm.JvmStatic
 
 object SlideTacklePoseClient {
     @JvmStatic

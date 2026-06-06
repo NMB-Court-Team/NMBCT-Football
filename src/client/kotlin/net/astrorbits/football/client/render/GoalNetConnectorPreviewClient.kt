@@ -1,6 +1,5 @@
 package net.astrorbits.football.client.render
 
-import net.astrorbits.football.block.GoalNetAnchorBlock
 import net.astrorbits.football.item.GoalNetConnectorItem
 import net.astrorbits.football.item.Items
 import net.astrorbits.football.network.GoalNetConnectorSelectionS2CPayload

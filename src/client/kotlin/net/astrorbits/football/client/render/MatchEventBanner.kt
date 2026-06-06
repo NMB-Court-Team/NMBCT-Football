@@ -1,5 +1,6 @@
 package net.astrorbits.football.client.render
 
+import net.astrorbits.football.client.render.MatchEventBanner.renderDefault
 import net.astrorbits.football.match.TeamSide
 import net.minecraft.client.gui.Font
 import net.minecraft.client.gui.GuiGraphicsExtractor

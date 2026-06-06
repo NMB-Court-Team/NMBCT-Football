@@ -3,12 +3,12 @@
 	"package": "net.astrorbits.football.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
-		"PlayerSlidePoseMixin",
-		"SlideTackleSwimAmountMixin",
-		"SlideTackleJumpBlockMixin",
-		"JumpHorizontalDragMixin",
-		"ThrowInMovementFreezeMixin"
-	],
+        "JumpHorizontalDragMixin",
+        "PlayerSlidePoseMixin",
+        "SlideTackleJumpBlockMixin",
+        "SlideTackleSwimAmountMixin",
+        "ThrowInMovementFreezeMixin"
+    ],
 	"injectors": {
 		"defaultRequire": 1
 	},
