@@ -6,7 +6,7 @@ import net.minecraft.world.phys.Vec3
 
 object SetPieceBootstrap {
     fun onAfterReset(level: ServerLevel, action: PendingAfterReset) {
-        val server = level.server ?: return
+        val server = level.server
         SetPieceAreaViolationMonitor.clearAll(server)
         GoalKickSetPieceFlow.clear(server)
         ThrowInSetPieceFlow.clear(server)
@@ -22,6 +22,7 @@ object SetPieceBootstrap {
                         ballPos = pos,
                     ),
                 )
+                SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
             }
             is PendingAfterReset.GoalLineOut -> {
                 val ballPos = action.ballPos ?: MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
@@ -41,6 +42,7 @@ object SetPieceBootstrap {
                                 cornerPos = ballPos,
                             ),
                         )
+                        SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
                     }
                     GoalLineOutType.THROW_IN -> {
                         ThrowInSetPieceFlow.begin(level, action.kickoffTeam, ballPos)
@@ -53,7 +55,7 @@ object SetPieceBootstrap {
         FootballNetworking.broadcastSetPieceState(server)
     }
 
-    fun onCenterKickoffBegin(restartTeam: TeamSide, ballPos: Vec3) {
+    fun onCenterKickoffBegin(restartTeam: TeamSide, ballPos: Vec3, server: net.minecraft.server.MinecraftServer? = null) {
         SetPieceState.begin(
             SetPieceContext(
                 kind = SetPieceKind.CENTER_KICKOFF,
@@ -61,5 +63,8 @@ object SetPieceBootstrap {
                 ballPos = ballPos,
             ),
         )
+        if (server != null) {
+            SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
+        }
     }
 }

@@ -180,6 +180,33 @@ object MatchState {
         }
     }
 
+    /**
+     * 大厅数据包和原版 scoreboard 可能在服务端重载后仍保留队伍显示，
+     * 但内存名单会丢失；开赛前用在线玩家的 scoreboard 队伍补回名单。
+     */
+    fun syncOnlineRostersFromScoreboard(server: MinecraftServer) {
+        for (player in server.playerList.players) {
+            val uuid = player.uuid
+            when (server.scoreboard.getPlayersTeam(player.gameProfile.name)?.name) {
+                SCOREBOARD_TEAM_A -> {
+                    teamBPlayers.remove(uuid)
+                    spectatorPlayers.remove(uuid)
+                    teamAPlayers.add(uuid)
+                }
+                SCOREBOARD_TEAM_B -> {
+                    teamAPlayers.remove(uuid)
+                    spectatorPlayers.remove(uuid)
+                    teamBPlayers.add(uuid)
+                }
+                SCOREBOARD_TEAM_SPEC -> {
+                    teamAPlayers.remove(uuid)
+                    teamBPlayers.remove(uuid)
+                    spectatorPlayers.add(uuid)
+                }
+            }
+        }
+    }
+
     fun clearScoreboardTeams(server: MinecraftServer) {
         val scoreboard = server.scoreboard
         for (teamKey in listOf(SCOREBOARD_TEAM_A, SCOREBOARD_TEAM_B, SCOREBOARD_TEAM_SPEC)) {
@@ -318,6 +345,16 @@ object MatchState {
         if (!MatchParticipation.isParticipating(player)) {
             return true
         }
+        if (action == net.astrorbits.football.network.FootballActionType.GK_CATCH &&
+            SetPieceRestrictionCoordinator.allowsGoalKickCatch(player)
+        ) {
+            return false
+        }
+        if (action == net.astrorbits.football.network.FootballActionType.GK_DROP &&
+            SetPieceRestrictionCoordinator.allowsGoalKickDrop(player)
+        ) {
+            return false
+        }
         if (SetPieceRestrictionCoordinator.isFootballOperationBlocked(player, action)) {
             return true
         }
@@ -342,17 +379,6 @@ object MatchState {
             if (!MatchPenaltyKickState.allowsPenaltyGoalkeeperAction(player, action)) {
                 return true
             }
-        }
-        if (action == net.astrorbits.football.network.FootballActionType.GK_CATCH &&
-            SetPieceRestrictionCoordinator.allowsGoalKickCatch(player)
-        ) {
-            return false
-        }
-        if (action == net.astrorbits.football.network.FootballActionType.GK_DROP &&
-            SetPieceState.active?.kind == SetPieceKind.GOAL_KICK &&
-            player.uuid == SetPieceState.active?.goalKickPickerUuid
-        ) {
-            return false
         }
         if ((action == net.astrorbits.football.network.FootballActionType.GK_THROW_SHORT ||
                 action == net.astrorbits.football.network.FootballActionType.GK_THROW_LONG) &&
@@ -455,7 +481,7 @@ object MatchState {
             dynamicStoppageTicks = maxTicks
         }
         clearKickoffWhistleTimers()
-        val server = player.level().server ?: return
+        val server = player.level().server
         when (SetPieceState.active?.kind) {
             SetPieceKind.CENTER_KICKOFF, SetPieceKind.CORNER_KICK -> {
                 SetPieceState.clear()
@@ -493,6 +519,7 @@ object MatchState {
         if (currentPhase != MatchPhase.PRE_MATCH) {
             reset()
         }
+        syncOnlineRostersFromScoreboard(server)
         resetFootball(level)
         teleportTeamsToSpawnPositions(server)
         activateSpectators(server)
@@ -577,7 +604,7 @@ object MatchState {
         lastHalfKickoffTeam = kickoff
         beginKickoffPhase(MatchKickoffTiming.MATCH_START_LOCK_MS, KickoffWhistleContext.MATCH_START)
         val kickPos = MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
-        SetPieceBootstrap.onCenterKickoffBegin(kickoff, kickPos)
+        SetPieceBootstrap.onCenterKickoffBegin(kickoff, kickPos, server)
         FootballNetworking.broadcastSetPieceState(server)
         FootballSounds.playMatchWhistle(server, 1)
         StaminaState.onMatchStart(server)
@@ -652,7 +679,7 @@ object MatchState {
     }
 
     private fun teleportTo(player: ServerPlayer, pos: SpawnPosition) {
-        val level = player.level() ?: return
+        val level = player.level()
         player.teleportTo(level, pos.x, pos.y, pos.z, java.util.HashSet(), pos.yaw, pos.pitch, false)
     }
 

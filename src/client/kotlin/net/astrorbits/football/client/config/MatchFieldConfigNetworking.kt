@@ -11,6 +11,9 @@ object MatchFieldConfigNetworking {
         ClientPlayNetworking.registerGlobalReceiver(MatchFieldConfigSyncS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
                 MatchConfigHolder.syncFromServer(payload.config)
+                if (!payload.openEditor) {
+                    return@execute
+                }
                 val parent = Minecraft.getInstance().screen
                 Minecraft.getInstance().setScreen(
                     MatchFieldConfigScreen.create(parent, payload.config),

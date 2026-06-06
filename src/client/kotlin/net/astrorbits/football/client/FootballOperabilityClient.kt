@@ -103,7 +103,7 @@ object FootballOperabilityClient {
     fun canShowFootballHints(player: LocalPlayer): Boolean {
         if (player.isSpectator || !player.mainHandItem.isEmpty) return false
         if (SetPieceClient.isMovementFrozen(player.uuid)) return true
-        return !MatchStartClient.isLocked
+        return true
     }
 
     fun canUseFootballHint(player: LocalPlayer, level: Level, key: KeyMapping): Boolean {
@@ -113,15 +113,20 @@ object FootballOperabilityClient {
 
         val holdingBall = GoalkeeperStateClient.isHoldingBall
         val canGk = canUseGoalkeeperActions()
+        val kickoffLocked = MatchStartClient.isLocked
+        if (isBlockedByGoalKickSetPiece(player, key)) {
+            return false
+        }
 
         if (holdingBall) {
             return when (key) {
                 FootballKeyBindings.GK_DIVE ->
-                    canGk && GoalkeeperHoldActionPermissionsClient.canThrow &&
+                    !kickoffLocked && canGk && GoalkeeperHoldActionPermissionsClient.canThrow &&
                         !GoalkeeperStateClient.isHoldReleaseLocked()
                 FootballKeyBindings.GK_CATCH ->
-                    canGk && GoalkeeperHoldActionPermissionsClient.canDrop &&
-                        !GoalkeeperStateClient.isHoldReleaseLocked()
+                    GoalkeeperHoldActionPermissionsClient.canDrop &&
+                        !GoalkeeperStateClient.isHoldReleaseLocked() &&
+                        (canUseGoalKickDrop(player) || (!kickoffLocked && canGk))
                 FootballKeyBindings.BOOST_SPRINT -> player.isSprinting && StaminaClient.stamina > 0f
                 FootballKeyBindings.INTERRUPT_CHARGE -> FootballInputHandler.isAnyChargeActive()
                 FootballKeyBindings.LOOK_AROUND -> true
@@ -131,23 +136,23 @@ object FootballOperabilityClient {
 
         return when (key) {
             FootballKeyBindings.KICK ->
-                hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
+                !kickoffLocked && hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
             FootballKeyBindings.DRIBBLE ->
-                hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
+                !kickoffLocked && hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
             FootballKeyBindings.TRAP ->
-                hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
+                !kickoffLocked && hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
             FootballKeyBindings.CHIP ->
-                hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
+                !kickoffLocked && hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
             FootballKeyBindings.GK_DIVE ->
-                canGk && (canPrepareGoalkeeperDiveCharge(player) || canExecuteGoalkeeperDive(player))
+                !kickoffLocked && canGk && (canPrepareGoalkeeperDiveCharge(player) || canExecuteGoalkeeperDive(player))
             FootballKeyBindings.GK_CATCH ->
-                (canGk && GoalkeeperHoldActionPermissionsClient.canCatch &&
+                !kickoffLocked && ((canGk && GoalkeeperHoldActionPermissionsClient.canCatch &&
                     canUseDiveAndCatch(player) &&
                     hasBallWithinRange(player, level, goalkeeperCatchRange(player))) ||
                     (canUseGoalKickCatch(player) &&
                         GoalkeeperHoldActionPermissionsClient.canCatch &&
-                        hasBallWithinRange(player, level, goalkeeperCatchRange(player)))
-            FootballKeyBindings.SLIDE_TACKLE -> FootballInputHandler.canSlideTackle(player.level()?.gameTime ?: 0L)
+                        hasBallWithinRange(player, level, goalkeeperCatchRange(player))))
+            FootballKeyBindings.SLIDE_TACKLE -> FootballInputHandler.canSlideTackle(player.level().gameTime)
             FootballKeyBindings.BOOST_SPRINT -> player.isSprinting && StaminaClient.stamina > 0f
             FootballKeyBindings.INTERRUPT_CHARGE -> FootballInputHandler.isAnyChargeActive()
             FootballKeyBindings.LOOK_AROUND -> true
@@ -181,8 +186,36 @@ object FootballOperabilityClient {
         if (SetPieceClient.restartTeam != MatchStartClient.playerTeam) return false
         return when (SetPieceClient.goalKickPhase) {
             GoalKickPhase.WAITING_PICKUP -> true
-            GoalKickPhase.PLACED -> GoalkeeperStateClient.isGoalkeeper
+            GoalKickPhase.PLACED -> GoalkeeperStateClient.isGoalkeeper &&
+                SetPieceClient.goalKickPickerUuid == player.uuid
             else -> false
+        }
+    }
+
+    private fun canUseGoalKickDrop(player: LocalPlayer): Boolean =
+        SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
+            SetPieceClient.goalKickPhase == GoalKickPhase.PLACING &&
+            SetPieceClient.goalKickPickerUuid == player.uuid
+
+    private fun isBlockedByGoalKickSetPiece(player: LocalPlayer, key: KeyMapping): Boolean {
+        if (SetPieceClient.kind != SetPieceKind.GOAL_KICK) return false
+        val isRestartTeam = SetPieceClient.restartTeam == MatchStartClient.playerTeam
+        val isPicker = SetPieceClient.goalKickPickerUuid == player.uuid
+        val isCatchKey = key == FootballKeyBindings.GK_CATCH
+        return when (SetPieceClient.goalKickPhase) {
+            GoalKickPhase.WAITING_PICKUP -> {
+                if (isRestartTeam && isCatchKey) false else key != FootballKeyBindings.BOOST_SPRINT &&
+                    key != FootballKeyBindings.LOOK_AROUND
+            }
+            GoalKickPhase.PLACING -> {
+                if (isPicker && isCatchKey) false else key != FootballKeyBindings.BOOST_SPRINT &&
+                    key != FootballKeyBindings.LOOK_AROUND
+            }
+            GoalKickPhase.PLACED -> {
+                if (isPicker) false else key != FootballKeyBindings.BOOST_SPRINT &&
+                    key != FootballKeyBindings.LOOK_AROUND
+            }
+            null -> false
         }
     }
 

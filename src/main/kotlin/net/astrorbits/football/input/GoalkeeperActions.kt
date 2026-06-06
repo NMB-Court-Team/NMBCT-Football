@@ -32,7 +32,8 @@ object GoalkeeperActions {
             return
         }
         if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player) &&
-            !SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player)
+            !SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player) &&
+            !SetPieceRestrictionCoordinator.allowsGoalKickDrop(player)
         ) {
             return
         }
@@ -170,7 +171,9 @@ object GoalkeeperActions {
                 }
             }
             FootballActionType.GK_DROP -> {
-                if (football.isPlayerBallMovementForbidden(player)) {
+                if (football.isPlayerBallMovementForbidden(player) &&
+                    !SetPieceRestrictionCoordinator.allowsGoalKickDrop(player)
+                ) {
                     return
                 }
                 football.recordActiveKick(player, null)
@@ -195,7 +198,9 @@ object GoalkeeperActions {
         if (football.isHeld()) {
             return
         }
-        if (football.isPlayerBallMovementForbidden(player)) {
+        if (football.isPlayerBallMovementForbidden(player) &&
+            !SetPieceRestrictionCoordinator.allowsGoalKickCatch(player)
+        ) {
             return
         }
         if (GoalkeeperUtil.standingCatchDistanceSqr(player, football) > range * range) {
@@ -228,7 +233,7 @@ object GoalkeeperActions {
                     GoalKickSetPieceFlow.onPlayerCaughtBall(player, football)
                 net.astrorbits.football.match.GoalKickPhase.PLACED -> {
                     val server = player.level().server
-                    if (server != null) GoalKickSetPieceFlow.onBallMoved(server, football)
+                    GoalKickSetPieceFlow.onBallMoved(server, football)
                 }
                 else -> Unit
             }

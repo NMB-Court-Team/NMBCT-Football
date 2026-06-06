@@ -59,7 +59,7 @@ object GoalkeeperStateClient {
     fun holdReleaseLockRatio(): Float = holdReleaseLockRatio(partialTick = 0f)
 
     fun holdReleaseLockRatio(partialTick: Float): Float {
-        if (!isGoalkeeper || GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS <= 0) {
+        if (GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS <= 0) {
             return 0f
         }
         val level = Minecraft.getInstance().level ?: return 0f
@@ -74,7 +74,7 @@ object GoalkeeperStateClient {
 
     /** 基于墙钟的剩余锁定比例，供 HUD 每帧采样。 */
     fun liveHoldReleaseLockRatio(): Float {
-        if (!isGoalkeeper || GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS <= 0) {
+        if (GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS <= 0) {
             return 0f
         }
         val endWallMs = holdReleaseLockEndWallMs

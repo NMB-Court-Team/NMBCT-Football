@@ -22,6 +22,7 @@ object GoalkeeperHoldStealProtectionClient {
     )
 
     private val protectionByFootballId = mutableMapOf<Int, HoldProtection>()
+    private val currentHolderByFootballId = mutableMapOf<Int, Int>()
 
     fun register() {
         ClientTickEvents.END_CLIENT_TICK.register { client ->
@@ -31,6 +32,7 @@ object GoalkeeperHoldStealProtectionClient {
 
     fun onMatchReset() {
         protectionByFootballId.clear()
+        currentHolderByFootballId.clear()
     }
 
     /** 本地守门员刚进入持球时调用，避免实体同步延迟导致 HUD 偏短。 */
@@ -95,13 +97,16 @@ object GoalkeeperHoldStealProtectionClient {
                 continue
             }
             seen += football.id
+            val previousHolder = currentHolderByFootballId[football.id]
+            currentHolderByFootballId[football.id] = holderId
             val existing = protectionByFootballId[football.id]
-            if (existing == null || existing.holderId != holderId) {
+            if (previousHolder != holderId) {
                 applyProtection(football.id, holderId, now, protectionTicks)
             }
         }
 
-        protectionByFootballId.keys.retainAll(seen)
+        currentHolderByFootballId.keys.retainAll(seen)
+        protectionByFootballId.keys.retainAll(currentHolderByFootballId.keys)
         protectionByFootballId.entries.removeIf { (_, entry) -> !isProtectionActive(entry, now) }
     }
 

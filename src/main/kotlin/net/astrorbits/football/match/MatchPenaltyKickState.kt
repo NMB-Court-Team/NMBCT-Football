@@ -73,6 +73,7 @@ object MatchPenaltyKickState {
                 defendingSide = defendingTeam,
             ),
         )
+        SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
         kickIntroTicksRemaining = PenaltyShootoutTiming.KICK_INTRO_LOCK_TICKS
         FootballNetworking.broadcastSetPieceState(server)
     }
@@ -196,7 +197,7 @@ object MatchPenaltyKickState {
         if (scored) {
             finishScored(server, level)
         } else {
-            finishMissed(server, level)
+            finishOpenPlay(server)
         }
     }
 
@@ -228,22 +229,8 @@ object MatchPenaltyKickState {
         )
     }
 
-    private fun finishMissed(server: MinecraftServer, level: ServerLevel) {
-        val goal = defendingGoal()
-        val gk = goal.goalKick
-        val ballPos = Vec3(gk.x, gk.y, gk.z)
-        MatchState.postGoalResetPending = true
+    private fun finishOpenPlay(server: MinecraftServer) {
         clear(server)
-        PostGoalBallResetScheduler.schedule(
-            level,
-            resetPos = ballPos,
-            afterReset = PendingAfterReset.GoalLineOut(
-                kickoffTeam = defendingTeam,
-                outType = GoalLineOutType.GOAL_KICK,
-                ballPos = ballPos,
-                defendingSide = defendingTeam,
-            ),
-        )
     }
 
     private fun resolveKicker(team: TeamSide, preferred: UUID?, server: MinecraftServer): UUID? {

@@ -32,9 +32,8 @@ class BoostSprintHudElement : HudElement {
         if (blend > 0f) {
             val displayW = (ICON_TEX_W * ICON_SCALE).roundToInt()
             val displayH = (ICON_TEX_H * ICON_SCALE).roundToInt()
-            val iconX = width / 2 - displayW / 2
-            // 与旧 12×12 @ scale 2 时相同的锚点中心（约在快捷栏上方 y = height - 66）
-            val iconY = height - 66 - displayH / 2
+            val iconX = 12
+            val iconY = height - 72
             drawBoostSprintIcon(extra, iconX, iconY, blend)
         }
     }
@@ -122,8 +121,8 @@ class BoostSprintHudElement : HudElement {
         const val ICON_SCALE = 1f
 
         /** 相对图标中心的平移（GUI 像素，正 X 向右、正 Y 向下）。同上文件 companion 修改。 */
-        const val ICON_TRANSLATE_X = 3f
-        const val ICON_TRANSLATE_Y = -18f
+        const val ICON_TRANSLATE_X = 0f
+        const val ICON_TRANSLATE_Y = 0f
 
         private const val VIOLET_RGB = 0x9C27B0
 

@@ -38,7 +38,8 @@ object FootballPlayerActions {
                 FootballActionType.GK_DROP,
                 -> {
                     if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player) &&
-                        !SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player)
+                        !SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player) &&
+                        !SetPieceRestrictionCoordinator.allowsGoalKickDrop(player)
                     ) {
                         return
                     }
@@ -66,7 +67,8 @@ object FootballPlayerActions {
             FootballActionType.GK_DROP,
             -> {
                 if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player) &&
-                    !SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player)
+                    !SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player) &&
+                    !SetPieceRestrictionCoordinator.allowsGoalKickDrop(player)
                 ) {
                     return
                 }

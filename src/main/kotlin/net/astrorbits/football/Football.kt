@@ -880,16 +880,110 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     private fun detectMatchPenaltyKick(prevCenter: Vec3, currCenter: Vec3) {
         if (!MatchPenaltyKickState.isResolving()) return
-        val goal = MatchPenaltyKickState.defendingGoal()
-        val defending = MatchPenaltyKickState.defendingTeam
-        val attacking = MatchPenaltyKickState.kickingTeam
+        val config = MatchConfigHolder.current
+        if (checkMatchPenaltyGoalLine(config.goalA, prevCenter, currCenter, TeamSide.A, TeamSide.B)) return
+        if (checkMatchPenaltyGoalLine(config.goalB, prevCenter, currCenter, TeamSide.B, TeamSide.A)) return
+        if (checkMatchPenaltySidelineOut(config.sidelineA, prevCenter, currCenter)) return
+        checkMatchPenaltySidelineOut(config.sidelineB, prevCenter, currCenter)
+    }
+
+    private fun checkMatchPenaltyGoalLine(
+        goal: GoalConfig,
+        prevCenter: Vec3,
+        currCenter: Vec3,
+        defendingTeam: TeamSide,
+        attackingTeam: TeamSide,
+    ): Boolean {
         val crossing = GoalCrossingUtil.segmentCrossesGoalLine(
-            goal, prevCenter, currCenter, defending, attacking,
-        ) ?: return
+            goal, prevCenter, currCenter, defendingTeam, attackingTeam,
+        ) ?: return false
         val effectiveInGoal = crossing.inGoal || GoalCrossingUtil.isCenterInGoal(goal, currCenter)
-        MatchPenaltyKickState.onGoalLineCrossing(
-            crossing.copy(inGoal = effectiveInGoal, definiteGoalLineOut = crossing.definiteGoalLineOut && !effectiveInGoal),
+        val isPenaltyTargetGoal = defendingTeam == MatchPenaltyKickState.defendingTeam &&
+            attackingTeam == MatchPenaltyKickState.kickingTeam
+        if (effectiveInGoal && isPenaltyTargetGoal) {
+            MatchPenaltyKickState.onGoalLineCrossing(
+                crossing.copy(inGoal = true, definiteGoalLineOut = false),
+            )
+            return true
+        }
+        if (!effectiveInGoal && crossing.definiteGoalLineOut) {
+            val server = (level() as? ServerLevel)?.server ?: return true
+            val lastTouchTeam = lastPhysicalTouch?.let { MatchState.getPlayerTeam(it) }
+            val facing = Vec3(goal.facingX, goal.facingY, goal.facingZ)
+            val outType: GoalLineOutType
+            val restartTeam: TeamSide
+            val ballPos: Vec3
+            if (lastTouchTeam == attackingTeam) {
+                outType = GoalLineOutType.GOAL_KICK
+                restartTeam = defendingTeam
+                val gk = goal.goalKick
+                ballPos = Vec3(gk.x, gk.y, gk.z)
+            } else {
+                outType = GoalLineOutType.CORNER_KICK
+                restartTeam = attackingTeam
+                ballPos = GoalCrossingUtil.cornerKickPosition(
+                    goal,
+                    facing,
+                    crossing.intersection.x,
+                    crossing.intersection.z,
+                )
+            }
+            MatchPenaltyKickState.clear(server)
+            scheduleOutOfBoundsRestart(
+                level() as ServerLevel,
+                server,
+                ballPos,
+                restartTeam,
+                outType,
+                defendingSide = defendingTeam,
+            )
+            return true
+        }
+        return false
+    }
+
+    private fun checkMatchPenaltySidelineOut(
+        sideline: SidelineConfig,
+        prevCenter: Vec3,
+        currCenter: Vec3,
+    ): Boolean {
+        val facing = sideline.facing()
+        val facingLenSqr = facing.lengthSqr()
+        if (facingLenSqr < 1e-6) return false
+
+        val origin = sideline.origin()
+        val refX = origin.x
+        val refY = origin.y
+        val refZ = origin.z
+        val d1 = (prevCenter.x - refX) * facing.x + (prevCenter.y - refY) * facing.y + (prevCenter.z - refZ) * facing.z
+        val d2 = (currCenter.x - refX) * facing.x + (currCenter.y - refY) * facing.y + (currCenter.z - refZ) * facing.z
+
+        if (d1 * d2 >= 0) return false
+        if (d2 - d1 >= 0) return false
+
+        val t = d1 / (d1 - d2)
+        val movement = currCenter.subtract(prevCenter)
+        val ix = prevCenter.x + movement.x * t
+        val iy = prevCenter.y + movement.y * t
+        val iz = prevCenter.z + movement.z * t
+
+        val server = (level() as? ServerLevel)?.server ?: return true
+        val lastTouchTeam = lastPhysicalTouch?.let { MatchState.getPlayerTeam(it) }
+        val restartTeam: TeamSide = when (lastTouchTeam) {
+            TeamSide.A -> TeamSide.B
+            TeamSide.B -> TeamSide.A
+            null -> TeamSide.A
+        }
+
+        MatchPenaltyKickState.clear(server)
+        scheduleOutOfBoundsRestart(
+            level() as ServerLevel,
+            server,
+            Vec3(ix, iy, iz),
+            restartTeam,
+            GoalLineOutType.THROW_IN,
         )
+        return true
     }
 
     private fun detectPenaltyKick(prevCenter: Vec3, currCenter: Vec3) {
@@ -1174,7 +1268,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val serverLevel = level() as? ServerLevel
         if (serverLevel != null) {
             val kickerUuid = lastPhysicalTouch
-            val kicker = kickerUuid?.let { serverLevel.server?.playerList?.getPlayer(it) }
+            val kicker = kickerUuid?.let { serverLevel.server.playerList.getPlayer(it) }
             if (kicker != null) {
                 FootballKickPushGrace.record(kicker, this, serverLevel.gameTime)
                 separateBallFromKicker(kicker, direction)
@@ -1249,6 +1343,8 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             recordDribbleTouch(player)
         }
         syncPhysicsToEntityData()
+        syncPacketPositionCodec(x, y, z)
+        notifySetPieceGoalKickBallMoved(player)
     }
 
     fun getRollingDirection(): Vec3 = FootballPhysicsSimulator.getRollingDirection(physicsState)
@@ -1278,7 +1374,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     fun enterHold(player: ServerPlayer) {
-        if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player) ||
+        val goalKickCatchAllowed = SetPieceRestrictionCoordinator.allowsGoalKickCatch(player)
+        if (level().isClientSide || isImmovable ||
+            (isPlayerBallMovementForbidden(player) && !goalKickCatchAllowed) ||
             !MatchParticipation.isParticipating(player)
         ) {
             return
@@ -1309,7 +1407,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     fun dropAt(player: ServerPlayer) {
-        if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player)) {
+        val goalKickDropAllowed = SetPieceRestrictionCoordinator.allowsGoalKickDrop(player)
+        if (level().isClientSide || isImmovable ||
+            (isPlayerBallMovementForbidden(player) && !goalKickDropAllowed)
+        ) {
             return
         }
         forceDropAt(player)

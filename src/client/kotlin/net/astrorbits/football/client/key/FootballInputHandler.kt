@@ -446,7 +446,7 @@ object FootballInputHandler {
     }
     private fun handleSlideTacklePress(player: LocalPlayer) {
         val down = FootballKeyBindings.SLIDE_TACKLE.isDown
-        val nowTick = player.level()?.gameTime ?: 0L
+        val nowTick = player.level().gameTime
         if (down && !slidePrevTickPressed && player.isSprinting && canSlideTackle(nowTick)) {
             resetSlideSprintTicks()
             sendAction(player, FootballActionType.SLIDE_TACKLE, 0f, 0L, buildFlags(player))
@@ -595,6 +595,9 @@ object FootballInputHandler {
     private fun canSendFootballAction(player: LocalPlayer, action: FootballActionType): Boolean {
         if (!FootballOperabilityClient.canShowFootballHints(player)) {
             return false
+        }
+        if (action == FootballActionType.DRIBBLE_HOLD) {
+            return true
         }
         when (action) {
             FootballActionType.GK_DIVE_CHARGE_DRAIN,

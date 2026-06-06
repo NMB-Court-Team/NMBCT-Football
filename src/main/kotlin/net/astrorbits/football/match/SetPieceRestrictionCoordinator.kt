@@ -34,10 +34,18 @@ object SetPieceRestrictionCoordinator {
         if (team != ctx.restartTeam) return false
         val phase = ctx.goalKickPhase ?: return false
         return phase == GoalKickPhase.WAITING_PICKUP ||
-            (phase == GoalKickPhase.PLACED && PlayerRoleState.isGoalkeeper(player))
+            (phase == GoalKickPhase.PLACED &&
+                player.uuid == ctx.goalKickPickerUuid &&
+                PlayerRoleState.isGoalkeeper(player))
     }
 
     fun allowsCatchDespiteRole(player: ServerPlayer): Boolean = allowsGoalKickCatch(player)
+
+    fun allowsGoalKickDrop(player: ServerPlayer): Boolean {
+        val ctx = SetPieceState.active ?: return false
+        if (ctx.kind != SetPieceKind.GOAL_KICK) return false
+        return ctx.goalKickPhase == GoalKickPhase.PLACING && player.uuid == ctx.goalKickPickerUuid
+    }
 
     private fun isGoalKickBlocked(
         player: ServerPlayer,
@@ -66,10 +74,10 @@ object SetPieceRestrictionCoordinator {
                 return true
             }
             GoalKickPhase.PLACED -> {
+                if (player.uuid == ctx.goalKickPickerUuid) {
+                    return false
+                }
                 if (team == ctx.restartTeam) {
-                    if (action == FootballActionType.GK_CATCH && PlayerRoleState.isGoalkeeper(player)) {
-                        return false
-                    }
                     return true
                 }
                 if (team == opponent) return true

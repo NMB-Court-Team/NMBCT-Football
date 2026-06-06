@@ -21,7 +21,7 @@ class KickChargeHudElement : HudElement {
         val barW = 120
         val barH = 8
         val x = width / 2 - barW / 2
-        val y = height - 42
+        val y = height - 52
         val fillW = (barW * ratio).roundToInt().coerceIn(0, barW)
 
         val bg = 0xAA000000.toInt()

@@ -35,13 +35,13 @@ object MatchFieldBounds {
         val goalAxis = goalLineAxis(config.goalA, config.goalB) ?: return null
 
         return when {
-            sidelineAxis == "x" && goalAxis == "z" -> HorizontalRect(
+            sidelineAxis == "x" && goalAxis == "x" -> HorizontalRect(
                 minX = goalBounds(config.goalA, config.goalB, "x").first,
                 maxX = goalBounds(config.goalA, config.goalB, "x").second,
                 minZ = sidelineBounds.first,
                 maxZ = sidelineBounds.second,
             )
-            sidelineAxis == "z" && goalAxis == "x" -> HorizontalRect(
+            sidelineAxis == "z" && goalAxis == "z" -> HorizontalRect(
                 minX = sidelineBounds.first,
                 maxX = sidelineBounds.second,
                 minZ = goalBounds(config.goalA, config.goalB, "z").first,

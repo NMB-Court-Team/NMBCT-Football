@@ -348,6 +348,7 @@ object PenaltyShootoutState {
                 defendingSide = activeDefendingTeam,
             ),
         )
+        SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
         kickIntroTicksRemaining = PenaltyShootoutTiming.KICK_INTRO_LOCK_TICKS
         FootballNetworking.broadcastPenaltyShootoutSync(server)
         FootballNetworking.broadcastPenaltyKickStart(server)

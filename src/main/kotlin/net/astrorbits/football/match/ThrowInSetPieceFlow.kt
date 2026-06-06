@@ -14,7 +14,7 @@ object ThrowInSetPieceFlow {
     private val anchorPositions = mutableMapOf<java.util.UUID, Vec3>()
 
     fun begin(level: ServerLevel, restartTeam: TeamSide, ballPos: Vec3) {
-        val server = level.server ?: return
+        val server = level.server
         val taker = pickThrowInTaker(server, restartTeam, ballPos) ?: return
         val football = findFootballNear(level, ballPos) ?: return
 
@@ -32,6 +32,7 @@ object ThrowInSetPieceFlow {
                 throwInTakerUuid = taker.uuid,
             ),
         )
+        SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
         FootballNetworking.broadcastSetPieceState(server)
     }
 
@@ -51,7 +52,7 @@ object ThrowInSetPieceFlow {
         val anchor = anchorPositions[takerUuid] ?: ctx.ballPos
         if (taker.x != anchor.x || taker.y != anchor.y || taker.z != anchor.z) {
             taker.teleportTo(
-                taker.level() as ServerLevel,
+                taker.level(),
                 anchor.x, anchor.y, anchor.z,
                 java.util.HashSet(),
                 taker.yRot, taker.xRot, false,

@@ -117,6 +117,7 @@ object FootballNetworking {
                 player.sendSystemMessage(
                     Component.translatable("command.nmbct-football.match.config_applied"),
                 )
+                broadcastMatchFieldConfig(context.server(), openEditor = false)
                 // 立即推送到所有客户端，不等下个定时同步周期
                 broadcastTimerSync(context.server())
             }
@@ -124,7 +125,7 @@ object FootballNetworking {
         ServerPlayNetworking.registerGlobalReceiver(HalfKickoffRequestC2SPayload.TYPE) { _, context ->
             context.server().execute {
                 val server = context.server()
-                val level = context.player().level() ?: return@execute
+                val level = context.player().level()
                 handleHalfKickoffRequest(level, server)
             }
         }
@@ -271,7 +272,7 @@ object FootballNetworking {
         ms.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.HALF)
         ms.resetFootball(level)
         val kickPos = MatchConfigHolder.current.kickOff.let { net.minecraft.world.phys.Vec3(it.x, it.y, it.z) }
-        SetPieceBootstrap.onCenterKickoffBegin(kickoffTeam, kickPos)
+        SetPieceBootstrap.onCenterKickoffBegin(kickoffTeam, kickPos, server)
         broadcastSetPieceState(server)
         val nameA = ms.getTeamName(TeamSide.A).string
         val nameB = ms.getTeamName(TeamSide.B).string
@@ -402,8 +403,10 @@ object FootballNetworking {
     /** 玩家加入时同步服务端配置与体力。 */
     fun syncPlayerJoin(player: ServerPlayer) {
         sendServerConfigSync(player, FootballServerConfigHolder.current, openEditor = false)
+        sendMatchFieldConfigSync(player, MatchConfigHolder.current, openEditor = false)
         StaminaState.syncToPlayer(player)
         sendSetPieceState(player)
+        PlayerRoleState.syncRoleToPlayer(player)
         GoalkeeperHoldActionPermissions.syncToClient(player)
     }
 
@@ -411,8 +414,15 @@ object FootballNetworking {
         ServerPlayNetworking.send(player, MatchConfigSyncS2CPayload(config))
     }
 
-    fun sendMatchFieldConfigSync(player: ServerPlayer, config: MatchConfig) {
-        ServerPlayNetworking.send(player, MatchFieldConfigSyncS2CPayload(config))
+    fun sendMatchFieldConfigSync(player: ServerPlayer, config: MatchConfig, openEditor: Boolean = true) {
+        ServerPlayNetworking.send(player, MatchFieldConfigSyncS2CPayload(config, openEditor))
+    }
+
+    fun broadcastMatchFieldConfig(server: MinecraftServer, openEditor: Boolean = false) {
+        val payload = MatchFieldConfigSyncS2CPayload(MatchConfigHolder.current, openEditor)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
     }
 
     fun sendGoalkeeperRole(player: ServerPlayer, isGoalkeeper: Boolean) {
@@ -442,7 +452,7 @@ object FootballNetworking {
 
     fun syncSlideTackleState(player: ServerPlayer, sliding: Boolean, cooldownUntilTick: Long = 0L) {
         val payload = SlideTackleStateS2CPayload(player.id, sliding, cooldownUntilTick)
-        val server = player.level().server ?: return
+        val server = player.level().server
         for (target in server.playerList.players) {
             ServerPlayNetworking.send(target, payload)
         }
@@ -451,7 +461,7 @@ object FootballNetworking {
     /** 同步哨子吹哨：各客户端在吹哨玩家实体上播放绑定音效。 */
     fun syncWhistleUse(player: ServerPlayer) {
         val payload = WhistleUseS2CPayload(player.id)
-        val server = player.level().server ?: return
+        val server = player.level().server
         for (target in server.playerList.players) {
             ServerPlayNetworking.send(target, payload)
         }

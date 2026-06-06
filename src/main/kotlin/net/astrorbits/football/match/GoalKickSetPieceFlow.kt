@@ -16,6 +16,7 @@ object GoalKickSetPieceFlow {
     private const val GOAL_KICK_HOLD_LOCK_TICKS = 100
 
     fun begin(level: ServerLevel, restartTeam: TeamSide, ballPos: Vec3, defendingSide: TeamSide) {
+        val server = level.server
         SetPieceState.begin(
             SetPieceContext(
                 kind = SetPieceKind.GOAL_KICK,
@@ -25,8 +26,9 @@ object GoalKickSetPieceFlow {
                 goalKickPhase = GoalKickPhase.WAITING_PICKUP,
             ),
         )
-        applyTeamPermissions(level.server ?: return, restartTeam, defendingSide, pickerUuid = null)
-        FootballNetworking.broadcastSetPieceState(level.server!!)
+        SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
+        applyTeamPermissions(server, restartTeam, defendingSide, pickerUuid = null)
+        FootballNetworking.broadcastSetPieceState(server)
     }
 
     fun onPlayerCaughtBall(player: ServerPlayer, football: Football) {
@@ -42,7 +44,7 @@ object GoalKickSetPieceFlow {
                 goalKickPickerUuid = player.uuid,
             )
         }
-        val server = player.level().server ?: return
+        val server = player.level().server
         GoalkeeperHoldActionPermissions.setAll(player, catch = false, drop = true, throwBall = false)
         GoalkeeperHoldLock.beginLock(player, player.level().gameTime, GOAL_KICK_HOLD_LOCK_TICKS)
         applyTeamPermissions(server, ctx.restartTeam, ctx.defendingSide ?: team.opponent(), player.uuid)
@@ -55,10 +57,11 @@ object GoalKickSetPieceFlow {
         if (ctx.goalKickPhase != GoalKickPhase.PLACING) return
         if (player.uuid != ctx.goalKickPickerUuid) return
 
-        SetPieceState.update { it.copy(goalKickPhase = GoalKickPhase.PLACED, goalKickPickerUuid = null) }
-        val server = player.level().server ?: return
+        val pickerUuid = ctx.goalKickPickerUuid
+        SetPieceState.update { it.copy(goalKickPhase = GoalKickPhase.PLACED) }
+        val server = player.level().server
         GoalkeeperHoldActionPermissions.resetToDefaults(player)
-        applyTeamPermissions(server, ctx.restartTeam, ctx.defendingSide ?: ctx.restartTeam.opponent(), null)
+        applyTeamPermissions(server, ctx.restartTeam, ctx.defendingSide ?: ctx.restartTeam.opponent(), pickerUuid)
         FootballNetworking.broadcastSetPieceState(server)
     }
 
@@ -109,7 +112,8 @@ object GoalKickSetPieceFlow {
             when {
                 player.uuid == pickerUuid -> Unit
                 team == restartTeam -> {
-                    GoalkeeperHoldActionPermissions.setAll(player, catch = false, drop = false, throwBall = false)
+                    val canCatch = SetPieceState.active?.goalKickPhase == GoalKickPhase.WAITING_PICKUP
+                    GoalkeeperHoldActionPermissions.setAll(player, catch = canCatch, drop = false, throwBall = false)
                 }
                 team == defendingSide.opponent() -> {
                     GoalkeeperHoldActionPermissions.setAll(player, catch = false, drop = false, throwBall = false)

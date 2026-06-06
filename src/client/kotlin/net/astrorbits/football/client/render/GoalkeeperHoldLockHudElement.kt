@@ -15,7 +15,7 @@ class GoalkeeperHoldLockHudElement : HudElement {
         if (client.screen != null || client.isPaused) {
             return
         }
-        if (!GoalkeeperStateClient.isGoalkeeper) {
+        if (!GoalkeeperStateClient.isGoalkeeper && !GoalkeeperStateClient.isHoldingBall) {
             return
         }
 
@@ -32,7 +32,7 @@ class GoalkeeperHoldLockHudElement : HudElement {
         val barW = 120
         val barH = 8
         val x = width / 2 - barW / 2
-        val y = height - 56
+        val y = height - 92
         val fillW = (barW * ratio).roundToInt().coerceIn(0, barW)
 
         val bg = 0xAA000000.toInt()

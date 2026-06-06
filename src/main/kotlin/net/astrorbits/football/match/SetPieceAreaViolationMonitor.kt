@@ -5,11 +5,15 @@ import net.astrorbits.football.util.GoalkeeperUtil
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.phys.Vec3
+import kotlin.math.abs
+import kotlin.math.sqrt
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 object SetPieceAreaViolationMonitor {
     private const val VIOLATION_TICKS = 60
+    private const val REPOSITION_BUFFER = 1.0
 
     private data class Tracker(
         val type: SetPieceAreaViolationType,
@@ -155,7 +159,7 @@ object SetPieceAreaViolationMonitor {
             SetPieceAreaViolationType.GK_HOLD_OUTSIDE_PENALTY_AREA -> {
                 val team = MatchState.getPlayerTeam(player.uuid) ?: return
                 val boundary = MatchFieldAreaUtil.nearestPenaltyAreaBoundary(team, player.x, player.z)
-                val level = player.level() as? net.minecraft.server.level.ServerLevel ?: return
+                val level = player.level()
                 GoalkeeperUtil.findHeldFootball(player)?.releaseHold()
                 FreeKickAwards.awardDirectFreeKick(
                     level,
@@ -167,11 +171,194 @@ object SetPieceAreaViolationMonitor {
             }
             SetPieceAreaViolationType.KICKOFF_CENTER_CIRCLE,
             SetPieceAreaViolationType.KICKOFF_CROSS_MIDLINE,
-            -> SetPieceRestartAwards.restartCenterKickoff(server)
-            SetPieceAreaViolationType.GOAL_KICK_OPPONENT_IN_AREA -> SetPieceRestartAwards.restartGoalKick(server)
-            SetPieceAreaViolationType.CORNER_KICK_OPPONENT_IN_AREA -> SetPieceRestartAwards.restartCornerKick(server)
-            SetPieceAreaViolationType.THROW_IN_OPPONENT_IN_AREA -> SetPieceRestartAwards.restartThrowIn(server)
-            SetPieceAreaViolationType.PENALTY_KICK_INTRUSION -> Unit
+            -> {
+                repositionPlayerOutsideViolationArea(player, type)
+                SetPieceRestartAwards.restartCenterKickoff(server)
+            }
+            SetPieceAreaViolationType.GOAL_KICK_OPPONENT_IN_AREA -> {
+                repositionPlayerOutsideViolationArea(player, type)
+                SetPieceRestartAwards.restartGoalKick(server)
+            }
+            SetPieceAreaViolationType.CORNER_KICK_OPPONENT_IN_AREA -> {
+                repositionPlayerOutsideViolationArea(player, type)
+                SetPieceRestartAwards.restartCornerKick(server)
+            }
+            SetPieceAreaViolationType.THROW_IN_OPPONENT_IN_AREA -> {
+                repositionPlayerOutsideViolationArea(player, type)
+                SetPieceRestartAwards.restartThrowIn(server)
+            }
+            SetPieceAreaViolationType.PENALTY_KICK_INTRUSION -> {
+                repositionPlayerOutsideViolationArea(player, type)
+            }
         }
     }
+
+    private fun repositionPlayerOutsideViolationArea(player: ServerPlayer, type: SetPieceAreaViolationType) {
+        val team = MatchState.getPlayerTeam(player.uuid) ?: return
+        val ctx = SetPieceState.active
+        val config = MatchConfigHolder.current
+        val target = when (type) {
+            SetPieceAreaViolationType.KICKOFF_CENTER_CIRCLE,
+            SetPieceAreaViolationType.KICKOFF_CROSS_MIDLINE,
+            -> centerKickoffSafePosition(player, team, config)
+            SetPieceAreaViolationType.GOAL_KICK_OPPONENT_IN_AREA ->
+                ctx?.defendingSide?.let { outsidePenaltyAreaPosition(player, it, config) }
+            SetPieceAreaViolationType.CORNER_KICK_OPPONENT_IN_AREA -> {
+                val corner = ctx?.cornerPos ?: ctx?.ballPos
+                corner?.let { outsideCirclePosition(player, it, config.cornerKickPenaltyAreaRadius, config) }
+            }
+            SetPieceAreaViolationType.THROW_IN_OPPONENT_IN_AREA ->
+                ctx?.ballPos?.let { outsideCirclePosition(player, it, config.throwInPenaltyAreaRadius, config) }
+            SetPieceAreaViolationType.PENALTY_KICK_INTRUSION ->
+                penaltyKickSafePosition(player, config)
+            SetPieceAreaViolationType.GK_HOLD_OUTSIDE_PENALTY_AREA -> null
+        } ?: return
+
+        teleportHorizontally(player, target)
+    }
+
+    private fun centerKickoffSafePosition(
+        player: ServerPlayer,
+        team: TeamSide,
+        config: MatchConfig,
+    ): Vec3 {
+        val center = config.kickOff
+        val orientation = pitchOrientation(config) ?: return outsideCirclePosition(
+            player,
+            Vec3(center.x, player.y, center.z),
+            config.centerCircleRadius,
+            config,
+        )
+        val teamGoalCoord = longCoord(MatchFieldAreaUtil.goalForSide(config, team).goalCenter(), orientation)
+        val ownHalfSign = if (teamGoalCoord >= orientation.midfieldCoord) 1.0 else -1.0
+        val safeLongCoord = orientation.midfieldCoord + ownHalfSign * (config.centerCircleRadius + REPOSITION_BUFFER)
+        return when (orientation.longAxis) {
+            LongAxis.X -> Vec3(safeLongCoord, player.y, center.z)
+            LongAxis.Z -> Vec3(center.x, player.y, safeLongCoord)
+        }
+    }
+
+    private fun outsidePenaltyAreaPosition(
+        player: ServerPlayer,
+        side: TeamSide,
+        config: MatchConfig,
+    ): Vec3 {
+        val rect = penaltyAreaRect(side, config)
+        val x = player.x
+        val z = player.z
+        if (!rect.containsHorizontal(x, z)) {
+            return Vec3(x, player.y, z)
+        }
+
+        val distLeft = x - rect.minX
+        val distRight = rect.maxX - x
+        val distBottom = z - rect.minZ
+        val distTop = rect.maxZ - z
+        val minDist = minOf(distLeft, distRight, distBottom, distTop)
+        val clampedX = x.coerceIn(rect.minX, rect.maxX)
+        val clampedZ = z.coerceIn(rect.minZ, rect.maxZ)
+
+        return when (minDist) {
+            distLeft -> Vec3(rect.minX - REPOSITION_BUFFER, player.y, clampedZ)
+            distRight -> Vec3(rect.maxX + REPOSITION_BUFFER, player.y, clampedZ)
+            distBottom -> Vec3(clampedX, player.y, rect.minZ - REPOSITION_BUFFER)
+            else -> Vec3(clampedX, player.y, rect.maxZ + REPOSITION_BUFFER)
+        }
+    }
+
+    private fun outsideCirclePosition(
+        player: ServerPlayer,
+        center: Vec3,
+        radius: Double,
+        config: MatchConfig,
+    ): Vec3 {
+        var dx = player.x - center.x
+        var dz = player.z - center.z
+        if (dx * dx + dz * dz < 1.0E-6) {
+            dx = config.kickOff.x - center.x
+            dz = config.kickOff.z - center.z
+        }
+        if (dx * dx + dz * dz < 1.0E-6) {
+            dx = 1.0
+            dz = 0.0
+        }
+        val length = sqrt(dx * dx + dz * dz)
+        val distance = radius + REPOSITION_BUFFER
+        return Vec3(
+            center.x + dx / length * distance,
+            player.y,
+            center.z + dz / length * distance,
+        )
+    }
+
+    private fun penaltyKickSafePosition(player: ServerPlayer, config: MatchConfig): Vec3? {
+        val defending = when {
+            PenaltyShootoutState.isActive() -> PenaltyShootoutState.activeDefendingTeam
+            MatchPenaltyKickState.isActive() -> MatchPenaltyKickState.defendingTeam
+            else -> return null
+        }
+        if (MatchFieldAreaUtil.isPlayerInPenaltyArea(player, defending, config)) {
+            return outsidePenaltyAreaPosition(player, defending, config)
+        }
+        if (MatchFieldAreaUtil.isPlayerInPenaltyArc(player, defending, config)) {
+            val goal = MatchFieldAreaUtil.goalForSide(config, defending)
+            val spot = goal.resolvedPenaltySpot()
+            return outsideCirclePosition(player, Vec3(spot.x, player.y, spot.z), goal.halfArea.penaltyArcRadius, config)
+        }
+        return null
+    }
+
+    private fun teleportHorizontally(player: ServerPlayer, target: Vec3) {
+        val level = player.level()
+        player.teleportTo(
+            level,
+            target.x,
+            target.y,
+            target.z,
+            java.util.HashSet(),
+            player.yRot,
+            player.xRot,
+            false,
+        )
+        player.setDeltaMovement(Vec3.ZERO)
+    }
+
+    private fun penaltyAreaRect(side: TeamSide, config: MatchConfig): MatchFieldBounds.HorizontalRect {
+        val halfArea = MatchFieldAreaUtil.goalForSide(config, side).halfArea
+        return horizontalRect(halfArea.penaltyAreaCorner1, halfArea.penaltyAreaCorner2)
+    }
+
+    private fun horizontalRect(corner1: KickPosition, corner2: KickPosition): MatchFieldBounds.HorizontalRect =
+        MatchFieldBounds.HorizontalRect(
+            minX = minOf(corner1.x, corner2.x),
+            maxX = maxOf(corner1.x, corner2.x),
+            minZ = minOf(corner1.z, corner2.z),
+            maxZ = maxOf(corner1.z, corner2.z),
+        )
+
+    private enum class LongAxis { X, Z }
+
+    private data class PitchOrientation(
+        val longAxis: LongAxis,
+        val midfieldCoord: Double,
+    )
+
+    private fun pitchOrientation(config: MatchConfig): PitchOrientation? {
+        val epsilon = 1e-3
+        val constantZ = abs(config.goalA.z1 - config.goalA.z2) < epsilon &&
+            abs(config.goalB.z1 - config.goalB.z2) < epsilon
+        val constantX = abs(config.goalA.x1 - config.goalA.x2) < epsilon &&
+            abs(config.goalB.x1 - config.goalB.x2) < epsilon
+        return when {
+            constantZ -> PitchOrientation(LongAxis.Z, config.kickOff.z)
+            constantX -> PitchOrientation(LongAxis.X, config.kickOff.x)
+            else -> null
+        }
+    }
+
+    private fun longCoord(center: Vec3, orientation: PitchOrientation): Double =
+        when (orientation.longAxis) {
+            LongAxis.X -> center.x
+            LongAxis.Z -> center.z
+        }
 }
