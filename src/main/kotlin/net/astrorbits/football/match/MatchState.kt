@@ -364,6 +364,12 @@ object MatchState {
         if (ThrowInSetPieceFlow.isMovementFrozen(player) && !ThrowInSetPieceFlow.allowsThrowAction(player, action)) {
             return true
         }
+        if (PenaltyShootoutState.deniesPenaltyKickerAction(player, action)) {
+            return true
+        }
+        if (MatchPenaltyKickState.deniesPenaltyKickerAction(player, action)) {
+            return true
+        }
         if (PenaltyShootoutState.isPenaltyMovementRestricted(player)) {
             return true
         }

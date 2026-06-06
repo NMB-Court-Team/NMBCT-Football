@@ -2,6 +2,7 @@ package net.astrorbits.football.network
 
 import net.astrorbits.football.NMBCTFootball
 import net.astrorbits.football.match.GoalKickPhase
+import net.astrorbits.football.match.PenaltyKickPhase
 import net.astrorbits.football.match.SetPieceKind
 import net.astrorbits.football.match.TeamSide
 import net.minecraft.network.FriendlyByteBuf
@@ -21,6 +22,7 @@ data class SetPieceStateS2CPayload(
     val ballPos: Vec3?,
     val defendingSide: TeamSide?,
     val penaltyKickerUuid: UUID?,
+    val penaltyKickPhase: PenaltyKickPhase? = null,
 ) : CustomPacketPayload {
     override fun type() = TYPE
 
@@ -35,6 +37,7 @@ data class SetPieceStateS2CPayload(
             ballPos = null,
             defendingSide = null,
             penaltyKickerUuid = null,
+            penaltyKickPhase = null,
         )
 
         val TYPE: CustomPacketPayload.Type<SetPieceStateS2CPayload> =
@@ -62,6 +65,7 @@ data class SetPieceStateS2CPayload(
                 payload.defendingSide?.let { TeamSide.STREAM_CODEC.encode(buf, it) }
                 buf.writeBoolean(payload.penaltyKickerUuid != null)
                 payload.penaltyKickerUuid?.let { buf.writeUUID(it) }
+                buf.writeInt(payload.penaltyKickPhase?.ordinal ?: -1)
             },
             { buf ->
                 val kind = SetPieceKind.STREAM_CODEC.decode(buf)
@@ -77,6 +81,12 @@ data class SetPieceStateS2CPayload(
                 }
                 val defendingSide = if (buf.readBoolean()) TeamSide.STREAM_CODEC.decode(buf) else null
                 val penaltyKickerUuid = if (buf.readBoolean()) buf.readUUID() else null
+                val penaltyKickPhaseOrd = buf.readInt()
+                val penaltyKickPhase = if (penaltyKickPhaseOrd < 0) {
+                    null
+                } else {
+                    PenaltyKickPhase.entries[penaltyKickPhaseOrd]
+                }
                 SetPieceStateS2CPayload(
                     kind = kind,
                     restartTeam = restartTeam,
@@ -87,6 +97,7 @@ data class SetPieceStateS2CPayload(
                     ballPos = ballPos,
                     defendingSide = defendingSide,
                     penaltyKickerUuid = penaltyKickerUuid,
+                    penaltyKickPhase = penaltyKickPhase,
                 )
             },
         )

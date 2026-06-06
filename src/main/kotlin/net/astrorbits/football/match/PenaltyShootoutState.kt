@@ -137,9 +137,23 @@ object PenaltyShootoutState {
     fun isPenaltyFootballInteractionAllowed(player: ServerPlayer): Boolean {
         if (!isActive()) return true
         if (kickPhase == PenaltyKickPhase.SETUP) return false
-        if (player.uuid == currentKickerUuid) return true
+        if (player.uuid == currentKickerUuid) {
+            return kickPhase == PenaltyKickPhase.AWAITING_KICK
+        }
         if (isDefendingGoalkeeper(player)) return true
         return false
+    }
+
+    /** 主罚仅可在等待开踢时踢球一次（传球/蓄力射门）；其余动作与其它阶段一律拒绝。 */
+    fun deniesPenaltyKickerAction(player: ServerPlayer, action: FootballActionType?): Boolean {
+        if (!isActive() || player.uuid != currentKickerUuid) return false
+        if (kickPhase != PenaltyKickPhase.AWAITING_KICK) return true
+        return when (action) {
+            FootballActionType.PASS,
+            FootballActionType.SHOOT,
+            -> false
+            else -> true
+        }
     }
 
     fun isPenaltyMovementRestricted(player: ServerPlayer): Boolean {

@@ -39,6 +39,25 @@ object FootballOperabilityClient {
     private fun localPlayerTeam(player: LocalPlayer): TeamSide =
         resolveLocalPlayerTeam(player) ?: MatchStartClient.playerTeam
 
+    fun isPenaltyKicker(player: LocalPlayer): Boolean {
+        val uuid = player.uuid
+        if (MatchState.currentPhase == MatchPhase.PENALTIES && PenaltyShootoutClient.active) {
+            return uuid == PenaltyShootoutClient.currentKickerUuid
+        }
+        if (SetPieceClient.kind == SetPieceKind.PENALTY_KICK) {
+            return uuid == SetPieceClient.penaltyKickerUuid
+        }
+        return false
+    }
+
+    fun isPenaltyKickerAwaitingKick(player: LocalPlayer): Boolean {
+        if (!isPenaltyKicker(player)) return false
+        if (MatchState.currentPhase == MatchPhase.PENALTIES && PenaltyShootoutClient.active) {
+            return PenaltyShootoutClient.kickPhase == PenaltyKickPhase.AWAITING_KICK
+        }
+        return SetPieceClient.penaltyKickPhase == PenaltyKickPhase.AWAITING_KICK
+    }
+
     private fun isPenaltyShootoutDefendingGoalkeeper(player: LocalPlayer): Boolean {
         if (MatchState.currentPhase != MatchPhase.PENALTIES || !PenaltyShootoutClient.active) {
             return false
@@ -119,6 +138,14 @@ object FootballOperabilityClient {
         }
         if (isBlockedByThrowInSetPiece(player, key)) {
             return false
+        }
+        if (isPenaltyKicker(player)) {
+            if (!isPenaltyKickerAwaitingKick(player)) return false
+            return when (key) {
+                FootballKeyBindings.KICK ->
+                    !kickoffLocked && hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
+                else -> false
+            }
         }
 
         if (holdingBall) {

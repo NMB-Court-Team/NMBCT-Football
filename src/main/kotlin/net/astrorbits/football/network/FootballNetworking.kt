@@ -710,6 +710,10 @@ object FootballNetworking {
             PenaltyShootoutState.isActive() -> PenaltyShootoutState.currentKickerUuid
             else -> null
         }
+        val penaltyKickPhase = when {
+            MatchPenaltyKickState.isActive() -> MatchPenaltyKickState.kickPhase
+            else -> null
+        }
         return SetPieceStateS2CPayload(
             kind = ctx.kind,
             restartTeam = ctx.restartTeam,
@@ -721,6 +725,7 @@ object FootballNetworking {
             ballPos = ctx.ballPos,
             defendingSide = ctx.defendingSide,
             penaltyKickerUuid = penaltyKickerUuid,
+            penaltyKickPhase = penaltyKickPhase,
         )
     }
 }

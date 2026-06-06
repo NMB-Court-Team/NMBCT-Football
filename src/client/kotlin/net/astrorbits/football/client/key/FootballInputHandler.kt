@@ -628,8 +628,12 @@ object FootballInputHandler {
         if (!FootballOperabilityClient.canShowFootballHints(player)) {
             return false
         }
+        if (FootballOperabilityClient.isPenaltyKicker(player)) {
+            if (!FootballOperabilityClient.isPenaltyKickerAwaitingKick(player)) return false
+            if (action != FootballActionType.PASS && action != FootballActionType.SHOOT) return false
+        }
         if (action == FootballActionType.DRIBBLE_HOLD) {
-            return true
+            return !FootballOperabilityClient.isPenaltyKicker(player)
         }
         when (action) {
             FootballActionType.GK_DIVE_CHARGE_DRAIN,
