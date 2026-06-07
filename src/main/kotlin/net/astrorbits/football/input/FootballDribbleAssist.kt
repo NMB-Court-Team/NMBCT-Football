@@ -10,6 +10,11 @@ import net.minecraft.world.phys.Vec3
 import kotlin.math.min
 
 object FootballDribbleAssist {
+    /** 球速高于此值时，仅在与移动方向大致一致时才允许新开带球 session。 */
+    private const val FAST_BALL_CLAIM_SPEED = 0.6
+    /** 新开 session 时球速与移动方向点积下限（接球方向容忍）。 */
+    private const val FAST_BALL_CLAIM_ALIGNMENT = 0.55
+
     /** 滑铲带球：目标点沿铲向略领先，减轻“球总在身后追”；不宜过大否则球位偏前 */
     private const val SLIDE_TARGET_LEAD_TICKS = 0.72
     /** 滑铲带球：沿铲向回拉（格），球位略靠后 */
@@ -32,6 +37,25 @@ object FootballDribbleAssist {
     /** 在配置 [DRIBBLE_SPEED_MATCH] 上叠加，上限 1.0 */
     private const val BOOST_SPEED_MATCH_BONUS = 0.06
     private const val BOOST_MAX_CORRECTION_FACTOR = 1.6
+
+    /**
+     * 高速来球时，仅当球速与球员移动方向大致一致才允许新开带球（避免横切抢断式“吸球”）。
+     */
+    fun canClaimDribbleControl(player: ServerPlayer, football: Football, dribbleBaseYaw: Float? = null): Boolean {
+        val ballHoriz = Vec3Math.horizontal(football.getPhysicsState().linearVelocity)
+        val speed = ballHoriz.length()
+        if (speed < FAST_BALL_CLAIM_SPEED) {
+            return true
+        }
+
+        val moveDir = FootballKickUtil.resolveDribbleDirection(player, dribbleBaseYaw)
+        if (moveDir.lengthSqr() < 1.0e-8) {
+            return false
+        }
+
+        val alignment = Vec3Math.normalizeSafe(ballHoriz).dot(Vec3Math.normalizeSafe(moveDir))
+        return alignment >= FAST_BALL_CLAIM_ALIGNMENT
+    }
 
     /**
      * 对运球 session 中的足球施加 PD 辅助控制。
@@ -139,6 +163,7 @@ object FootballDribbleAssist {
     ) {
         val physicsState = football.getPhysicsState()
         val currentHoriz = Vec3Math.horizontal(physicsState.linearVelocity)
+        val ballSpeed = currentHoriz.length()
 
         val posError = Vec3Math.horizontal(target.subtract(ballCenter))
         var positionGain = FootballInputConfig.DRIBBLE_POSITION_GAIN
@@ -156,10 +181,18 @@ object FootballDribbleAssist {
             val behind = posError.dot(dir).coerceAtLeast(0.0)
             alongDesired += min(behind * BOOST_CATCHUP_GAIN, BOOST_CATCHUP_SPEED_CAP)
         }
+
+        var velocityGain = FootballInputConfig.DRIBBLE_VELOCITY_GAIN
+        if (ballSpeed > 1.0e-4 && ballSpeed > alongDesired * 1.1) {
+            val momentumPreserve = (alongDesired / ballSpeed).coerceIn(0.2, 1.0)
+            positionGain *= momentumPreserve
+            velocityGain *= momentumPreserve
+        }
+
         val desiredVel = dir.scale(alongDesired)
         val velError = desiredVel.subtract(currentHoriz)
 
-        var correction = posError.scale(positionGain).add(velError.scale(FootballInputConfig.DRIBBLE_VELOCITY_GAIN))
+        var correction = posError.scale(positionGain).add(velError.scale(velocityGain))
         correction = applyLateralDamping(correction, dir)
 
         var maxCorrection = FootballInputConfig.DRIBBLE_MAX_CORRECTION

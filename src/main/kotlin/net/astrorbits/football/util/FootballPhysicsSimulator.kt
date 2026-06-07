@@ -7,15 +7,22 @@ import net.minecraft.world.phys.Vec3
 import org.joml.Quaternionf
 
 object FootballPhysicsSimulator {
+    /** 低于此水平速度时全额侧向衰减；高于 [LATERAL_DAMP_SPEED_FULL] 时保留全部侧向动量。 */
+    private const val LATERAL_DAMP_SPEED_MIN = 0.35
+    private const val LATERAL_DAMP_SPEED_FULL = 1.2
+
     fun applyKick(
         state: FootballPhysicsState,
         kickPoint: Vec3,
         direction: Vec3,
-        center: Vec3
+        center: Vec3,
+        redirectMovingLateral: Boolean = true,
     ) {
         val impulse = direction.scale(FootballPhysicsConfig.KICK_FORCE_SCALE)
         state.linearVelocity = state.linearVelocity.add(impulse.scale(1.0 / FootballPhysicsConfig.MASS))
-        redirectHorizontalVelocityTowardKick(state, direction)
+        if (redirectMovingLateral) {
+            redirectHorizontalVelocityTowardKick(state, direction)
+        }
 
         val leverArm = kickPoint.subtract(center)
         val eccentricTorque = leverArm.cross(impulse).scale(1.0 / FootballPhysicsConfig.INERTIA)
@@ -52,11 +59,20 @@ object FootballPhysicsSimulator {
             return
         }
 
+        val speed = horizontal.length()
+        val baseDamp = FootballPhysicsConfig.KICK_MOVING_LATERAL_DAMP
+        val effectiveDamp = lateralDampForSpeed(speed, baseDamp)
+
         val along = kickDir.scale(horizontal.dot(kickDir))
-        val perpendicular = horizontal.subtract(along)
-            .scale(FootballPhysicsConfig.KICK_MOVING_LATERAL_DAMP)
+        val perpendicular = horizontal.subtract(along).scale(effectiveDamp)
         val redirected = along.add(perpendicular)
         state.linearVelocity = Vec3(redirected.x, state.linearVelocity.y, redirected.z)
+    }
+
+    private fun lateralDampForSpeed(speed: Double, baseDamp: Double): Double {
+        val blend = ((speed - LATERAL_DAMP_SPEED_MIN) / (LATERAL_DAMP_SPEED_FULL - LATERAL_DAMP_SPEED_MIN))
+            .coerceIn(0.0, 1.0)
+        return baseDamp + (1.0 - baseDamp) * blend
     }
 
     /** 确保接触法线（玩家 → 球）与球心相对脚点方向同向；保留 3D 分量以反映撞击高度。 */

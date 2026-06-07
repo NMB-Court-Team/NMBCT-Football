@@ -303,6 +303,11 @@ object FootballKickUtil {
         }
         val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         val kickPoint = buildKickPoint(ballCenter, direction, 0.0)
-        return football.kick(kickPoint, direction.scale(FootballInputConfig.DRIBBLE_TOUCH_FORCE), actingPlayer = serverPlayer)
+        return football.kick(
+            kickPoint,
+            direction.scale(FootballInputConfig.DRIBBLE_TOUCH_FORCE),
+            actingPlayer = serverPlayer,
+            redirectMovingLateral = false,
+        )
     }
 }

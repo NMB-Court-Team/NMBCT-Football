@@ -60,6 +60,10 @@ object FootballDribbleSessions {
         collisionGrace.remove(player.uuid)
         val existing = sessions[player.uuid]
         if (existing == null || existing.footballId != football.id) {
+            val baseYaw = if (lookAroundActive) payload.lookYaw else null
+            if (!FootballDribbleAssist.canClaimDribbleControl(player, football, baseYaw)) {
+                return
+            }
             val session = DribbleSession(
                 playerId = player.uuid,
                 footballId = football.id,

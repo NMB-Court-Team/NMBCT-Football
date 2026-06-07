@@ -79,7 +79,7 @@ data class PhysicsCollisionSettings(
 
 data class PhysicsKickSettings(
     val kickForceScale: Double = 0.18,
-    val kickMovingLateralDamp: Double = 0.15,
+    val kickMovingLateralDamp: Double = 0.35,
     val orientationResetVelocityDelta: Double = 0.06,
     val orientationResetOmegaDelta: Double = 0.06,
 ) {

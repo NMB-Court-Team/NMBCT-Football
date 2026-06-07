@@ -1252,6 +1252,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         direction: Vec3,
         ignoreImmovableTargets: Boolean = false,
         actingPlayer: ServerPlayer? = null,
+        redirectMovingLateral: Boolean = true,
     ): Boolean {
         if (level().isClientSide || isImmovable) {
             return false
@@ -1276,7 +1277,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             releaseHold()
         }
         val center = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
-        FootballPhysicsSimulator.applyKick(physicsState, kickPoint, direction, center)
+        FootballPhysicsSimulator.applyKick(physicsState, kickPoint, direction, center, redirectMovingLateral)
         previousOrientation.set(physicsState.orientation)
         deltaMovement = physicsState.linearVelocity
         val serverLevel = level() as? ServerLevel
