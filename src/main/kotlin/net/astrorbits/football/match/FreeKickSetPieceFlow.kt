@@ -1,9 +1,11 @@
 package net.astrorbits.football.match
 
+import net.astrorbits.football.Football
 import net.astrorbits.football.network.FootballNetworking
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import java.util.*
 
@@ -24,6 +26,7 @@ object FreeKickSetPieceFlow {
             MatchFieldAreaUtil.isInGoalArea(config, defendingSide, ballPos.x, ballPos.z)
         ) {
             resolvedBallPos = MatchFieldAreaUtil.repositionIndirectFreeKickInGoalArea(ballPos, defendingSide, config)
+            moveBallTo(level, resolvedBallPos)
         }
         val taker = pickTaker(server, awardedTeam, resolvedBallPos, preferredTakerUuid)
         SetPieceState.begin(
@@ -72,5 +75,11 @@ object FreeKickSetPieceFlow {
             }
         }
         return ThrowInSetPieceFlow.pickThrowInTaker(server, team, ballPos)
+    }
+
+    private fun moveBallTo(level: ServerLevel, pos: Vec3) {
+        val all = AABB(Vec3(-3.0E7, -3.0E7, -3.0E7), Vec3(3.0E7, 3.0E7, 3.0E7))
+        level.getEntitiesOfClass(Football::class.java, all).firstOrNull()
+            ?.teleportBall(pos.x, pos.y, pos.z)
     }
 }
