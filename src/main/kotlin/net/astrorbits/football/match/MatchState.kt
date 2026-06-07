@@ -393,6 +393,9 @@ object MatchState {
                 return true
             }
         }
+        if (SetPieceRestrictionCoordinator.allowsFreeKickDefendingGoalkeeperHoldAction(player, action)) {
+            return false
+        }
         val phaseActive = KickoffLock.isKickoffPhaseActive(kickoffTeam, kickoffTouched, kickoffTimerStartMs)
         val elapsed = if (phaseActive) System.currentTimeMillis() - kickoffTimerStartMs else 0L
         return KickoffLock.isPlayerLocked(
@@ -508,7 +511,7 @@ object MatchState {
         }
         val server = player.level().server
         when (SetPieceState.active?.kind) {
-            SetPieceKind.CENTER_KICKOFF, SetPieceKind.CORNER_KICK -> {
+            SetPieceKind.CENTER_KICKOFF, SetPieceKind.CORNER_KICK, SetPieceKind.FREE_KICK -> {
                 SetPieceState.clear()
                 FootballNetworking.broadcastSetPieceState(server)
             }

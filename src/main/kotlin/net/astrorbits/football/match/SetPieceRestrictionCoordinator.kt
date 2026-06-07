@@ -4,6 +4,12 @@ import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.util.GoalkeeperUtil
 import net.minecraft.server.level.ServerPlayer
 
+private val FREE_KICK_DEFENDING_GK_HOLD_ACTIONS = setOf(
+    FootballActionType.GK_THROW_SHORT,
+    FootballActionType.GK_THROW_LONG,
+    FootballActionType.GK_DROP,
+)
+
 /**
  * 定位球期间硬性操作限制的统一裁决（服务端权威；客户端镜像见 [net.astrorbits.football.client.SetPieceClient]）。
  */
@@ -50,6 +56,25 @@ object SetPieceRestrictionCoordinator {
         val ctx = SetPieceState.active ?: return false
         if (ctx.kind != SetPieceKind.GOAL_KICK) return false
         return ctx.goalKickPhase == GoalKickPhase.PLACING && player.uuid == ctx.goalKickPickerUuid
+    }
+
+    /** 对方任意球期间，防守方门将已持球（扑救/摘球后需手抛或放下）。 */
+    fun isFreeKickDefendingGoalkeeperHolding(player: ServerPlayer): Boolean {
+        if (!isFreeKickDefendingGoalkeeper(player)) return false
+        return GoalkeeperUtil.findHeldFootball(player) != null
+    }
+
+    fun allowsFreeKickDefendingGoalkeeperHoldAction(player: ServerPlayer, action: FootballActionType?): Boolean {
+        if (!isFreeKickDefendingGoalkeeperHolding(player)) return false
+        return action == null || action in FREE_KICK_DEFENDING_GK_HOLD_ACTIONS
+    }
+
+    private fun isFreeKickDefendingGoalkeeper(player: ServerPlayer): Boolean {
+        val ctx = SetPieceState.active ?: return false
+        if (ctx.kind != SetPieceKind.FREE_KICK) return false
+        if (!PlayerRoleState.isGoalkeeper(player)) return false
+        val team = MatchState.getPlayerTeam(player.uuid) ?: return false
+        return team != ctx.restartTeam
     }
 
     /** 开球锁定期内，发球方仅允许传球开球（界外球除外）。 */
@@ -118,7 +143,7 @@ object SetPieceRestrictionCoordinator {
             }
             GoalKickPhase.PLACING -> {
                 if (player.uuid == ctx.goalKickPickerUuid) {
-                    return action != FootballActionType.GK_DROP
+                    return action != null && action != FootballActionType.GK_DROP
                 }
                 return true
             }

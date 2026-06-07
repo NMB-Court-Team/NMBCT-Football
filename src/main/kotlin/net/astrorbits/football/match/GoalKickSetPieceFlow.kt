@@ -90,8 +90,8 @@ object GoalKickSetPieceFlow {
         if (ctx.kind != SetPieceKind.GOAL_KICK) return true
         if (ctx.goalKickPhase != GoalKickPhase.PLACING) return true
         if (player.uuid != ctx.goalKickPickerUuid) return true
-        val defending = ctx.defendingSide ?: return false
-        return MatchFieldAreaUtil.isPlayerInGoalArea(player, defending)
+        val goalAreaSide = ctx.defendingSide ?: ctx.restartTeam
+        return MatchFieldAreaUtil.isPlayerInGoalArea(player, goalAreaSide)
     }
 
     fun clear(server: MinecraftServer?) {

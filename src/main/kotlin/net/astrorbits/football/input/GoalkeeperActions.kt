@@ -4,6 +4,7 @@ import net.astrorbits.football.Football
 import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.config.FootballConfigs
+import net.astrorbits.football.match.FreeKickSetPieceFlow
 import net.astrorbits.football.match.GoalKickSetPieceFlow
 import net.astrorbits.football.match.GoalkeeperCatchFoulDetector
 import net.astrorbits.football.match.SetPieceRestrictionCoordinator
@@ -156,6 +157,7 @@ object GoalkeeperActions {
                     FootballSounds.playGkThrow(player)
                     lastActionTick[player.uuid] = now
                     ThrowInSetPieceFlow.onBallThrown(player)
+                    FreeKickSetPieceFlow.onDefendingGoalkeeperDistributed(player)
                 }
             }
             FootballActionType.GK_THROW_LONG -> {
@@ -180,11 +182,16 @@ object GoalkeeperActions {
                     FootballSounds.playGkThrow(player)
                     lastActionTick[player.uuid] = now
                     ThrowInSetPieceFlow.onBallThrown(player)
+                    FreeKickSetPieceFlow.onDefendingGoalkeeperDistributed(player)
                 }
             }
             FootballActionType.GK_DROP -> {
                 if (football.isPlayerBallMovementForbidden(player) &&
-                    !SetPieceRestrictionCoordinator.allowsGoalKickDrop(player)
+                    !SetPieceRestrictionCoordinator.allowsGoalKickDrop(player) &&
+                    !SetPieceRestrictionCoordinator.allowsFreeKickDefendingGoalkeeperHoldAction(
+                        player,
+                        FootballActionType.GK_DROP,
+                    )
                 ) {
                     return
                 }
@@ -194,6 +201,7 @@ object GoalkeeperActions {
                 FootballSounds.playGkCatch(player, 0.0)
                 lastActionTick[player.uuid] = now
                 GoalKickSetPieceFlow.onBallDropped(player)
+                FreeKickSetPieceFlow.onDefendingGoalkeeperDistributed(player)
             }
             else -> Unit
         }

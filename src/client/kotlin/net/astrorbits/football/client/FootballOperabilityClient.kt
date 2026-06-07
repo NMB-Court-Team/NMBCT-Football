@@ -160,16 +160,19 @@ object FootballOperabilityClient {
             }
         }
 
+        val freeKickGkHolding = isFreeKickDefendingGoalkeeperHolding(player)
         if (holdingBall) {
             return when (key) {
                 FootballKeyBindings.GK_DIVE ->
-                    !kickoffLocked && GoalkeeperHoldActionPermissionsClient.canThrow &&
+                    (freeKickGkHolding || !kickoffLocked) && GoalkeeperHoldActionPermissionsClient.canThrow &&
                         (!GoalkeeperStateClient.isHoldReleaseLocked() || throwInTaker) &&
                         (canGk || throwInTaker)
                 FootballKeyBindings.GK_CATCH ->
                     GoalkeeperHoldActionPermissionsClient.canDrop &&
                         (!GoalkeeperStateClient.isHoldReleaseLocked() || throwInTaker) &&
-                        (canUseGoalKickDrop(player) || (!kickoffLocked && canGk && !throwInTaker))
+                        (canUseGoalKickDrop(player) ||
+                            freeKickGkHolding ||
+                            (!kickoffLocked && canGk && !throwInTaker))
                 FootballKeyBindings.BOOST_SPRINT -> player.isSprinting && StaminaClient.stamina > 0f
                 FootballKeyBindings.INTERRUPT_CHARGE -> FootballInputHandler.isAnyChargeActive()
                 FootballKeyBindings.LOOK_AROUND -> true
@@ -237,10 +240,20 @@ object FootballOperabilityClient {
         }
     }
 
-    private fun canUseGoalKickDrop(player: LocalPlayer): Boolean =
-        SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
-            SetPieceClient.goalKickPhase == GoalKickPhase.PLACING &&
-            SetPieceClient.goalKickPickerUuid == player.uuid
+    private fun canUseGoalKickDrop(player: LocalPlayer): Boolean {
+        if (SetPieceClient.kind != SetPieceKind.GOAL_KICK) return false
+        if (SetPieceClient.goalKickPhase != GoalKickPhase.PLACING) return false
+        if (SetPieceClient.goalKickPickerUuid != player.uuid) return false
+        val goalAreaSide = SetPieceClient.defendingSide ?: SetPieceClient.restartTeam ?: return false
+        return MatchFieldAreaUtil.isPlayerInGoalArea(player, goalAreaSide)
+    }
+
+    private fun isFreeKickDefendingGoalkeeperHolding(player: LocalPlayer): Boolean {
+        if (SetPieceClient.kind != SetPieceKind.FREE_KICK) return false
+        if (!GoalkeeperStateClient.isHoldingBall) return false
+        if (!GoalkeeperStateClient.isGoalkeeper) return false
+        return SetPieceClient.restartTeam != localPlayerTeam(player)
+    }
 
     fun isThrowInTaker(player: LocalPlayer): Boolean =
         SetPieceClient.kind == SetPieceKind.THROW_IN &&

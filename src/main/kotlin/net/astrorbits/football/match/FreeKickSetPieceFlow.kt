@@ -1,6 +1,7 @@
 package net.astrorbits.football.match
 
 import net.astrorbits.football.Football
+import net.astrorbits.football.input.GoalkeeperHoldActionPermissions
 import net.astrorbits.football.network.FootballNetworking
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
@@ -48,7 +49,17 @@ object FreeKickSetPieceFlow {
             SetPieceTakerPlacement.teleportPlayer(level, player, stand, yaw)
         }
         SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
+        resetHoldPermissions(server)
         FootballNetworking.broadcastSetPieceState(server)
+    }
+
+    fun onDefendingGoalkeeperDistributed(player: ServerPlayer) {
+        val ctx = SetPieceState.active ?: return
+        if (ctx.kind != SetPieceKind.FREE_KICK) return
+        val team = MatchState.getPlayerTeam(player.uuid) ?: return
+        if (team == ctx.restartTeam) return
+        val server = player.level().server
+        clear(server)
     }
 
     fun clear(server: MinecraftServer) {
@@ -75,6 +86,14 @@ object FreeKickSetPieceFlow {
             }
         }
         return ThrowInSetPieceFlow.pickThrowInTaker(server, team, ballPos)
+    }
+
+    private fun resetHoldPermissions(server: MinecraftServer) {
+        for (player in server.playerList.players) {
+            if (MatchParticipation.isParticipating(player)) {
+                GoalkeeperHoldActionPermissions.resetToDefaults(player)
+            }
+        }
     }
 
     private fun moveBallTo(level: ServerLevel, pos: Vec3) {

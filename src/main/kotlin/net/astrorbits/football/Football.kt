@@ -126,6 +126,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             // 界外球主罚员：踢球层放开（掷出与否由 GoalkeeperActions / allowsThrowAction 把关）
             if (ThrowInSetPieceFlow.isMovementFrozen(player)) return false
             if (SetPieceRestrictionCoordinator.isPlayerBallMovementForbidden(player)) return true
+            if (SetPieceRestrictionCoordinator.isFreeKickDefendingGoalkeeperHolding(player)) return false
             if (MatchState.isKickoffInteractionLocked(player)) return true
         }
         return false
@@ -1565,7 +1566,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         updateHeldOrientation(player)
         syncPhysicsToEntityData()
         syncPacketPositionCodec(x, y, z)
-        if (!throwInHoldAllowed) {
+        if (!throwInHoldAllowed && !goalKickCatchAllowed) {
             GoalkeeperHoldLock.beginLock(player, level().gameTime)
         }
     }
