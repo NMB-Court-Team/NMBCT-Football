@@ -23,6 +23,7 @@ object SetPiecePlayerRepositioner {
                 SetPieceKind.CORNER_KICK -> cornerKickTarget(player, team, context)
                 SetPieceKind.THROW_IN -> throwInTarget(player, team, context)
                 SetPieceKind.PENALTY_KICK -> penaltyKickTarget(player, context)
+                SetPieceKind.FREE_KICK -> freeKickTarget(player, team, context)
                 SetPieceKind.NONE -> null
             } ?: continue
             teleportHorizontally(player, target)
@@ -79,6 +80,41 @@ object SetPiecePlayerRepositioner {
             val goal = MatchFieldAreaUtil.goalForSide(MatchConfigHolder.current, defending)
             val spot = goal.resolvedPenaltySpot()
             return outsideCirclePosition(player, Vec3(spot.x, player.y, spot.z), goal.halfArea.penaltyArcRadius)
+        }
+        return null
+    }
+
+    private fun freeKickTarget(player: ServerPlayer, team: TeamSide, context: SetPieceContext): Vec3? {
+        if (MatchState.kickoffTouched) return null
+        if (team == context.restartTeam) return null
+        if (player.uuid == context.freeKickTakerUuid) return null
+        if (PlayerRoleState.isGoalkeeper(player)) return null
+
+        val ballPos = context.ballPos
+        val restartTeam = context.restartTeam
+        val defending = context.defendingSide ?: restartTeam.opponent()
+        val config = MatchConfigHolder.current
+
+        // 球在进攻方大禁区：防守方须出 PA 且距球 ≥10 格
+        if (MatchFieldAreaUtil.isBallInPenaltyArea(restartTeam, ballPos)) {
+            if (MatchFieldAreaUtil.isPlayerInPenaltyArea(player, restartTeam)) {
+                return outsidePenaltyAreaPosition(player, restartTeam)
+            }
+            if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
+                return outsideCirclePosition(player, ballPos, config.freeKickDistanceRadius)
+            }
+        }
+        // 球在防守方大禁区（间接）：仅 10 格
+        else if (MatchFieldAreaUtil.isBallInPenaltyArea(defending, ballPos)) {
+            if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
+                return outsideCirclePosition(player, ballPos, config.freeKickDistanceRadius)
+            }
+        }
+        // 禁区外：防守方距球 ≥10 格
+        else if (team == defending &&
+            MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)
+        ) {
+            return outsideCirclePosition(player, ballPos, config.freeKickDistanceRadius)
         }
         return null
     }
