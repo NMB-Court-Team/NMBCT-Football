@@ -907,6 +907,12 @@ object MatchState {
             syncPlayerTeamsToClients(server)
             PenaltyShootoutState.start(server)
         }
+        if (server != null &&
+            (phase == MatchPhase.SECOND_HALF || phase == MatchPhase.EXTRA_FIRST || phase == MatchPhase.EXTRA_SECOND)
+        ) {
+            FootballNetworking.triggerHalfKickoff(server, matchFieldLevel(server))
+            FootballNetworking.syncTimerToClients(server)
+        }
     }
 
     /** 根据当前阶段和配置自动判断下一步应该进入什么阶段 */

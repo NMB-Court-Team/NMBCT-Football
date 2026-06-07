@@ -2,7 +2,6 @@ package net.astrorbits.football.client.match
 
 import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.MatchState
-import net.astrorbits.football.network.HalfKickoffRequestC2SPayload
 import net.astrorbits.football.network.MatchResultRequestC2SPayload
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
@@ -20,8 +19,7 @@ object MatchStateClient {
         // 进入新半场时终止未完成的开球计时（防止旧计时器在下一半场继续累积）
         if (phase != prevPhase) {
             if (phase == MatchPhase.SECOND_HALF || phase == MatchPhase.EXTRA_FIRST || phase == MatchPhase.EXTRA_SECOND) {
-                MatchStartClient.cancelKickoff()
-                ClientPlayNetworking.send(HalfKickoffRequestC2SPayload.INSTANCE)
+                MatchStartClient.prepareForHalfTransition()
             }
             // 比赛结算：取消所有锁定
             if (phase == MatchPhase.FINISHED) {

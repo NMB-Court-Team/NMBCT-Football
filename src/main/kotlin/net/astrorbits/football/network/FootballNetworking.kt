@@ -247,7 +247,8 @@ object FootballNetworking {
     }
 
     /** 进入新半场时广播半场开球 HUD 并吹 whistle_1（不含上半场——上半场走开场开球 MatchStart）。 */
-    fun triggerHalfKickoff(server: MinecraftServer, level: ServerLevel) {
+    fun triggerHalfKickoff(server: MinecraftServer, level: ServerLevel? = null) {
+        val fieldLevel = level ?: MatchState.matchFieldLevel(server)
         val ms = MatchState
         if (ms.halfKickoffBroadcasted) return
         val phaseKey = when (ms.currentPhase) {
@@ -262,7 +263,7 @@ object FootballNetworking {
         ms.lastHalfKickoffTeam = kickoffTeam
         ms.kickoffTeam = kickoffTeam
         ms.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.HALF)
-        ms.resetFootball(level)
+        ms.resetFootball(fieldLevel)
         val kickPos = MatchConfigHolder.current.kickOff.let { net.minecraft.world.phys.Vec3(it.x, it.y, it.z) }
         SetPieceBootstrap.onCenterKickoffBegin(kickoffTeam, kickPos, server)
         broadcastSetPieceState(server)

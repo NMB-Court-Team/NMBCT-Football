@@ -139,6 +139,22 @@ object MatchStartClient {
         lastStoppageTickMs = 0L
     }
 
+    /**
+     * 进入新半场时清理上一半场的开球状态。
+     * 若 [HalfKickoffS2CPayload] 已先到达（[halfKickoffActive]），不得将 [kickoffTouched] 置 true，
+     * 否则会抑制半场开球粒子与锁定 HUD。
+     */
+    fun prepareForHalfTransition() {
+        if (!halfKickoffActive) {
+            startTimeMs = 0L
+            kickoffTouched = true
+            isPostGoal = false
+            isGoalLineOut = false
+        }
+        kickoffStartMs = 0L
+        lastStoppageTickMs = 0L
+    }
+
     val elapsedMs: Long get() = if (startTimeMs > 0) System.currentTimeMillis() - startTimeMs else 0L
     fun reset() {
         startTimeMs = 0L
