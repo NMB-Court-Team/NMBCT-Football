@@ -69,28 +69,29 @@ object SetPieceRestrictionCoordinator {
                     if (ctx.goalKickPhase == GoalKickPhase.PLACED &&
                         player.uuid == ctx.goalKickPickerUuid
                     ) {
-                        return true
+                        return isKickOpenBlocked(action)
                     }
                     return false
                 }
                 SetPieceKind.CORNER_KICK -> {
-                    if (player.uuid == ctx.cornerKickTakerUuid) return true
+                    if (player.uuid == ctx.cornerKickTakerUuid) return isKickOpenBlocked(action)
                     return false
                 }
                 SetPieceKind.FREE_KICK -> {
-                    if (player.uuid == ctx.freeKickTakerUuid) return true
+                    if (player.uuid == ctx.freeKickTakerUuid) return isKickOpenBlocked(action)
                     return false
                 }
-                SetPieceKind.CENTER_KICKOFF -> return true
+                SetPieceKind.CENTER_KICKOFF -> return isKickOpenBlocked(action)
                 else -> Unit
             }
         }
-        if (ctx == null && kickoffTeam == team) return true
+        if (ctx == null && kickoffTeam == team) return isKickOpenBlocked(action)
         return false
     }
 
-    private fun isPassOnlyBlocked(action: FootballActionType?): Boolean =
-        action != null && action != FootballActionType.PASS
+    /** 定位球开球：轻触 PASS、蓄力 SHOOT；禁止带球/挑球等。 */
+    private fun isKickOpenBlocked(action: FootballActionType?): Boolean =
+        action != null && action != FootballActionType.PASS && action != FootballActionType.SHOOT
 
     private fun isGoalKickBlocked(
         player: ServerPlayer,
@@ -123,7 +124,7 @@ object SetPieceRestrictionCoordinator {
             }
             GoalKickPhase.PLACED -> {
                 if (player.uuid == ctx.goalKickPickerUuid) {
-                    return isPassOnlyBlocked(action)
+                    return isKickOpenBlocked(action)
                 }
                 if (team == ctx.restartTeam) {
                     return true
@@ -162,7 +163,7 @@ object SetPieceRestrictionCoordinator {
     ): Boolean {
         if (MatchState.kickoffTouched) return false
         if (player.uuid == ctx.cornerKickTakerUuid) {
-            return isPassOnlyBlocked(action)
+            return isKickOpenBlocked(action)
         }
         if (team == ctx.restartTeam) return true
         return false
@@ -176,7 +177,7 @@ object SetPieceRestrictionCoordinator {
     ): Boolean {
         if (MatchState.kickoffTouched) return false
         if (player.uuid == ctx.freeKickTakerUuid) {
-            return isPassOnlyBlocked(action)
+            return isKickOpenBlocked(action)
         }
         if (team == ctx.restartTeam) return true
         return false
@@ -190,7 +191,7 @@ object SetPieceRestrictionCoordinator {
     ): Boolean {
         if (MatchState.kickoffTouched) return false
         if (team == ctx.restartTeam) {
-            return isPassOnlyBlocked(action)
+            return isKickOpenBlocked(action)
         }
         return false
     }

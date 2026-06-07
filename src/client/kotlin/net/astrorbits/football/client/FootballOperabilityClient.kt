@@ -51,6 +51,20 @@ object FootballOperabilityClient {
         return SetPieceClient.penaltyKickPhase == PenaltyKickPhase.AWAITING_KICK
     }
 
+    /** 定位球主罚待开球（轻触传球 / 蓄力射门）。 */
+    fun isSetPieceKickTakerAwaitingKick(player: LocalPlayer): Boolean {
+        if (MatchStartClient.kickoffTouched) return false
+        if (SetPieceClient.restartTeam != MatchStartClient.playerTeam) return false
+        return when (SetPieceClient.kind) {
+            SetPieceKind.FREE_KICK -> player.uuid == SetPieceClient.freeKickTakerUuid
+            SetPieceKind.CORNER_KICK -> player.uuid == SetPieceClient.cornerKickTakerUuid
+            SetPieceKind.GOAL_KICK ->
+                SetPieceClient.goalKickPhase == GoalKickPhase.PLACED &&
+                    player.uuid == SetPieceClient.goalKickPickerUuid
+            else -> false
+        }
+    }
+
     private fun isPenaltyShootoutDefendingGoalkeeper(player: LocalPlayer): Boolean {
         if (MatchState.currentPhase != MatchPhase.PENALTIES || !PenaltyShootoutClient.active) {
             return false
@@ -286,6 +300,7 @@ object FootballOperabilityClient {
             FootballKeyBindings.KICK,
             FootballKeyBindings.BOOST_SPRINT,
             FootballKeyBindings.LOOK_AROUND,
+            FootballKeyBindings.INTERRUPT_CHARGE,
         )
         val teammateIdleAllowed = setOf(
             FootballKeyBindings.BOOST_SPRINT,

@@ -634,6 +634,9 @@ object FootballInputHandler {
             if (!FootballOperabilityClient.isPenaltyKickerAwaitingKick(player)) return false
             if (action != FootballActionType.PASS && action != FootballActionType.SHOOT) return false
         }
+        if (FootballOperabilityClient.isSetPieceKickTakerAwaitingKick(player)) {
+            if (action != FootballActionType.PASS && action != FootballActionType.SHOOT) return false
+        }
         if (action == FootballActionType.DRIBBLE_HOLD) {
             return !FootballOperabilityClient.isPenaltyKicker(player)
         }
