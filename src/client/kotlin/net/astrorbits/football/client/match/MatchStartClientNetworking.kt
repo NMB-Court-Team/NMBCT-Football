@@ -102,6 +102,7 @@ object MatchStartClientNetworking {
         }
         ClientPlayNetworking.registerGlobalReceiver(GoalLineOutS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
+                SetPiecePendingRestart.fromGoalLineOut(payload.outType, payload.restartTeam)
                 GoalLineOutClient.show(
                     payload.outType,
                     payload.restartTeam,
