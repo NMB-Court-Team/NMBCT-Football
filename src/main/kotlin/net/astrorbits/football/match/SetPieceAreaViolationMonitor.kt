@@ -274,12 +274,17 @@ object SetPieceAreaViolationMonitor {
         when (type) {
             SetPieceAreaViolationType.GK_HOLD_OUTSIDE_PENALTY_AREA -> {
                 val team = MatchState.getPlayerTeam(player.uuid) ?: return
-                val boundary = MatchFieldAreaUtil.nearestPenaltyAreaBoundary(team, player.x, player.z)
                 val level = player.level()
-                GoalkeeperUtil.findHeldFootball(player)?.releaseHold()
+                val football = GoalkeeperUtil.findHeldFootball(player)
+                val foulPos = if (football != null) {
+                    Vec3(football.x, football.y, football.z)
+                } else {
+                    Vec3(player.x, player.y, player.z)
+                }
+                football?.releaseHold()
                 FreeKickAwards.awardDirectFreeKick(
                     level,
-                    boundary,
+                    foulPos,
                     team,
                     player.uuid,
                     FreeKickFoulReason.GOALKEEPER_LEFT_PENALTY_AREA,

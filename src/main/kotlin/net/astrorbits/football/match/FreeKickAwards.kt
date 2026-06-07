@@ -61,6 +61,7 @@ object FreeKickAwards {
         MatchState.postGoalResetPending = true
 
         if (type == FreeKickType.DIRECT &&
+            foulReason != FreeKickFoulReason.GOALKEEPER_LEFT_PENALTY_AREA &&
             MatchFieldAreaUtil.isInPenaltyArea(config, foulingTeam, ballPos.x, ballPos.z)
         ) {
             val goal = MatchFieldAreaUtil.goalForSide(config, foulingTeam)
