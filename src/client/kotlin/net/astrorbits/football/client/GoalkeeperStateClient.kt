@@ -12,19 +12,17 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.player.LocalPlayer
 
 object GoalkeeperStateClient {
-    private const val MS_PER_TICK = 50L
-
     var isGoalkeeper: Boolean = false
         private set
 
     var isHoldingBall: Boolean = false
         private set
 
-    /** 释放锁定结束时的世界 gameTime（含），0 表示无锁定。 */
-    private var holdReleaseLockEndGameTime: Long = 0L
+    /** 释放锁定开始时的世界 gameTime。 */
+    private var holdReleaseLockStartGameTime: Long = 0L
 
-    /** 释放锁定结束时的墙钟时间（毫秒），供 HUD 每帧平滑采样。 */
-    private var holdReleaseLockEndWallMs: Long = 0L
+    /** 释放锁定结束时的世界 gameTime（不含），0 表示无锁定。 */
+    private var holdReleaseLockEndGameTime: Long = 0L
 
     private var wasHoldingBall: Boolean = false
 
@@ -59,34 +57,24 @@ object GoalkeeperStateClient {
     fun holdReleaseLockRatio(): Float = holdReleaseLockRatio(partialTick = 0f)
 
     fun holdReleaseLockRatio(partialTick: Float): Float {
-        if (GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS <= 0) {
+        val level = Minecraft.getInstance().level ?: return 0f
+        val total = holdReleaseLockEndGameTime - holdReleaseLockStartGameTime
+        if (total <= 0L) {
             return 0f
         }
-        val level = Minecraft.getInstance().level ?: return 0f
         val remaining = holdReleaseLockEndGameTime - level.gameTime - partialTick
         if (remaining <= 0f) {
             return 0f
         }
-        return (
-            remaining / GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS.toFloat()
-            ).coerceIn(0f, 1f)
+        return (remaining / total.toFloat()).coerceIn(0f, 1f)
     }
 
-    /** 基于墙钟的剩余锁定比例，供 HUD 每帧采样。 */
-    fun liveHoldReleaseLockRatio(): Float {
-        if (GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS <= 0) {
-            return 0f
-        }
-        val endWallMs = holdReleaseLockEndWallMs
-        if (endWallMs <= 0L) {
-            return 0f
-        }
-        val totalMs = GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS * MS_PER_TICK
-        val remainingMs = endWallMs - System.currentTimeMillis()
-        if (remainingMs <= 0L) {
-            return 0f
-        }
-        return (remainingMs.toFloat() / totalMs.toFloat()).coerceIn(0f, 1f)
+    /** 供 HUD 每帧采样（与服务端 tick 对齐，可用 partialTick 平滑）。 */
+    fun liveHoldReleaseLockRatio(partialTick: Float = 0f): Float = holdReleaseLockRatio(partialTick)
+
+    fun holdReleaseLockTotalTicks(): Int {
+        val total = holdReleaseLockEndGameTime - holdReleaseLockStartGameTime
+        return total.coerceAtLeast(1L).toInt()
     }
 
     private fun applyHoldReleaseLock(lockTicksRemaining: Int) {
@@ -95,11 +83,9 @@ object GoalkeeperStateClient {
             clearHoldReleaseLock()
             return
         }
-        val endTime = level.gameTime + lockTicksRemaining
-        if (endTime > holdReleaseLockEndGameTime) {
-            holdReleaseLockEndGameTime = endTime
-            holdReleaseLockEndWallMs = System.currentTimeMillis() + lockTicksRemaining * MS_PER_TICK
-        }
+        val now = level.gameTime
+        holdReleaseLockStartGameTime = now
+        holdReleaseLockEndGameTime = now + lockTicksRemaining
     }
 
     private fun updateHoldingState(player: LocalPlayer?) {
@@ -131,34 +117,26 @@ object GoalkeeperStateClient {
         isHoldingBall = holding
     }
 
-    /** 鱼跃摘球等场景下实体同步可能晚于 S2C，本地先预测锁定避免保护被误清。 */
+    /** 鱼跃摘球等场景下实体同步可能晚于 S2C；仅在尚无服务端窗口时做短预测。 */
     private fun predictHoldReleaseLock(now: Long) {
-        if (GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS <= 0) {
+        val ticks = GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS
+        if (ticks <= 0 || holdReleaseLockEndGameTime > now) {
             return
         }
-        val predictedEnd = now + GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS
-        if (predictedEnd > holdReleaseLockEndGameTime) {
-            holdReleaseLockEndGameTime = predictedEnd
-            holdReleaseLockEndWallMs = System.currentTimeMillis() +
-                GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS * MS_PER_TICK
-        }
+        holdReleaseLockStartGameTime = now
+        holdReleaseLockEndGameTime = now + ticks
     }
 
     private fun expireHoldReleaseLockIfNeeded() {
-        val level = Minecraft.getInstance().level
-        val wallExpired = holdReleaseLockEndWallMs > 0L &&
-            System.currentTimeMillis() >= holdReleaseLockEndWallMs
-        val tickExpired = level != null &&
-            holdReleaseLockEndGameTime > 0L &&
-            level.gameTime >= holdReleaseLockEndGameTime
-        if (wallExpired || tickExpired) {
+        val level = Minecraft.getInstance().level ?: return
+        if (holdReleaseLockEndGameTime > 0L && level.gameTime >= holdReleaseLockEndGameTime) {
             clearHoldReleaseLock()
         }
     }
 
     private fun clearHoldReleaseLock() {
+        holdReleaseLockStartGameTime = 0L
         holdReleaseLockEndGameTime = 0L
-        holdReleaseLockEndWallMs = 0L
     }
 
     private fun resetHoldState() {

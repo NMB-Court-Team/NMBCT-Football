@@ -1,7 +1,6 @@
 package net.astrorbits.football.client.render
 
 import net.astrorbits.football.client.GoalkeeperStateClient
-import net.astrorbits.football.input.GoalkeeperInputConfig
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
@@ -19,7 +18,7 @@ class GoalkeeperHoldLockHudElement : HudElement {
             return
         }
 
-        val ratio = GoalkeeperStateClient.liveHoldReleaseLockRatio()
+        val ratio = GoalkeeperStateClient.liveHoldReleaseLockRatio(delta.getGameTimeDeltaTicks(false))
         if (ratio <= 0f) {
             return
         }
@@ -48,7 +47,7 @@ class GoalkeeperHoldLockHudElement : HudElement {
             extra.fill(x, y, x + fillW, y + barH, fillColor)
         }
 
-        val secondsLeft = (ratio * GoalkeeperInputConfig.GK_HOLD_RELEASE_LOCK_TICKS / 20f)
+        val secondsLeft = ratio * GoalkeeperStateClient.holdReleaseLockTotalTicks() / 20f
         val timeText = String.format("%.1fs", secondsLeft)
         val timeW = font.width(timeText)
         extra.text(font, timeText, width / 2 - timeW / 2, y + barH + 2, TIME_COLOR, true)
