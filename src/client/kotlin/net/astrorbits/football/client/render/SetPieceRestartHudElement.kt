@@ -24,6 +24,8 @@ class SetPieceRestartHudElement : HudElement {
             SetPieceRestartKind.GOAL_KICK -> "hud.nmbct-football.restart.goal_kick"
             SetPieceRestartKind.CORNER_KICK -> "hud.nmbct-football.restart.corner_kick"
             SetPieceRestartKind.THROW_IN -> "hud.nmbct-football.restart.throw_in"
+            SetPieceRestartKind.FREE_KICK -> "hud.nmbct-football.restart.free_kick"
+            SetPieceRestartKind.PENALTY_KICK -> "hud.nmbct-football.restart.penalty_kick"
         }
         val restartName = MatchHudTeams.name(SetPieceRestartClient.restartTeam)
         val restartLine = Component.translatable("hud.nmbct-football.free_kick.restart", restartName).string

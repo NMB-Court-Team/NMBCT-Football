@@ -7,6 +7,7 @@ enum class FreeKickFoulReason {
     OFFSIDE,
     GOALKEEPER_LEFT_PENALTY_AREA,
     SLIDE_TACKLE_IN_PENALTY_AREA,
+    SECOND_TOUCH,
     ;
 
     companion object {

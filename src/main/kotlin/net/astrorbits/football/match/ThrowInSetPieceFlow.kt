@@ -100,6 +100,7 @@ object ThrowInSetPieceFlow {
             takerUuid = player.uuid,
             expireTick = player.level().gameTime + FOUL_THROW_WATCH_TICKS,
         )
+        SecondTouchTracker.begin(ctx.restartTeam, player.uuid, SetPieceKind.THROW_IN)
         clear(player.level().server)
         MatchState.notifyKickoffBallTouched(player)
     }

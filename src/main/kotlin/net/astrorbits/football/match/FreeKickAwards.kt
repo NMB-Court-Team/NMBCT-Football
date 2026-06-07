@@ -45,28 +45,66 @@ object FreeKickAwards {
         if (MatchState.postGoalResetPending) return false
         if (MatchState.getPlayerTeam(foulingPlayerUuid) != foulingTeam) return false
 
+        val config = MatchConfigHolder.current
+        val awardedTeam = foulingTeam.opponent()
+        val server = level.server ?: return false
+
         MatchState.clearPendingGoalLineOut()
         MatchState.clearDirectGoalRestriction()
         MatchState.clearPendingOffsideSnapshot()
+        SecondTouchTracker.clear()
         SetPieceState.clear()
-        GoalKickSetPieceFlow.clear(level.server)
-        ThrowInSetPieceFlow.clear(level.server)
+        GoalKickSetPieceFlow.clear(server)
+        ThrowInSetPieceFlow.clear(server)
+        FreeKickSetPieceFlow.clear(server)
+        SetPieceAreaViolationMonitor.clearAll(server)
         MatchState.postGoalResetPending = true
 
-        val awardedTeam = foulingTeam.opponent()
+        if (type == FreeKickType.DIRECT &&
+            MatchFieldAreaUtil.isInPenaltyArea(config, foulingTeam, ballPos.x, ballPos.z)
+        ) {
+            val goal = MatchFieldAreaUtil.goalForSide(config, foulingTeam)
+            val spot = goal.resolvedPenaltySpot()
+            val penaltyBallPos = Vec3(spot.x, spot.y, spot.z)
+            PostGoalBallResetScheduler.schedule(
+                level,
+                penaltyBallPos,
+                PendingAfterReset.MatchPenaltyKick(
+                    kickoffTeam = awardedTeam,
+                    defendingTeam = foulingTeam,
+                    preferredKickerUuid = null,
+                    lastTouchPlayerUuid = foulingPlayerUuid,
+                ),
+            )
+            FootballNetworking.broadcastFreeKickAward(
+                server,
+                FreeKickType.PENALTY,
+                foulReason,
+                foulingTeam,
+                awardedTeam,
+                foulingPlayerUuid,
+                penaltyBallPos.x,
+                penaltyBallPos.y,
+                penaltyBallPos.z,
+            )
+            return true
+        }
+
         PostGoalBallResetScheduler.schedule(
             level,
             ballPos,
-            PendingAfterReset.GoalLineOut(
+            PendingAfterReset.FreeKick(
                 kickoffTeam = awardedTeam,
                 ballPos = ballPos,
-                throwInDirectGoalRestrict = type == FreeKickType.INDIRECT,
+                freeKickType = type,
+                preferredTakerUuid = null,
                 lastTouchPlayerUuid = foulingPlayerUuid,
+                foulPos = ballPos,
             ),
         )
 
         FootballNetworking.broadcastFreeKickAward(
-            level.server ?: return false,
+            server,
             type,
             foulReason,
             foulingTeam,

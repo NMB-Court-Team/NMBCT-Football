@@ -12,6 +12,7 @@ enum class SetPieceKind {
     CORNER_KICK,
     THROW_IN,
     PENALTY_KICK,
+    FREE_KICK,
     ;
 
     companion object {
@@ -41,6 +42,8 @@ enum class SetPieceRestartKind {
     GOAL_KICK,
     CORNER_KICK,
     THROW_IN,
+    FREE_KICK,
+    PENALTY_KICK,
     ;
 
     companion object {
@@ -61,6 +64,9 @@ data class SetPieceContext(
     val goalKickPickerUuid: UUID? = null,
     val cornerPos: Vec3? = null,
     val cornerKickTakerUuid: UUID? = null,
+    val freeKickType: FreeKickType? = null,
+    val freeKickTakerUuid: UUID? = null,
+    val foulPos: Vec3? = null,
 )
 
 object SetPieceState {

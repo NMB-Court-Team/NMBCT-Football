@@ -527,7 +527,7 @@ object FootballNetworking {
 
     fun broadcastGoalLineOut(
         server: MinecraftServer,
-        outType: net.astrorbits.football.match.GoalLineOutType,
+        outType: GoalLineOutType,
         restartTeam: TeamSide,
         ballX: Double,
         ballY: Double,
@@ -675,7 +675,7 @@ object FootballNetworking {
         ServerPlayNetworking.send(player, SetPieceAreaViolationS2CPayload(areaNameKey, secondsRemaining))
     }
 
-    fun broadcastSetPieceRestart(server: MinecraftServer, kind: net.astrorbits.football.match.SetPieceRestartKind, restartTeam: TeamSide) {
+    fun broadcastSetPieceRestart(server: MinecraftServer, kind: SetPieceRestartKind, restartTeam: TeamSide) {
         val payload = SetPieceRestartS2CPayload(kind, restartTeam)
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
@@ -694,7 +694,7 @@ object FootballNetworking {
     }
 
     private fun buildSetPieceStatePayload(): SetPieceStateS2CPayload {
-        val ctx = net.astrorbits.football.match.SetPieceState.active
+        val ctx = SetPieceState.active
         if (ctx == null) {
             return SetPieceStateS2CPayload.CLEAR
         }
@@ -713,12 +713,15 @@ object FootballNetworking {
             goalKickPhase = ctx.goalKickPhase,
             goalKickPickerUuid = ctx.goalKickPickerUuid,
             throwInTakerUuid = ctx.throwInTakerUuid,
-            movementFrozen = ctx.kind == net.astrorbits.football.match.SetPieceKind.THROW_IN &&
+            movementFrozen = ctx.kind == SetPieceKind.THROW_IN &&
                 ctx.throwInTakerUuid != null,
             ballPos = ctx.ballPos,
             defendingSide = ctx.defendingSide,
             penaltyKickerUuid = penaltyKickerUuid,
             penaltyKickPhase = penaltyKickPhase,
+            freeKickType = ctx.freeKickType,
+            freeKickTakerUuid = ctx.freeKickTakerUuid,
+            cornerKickTakerUuid = ctx.cornerKickTakerUuid,
         )
     }
 }

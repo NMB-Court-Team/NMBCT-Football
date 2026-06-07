@@ -28,4 +28,14 @@ sealed interface PendingAfterReset {
         val preferredKickerUuid: UUID?,
         val lastTouchPlayerUuid: UUID?,
     ) : PendingAfterReset
+
+    /** 直接/间接任意球：球复位后进入 [FreeKickSetPieceFlow]。 */
+    data class FreeKick(
+        override val kickoffTeam: TeamSide,
+        val ballPos: Vec3,
+        val freeKickType: FreeKickType,
+        val preferredTakerUuid: UUID?,
+        val lastTouchPlayerUuid: UUID?,
+        val foulPos: Vec3,
+    ) : PendingAfterReset
 }

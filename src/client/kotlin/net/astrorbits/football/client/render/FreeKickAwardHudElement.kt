@@ -28,6 +28,8 @@ class FreeKickAwardHudElement : HudElement {
                 "hud.nmbct-football.free_kick.reason.goalkeeper_left_penalty_area"
             FreeKickFoulReason.SLIDE_TACKLE_IN_PENALTY_AREA ->
                 "hud.nmbct-football.free_kick.reason.slide_tackle_in_penalty_area"
+            FreeKickFoulReason.SECOND_TOUCH ->
+                "hud.nmbct-football.free_kick.reason.second_touch"
         }
         val reasonText = Component.translatable(reasonKey).string
         val playerName = FreeKickAwardClient.foulingPlayerName.ifBlank { "?" }

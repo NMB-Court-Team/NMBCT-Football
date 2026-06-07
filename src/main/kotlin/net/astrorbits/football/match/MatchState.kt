@@ -247,7 +247,7 @@ object MatchState {
             center.x,
             center.y,
             center.z,
-            java.util.HashSet(),
+            HashSet(),
             player.yRot,
             player.xRot,
             false,
@@ -282,6 +282,7 @@ object MatchState {
         PenaltyShootoutState.clear()
         MatchPenaltyKickState.clear()
         SetPieceState.clear()
+        SecondTouchTracker.clear()
     }
 
     fun kickoffWhistleContext(): KickoffWhistleContext? = kickoffWhistleContext
@@ -359,6 +360,9 @@ object MatchState {
             return false
         }
         if (SetPieceRestrictionCoordinator.isFootballOperationBlocked(player, action)) {
+            return true
+        }
+        if (SetPieceRestrictionCoordinator.isPassOnlyViolation(player, action)) {
             return true
         }
         if (SetPieceRestrictionCoordinator.isPlayerBallMovementForbidden(player)) {
@@ -499,6 +503,9 @@ object MatchState {
             dynamicStoppageTicks = maxTicks
         }
         clearKickoffWhistleTimers()
+        if (!SecondTouchTracker.isActive()) {
+            SecondTouchTracker.beginFromKickoffTouch(player)
+        }
         val server = player.level().server
         when (SetPieceState.active?.kind) {
             SetPieceKind.CENTER_KICKOFF, SetPieceKind.CORNER_KICK -> {
@@ -752,7 +759,7 @@ object MatchState {
 
     private fun teleportTo(player: ServerPlayer, pos: SpawnPosition) {
         val level = player.level()
-        player.teleportTo(level, pos.x, pos.y, pos.z, java.util.HashSet(), pos.yaw, pos.pitch, false)
+        player.teleportTo(level, pos.x, pos.y, pos.z, HashSet(), pos.yaw, pos.pitch, false)
     }
 
     /** 正计时格式化 (从 0 向上) */

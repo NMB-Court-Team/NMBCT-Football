@@ -585,11 +585,19 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
     }
 
+    private fun trySecondTouchFoul(player: ServerPlayer) {
+        if (!SecondTouchTracker.isActive()) return
+        val serverLevel = level() as? ServerLevel ?: return
+        val ballCenter = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
+        SecondTouchTracker.onBallTouched(player, ballCenter, serverLevel)
+    }
+
     /** 主动踢球：重置进球归属链（含滑铲推球）。 */
     fun recordActiveKick(player: ServerPlayer, kickDirection: Vec3?) {
         if (!MatchParticipation.isParticipating(player)) {
             return
         }
+        trySecondTouchFoul(player)
         MatchPenaltyKickState.onKickerTouchedBall(player, this)
         if (MatchState.currentPhase == MatchPhase.PENALTIES) {
             PenaltyShootoutState.onKickerTouchedBall(player, this)
@@ -613,6 +621,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (!MatchParticipation.isParticipating(player)) {
             return
         }
+        trySecondTouchFoul(player)
         lastPhysicalTouch = player.uuid
     }
 
@@ -628,6 +637,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (!MatchParticipation.isParticipating(player)) {
             return
         }
+        trySecondTouchFoul(player)
         lastPhysicalTouch = player.uuid
         val serverLevel = level() as? ServerLevel ?: return
         val prediction = FootballTrajectoryPredictor.predictWouldScore(

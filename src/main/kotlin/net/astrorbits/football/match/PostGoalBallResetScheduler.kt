@@ -57,6 +57,13 @@ object PostGoalBallResetScheduler {
                 FootballNetworking.broadcastRestartKickoff(srv, action.kickoffTeam, goalLineOut = true)
             }
             is PendingAfterReset.MatchPenaltyKick -> Unit
+            is PendingAfterReset.FreeKick -> {
+                MatchState.beginKickoffPhase(MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS, KickoffWhistleContext.GOAL_LINE_OUT)
+                if (action.freeKickType == FreeKickType.INDIRECT) {
+                    MatchState.beginThrowInDirectGoalRestriction()
+                }
+                FootballNetworking.broadcastRestartKickoff(srv, action.kickoffTeam, goalLineOut = true)
+            }
         }
     }
 
@@ -94,6 +101,7 @@ object PostGoalBallResetScheduler {
         val uuid = when (action) {
             is PendingAfterReset.GoalLineOut -> action.lastTouchPlayerUuid
             is PendingAfterReset.MatchPenaltyKick -> action.lastTouchPlayerUuid
+            is PendingAfterReset.FreeKick -> action.lastTouchPlayerUuid
             else -> null
         } ?: return
         val all = AABB(Vec3(-3.0E7, -3.0E7, -3.0E7), Vec3(3.0E7, 3.0E7, 3.0E7))

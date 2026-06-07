@@ -166,6 +166,7 @@ object MatchPenaltyKickState {
         outcomeRecorded = false
         football.isImmovable = false
         football.immovableTargetPlayers = emptySet()
+        SecondTouchTracker.begin(kickingTeam, player.uuid, SetPieceKind.PENALTY_KICK)
         lastServer?.let { FootballNetworking.broadcastSetPieceState(it) }
     }
 
@@ -299,7 +300,7 @@ object MatchPenaltyKickState {
                 val kx = spot.x + behindBall.x * KICKER_OFFSET_BLOCKS
                 val kz = spot.z + behindBall.z * KICKER_OFFSET_BLOCKS
                 val yaw = Math.toDegrees(kotlin.math.atan2(-towardGoal.x, towardGoal.z)).toFloat()
-                kicker.teleportTo(level, kx, spot.y, kz, java.util.HashSet(), yaw, 0f, false)
+                kicker.teleportTo(level, kx, spot.y, kz, HashSet(), yaw, 0f, false)
                 PlayerRoleState.enterPenaltyKickOutfield(kicker)
             }
         }
@@ -313,7 +314,7 @@ object MatchPenaltyKickState {
         if (gk != null) {
             val center = goal.goalCenter()
             val gkYaw = Math.toDegrees(kotlin.math.atan2(-behindBall.x, behindBall.z)).toFloat()
-            gk.teleportTo(level, center.x, center.y, center.z, java.util.HashSet(), gkYaw, 0f, false)
+            gk.teleportTo(level, center.x, center.y, center.z, HashSet(), gkYaw, 0f, false)
         }
 
         val waitPos = MatchConfigHolder.current.kickOff.toVec3()
@@ -323,7 +324,7 @@ object MatchPenaltyKickState {
             if (!MatchParticipation.isParticipating(player)) continue
             val team = MatchState.getPlayerTeam(player.uuid) ?: continue
             if (team == TeamSide.A || team == TeamSide.B) {
-                player.teleportTo(level, waitPos.x, waitPos.y, waitPos.z, java.util.HashSet(), player.yRot, player.xRot, false)
+                player.teleportTo(level, waitPos.x, waitPos.y, waitPos.z, HashSet(), player.yRot, player.xRot, false)
             }
         }
     }

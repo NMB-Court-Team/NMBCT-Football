@@ -8,8 +8,10 @@ object SetPieceBootstrap {
     fun onAfterReset(level: ServerLevel, action: PendingAfterReset) {
         val server = level.server
         SetPieceAreaViolationMonitor.clearAll(server)
+        SecondTouchTracker.clear()
         GoalKickSetPieceFlow.clear(server)
         ThrowInSetPieceFlow.clear(server)
+        FreeKickSetPieceFlow.clear(server)
         SetPieceState.clear()
 
         when (action) {
@@ -47,6 +49,16 @@ object SetPieceBootstrap {
                 }
             }
             is PendingAfterReset.MatchPenaltyKick -> Unit
+            is PendingAfterReset.FreeKick -> {
+                FreeKickSetPieceFlow.begin(
+                    level,
+                    action.kickoffTeam,
+                    action.ballPos,
+                    action.freeKickType,
+                    action.preferredTakerUuid,
+                    action.foulPos,
+                )
+            }
         }
         FootballNetworking.broadcastSetPieceState(server)
     }

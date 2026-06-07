@@ -1,0 +1,76 @@
+package net.astrorbits.football.match
+
+import net.astrorbits.football.network.FootballNetworking
+import net.minecraft.server.MinecraftServer
+import net.minecraft.server.level.ServerLevel
+import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.phys.Vec3
+import java.util.*
+
+object FreeKickSetPieceFlow {
+    fun begin(
+        level: ServerLevel,
+        awardedTeam: TeamSide,
+        ballPos: Vec3,
+        type: FreeKickType,
+        preferredTakerUuid: UUID?,
+        foulPos: Vec3,
+    ) {
+        val server = level.server
+        val defendingSide = awardedTeam.opponent()
+        val config = MatchConfigHolder.current
+        var resolvedBallPos = ballPos
+        if (type == FreeKickType.INDIRECT &&
+            MatchFieldAreaUtil.isInGoalArea(config, defendingSide, ballPos.x, ballPos.z)
+        ) {
+            resolvedBallPos = MatchFieldAreaUtil.repositionIndirectFreeKickInGoalArea(ballPos, defendingSide, config)
+        }
+        val taker = pickTaker(server, awardedTeam, resolvedBallPos, preferredTakerUuid)
+        SetPieceState.begin(
+            SetPieceContext(
+                kind = SetPieceKind.FREE_KICK,
+                restartTeam = awardedTeam,
+                ballPos = resolvedBallPos,
+                defendingSide = defendingSide,
+                freeKickType = type,
+                freeKickTakerUuid = taker?.uuid,
+                foulPos = foulPos,
+            ),
+        )
+        if (type == FreeKickType.INDIRECT) {
+            MatchState.beginThrowInDirectGoalRestriction()
+        }
+        taker?.let { player ->
+            val (stand, yaw) = SetPieceTakerPlacement.freeKickTakerStand(resolvedBallPos, defendingSide)
+            SetPieceTakerPlacement.teleportPlayer(level, player, stand, yaw)
+        }
+        SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
+        FootballNetworking.broadcastSetPieceState(server)
+    }
+
+    fun clear(server: MinecraftServer) {
+        if (SetPieceState.active?.kind == SetPieceKind.FREE_KICK) {
+            SetPieceState.clear()
+            FootballNetworking.broadcastSetPieceState(server)
+        }
+    }
+
+    private fun pickTaker(
+        server: MinecraftServer,
+        team: TeamSide,
+        ballPos: Vec3,
+        preferred: UUID?,
+    ): ServerPlayer? {
+        preferred?.let { uuid ->
+            val player = server.playerList.getPlayer(uuid)
+            if (player != null &&
+                MatchParticipation.isParticipating(player) &&
+                MatchState.getPlayerTeam(player.uuid) == team &&
+                !PlayerRoleState.isGoalkeeper(player)
+            ) {
+                return player
+            }
+        }
+        return ThrowInSetPieceFlow.pickThrowInTaker(server, team, ballPos)
+    }
+}

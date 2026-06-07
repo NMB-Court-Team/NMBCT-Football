@@ -8,6 +8,10 @@ enum class SetPieceAreaViolationType {
     CORNER_KICK_OPPONENT_IN_AREA,
     THROW_IN_OPPONENT_IN_AREA,
     PENALTY_KICK_INTRUSION,
+    FREE_KICK_TOO_CLOSE,
+    FREE_KICK_OPPONENT_IN_ATTACK_PA,
+    GOAL_KICK_BALL_IN_AREA,
+    FREE_KICK_BALL_IN_ATTACK_PA,
     ;
 
     val areaNameKey: String
@@ -19,5 +23,9 @@ enum class SetPieceAreaViolationType {
             CORNER_KICK_OPPONENT_IN_AREA -> "hud.nmbct-football.area.corner_area"
             THROW_IN_OPPONENT_IN_AREA -> "hud.nmbct-football.area.throw_in_area"
             PENALTY_KICK_INTRUSION -> "hud.nmbct-football.area.penalty_arc_or_area"
+            FREE_KICK_TOO_CLOSE -> "hud.nmbct-football.area.free_kick_distance"
+            FREE_KICK_OPPONENT_IN_ATTACK_PA -> "hud.nmbct-football.area.penalty_area"
+            GOAL_KICK_BALL_IN_AREA -> "hud.nmbct-football.area.penalty_area"
+            FREE_KICK_BALL_IN_ATTACK_PA -> "hud.nmbct-football.area.penalty_area"
         }
 }

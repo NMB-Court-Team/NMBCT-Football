@@ -178,6 +178,90 @@ object MatchFieldAreaUtil {
         config: MatchConfig = MatchConfigHolder.current,
     ): Boolean = isInThrowInPenaltyArea(spot, player.x, player.z, config.throwInPenaltyAreaRadius)
 
+    fun isBallInPenaltyArea(
+        side: TeamSide,
+        ballPos: Vec3,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Boolean = isInPenaltyArea(config, side, ballPos.x, ballPos.z)
+
+    fun isWithinFreeKickDistance(
+        ballPos: Vec3,
+        playerX: Double,
+        playerZ: Double,
+        radius: Double = MatchConfigHolder.current.freeKickDistanceRadius,
+    ): Boolean = horizontalDistanceSquared(playerX, playerZ, ballPos.x, ballPos.z) <= radius * radius
+
+    fun isPlayerWithinFreeKickDistance(
+        player: Player,
+        ballPos: Vec3,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Boolean = isWithinFreeKickDistance(ballPos, player.x, player.z, config.freeKickDistanceRadius)
+
+    /**
+     * 间接任意球：球在小禁区时移到与球门线平行、且不与球门线重合的线上。
+     */
+    fun repositionIndirectFreeKickInGoalArea(
+        ballPos: Vec3,
+        defendingSide: TeamSide,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Vec3 {
+        val goal = goalForSide(config, defendingSide)
+        val halfArea = goal.halfArea
+        val rect = horizontalRect(halfArea.goalAreaCorner1, halfArea.goalAreaCorner2)
+        val towardField = goal.penaltyKickBehindBall()
+        val fx = towardField.x
+        val fz = towardField.z
+        val lenSq = fx * fx + fz * fz
+        if (lenSq < 1.0e-8) return ballPos
+        val gc = goal.goalCenter()
+        val corners = listOf(
+            Vec3(rect.minX, ballPos.y, rect.minZ),
+            Vec3(rect.maxX, ballPos.y, rect.minZ),
+            Vec3(rect.minX, ballPos.y, rect.maxZ),
+            Vec3(rect.maxX, ballPos.y, rect.maxZ),
+        )
+        val farAlong = corners.maxOf { (it.x - gc.x) * fx + (it.z - gc.z) * fz }
+        val ballAlong = (ballPos.x - gc.x) * fx + (ballPos.z - gc.z) * fz
+        val lateralX = ballPos.x - gc.x - fx * ballAlong / lenSq
+        val lateralZ = ballPos.z - gc.z - fz * ballAlong / lenSq
+        val ratio = farAlong / lenSq
+        return Vec3(gc.x + fx * ratio + lateralX, ballPos.y, gc.z + fz * ratio + lateralZ)
+    }
+
+    /** 球员须在球→主罚连线的球门侧后方（不比主罚更靠近防守方球门）。 */
+    fun isPlayerBehindPenaltyKickLine(
+        ballPos: Vec3,
+        kickerX: Double,
+        kickerZ: Double,
+        playerX: Double,
+        playerZ: Double,
+        defendingSide: TeamSide,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Boolean {
+        val goal = goalForSide(config, defendingSide)
+        val gc = goal.goalCenter()
+        val toGoalX = gc.x - ballPos.x
+        val toGoalZ = gc.z - ballPos.z
+        val lenSq = toGoalX * toGoalX + toGoalZ * toGoalZ
+        if (lenSq < 1.0e-8) return true
+        val kickerAlong = (kickerX - ballPos.x) * toGoalX + (kickerZ - ballPos.z) * toGoalZ
+        val playerAlong = (playerX - ballPos.x) * toGoalX + (playerZ - ballPos.z) * toGoalZ
+        return playerAlong <= kickerAlong + 0.15
+    }
+
+    fun isPlayerInValidPenaltyKickStandingZone(
+        player: Player,
+        ballPos: Vec3,
+        kickerX: Double,
+        kickerZ: Double,
+        defendingSide: TeamSide,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): Boolean {
+        if (isPlayerInPenaltyArea(player, defendingSide, config)) return false
+        if (isPlayerInPenaltyArc(player, defendingSide, config)) return false
+        return isPlayerBehindPenaltyKickLine(ballPos, kickerX, kickerZ, player.x, player.z, defendingSide, config)
+    }
+
     /**
      * 将水平坐标投影到 [side] 一侧大禁区矩形边界上的最近点（用于直接任意球落点）。
      */

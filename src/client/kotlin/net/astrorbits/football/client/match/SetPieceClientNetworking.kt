@@ -37,6 +37,9 @@ object SetPieceClientNetworking {
                     payload.defendingSide,
                     payload.penaltyKickerUuid,
                     payload.penaltyKickPhase,
+                    payload.freeKickType,
+                    payload.freeKickTakerUuid,
+                    payload.cornerKickTakerUuid,
                 )
             }
         }

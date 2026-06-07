@@ -2,7 +2,6 @@ package net.astrorbits.football.match
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.FootballSounds
-import net.astrorbits.football.match.PenaltyShootoutState.penaltyGoalTeam
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.util.GoalCrossingUtil
@@ -223,6 +222,7 @@ object PenaltyShootoutState {
         outcomeRecorded = false
         football.isImmovable = false
         football.immovableTargetPlayers = emptySet()
+        SecondTouchTracker.begin(currentKickerTeam, player.uuid, SetPieceKind.PENALTY_KICK)
     }
 
     fun onGoalLineCrossing(crossing: GoalCrossingUtil.GoalLineCrossing) {
@@ -458,7 +458,7 @@ object PenaltyShootoutState {
                 val kx = spot.x + behindBall.x * KICKER_OFFSET_BLOCKS
                 val kz = spot.z + behindBall.z * KICKER_OFFSET_BLOCKS
                 val yaw = Math.toDegrees(kotlin.math.atan2(-towardGoal.x, towardGoal.z)).toFloat()
-                kicker.teleportTo(level, kx, spot.y, kz, java.util.HashSet(), yaw, 0f, false)
+                kicker.teleportTo(level, kx, spot.y, kz, HashSet(), yaw, 0f, false)
             }
         }
 
@@ -468,7 +468,7 @@ object PenaltyShootoutState {
             activatePenaltyParticipant(gk)
             val center = goal.goalCenter()
             val gkYaw = Math.toDegrees(kotlin.math.atan2(-behindBall.x, behindBall.z)).toFloat()
-            gk.teleportTo(level, center.x, center.y, center.z, java.util.HashSet(), gkYaw, 0f, false)
+            gk.teleportTo(level, center.x, center.y, center.z, HashSet(), gkYaw, 0f, false)
         }
 
         placePenaltyWaitingSpectators(server, kickerUuid, gkUuid)
@@ -491,7 +491,7 @@ object PenaltyShootoutState {
             pos.x,
             pos.y,
             pos.z,
-            java.util.HashSet(),
+            HashSet(),
             player.yRot,
             player.xRot,
             false,

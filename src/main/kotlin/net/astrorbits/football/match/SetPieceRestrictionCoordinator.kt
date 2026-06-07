@@ -23,6 +23,9 @@ object SetPieceRestrictionCoordinator {
         return when (ctx.kind) {
             SetPieceKind.GOAL_KICK -> isGoalKickBlocked(player, team, ctx, action)
             SetPieceKind.THROW_IN -> isThrowInBlocked(player, team, ctx, action)
+            SetPieceKind.CORNER_KICK -> isCornerKickBlocked(player, team, ctx, action)
+            SetPieceKind.FREE_KICK -> isFreeKickBlocked(player, team, ctx, action)
+            SetPieceKind.CENTER_KICKOFF -> isCenterKickoffBlocked(player, team, ctx, action)
             else -> false
         }
     }
@@ -48,6 +51,46 @@ object SetPieceRestrictionCoordinator {
         if (ctx.kind != SetPieceKind.GOAL_KICK) return false
         return ctx.goalKickPhase == GoalKickPhase.PLACING && player.uuid == ctx.goalKickPickerUuid
     }
+
+    /** 开球锁定期内，发球方仅允许传球开球（界外球除外）。 */
+    fun isPassOnlyViolation(player: ServerPlayer, action: FootballActionType?): Boolean {
+        if (action == null) return false
+        if (action == FootballActionType.PASS) return false
+        if (MatchState.kickoffTouched) return false
+        val ctx = SetPieceState.active
+        val team = MatchState.getPlayerTeam(player.uuid) ?: return false
+        val kickoffTeam = MatchState.kickoffTeam ?: ctx?.restartTeam ?: return false
+        if (team != kickoffTeam) return false
+
+        if (ctx != null) {
+            when (ctx.kind) {
+                SetPieceKind.THROW_IN -> return false
+                SetPieceKind.GOAL_KICK -> {
+                    if (ctx.goalKickPhase == GoalKickPhase.PLACED &&
+                        player.uuid == ctx.goalKickPickerUuid
+                    ) {
+                        return true
+                    }
+                    return false
+                }
+                SetPieceKind.CORNER_KICK -> {
+                    if (player.uuid == ctx.cornerKickTakerUuid) return true
+                    return false
+                }
+                SetPieceKind.FREE_KICK -> {
+                    if (player.uuid == ctx.freeKickTakerUuid) return true
+                    return false
+                }
+                SetPieceKind.CENTER_KICKOFF -> return true
+                else -> Unit
+            }
+        }
+        if (ctx == null && kickoffTeam == team) return true
+        return false
+    }
+
+    private fun isPassOnlyBlocked(action: FootballActionType?): Boolean =
+        action != null && action != FootballActionType.PASS
 
     private fun isGoalKickBlocked(
         player: ServerPlayer,
@@ -80,7 +123,7 @@ object SetPieceRestrictionCoordinator {
             }
             GoalKickPhase.PLACED -> {
                 if (player.uuid == ctx.goalKickPickerUuid) {
-                    return false
+                    return isPassOnlyBlocked(action)
                 }
                 if (team == ctx.restartTeam) {
                     return true
@@ -109,6 +152,47 @@ object SetPieceRestrictionCoordinator {
         }
         if (team != ctx.restartTeam) return false
         return true
+    }
+
+    private fun isCornerKickBlocked(
+        player: ServerPlayer,
+        team: TeamSide,
+        ctx: SetPieceContext,
+        action: FootballActionType?,
+    ): Boolean {
+        if (MatchState.kickoffTouched) return false
+        if (player.uuid == ctx.cornerKickTakerUuid) {
+            return isPassOnlyBlocked(action)
+        }
+        if (team == ctx.restartTeam) return true
+        return false
+    }
+
+    private fun isFreeKickBlocked(
+        player: ServerPlayer,
+        team: TeamSide,
+        ctx: SetPieceContext,
+        action: FootballActionType?,
+    ): Boolean {
+        if (MatchState.kickoffTouched) return false
+        if (player.uuid == ctx.freeKickTakerUuid) {
+            return isPassOnlyBlocked(action)
+        }
+        if (team == ctx.restartTeam) return true
+        return false
+    }
+
+    private fun isCenterKickoffBlocked(
+        player: ServerPlayer,
+        team: TeamSide,
+        ctx: SetPieceContext,
+        action: FootballActionType?,
+    ): Boolean {
+        if (MatchState.kickoffTouched) return false
+        if (team == ctx.restartTeam) {
+            return isPassOnlyBlocked(action)
+        }
+        return false
     }
 
     fun isPlayerBallMovementForbidden(player: ServerPlayer): Boolean {

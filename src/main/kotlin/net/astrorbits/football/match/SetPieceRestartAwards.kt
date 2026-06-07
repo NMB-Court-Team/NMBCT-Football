@@ -64,6 +64,54 @@ object SetPieceRestartAwards {
         broadcastRestart(server, SetPieceRestartKind.CORNER_KICK, ctx.restartTeam)
     }
 
+    fun restartFreeKick(server: MinecraftServer) {
+        val ctx = SetPieceState.active ?: return
+        if (ctx.kind != SetPieceKind.FREE_KICK) return
+        val level = server.overworld()
+        clearViolationsAndFlows(server)
+        MatchState.kickoffTouched = false
+        MatchState.postGoalResetPending = true
+        PostGoalBallResetScheduler.schedule(
+            level,
+            ctx.ballPos,
+            PendingAfterReset.FreeKick(
+                kickoffTeam = ctx.restartTeam,
+                ballPos = ctx.ballPos,
+                freeKickType = ctx.freeKickType ?: FreeKickType.INDIRECT,
+                preferredTakerUuid = ctx.freeKickTakerUuid,
+                lastTouchPlayerUuid = null,
+                foulPos = ctx.foulPos ?: ctx.ballPos,
+            ),
+        )
+        broadcastRestart(server, SetPieceRestartKind.FREE_KICK, ctx.restartTeam)
+    }
+
+    fun restartPenaltyKick(server: MinecraftServer) {
+        if (!MatchPenaltyKickState.isActive()) return
+        val kickingTeam = MatchPenaltyKickState.kickingTeam
+        val defendingTeam = MatchPenaltyKickState.defendingTeam
+        val kicker = MatchPenaltyKickState.currentKickerUuid
+        val level = server.overworld()
+        val goal = MatchFieldAreaUtil.goalForSide(MatchConfigHolder.current, defendingTeam)
+        val spot = goal.resolvedPenaltySpot()
+        val ballPos = Vec3(spot.x, spot.y, spot.z)
+        clearViolationsAndFlows(server)
+        MatchPenaltyKickState.clear(server)
+        MatchState.kickoffTouched = false
+        MatchState.postGoalResetPending = true
+        PostGoalBallResetScheduler.schedule(
+            level,
+            ballPos,
+            PendingAfterReset.MatchPenaltyKick(
+                kickoffTeam = kickingTeam,
+                defendingTeam = defendingTeam,
+                preferredKickerUuid = kicker,
+                lastTouchPlayerUuid = null,
+            ),
+        )
+        broadcastRestart(server, SetPieceRestartKind.PENALTY_KICK, kickingTeam)
+    }
+
     fun restartThrowIn(server: MinecraftServer) {
         val ctx = SetPieceState.active ?: return
         if (ctx.kind != SetPieceKind.THROW_IN) return
@@ -86,8 +134,10 @@ object SetPieceRestartAwards {
 
     private fun clearViolationsAndFlows(server: MinecraftServer) {
         SetPieceAreaViolationMonitor.clearAll(server)
+        SecondTouchTracker.clear()
         GoalKickSetPieceFlow.clear(server)
         ThrowInSetPieceFlow.clear(server)
+        FreeKickSetPieceFlow.clear(server)
         SetPieceState.clear()
     }
 

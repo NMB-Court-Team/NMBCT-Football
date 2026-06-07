@@ -1,10 +1,12 @@
 package net.astrorbits.football.match
 
+import net.astrorbits.football.Football
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.util.GoalkeeperUtil
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
+import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -14,6 +16,9 @@ import kotlin.math.sqrt
 object SetPieceAreaViolationMonitor {
     private const val VIOLATION_TICKS = 60
     private const val REPOSITION_BUFFER = 1.0
+
+    private var goalKickBallViolationTicks = 0
+    private var freeKickBallViolationTicks = 0
 
     private data class Tracker(
         val type: SetPieceAreaViolationType,
@@ -27,6 +32,7 @@ object SetPieceAreaViolationMonitor {
     }
 
     fun clearAll(server: MinecraftServer) {
+        resetBallViolationTicks()
         val affected = trackers.keys.toList()
         trackers.clear()
         for (uuid in affected) {
@@ -73,6 +79,7 @@ object SetPieceAreaViolationMonitor {
         for (uuid in trackers.keys.toList()) {
             if (uuid !in seen) clearPlayer(server.playerList.getPlayer(uuid) ?: continue)
         }
+        tickBallViolations(server)
     }
 
     private fun remainingSeconds(ticksInArea: Int): Int =
@@ -103,7 +110,8 @@ object SetPieceAreaViolationMonitor {
             }
             SetPieceKind.GOAL_KICK -> {
                 val defending = ctx.defendingSide ?: return null
-                if (team == defending.opponent() &&
+                if (!MatchState.kickoffTouched &&
+                    team == defending.opponent() &&
                     MatchFieldAreaUtil.isPlayerInPenaltyArea(player, defending)
                 ) {
                     return SetPieceAreaViolationType.GOAL_KICK_OPPONENT_IN_AREA
@@ -132,29 +140,134 @@ object SetPieceAreaViolationMonitor {
                 }
                 val defending: TeamSide
                 val kickerUuid: UUID?
+                val ballPos: Vec3
+                val kickerX: Double
+                val kickerZ: Double
                 when {
                     PenaltyShootoutState.isActive() -> {
                         defending = PenaltyShootoutState.penaltyGoalTeam
                         kickerUuid = PenaltyShootoutState.currentKickerUuid
+                        ballPos = ctx.ballPos
+                        val kicker = kickerUuid?.let { player.level().server.playerList.getPlayer(it) }
+                        kickerX = kicker?.x ?: ballPos.x
+                        kickerZ = kicker?.z ?: ballPos.z
                     }
                     MatchPenaltyKickState.isActive() -> {
                         defending = MatchPenaltyKickState.defendingTeam
                         kickerUuid = MatchPenaltyKickState.currentKickerUuid
+                        ballPos = ctx.ballPos
+                        val kicker = kickerUuid?.let { player.level().server.playerList.getPlayer(it) }
+                        kickerX = kicker?.x ?: ballPos.x
+                        kickerZ = kicker?.z ?: ballPos.z
                     }
                     else -> return null
                 }
                 if (player.uuid == kickerUuid) return null
                 if (PenaltyShootoutState.isActive() && PenaltyShootoutState.isDefendingGoalkeeper(player)) return null
                 if (MatchPenaltyKickState.isActive() && MatchPenaltyKickState.isDefendingGoalkeeper(player)) return null
-                if (MatchFieldAreaUtil.isPlayerInPenaltyArea(player, defending) ||
-                    MatchFieldAreaUtil.isPlayerInPenaltyArc(player, defending)
+                if (!MatchFieldAreaUtil.isPlayerInValidPenaltyKickStandingZone(
+                        player,
+                        ballPos,
+                        kickerX,
+                        kickerZ,
+                        defending,
+                    )
                 ) {
                     return SetPieceAreaViolationType.PENALTY_KICK_INTRUSION
+                }
+            }
+            SetPieceKind.FREE_KICK -> {
+                if (MatchState.kickoffTouched) return null
+                val ballPos = ctx.ballPos
+                val restartTeam = ctx.restartTeam
+                val defending = ctx.defendingSide ?: restartTeam.opponent()
+                val config = MatchConfigHolder.current
+                if (team == restartTeam) return null
+                if (PlayerRoleState.isGoalkeeper(player)) return null
+                if (MatchFieldAreaUtil.isBallInPenaltyArea(restartTeam, ballPos)) {
+                    if (MatchFieldAreaUtil.isPlayerInPenaltyArea(player, restartTeam)) {
+                        return SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA
+                    }
+                    if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
+                        return SetPieceAreaViolationType.FREE_KICK_TOO_CLOSE
+                    }
+                } else if (MatchFieldAreaUtil.isBallInPenaltyArea(defending, ballPos)) {
+                    if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
+                        return SetPieceAreaViolationType.FREE_KICK_TOO_CLOSE
+                    }
+                } else if (team == defending &&
+                    MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)
+                ) {
+                    return SetPieceAreaViolationType.FREE_KICK_TOO_CLOSE
                 }
             }
             else -> Unit
         }
         return null
+    }
+
+    private fun tickBallViolations(server: MinecraftServer) {
+        if (!MatchState.isDuringMatch()) {
+            resetBallViolationTicks()
+            return
+        }
+        if (!MatchState.kickoffTouched) {
+            resetBallViolationTicks()
+            return
+        }
+        val ctx = SetPieceState.active ?: run {
+            resetBallViolationTicks()
+            return
+        }
+        val level = server.overworld()
+        val ball = findMatchFootball(level) ?: run {
+            resetBallViolationTicks()
+            return
+        }
+        val ballPos = Vec3(ball.x, ball.y, ball.z)
+        when (ctx.kind) {
+            SetPieceKind.GOAL_KICK -> {
+                val defending = ctx.defendingSide ?: run {
+                    resetBallViolationTicks()
+                    return
+                }
+                if (MatchFieldAreaUtil.isBallInPenaltyArea(defending, ballPos)) {
+                    goalKickBallViolationTicks++
+                    if (goalKickBallViolationTicks >= VIOLATION_TICKS) {
+                        goalKickBallViolationTicks = 0
+                        SetPieceRestartAwards.restartGoalKick(server)
+                    }
+                } else {
+                    goalKickBallViolationTicks = 0
+                }
+            }
+            SetPieceKind.FREE_KICK -> {
+                if (!MatchFieldAreaUtil.isBallInPenaltyArea(ctx.restartTeam, ctx.ballPos)) {
+                    freeKickBallViolationTicks = 0
+                    return
+                }
+                if (MatchFieldAreaUtil.isBallInPenaltyArea(ctx.restartTeam, ballPos)) {
+                    freeKickBallViolationTicks++
+                    if (freeKickBallViolationTicks >= VIOLATION_TICKS) {
+                        freeKickBallViolationTicks = 0
+                        SetPieceRestartAwards.restartFreeKick(server)
+                    }
+                } else {
+                    freeKickBallViolationTicks = 0
+                }
+            }
+            else -> resetBallViolationTicks()
+        }
+    }
+
+    private fun resetBallViolationTicks() {
+        goalKickBallViolationTicks = 0
+        freeKickBallViolationTicks = 0
+    }
+
+    private fun findMatchFootball(level: net.minecraft.server.level.ServerLevel): Football? {
+        val all = AABB(Vec3(-3.0E7, -3.0E7, -3.0E7), Vec3(3.0E7, 3.0E7, 3.0E7))
+        return level.getEntitiesOfClass(Football::class.java, all).firstOrNull()
     }
 
     private fun applyPenalty(server: MinecraftServer, player: ServerPlayer, type: SetPieceAreaViolationType) {
@@ -191,7 +304,25 @@ object SetPieceAreaViolationMonitor {
                 SetPieceRestartAwards.restartThrowIn(server)
             }
             SetPieceAreaViolationType.PENALTY_KICK_INTRUSION -> {
+                if (MatchPenaltyKickState.isActive()) {
+                    SetPieceRestartAwards.restartPenaltyKick(server)
+                } else {
+                    repositionPlayerOutsideViolationArea(player, type)
+                }
+            }
+            SetPieceAreaViolationType.FREE_KICK_TOO_CLOSE,
+            SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA,
+            -> {
                 repositionPlayerOutsideViolationArea(player, type)
+                SetPieceRestartAwards.restartFreeKick(server)
+            }
+            SetPieceAreaViolationType.GOAL_KICK_BALL_IN_AREA,
+            SetPieceAreaViolationType.FREE_KICK_BALL_IN_ATTACK_PA,
+            -> {
+
+            }
+            else -> {
+
             }
         }
     }
@@ -214,6 +345,15 @@ object SetPieceAreaViolationMonitor {
                 ctx?.ballPos?.let { outsideCirclePosition(player, it, config.throwInPenaltyAreaRadius, config) }
             SetPieceAreaViolationType.PENALTY_KICK_INTRUSION ->
                 penaltyKickSafePosition(player, config)
+            SetPieceAreaViolationType.FREE_KICK_TOO_CLOSE -> {
+                val spot = ctx?.ballPos ?: return
+                outsideCirclePosition(player, spot, config.freeKickDistanceRadius, config)
+            }
+            SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA ->
+                ctx?.restartTeam?.let { outsidePenaltyAreaPosition(player, it, config) }
+            SetPieceAreaViolationType.GOAL_KICK_BALL_IN_AREA,
+            SetPieceAreaViolationType.FREE_KICK_BALL_IN_ATTACK_PA,
+            -> null
             SetPieceAreaViolationType.GK_HOLD_OUTSIDE_PENALTY_AREA -> null
         } ?: return
 
@@ -318,7 +458,7 @@ object SetPieceAreaViolationMonitor {
             target.x,
             target.y,
             target.z,
-            java.util.HashSet(),
+            HashSet(),
             player.yRot,
             player.xRot,
             false,

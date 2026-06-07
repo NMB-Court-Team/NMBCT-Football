@@ -1,6 +1,7 @@
 package net.astrorbits.football.network
 
 import net.astrorbits.football.NMBCTFootball
+import net.astrorbits.football.match.FreeKickType
 import net.astrorbits.football.match.GoalKickPhase
 import net.astrorbits.football.match.PenaltyKickPhase
 import net.astrorbits.football.match.SetPieceKind
@@ -23,6 +24,9 @@ data class SetPieceStateS2CPayload(
     val defendingSide: TeamSide?,
     val penaltyKickerUuid: UUID?,
     val penaltyKickPhase: PenaltyKickPhase? = null,
+    val freeKickType: FreeKickType? = null,
+    val freeKickTakerUuid: UUID? = null,
+    val cornerKickTakerUuid: UUID? = null,
 ) : CustomPacketPayload {
     override fun type() = TYPE
 
@@ -38,6 +42,9 @@ data class SetPieceStateS2CPayload(
             defendingSide = null,
             penaltyKickerUuid = null,
             penaltyKickPhase = null,
+            freeKickType = null,
+            freeKickTakerUuid = null,
+            cornerKickTakerUuid = null,
         )
 
         val TYPE: CustomPacketPayload.Type<SetPieceStateS2CPayload> =
@@ -66,6 +73,12 @@ data class SetPieceStateS2CPayload(
                 buf.writeBoolean(payload.penaltyKickerUuid != null)
                 payload.penaltyKickerUuid?.let { buf.writeUUID(it) }
                 buf.writeInt(payload.penaltyKickPhase?.ordinal ?: -1)
+                buf.writeBoolean(payload.freeKickType != null)
+                payload.freeKickType?.let { FreeKickType.STREAM_CODEC.encode(buf, it) }
+                buf.writeBoolean(payload.freeKickTakerUuid != null)
+                payload.freeKickTakerUuid?.let { buf.writeUUID(it) }
+                buf.writeBoolean(payload.cornerKickTakerUuid != null)
+                payload.cornerKickTakerUuid?.let { buf.writeUUID(it) }
             },
             { buf ->
                 val kind = SetPieceKind.STREAM_CODEC.decode(buf)
@@ -87,6 +100,9 @@ data class SetPieceStateS2CPayload(
                 } else {
                     PenaltyKickPhase.entries[penaltyKickPhaseOrd]
                 }
+                val freeKickType = if (buf.readBoolean()) FreeKickType.STREAM_CODEC.decode(buf) else null
+                val freeKickTakerUuid = if (buf.readBoolean()) buf.readUUID() else null
+                val cornerKickTakerUuid = if (buf.readBoolean()) buf.readUUID() else null
                 SetPieceStateS2CPayload(
                     kind = kind,
                     restartTeam = restartTeam,
@@ -98,6 +114,9 @@ data class SetPieceStateS2CPayload(
                     defendingSide = defendingSide,
                     penaltyKickerUuid = penaltyKickerUuid,
                     penaltyKickPhase = penaltyKickPhase,
+                    freeKickType = freeKickType,
+                    freeKickTakerUuid = freeKickTakerUuid,
+                    cornerKickTakerUuid = cornerKickTakerUuid,
                 )
             },
         )

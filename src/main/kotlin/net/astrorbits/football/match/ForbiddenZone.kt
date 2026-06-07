@@ -224,6 +224,19 @@ object SetPieceForbiddenZoneResolver {
                 val defending = penaltyDefendingTeam ?: defendingSide ?: return zones
                 zones += InteriorForbiddenPenaltyKickZone(defending)
             }
+            SetPieceKind.FREE_KICK -> {
+                if (kickoffTouched || playerTeam == restartTeam) return zones
+                val spot = ballPos ?: return zones
+                val attacking = restartTeam ?: return zones
+                if (MatchFieldAreaUtil.isBallInPenaltyArea(attacking, spot)) {
+                    zones += InteriorForbiddenPenaltyArea(attacking)
+                }
+                zones += InteriorForbiddenCircle(
+                    spot.x,
+                    spot.z,
+                    config.freeKickDistanceRadius,
+                )
+            }
             else -> Unit
         }
 

@@ -38,6 +38,21 @@ object SetPieceTakerPlacement {
         return pos to horizontalYaw(towardField)
     }
 
+    private const val FREE_KICK_TAKER_OFFSET = 1.5
+
+    /** 任意球主罚员站在球后方（背向防守方球门），面向球。 */
+    fun freeKickTakerStand(ballPos: Vec3, defendingSide: TeamSide): Pair<Vec3, Float> {
+        val goal = MatchFieldAreaUtil.goalForSide(MatchConfigHolder.current, defendingSide)
+        val towardGoal = goal.penaltyKickBehindBall().scale(-1.0)
+        val awayFromGoal = horizontalUnit(-towardGoal.x, -towardGoal.z)
+        val pos = Vec3(
+            ballPos.x + awayFromGoal.x * FREE_KICK_TAKER_OFFSET,
+            ballPos.y,
+            ballPos.z + awayFromGoal.z * FREE_KICK_TAKER_OFFSET,
+        )
+        return pos to horizontalYaw(Vec3(towardGoal.x, 0.0, towardGoal.z))
+    }
+
     /** 角球主罚员站在角球点略靠外（远离场地中心一侧），面向场内。 */
     fun cornerTakerStand(cornerPos: Vec3): Pair<Vec3, Float> {
         val center = MatchConfigHolder.current.kickOff

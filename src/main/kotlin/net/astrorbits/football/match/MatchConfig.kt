@@ -201,6 +201,7 @@ data class MatchConfig(
     val centerCircleRadius: Double = 10.0,
     val cornerKickPenaltyAreaRadius: Double = 10.0,
     val throwInPenaltyAreaRadius: Double = 2.5,
+    val freeKickDistanceRadius: Double = 10.0,
     val teamASpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
     val teamBSpawn: TeamSpawnConfig = TeamSpawnConfig.DEFAULT,
 ) {
@@ -244,6 +245,7 @@ data class MatchConfig(
                 Codec.DOUBLE.optionalFieldOf("center_circle_radius", 10.0).forGetter(MatchConfig::centerCircleRadius),
                 Codec.DOUBLE.optionalFieldOf("corner_kick_penalty_area_radius", 10.0).forGetter(MatchConfig::cornerKickPenaltyAreaRadius),
                 Codec.DOUBLE.optionalFieldOf("throw_in_penalty_area_radius", 2.5).forGetter(MatchConfig::throwInPenaltyAreaRadius),
+                Codec.DOUBLE.optionalFieldOf("free_kick_distance_radius", 10.0).forGetter(MatchConfig::freeKickDistanceRadius),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_a_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamASpawn),
                 TeamSpawnConfig.CODEC.optionalFieldOf("team_b_spawn", TeamSpawnConfig.DEFAULT).forGetter(MatchConfig::teamBSpawn),
             ).apply(i, ::MatchConfig)

@@ -1,7 +1,6 @@
 package net.astrorbits.football.client
 
 import net.astrorbits.football.Football
-import net.astrorbits.football.client.SlideTackleStateClient
 import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.client.key.FootballKeyBindings
 import net.astrorbits.football.client.match.MatchStartClient
@@ -135,6 +134,9 @@ object FootballOperabilityClient {
         if (isBlockedByThrowInSetPiece(player, key)) {
             return false
         }
+        if (isBlockedByPassOnlySetPiece(player, key)) {
+            return false
+        }
         if (isPenaltyKicker(player)) {
             if (!isPenaltyKickerAwaitingKick(player)) return false
             return when (key) {
@@ -264,10 +266,51 @@ object FootballOperabilityClient {
                     key != FootballKeyBindings.LOOK_AROUND
             }
             GoalKickPhase.PLACED -> {
-                if (isPicker) false else key != FootballKeyBindings.BOOST_SPRINT &&
+                if (isPicker) {
+                    if (MatchStartClient.kickoffTouched) return false
+                    return key != FootballKeyBindings.KICK &&
+                        key != FootballKeyBindings.BOOST_SPRINT &&
+                        key != FootballKeyBindings.LOOK_AROUND
+                }
+                key != FootballKeyBindings.BOOST_SPRINT &&
                     key != FootballKeyBindings.LOOK_AROUND
             }
             null -> false
+        }
+    }
+
+    private fun isBlockedByPassOnlySetPiece(player: LocalPlayer, key: KeyMapping): Boolean {
+        if (MatchStartClient.kickoffTouched) return false
+        val team = MatchStartClient.playerTeam
+        val passOnlyAllowed = setOf(
+            FootballKeyBindings.KICK,
+            FootballKeyBindings.BOOST_SPRINT,
+            FootballKeyBindings.LOOK_AROUND,
+        )
+        val teammateIdleAllowed = setOf(
+            FootballKeyBindings.BOOST_SPRINT,
+            FootballKeyBindings.LOOK_AROUND,
+        )
+        return when (SetPieceClient.kind) {
+            SetPieceKind.CORNER_KICK -> {
+                if (SetPieceClient.restartTeam != team) return false
+                if (player.uuid == SetPieceClient.cornerKickTakerUuid) {
+                    return key !in passOnlyAllowed
+                }
+                return key !in teammateIdleAllowed
+            }
+            SetPieceKind.FREE_KICK -> {
+                if (SetPieceClient.restartTeam != team) return false
+                if (player.uuid == SetPieceClient.freeKickTakerUuid) {
+                    return key !in passOnlyAllowed
+                }
+                return key !in teammateIdleAllowed
+            }
+            SetPieceKind.CENTER_KICKOFF -> {
+                if (SetPieceClient.restartTeam != team) return false
+                return key !in passOnlyAllowed
+            }
+            else -> false
         }
     }
 
