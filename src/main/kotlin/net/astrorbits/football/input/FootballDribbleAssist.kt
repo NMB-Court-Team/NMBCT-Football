@@ -39,6 +39,9 @@ object FootballDribbleAssist {
      * @return 控制是否仍有效；false 表示应结束 session（超距、实体无效等）
      */
     fun apply(player: ServerPlayer, football: Football, dribbleBaseYaw: Float? = null): Boolean {
+        if (SlideTackleSessions.isSliding(player)) {
+            return false
+        }
         if (player.mainHandItem.isEmpty.not()) {
             return false
         }

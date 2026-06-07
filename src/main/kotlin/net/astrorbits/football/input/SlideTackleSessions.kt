@@ -89,6 +89,7 @@ object SlideTackleSessions {
         }
 
         end(player)
+        FootballDribbleSessions.end(player)
         resetSprintTicks(player.uuid)
         val sustain = stamina.slideTackleSustainCost.coerceAtMost(
             stamina.slideTackleMaxTotalCost - stamina.slideTackleEntryCost,

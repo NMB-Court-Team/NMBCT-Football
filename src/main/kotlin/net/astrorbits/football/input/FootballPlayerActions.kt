@@ -99,7 +99,6 @@ object FootballPlayerActions {
         return when (action) {
             FootballActionType.SLIDE_TACKLE_END,
             FootballActionType.SLIDE_TACKLE,
-            FootballActionType.DRIBBLE_HOLD,
             FootballActionType.DRIBBLE_END,
             -> false
             else -> true
@@ -121,6 +120,7 @@ object FootballPlayerActions {
         ) {
             return
         }
+        FootballDribbleSessions.end(player)
         SlideTackleSessions.begin(
             player = player,
             now = now,
@@ -132,6 +132,10 @@ object FootballPlayerActions {
     }
 
     private fun handleDribbleHold(player: ServerPlayer, payload: FootballActionC2SPayload) {
+        if (SlideTackleSessions.isSliding(player)) {
+            FootballDribbleSessions.end(player)
+            return
+        }
         if (PlayerRoleState.isGoalkeeper(player)) {
             FootballDribbleSessions.end(player)
             return

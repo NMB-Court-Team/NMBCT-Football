@@ -153,7 +153,7 @@ object FootballInputHandler {
             kickPressStartMs = null
             divePressStartMs = null
             resetChargeDisplay()
-            handleDribbleHold(player)
+            endDribbleForSlide(player)
             handleSlideTacklePress(player)
             return
         }
@@ -457,9 +457,7 @@ object FootballInputHandler {
         if (dribbleResumeBlocked) {
             return
         }
-        if (!SlideTackleStateClient.isSliding(player.id) &&
-            !FootballMovementInputUtil.hasMovementInput(player, LookAroundClient.movementYaw(player))
-        ) {
+        if (!FootballMovementInputUtil.hasMovementInput(player, LookAroundClient.movementYaw(player))) {
             return
         }
         if (getDribbleLongPressState() == LongPressState.STARTED) {
@@ -480,6 +478,7 @@ object FootballInputHandler {
         val nowTick = player.level().gameTime
         if (down && !slidePrevTickPressed && player.isSprinting && canSlideTackle(nowTick)) {
             resetSlideSprintTicks()
+            endDribbleForSlide(player)
             sendAction(player, FootballActionType.SLIDE_TACKLE, 0f, 0L, buildFlags(player))
             return
         }
@@ -689,6 +688,16 @@ object FootballInputHandler {
         dribbleResumeBlocked = true
         sendAction(player, FootballActionType.DRIBBLE_END, 0f, 0L, 0)
         dribbleTickCounter = 0
+    }
+
+    private fun endDribbleForSlide(player: LocalPlayer) {
+        dribbleResumeBlocked = true
+        dribbleTickCounter = 0
+        if (!dribblePrevTickPressed) {
+            return
+        }
+        DribbleBallIndicatorClient.onDribbleEnd()
+        sendAction(player, FootballActionType.DRIBBLE_END, 0f, 0L, 0)
     }
     private fun tickBoostSprint(player: LocalPlayer) {
         if (!player.isSpectator) {

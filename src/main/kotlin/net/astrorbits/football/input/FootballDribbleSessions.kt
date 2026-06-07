@@ -41,6 +41,10 @@ object FootballDribbleSessions {
      * 更新运球 session 心跳；按 [FootballInputConfig.DRIBBLE_SOUND_INTERVAL_TICKS] 尝试播放触球音效。
      */
     fun beginOrRefresh(player: ServerPlayer, football: Football, now: Long, payload: FootballActionC2SPayload) {
+        if (SlideTackleSessions.isSliding(player)) {
+            end(player)
+            return
+        }
         if (MatchState.isKickoffInteractionLocked(player)) {
             return
         }
@@ -111,7 +115,7 @@ object FootballDribbleSessions {
                 continue
             }
 
-            if (MatchState.isKickoffInteractionLocked(player)) {
+            if (SlideTackleSessions.isSliding(player) || MatchState.isKickoffInteractionLocked(player)) {
                 recordCollisionGrace(playerId, session.footballId, now)
                 iterator.remove()
                 continue

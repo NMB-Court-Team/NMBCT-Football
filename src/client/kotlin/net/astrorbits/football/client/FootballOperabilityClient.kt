@@ -1,6 +1,7 @@
 package net.astrorbits.football.client
 
 import net.astrorbits.football.Football
+import net.astrorbits.football.client.SlideTackleStateClient
 import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.client.key.FootballKeyBindings
 import net.astrorbits.football.client.match.MatchStartClient
@@ -164,7 +165,9 @@ object FootballOperabilityClient {
             FootballKeyBindings.KICK ->
                 !kickoffLocked && hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
             FootballKeyBindings.DRIBBLE ->
-                !kickoffLocked && hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
+                !kickoffLocked &&
+                    !SlideTackleStateClient.isSliding(player.id) &&
+                    hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
             FootballKeyBindings.TRAP ->
                 !kickoffLocked && hasBallWithinRange(player, level, FootballInputConfig.PLAYER_KICK_RANGE)
             FootballKeyBindings.CHIP ->
