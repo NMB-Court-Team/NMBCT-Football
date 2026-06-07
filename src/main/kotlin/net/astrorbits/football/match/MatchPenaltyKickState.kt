@@ -174,7 +174,7 @@ object MatchPenaltyKickState {
         if (crossing.defendingTeam != defendingTeam) return
         if (crossing.inGoal && crossing.attackingTeam == kickingTeam) {
             applyOutcome(scored = true)
-        } else if (!crossing.inGoal && crossing.definiteGoalLineOut) {
+        } else if (!crossing.inGoal) {
             applyOutcome(scored = false)
         }
     }

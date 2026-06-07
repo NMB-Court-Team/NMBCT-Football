@@ -45,6 +45,7 @@ object SetPiecePlayerRepositioner {
     }
 
     private fun cornerKickTarget(player: ServerPlayer, team: TeamSide, context: SetPieceContext): Vec3? {
+        if (player.uuid == context.cornerKickTakerUuid) return null
         if (MatchState.kickoffTouched || team == context.restartTeam) return null
         val corner = context.cornerPos ?: context.ballPos
         if (!MatchFieldAreaUtil.isPlayerInCornerKickPenaltyArea(player, corner)) return null

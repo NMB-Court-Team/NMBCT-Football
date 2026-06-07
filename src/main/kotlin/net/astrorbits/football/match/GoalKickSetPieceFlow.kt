@@ -25,6 +25,10 @@ object GoalKickSetPieceFlow {
                 goalKickPhase = GoalKickPhase.WAITING_PICKUP,
             ),
         )
+        SetPieceTakerPlacement.resolveGoalkeeper(server, restartTeam)?.let { keeper ->
+            val (stand, yaw) = SetPieceTakerPlacement.goalKickKeeperStand(restartTeam, ballPos)
+            SetPieceTakerPlacement.teleportPlayer(level, keeper, stand, yaw)
+        }
         SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
         applyTeamPermissions(server, restartTeam, defendingSide, pickerUuid = null)
         FootballNetworking.broadcastSetPieceState(server)

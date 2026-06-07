@@ -33,7 +33,7 @@ object SetPieceRestrictionCoordinator {
         val team = MatchState.getPlayerTeam(player.uuid) ?: return false
         if (team != ctx.restartTeam) return false
         val phase = ctx.goalKickPhase ?: return false
-        return phase == GoalKickPhase.WAITING_PICKUP ||
+        return (phase == GoalKickPhase.WAITING_PICKUP && PlayerRoleState.isDesignatedGoalkeeper(player)) ||
             (phase == GoalKickPhase.PLACED &&
                 player.uuid == ctx.goalKickPickerUuid &&
                 PlayerRoleState.isGoalkeeper(player))
@@ -65,7 +65,10 @@ object SetPieceRestrictionCoordinator {
         when (ctx.goalKickPhase) {
             GoalKickPhase.WAITING_PICKUP -> {
                 if (team == ctx.restartTeam) {
-                    return action != FootballActionType.GK_CATCH
+                    if (action == FootballActionType.GK_CATCH && PlayerRoleState.isDesignatedGoalkeeper(player)) {
+                        return false
+                    }
+                    return true
                 }
                 if (team == opponent) return true
             }

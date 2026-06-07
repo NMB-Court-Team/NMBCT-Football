@@ -909,7 +909,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             )
             return true
         }
-        if (!effectiveInGoal && crossing.definiteGoalLineOut) {
+        if (!effectiveInGoal) {
             val server = (level() as? ServerLevel)?.server ?: return true
             val lastTouchTeam = lastPhysicalTouch?.let { MatchState.getPlayerTeam(it) }
             val facing = Vec3(goal.facingX, goal.facingY, goal.facingZ)
@@ -919,8 +919,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             if (lastTouchTeam == attackingTeam) {
                 outType = GoalLineOutType.GOAL_KICK
                 restartTeam = defendingTeam
-                val gk = goal.goalKick
-                ballPos = Vec3(gk.x, gk.y, gk.z)
+                ballPos = GoalCrossingUtil.goalKickRestartPosition(goal)
             } else {
                 outType = GoalLineOutType.CORNER_KICK
                 restartTeam = attackingTeam
@@ -1063,6 +1062,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             || GoalCrossingUtil.isCenterInGoal(goal, currCenter)
             || GoalCrossingUtil.segmentEnteredGoal(goal, prevCenter, currCenter)
         if (!scored && crossing == null) {
+            if (GoalCrossingUtil.isGoalLineMiss(goal, currCenter)) {
+                schedulePendingGoalLineOut(goal, currCenter.x, currCenter.z, defendingTeam, attackingTeam)
+            }
             return
         }
 
@@ -1104,38 +1106,46 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 level() as ServerLevel,
                 afterReset = PendingAfterReset.PostGoal(defendingTeam),
             )
-        } else if (crossing != null && crossing.definiteGoalLineOut) {
-            val lastTouchTeam = lastPhysicalTouch?.let { MatchState.getPlayerTeam(it) }
-            val outType: GoalLineOutType
-            val restartTeam: TeamSide
-
-            if (lastTouchTeam == attackingTeam) {
-                outType = GoalLineOutType.GOAL_KICK
-                restartTeam = defendingTeam
-            } else {
-                outType = GoalLineOutType.CORNER_KICK
-                restartTeam = attackingTeam
-            }
-
-            val ballPos = if (outType == GoalLineOutType.GOAL_KICK) {
-                val gk = goal.goalKick
-                Vec3(gk.x, gk.y, gk.z)
-            } else {
-                GoalCrossingUtil.cornerKickPosition(goal, facing, ix, iz)
-            }
-
-            if (MatchState.pendingGoalLineOut != null) {
-                return
-            }
-            MatchState.pendingGoalLineOut = MatchState.PendingGoalLineOut(
-                goal = goal,
-                ballPos = ballPos,
-                restartTeam = restartTeam,
-                outType = outType,
-                defendingTeam = defendingTeam,
-                attackingTeam = attackingTeam,
-            )
+        } else if (crossing != null && !crossing.inGoal) {
+            schedulePendingGoalLineOut(goal, ix, iz, defendingTeam, attackingTeam)
         }
+    }
+
+    /** 底线出界待确认：10 tick 内球弹入门框则改判进球，否则角球/球门球。 */
+    private fun schedulePendingGoalLineOut(
+        goal: GoalConfig,
+        intersectionX: Double,
+        intersectionZ: Double,
+        defendingTeam: TeamSide,
+        attackingTeam: TeamSide,
+    ) {
+        if (MatchState.pendingGoalLineOut != null) {
+            return
+        }
+        val lastTouchTeam = lastPhysicalTouch?.let { MatchState.getPlayerTeam(it) }
+        val outType: GoalLineOutType
+        val restartTeam: TeamSide
+        if (lastTouchTeam == attackingTeam) {
+            outType = GoalLineOutType.GOAL_KICK
+            restartTeam = defendingTeam
+        } else {
+            outType = GoalLineOutType.CORNER_KICK
+            restartTeam = attackingTeam
+        }
+        val facing = Vec3(goal.facingX, goal.facingY, goal.facingZ)
+        val ballPos = if (outType == GoalLineOutType.GOAL_KICK) {
+            GoalCrossingUtil.goalKickRestartPosition(goal)
+        } else {
+            GoalCrossingUtil.cornerKickPosition(goal, facing, intersectionX, intersectionZ)
+        }
+        MatchState.pendingGoalLineOut = MatchState.PendingGoalLineOut(
+            goal = goal,
+            ballPos = ballPos,
+            restartTeam = restartTeam,
+            outType = outType,
+            defendingTeam = defendingTeam,
+            attackingTeam = attackingTeam,
+        )
     }
 
     private fun scheduleOutOfBoundsRestart(
@@ -1217,8 +1227,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
 
         val ballPos = if (outType == GoalLineOutType.GOAL_KICK) {
-            val gk = goal.goalKick
-            Vec3(gk.x, gk.y, gk.z)
+            GoalCrossingUtil.goalKickRestartPosition(goal)
         } else {
             GoalCrossingUtil.cornerKickPosition(goal, facing, intersectionX, intersectionZ)
         }

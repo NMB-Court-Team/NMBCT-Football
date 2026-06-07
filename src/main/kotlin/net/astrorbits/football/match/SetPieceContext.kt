@@ -60,6 +60,7 @@ data class SetPieceContext(
     val goalKickPhase: GoalKickPhase? = null,
     val goalKickPickerUuid: UUID? = null,
     val cornerPos: Vec3? = null,
+    val cornerKickTakerUuid: UUID? = null,
 )
 
 object SetPieceState {

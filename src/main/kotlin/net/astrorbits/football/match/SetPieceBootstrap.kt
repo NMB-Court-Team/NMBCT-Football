@@ -33,16 +33,7 @@ object SetPieceBootstrap {
                     }
                     GoalLineOutType.CORNER_KICK -> {
                         val defending = action.defendingSide ?: action.kickoffTeam.opponent()
-                        SetPieceState.begin(
-                            SetPieceContext(
-                                kind = SetPieceKind.CORNER_KICK,
-                                restartTeam = action.kickoffTeam,
-                                ballPos = ballPos,
-                                defendingSide = defending,
-                                cornerPos = ballPos,
-                            ),
-                        )
-                        SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
+                        CornerKickSetPieceFlow.begin(level, action.kickoffTeam, ballPos, defending)
                     }
                     GoalLineOutType.THROW_IN -> {
                         ThrowInSetPieceFlow.begin(
