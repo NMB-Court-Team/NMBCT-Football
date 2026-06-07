@@ -35,6 +35,7 @@ import net.minecraft.world.entity.MoverType
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.level.Level
+import net.minecraft.world.level.levelgen.Heightmap
 import net.minecraft.world.level.storage.ValueInput
 import net.minecraft.world.level.storage.ValueOutput
 import net.minecraft.world.phys.AABB
@@ -43,6 +44,8 @@ import org.joml.Quaternionf
 import org.joml.Vector3f
 import org.joml.Vector3fc
 import java.util.*
+import kotlin.math.floor
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
 
@@ -185,17 +188,20 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         immovableTargetPlayers += player.uuid
     }
 
-    /** 进入比赛暂停：速度清零，解除固定锚点以便仅受重力下坠，并对所有玩家禁止操作。 */
+    /** 进入比赛暂停：速度清零，立即贴地静止，并对所有玩家禁止操作。 */
     fun enterMatchPause(lockedPlayers: Set<UUID>) {
         if (level().isClientSide) return
         if (holderEntityId >= 0) {
             releaseHold()
         }
         isImmovable = false
+        snapToGroundForPause()
         physicsState.linearVelocity = Vec3.ZERO
         physicsState.angularVelocity = Vec3.ZERO
         physicsState.wallBounceCooldown = 0
+        physicsState.onGround = true
         immovableTargetPlayers = lockedPlayers
+        deltaMovement = Vec3.ZERO
         syncPhysicsToEntityData()
         syncPacketPositionCodec(x, y, z)
     }
@@ -341,22 +347,27 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         syncPacketPositionCodec(x, y, z)
     }
 
-    /** 暂停期间：无水平速度、无自转，仅重力下坠与场地碰撞。 */
+    /** 暂停期间：保持贴地静止，不再模拟重力下坠。 */
     private fun tickWhileMatchPaused() {
+        physicsState.linearVelocity = Vec3.ZERO
         physicsState.angularVelocity = Vec3.ZERO
-        var vy = physicsState.linearVelocity.y
-        if (!physicsState.onGround || vy > 0.0) {
-            vy -= FootballPhysicsConfig.GRAVITY
-        }
-        vy *= FootballPhysicsConfig.AIR_DRAG
-        physicsState.linearVelocity = Vec3(0.0, vy, 0.0)
-
-        advanceWithWorldCollisions(physicsState.linearVelocity, detectGoals = false)
-
-        previousOrientation.set(physicsState.orientation)
-        deltaMovement = physicsState.linearVelocity
+        physicsState.onGround = true
+        deltaMovement = Vec3.ZERO
         syncPhysicsToEntityData()
         syncPacketPositionCodec(x, y, z)
+    }
+
+    private fun snapToGroundForPause() {
+        val level = level() as? ServerLevel ?: return
+        val radius = FootballPhysicsConfig.RADIUS
+        val configuredGround = MatchConfigHolder.current.kickOff.y
+        val surfaceY = level.getHeight(
+            Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+            floor(x).toInt(),
+            floor(z).toInt(),
+        ).toDouble()
+        val groundY = max(configuredGround, surfaceY)
+        setCenterWithWorldContactGuards(Vec3(x, groundY + radius, z))
     }
 
     private fun captureImmovableSnapshot() {
