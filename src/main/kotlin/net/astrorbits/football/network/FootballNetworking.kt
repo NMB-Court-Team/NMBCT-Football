@@ -7,6 +7,7 @@ import net.astrorbits.football.input.FootballPlayerActions
 import net.astrorbits.football.input.KickCurveSessions
 import net.astrorbits.football.input.GoalkeeperHoldActionPermissions
 import net.astrorbits.football.input.GoalkeeperHoldLock
+import net.astrorbits.football.match.DeferredBallResetScheduler
 import net.astrorbits.football.match.*
 import net.astrorbits.football.stamina.BoostSprintState
 import net.astrorbits.football.stamina.StaminaState
@@ -263,14 +264,16 @@ object FootballNetworking {
         ms.lastHalfKickoffTeam = kickoffTeam
         ms.kickoffTeam = kickoffTeam
         ms.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.HALF)
-        ms.resetFootball(fieldLevel)
+        ms.teleportTeamsToSpawnPositions(server)
         val kickPos = MatchConfigHolder.current.kickOff.let { net.minecraft.world.phys.Vec3(it.x, it.y, it.z) }
-        SetPieceBootstrap.onCenterKickoffBegin(kickoffTeam, kickPos, server)
-        broadcastSetPieceState(server)
         val nameA = ms.getTeamName(TeamSide.A).string
         val nameB = ms.getTeamName(TeamSide.B).string
         StaminaState.onHalfSwitch(server)
         broadcastHalfKickoff(server, kickoffTeam, phaseKey, nameA, nameB)
+        DeferredBallResetScheduler.schedule(fieldLevel, kickPos) {
+            SetPieceBootstrap.onCenterKickoffBegin(kickoffTeam, kickPos, server)
+            broadcastSetPieceState(server)
+        }
     }
 
     fun broadcastHalfKickoff(server: MinecraftServer, kickoffTeam: TeamSide, phaseKey: String, teamAName: String, teamBName: String) {

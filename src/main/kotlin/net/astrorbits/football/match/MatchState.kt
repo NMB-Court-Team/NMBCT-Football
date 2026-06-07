@@ -542,6 +542,7 @@ object MatchState {
 
     /** 清除场上所有足球并在开球点（或指定位置）放置一个新足球。 */
     fun resetFootball(level: ServerLevel, pos: Vec3? = null) {
+        DeferredBallResetScheduler.cancel(level.dimension())
         PostGoalBallResetScheduler.cancel(level.dimension())
         postGoalResetPending = false
         clearAllFootballs(level.server)
@@ -567,7 +568,6 @@ object MatchState {
             reset()
         }
         syncOnlineRostersFromScoreboard(server)
-        clearAllFootballs(server)
         teleportTeamsToSpawnPositions(server)
         activateSpectators(server)
         val cfg = MatchConfigHolder.current
@@ -599,7 +599,6 @@ object MatchState {
     /** 准备时间结束后进入上半场并执行常规开赛流程。 */
     fun finishPreMatchPreparation(server: MinecraftServer) {
         if (currentPhase != MatchPhase.PRE_MATCH_PREP) return
-        clearAllFootballs(server)
         startRegularMatch(server)
     }
 
@@ -681,10 +680,12 @@ object MatchState {
         kickoffTeam = kickoff
         lastHalfKickoffTeam = kickoff
         beginKickoffPhase(MatchKickoffTiming.MATCH_START_LOCK_MS, KickoffWhistleContext.MATCH_START)
+        val level = matchFieldLevel(server)
         val kickPos = MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
-        resetFootball(matchFieldLevel(server), kickPos)
-        SetPieceBootstrap.onCenterKickoffBegin(kickoff, kickPos, server)
-        FootballNetworking.broadcastSetPieceState(server)
+        DeferredBallResetScheduler.schedule(level, kickPos) { loadedLevel ->
+            SetPieceBootstrap.onCenterKickoffBegin(kickoff, kickPos, server)
+            FootballNetworking.broadcastSetPieceState(server)
+        }
         FootballSounds.playMatchWhistle(server, 1)
         StaminaState.onMatchStart(server)
         val nameA = getTeamName(TeamSide.A).string

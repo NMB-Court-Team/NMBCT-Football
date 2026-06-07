@@ -66,6 +66,7 @@ object NMBCTFootball : ModInitializer {
 		GoalkeeperDiveSessions.registerEvents()
 		SetPieceAreaViolationMonitor.register()
 		PostGoalBallResetScheduler.register()
+		DeferredBallResetScheduler.register()
 		FootballPlayerCollisionScheduler.register()
 
 		ServerPlayConnectionEvents.JOIN.register { handler, _, _ ->
