@@ -5,11 +5,11 @@ import com.mojang.serialization.codecs.RecordCodecBuilder
 
 /** 射门/长抛蓄力时机（服务端权威）。 */
 data class KickChargeSettings(
-    val tapMaxMs: Long = 250L,
-    val chargeMinMs: Long = 300L,
-    val chargeRiseMs: Long = 900L,
-    val chargePerfectWindowMs: Long = 120L,
-    val chargeDecayMs: Long = 1500L,
+    val tapMaxMs: Long = 100L,
+    val chargeMinMs: Long = 150L,
+    val chargeRiseMs: Long = 750L,
+    val chargePerfectWindowMs: Long = 30L,
+    val chargeDecayMs: Long = 1350L,
     /** 与原版弹射物 inaccuracy 同尺度；R 键传球/射门/发球的方向散布。 */
     val kickSpreadInaccuracy: Double = 1.5,
     /** 完美蓄力松开时的力度乘数（1.0 = 无加成）。 */
