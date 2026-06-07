@@ -709,6 +709,7 @@ object FootballNetworking {
         }
         val penaltyKickPhase = when {
             MatchPenaltyKickState.isActive() -> MatchPenaltyKickState.kickPhase
+            PenaltyShootoutState.isActive() -> PenaltyShootoutState.kickPhase
             else -> null
         }
         return SetPieceStateS2CPayload(

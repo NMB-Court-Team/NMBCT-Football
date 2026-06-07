@@ -246,7 +246,9 @@ object PenaltyShootoutState {
             kickIntroTicksRemaining--
             if (kickIntroTicksRemaining == 0) {
                 kickPhase = PenaltyKickPhase.AWAITING_KICK
+                releaseBallForKickerStrike(server)
                 FootballNetworking.broadcastPenaltyShootoutSync(server)
+                FootballNetworking.broadcastSetPieceState(server)
             }
             return
         }
@@ -274,6 +276,11 @@ object PenaltyShootoutState {
             if (entity is Football) return entity
         }
         return null
+    }
+
+    /** 介绍期球体 [isImmovable]；进入 AWAITING_KICK 后须解除，否则主罚无法 [Football.kick]。 */
+    private fun releaseBallForKickerStrike(server: MinecraftServer) {
+        findActiveFootball(server)?.isImmovable = false
     }
 
     private fun applyOutcome(scored: Boolean) {
