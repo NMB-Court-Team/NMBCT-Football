@@ -1029,7 +1029,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val iy = prevCenter.y + movement.y * t
         val iz = prevCenter.z + movement.z * t
 
-        val server = (level() as? ServerLevel)?.server ?: return
+        val level = level() as ServerLevel
+        val server = level.server
+
+        if (ThrowInSetPieceFlow.tryRetakeFoulThrowSidelineOut(level, server, sideline, lastPhysicalTouch)) {
+            return
+        }
 
         // 最后触球方 = 对方发球
         val lastTouchTeam = lastPhysicalTouch?.let { MatchState.getPlayerTeam(it) }
@@ -1040,7 +1045,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
 
         val ballPos = Vec3(ix, iy, iz)
-        scheduleOutOfBoundsRestart(level() as ServerLevel, server, ballPos, restartTeam, GoalLineOutType.THROW_IN)
+        scheduleOutOfBoundsRestart(level, server, ballPos, restartTeam, GoalLineOutType.THROW_IN)
     }
 
     /** 检测球是否穿越门线：进球或出底线 */
