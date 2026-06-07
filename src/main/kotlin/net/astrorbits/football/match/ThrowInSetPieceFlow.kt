@@ -1,11 +1,13 @@
 package net.astrorbits.football.match
 
 import net.astrorbits.football.Football
+import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.input.GoalkeeperHoldActionPermissions
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.astrorbits.football.util.GoalkeeperUtil
+import net.astrorbits.football.util.Vec3Math
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -13,12 +15,18 @@ import net.minecraft.world.level.levelgen.Heightmap
 import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import java.util.UUID
+import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.sqrt
 
 object ThrowInSetPieceFlow {
     private val anchorPositions = mutableMapOf<java.util.UUID, Vec3>()
+    private var foulThrowWatch: FoulThrowWatch? = null
     private const val POSITION_SNAP_THRESHOLD_SQ = 0.01
+    /** 抛球后若球仍越过边线出界，在此 tick 数内改判同位置重掷。 */
+    private const val FOUL_THROW_WATCH_TICKS = 80L
+    /** 水平抛球方向与场内法向点积低于此值视为往外扔。 */
+    private const val INWARD_THROW_MIN_DOT = 0.08
 
     data class GroundSpot(
         val ballPos: Vec3,
@@ -51,6 +59,7 @@ object ThrowInSetPieceFlow {
         val football = findFootballNear(level, groundBallPos) ?: return
 
         football.setPos(groundBallPos.x, groundBallPos.y, groundBallPos.z)
+        football.setDeltaMovement(Vec3.ZERO)
 
         taker.teleportTo(
             level,
@@ -85,8 +94,83 @@ object ThrowInSetPieceFlow {
         val ctx = SetPieceState.active ?: return
         if (ctx.kind != SetPieceKind.THROW_IN) return
         if (player.uuid != ctx.throwInTakerUuid) return
+        foulThrowWatch = FoulThrowWatch(
+            spot = ctx.ballPos,
+            restartTeam = ctx.restartTeam,
+            takerUuid = player.uuid,
+            expireTick = player.level().gameTime + FOUL_THROW_WATCH_TICKS,
+        )
         clear(player.level().server)
         MatchState.notifyKickoffBallTouched(player)
+    }
+
+    /** 界外球抛球方向须朝向场内；往外扔则同位置改判对方发球（球不离开双手）。 */
+    fun isInwardThrow(lookYaw: Float, lookPitch: Float): Boolean {
+        val ctx = SetPieceState.active ?: return true
+        if (ctx.kind != SetPieceKind.THROW_IN) return true
+        val look = Vec3.directionFromRotation(lookPitch, lookYaw)
+        val horizontal = Vec3Math.horizontal(look)
+        if (horizontal.lengthSqr() < 1.0e-6) return false
+        val dir = Vec3Math.normalizeSafe(horizontal)
+        val sideline = sidelineAt(ctx.ballPos) ?: return true
+        val facing = sideline.facing()
+        val inward = dir.x * facing.x + dir.z * facing.z
+        return inward >= INWARD_THROW_MIN_DOT
+    }
+
+    fun onFoulThrow(player: ServerPlayer) {
+        val ctx = SetPieceState.active ?: return
+        if (ctx.kind != SetPieceKind.THROW_IN) return
+        if (player.uuid != ctx.throwInTakerUuid) return
+        awardOpponentThrowInAtSameSpot(player.level() as ServerLevel, ctx.ballPos, ctx.restartTeam)
+    }
+
+    /**
+     * 界外球掷出后球仍越过同一边线出界：同位置改判对方发球。
+     * @return 已按犯规重掷处理
+     */
+    fun tryRetakeFoulThrowSidelineOut(
+        level: ServerLevel,
+        server: MinecraftServer,
+        sideline: SidelineConfig,
+        lastTouchUuid: UUID?,
+    ): Boolean {
+        val watch = foulThrowWatch ?: return false
+        if (level.gameTime > watch.expireTick) {
+            foulThrowWatch = null
+            return false
+        }
+        if (lastTouchUuid != watch.takerUuid) return false
+        val spotSideline = sidelineAt(watch.spot) ?: return false
+        if (!isSameSideline(sideline, spotSideline)) return false
+
+        foulThrowWatch = null
+        awardOpponentThrowInAtSameSpot(level, watch.spot, watch.restartTeam)
+        return true
+    }
+
+    private fun awardOpponentThrowInAtSameSpot(level: ServerLevel, spot: Vec3, foulingTeam: TeamSide) {
+        val server = level.server
+        val opponentTeam = foulingTeam.opponent()
+        val groundSpot = resolveGroundSpot(level, spot)
+
+        SetPieceState.active?.throwInTakerUuid?.let { uuid ->
+            server.playerList.getPlayer(uuid)?.let { taker ->
+                GoalkeeperUtil.findHeldFootball(taker)?.let { football ->
+                    football.setDeltaMovement(Vec3.ZERO)
+                    football.setPos(groundSpot.ballPos.x, groundSpot.ballPos.y, groundSpot.ballPos.z)
+                    football.releaseHold()
+                }
+            }
+        }
+
+        clear(server)
+        MatchState.kickoffTeam = opponentTeam
+        MatchState.kickoffTouched = false
+        begin(level, opponentTeam, groundSpot.ballPos, null)
+        FootballSounds.playMatchWhistle(server, 6)
+        FootballNetworking.broadcastRestartKickoff(server, opponentTeam, goalLineOut = true)
+        FootballNetworking.broadcastSetPieceRestart(server, SetPieceRestartKind.THROW_IN, opponentTeam)
     }
 
     fun tickMovementFreeze(server: MinecraftServer) {
@@ -139,6 +223,7 @@ object ThrowInSetPieceFlow {
     }
 
     fun clear(server: MinecraftServer?) {
+        foulThrowWatch = null
         if (SetPieceState.active?.kind != SetPieceKind.THROW_IN) return
         val takerUuid = SetPieceState.active?.throwInTakerUuid
         if (takerUuid != null) {
@@ -198,4 +283,29 @@ object ThrowInSetPieceFlow {
             football.syncHeldPose(taker)
         }
     }
+
+    private data class FoulThrowWatch(
+        val spot: Vec3,
+        val restartTeam: TeamSide,
+        val takerUuid: UUID,
+        val expireTick: Long,
+    )
+
+    private fun sidelineAt(
+        pos: Vec3,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): SidelineConfig? {
+        val distA = abs(sidelineSignedDistance(pos, config.sidelineA))
+        val distB = abs(sidelineSignedDistance(pos, config.sidelineB))
+        return if (distA <= distB) config.sidelineA else config.sidelineB
+    }
+
+    private fun sidelineSignedDistance(pos: Vec3, sideline: SidelineConfig): Double {
+        val origin = sideline.origin()
+        val facing = sideline.facing()
+        return (pos.x - origin.x) * facing.x + (pos.z - origin.z) * facing.z
+    }
+
+    private fun isSameSideline(a: SidelineConfig, b: SidelineConfig): Boolean =
+        a.axis.equals(b.axis, ignoreCase = true) && abs(a.coord - b.coord) < 1.0e-3
 }

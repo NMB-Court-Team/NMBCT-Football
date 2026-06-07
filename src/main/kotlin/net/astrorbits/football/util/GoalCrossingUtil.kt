@@ -1,12 +1,17 @@
 package net.astrorbits.football.util
 
 import net.astrorbits.football.match.GoalConfig
+import net.astrorbits.football.match.KickPosition
 import net.astrorbits.football.match.MatchConfig
 import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.match.TeamSide
+import net.astrorbits.football.match.goalCenter
+import net.astrorbits.football.match.toVec3
+import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.Vec3
 import kotlin.math.abs
+import kotlin.math.sqrt
 
 object GoalCrossingUtil {
     private const val GOAL_Z_TOLERANCE = 1.01
@@ -18,8 +23,8 @@ object GoalCrossingUtil {
         val intersection: Vec3,
         val inGoal: Boolean,
         /**
-         * 穿越点落在门框外且属于「门柱外侧」类出界（非仅高出/低于横梁或地面）。
-         * 打框弹入球门时穿越点常在横梁高度外，不应据此立即判底线出界。
+         * 穿越门线但未进框：含门柱外、横梁上/下等，进入 [MatchState.pendingGoalLineOut] 待确认；
+         * 确认期内球弹入门框则改判进球，否则判角球/球门球。
          */
         val definiteGoalLineOut: Boolean,
         val defendingTeam: TeamSide,
@@ -43,11 +48,9 @@ object GoalCrossingUtil {
             return null
         }
 
-        val refX = goal.x1 + facing.x
-        val refY = goal.y1 + facing.y
-        val refZ = goal.z1 + facing.z
-        val d1 = signedDistance(prevCenter, refX, refY, refZ, facing)
-        val d2 = signedDistance(currCenter, refX, refY, refZ, facing)
+        val linePoint = goal.goalCenter()
+        val d1 = signedDistance(prevCenter, linePoint.x, linePoint.y, linePoint.z, facing)
+        val d2 = signedDistance(currCenter, linePoint.x, linePoint.y, linePoint.z, facing)
 
         if (d1 * d2 >= 0) {
             return null
@@ -80,10 +83,8 @@ object GoalCrossingUtil {
         if (facing.lengthSqr() < 1e-6) {
             return false
         }
-        val refX = goal.x1 + facing.x
-        val refY = goal.y1 + facing.y
-        val refZ = goal.z1 + facing.z
-        if (signedDistance(center, refX, refY, refZ, facing) <= GOAL_LINE_INSIDE_EPSILON) {
+        val linePoint = goal.goalCenter()
+        if (signedDistance(center, linePoint.x, linePoint.y, linePoint.z, facing) <= GOAL_LINE_INSIDE_EPSILON) {
             return false
         }
         return isPointInGoalFrame(goal, center.x, center.y, center.z)
@@ -92,7 +93,21 @@ object GoalCrossingUtil {
     fun segmentEnteredGoal(goal: GoalConfig, prevCenter: Vec3, currCenter: Vec3): Boolean =
         !isCenterInGoal(goal, prevCenter) && isCenterInGoal(goal, currCenter)
 
-    private fun isPointInGoalFrame(goal: GoalConfig, x: Double, y: Double, z: Double): Boolean {
+    fun isPastGoalLineOnNetSide(goal: GoalConfig, center: Vec3): Boolean {
+        val facing = Vec3(goal.facingX, goal.facingY, goal.facingZ)
+        if (facing.lengthSqr() < 1e-6) {
+            return false
+        }
+        val line = goal.goalCenter()
+        return signedDistance(center, line.x, line.y, line.z, facing) > GOAL_LINE_INSIDE_EPSILON
+    }
+
+    /** 球心已越过门线且不在门框内（含横梁上飞过、门柱外等）。 */
+    fun isGoalLineMiss(goal: GoalConfig, center: Vec3): Boolean =
+        isPastGoalLineOnNetSide(goal, center) &&
+            !isPointInGoalFrame(goal, center.x, center.y, center.z)
+
+    fun isPointInGoalFrame(goal: GoalConfig, x: Double, y: Double, z: Double): Boolean {
         val minX = minOf(goal.x1, goal.x2)
         val maxX = maxOf(goal.x1, goal.x2)
         val minY = minOf(goal.y1, goal.y2)
@@ -104,15 +119,19 @@ object GoalCrossingUtil {
             && z in minZ - GOAL_Z_TOLERANCE..maxZ + GOAL_Z_TOLERANCE
     }
 
-    /** 仅门柱左右外侧算明确出界；仅高出/低于门框仍可能弹入，不算。 */
     private fun isDefiniteGoalLineOutMiss(goal: GoalConfig, ix: Double, iy: Double, iz: Double): Boolean {
         val minX = minOf(goal.x1, goal.x2)
         val maxX = maxOf(goal.x1, goal.x2)
+        val minY = minOf(goal.y1, goal.y2)
+        val maxY = maxOf(goal.y1, goal.y2)
         val minZ = minOf(goal.z1, goal.z2)
         val maxZ = maxOf(goal.z1, goal.z2)
         val besidePost = ix !in minX..maxX
         val besideNet = iz !in minZ - GOAL_Z_TOLERANCE..maxZ + GOAL_Z_TOLERANCE
-        return besidePost || besideNet
+        val betweenPosts = ix in minX..maxX
+        val aboveBar = betweenPosts && iy > maxY
+        val belowFrame = betweenPosts && iy < minY
+        return besidePost || besideNet || aboveBar || belowFrame
     }
 
     /** 检测本段位移是否穿过任一门框并进门。 */
@@ -159,6 +178,9 @@ object GoalCrossingUtil {
         return towardGoal.normalize().dot(kickHoriz.normalize()) >= KICK_TOWARD_GOAL_DOT_THRESHOLD
     }
 
+    fun goalKickRestartPosition(goal: GoalConfig): Vec3 =
+        snapRestartBallToFieldSide(goal, goal.goalKick)
+
     /**
      * 按 IFAB：角球在球离开场地一侧、距出界点最近的角旗区发球。
      * 「右」为面向球门（沿 [facing]）时的右侧，而非固定世界坐标正负。
@@ -172,7 +194,37 @@ object GoalCrossingUtil {
             (ix - goalCenterX) * facing.z > 0.0
         }
         val corner = if (onRight) goal.cornerKickRight else goal.cornerKickLeft
-        return Vec3(corner.x, corner.y, corner.z)
+        return snapRestartBallToFieldSide(goal, corner)
+    }
+
+    /**
+     * 将门球/角球摆球点钳制到门线场内一侧。
+     * [facing] 为门线法向（指向球网侧）；配置点若落在门内或门线网侧则沿法向拉回场内。
+     */
+    fun snapRestartBallToFieldSide(goal: GoalConfig, position: KickPosition): Vec3 {
+        val facing = Vec3(goal.facingX, goal.facingY, goal.facingZ)
+        val lenSq = facing.lengthSqr()
+        if (lenSq < 1e-6) {
+            return position.toVec3()
+        }
+        val invLen = 1.0 / sqrt(lenSq)
+        val fnx = facing.x * invLen
+        val fny = facing.y * invLen
+        val fnz = facing.z * invLen
+        val line = goal.goalCenter()
+        val pos = position.toVec3()
+        val signedOffset = (pos.x - line.x) * fnx + (pos.y - line.y) * fny + (pos.z - line.z) * fnz
+        val fieldMargin = FootballPhysicsConfig.RADIUS + 0.05
+        val targetMaxOffset = -fieldMargin
+        if (signedOffset <= targetMaxOffset) {
+            return pos
+        }
+        val pullBack = signedOffset - targetMaxOffset
+        return Vec3(
+            pos.x - fnx * pullBack,
+            pos.y - fny * pullBack,
+            pos.z - fnz * pullBack,
+        )
     }
 
     private fun signedDistance(

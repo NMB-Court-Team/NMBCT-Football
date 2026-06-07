@@ -43,7 +43,9 @@ object GoalkeeperActions {
         }
         // 服务端双重保险：非发球方球员在开球锁定时拒绝所有足球操作
         if (net.astrorbits.football.match.MatchState.isKickoffInteractionLocked(player, payload.action)) return
-        net.astrorbits.football.match.MatchState.tryNotifyKickoffBallTouched(player)
+        if (!defersThrowInKickoffTouchNotify(player, payload.action)) {
+            net.astrorbits.football.match.MatchState.tryNotifyKickoffBallTouched(player)
+        }
         FootballDribbleSessions.end(player)
 
         if (!canAct(player)) {
@@ -107,6 +109,12 @@ object GoalkeeperActions {
                     return
                 }
                 if (!throwInRelease && GoalkeeperHoldLock.isReleaseBlocked(player, now)) {
+                    return
+                }
+                if (throwInRelease && !ThrowInSetPieceFlow.isInwardThrow(payload.lookYaw, payload.lookPitch)) {
+                    applyLookFromPayload(player, payload)
+                    football.syncHeldPose(player, payload.lookYaw, payload.lookPitch)
+                    ThrowInSetPieceFlow.onFoulThrow(player)
                     return
                 }
             }
@@ -375,5 +383,13 @@ object GoalkeeperActions {
         FootballActionType.GK_DIVE_CHARGE_CANCEL,
         -> true
         else -> false
+    }
+
+    /** 界外球主罚员合法抛球后才算触球，避免往外扔犯规时误解除开球锁。 */
+    private fun defersThrowInKickoffTouchNotify(player: ServerPlayer, action: FootballActionType): Boolean {
+        if (action != FootballActionType.GK_THROW_SHORT && action != FootballActionType.GK_THROW_LONG) {
+            return false
+        }
+        return ThrowInSetPieceFlow.isMovementFrozen(player)
     }
 }
