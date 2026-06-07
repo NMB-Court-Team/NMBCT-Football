@@ -339,6 +339,8 @@
     "yacl3.config.nmbct-football.server.player.shoot_force_max.desc": "蓄力满格时的最大射门力度",
     "yacl3.config.nmbct-football.server.player.chip_force": "挑球力度",
     "yacl3.config.nmbct-football.server.player.chip_force.desc": "挑球按键的力度",
+    "yacl3.config.nmbct-football.server.player.chip_horizontal_scale": "挑球前冲衰减",
+    "yacl3.config.nmbct-football.server.player.chip_horizontal_scale.desc": "在仰角 cos 之外额外削弱水平前冲（0~1，越小越竖）",
     "yacl3.config.nmbct-football.server.player.action_cooldown": "操作冷却",
     "yacl3.config.nmbct-football.server.player.action_cooldown.desc": "同一玩家两次足球操作之间的最短间隔（tick）",
     "yacl3.config.nmbct-football.server.player.tap_max_ms": "短按上限（毫秒）",

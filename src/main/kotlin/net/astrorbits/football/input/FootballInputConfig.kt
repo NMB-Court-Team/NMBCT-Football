@@ -20,6 +20,7 @@ object FootballInputConfig {
     val CHIP_ANGLE_DEG get() = FootballConfigs.server.playerInput.chipAngleDeg
     val CHIP_ANGLE_EXTRA_MAX get() = FootballConfigs.server.playerInput.chipAngleExtraMax
     val CHIP_HEIGHT_OFFSET get() = FootballConfigs.server.playerInput.chipHeightOffset
+    val CHIP_HORIZONTAL_SCALE get() = FootballConfigs.server.playerInput.chipHorizontalScale
     val DRIBBLE_TARGET_DISTANCE get() = FootballConfigs.server.playerInput.dribbleTargetDistance
     val DRIBBLE_MAX_CONTROL_RANGE get() = FootballConfigs.server.playerInput.dribbleMaxControlRange
     val DRIBBLE_SESSION_TIMEOUT_TICKS get() = FootballConfigs.server.playerInput.dribbleSessionTimeoutTicks

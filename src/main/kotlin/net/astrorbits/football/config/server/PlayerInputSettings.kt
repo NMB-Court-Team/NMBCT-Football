@@ -4,10 +4,12 @@ import com.mojang.serialization.Codec
 import com.mojang.serialization.codecs.RecordCodecBuilder
 
 data class PlayerChipSettings(
-    val chipForce: Double = 1.4,
-    val chipAngleDeg: Double = 50.0,
-    val chipAngleExtraMax: Double = 20.0,
-    val chipHeightOffset: Double = -0.15,
+    val chipForce: Double = 1.8,
+    val chipAngleDeg: Double = 79.0,
+    val chipAngleExtraMax: Double = 25.0,
+    val chipHeightOffset: Double = -0.18,
+    /** 挑球水平前冲额外衰减（0~1），与仰角 cos 相乘。 */
+    val chipHorizontalScale: Double = 0.35,
 ) {
     companion object {
         val CODEC: Codec<PlayerChipSettings> = RecordCodecBuilder.create { i ->
@@ -16,6 +18,8 @@ data class PlayerChipSettings(
                 Codec.DOUBLE.fieldOf("chip_angle_deg").forGetter(PlayerChipSettings::chipAngleDeg),
                 Codec.DOUBLE.fieldOf("chip_angle_extra_max").forGetter(PlayerChipSettings::chipAngleExtraMax),
                 Codec.DOUBLE.fieldOf("chip_height_offset").forGetter(PlayerChipSettings::chipHeightOffset),
+                Codec.DOUBLE.optionalFieldOf("chip_horizontal_scale", 0.35)
+                    .forGetter(PlayerChipSettings::chipHorizontalScale),
             ).apply(i, ::PlayerChipSettings)
         }
 
@@ -43,6 +47,7 @@ data class PlayerKickSettings(
     val chipAngleDeg get() = chip.chipAngleDeg
     val chipAngleExtraMax get() = chip.chipAngleExtraMax
     val chipHeightOffset get() = chip.chipHeightOffset
+    val chipHorizontalScale get() = chip.chipHorizontalScale
 
     companion object {
         val CODEC: Codec<PlayerKickSettings> = RecordCodecBuilder.create { i ->
@@ -155,6 +160,7 @@ data class PlayerInputSettings(
     val chipAngleDeg get() = kick.chipAngleDeg
     val chipAngleExtraMax get() = kick.chipAngleExtraMax
     val chipHeightOffset get() = kick.chipHeightOffset
+    val chipHorizontalScale get() = kick.chipHorizontalScale
     val actionCooldownTicks get() = kick.actionCooldownTicks
     val shootAngleMinDeg get() = kick.shootAngleMinDeg
     val shootAngleMaxDeg get() = kick.shootAngleMaxDeg

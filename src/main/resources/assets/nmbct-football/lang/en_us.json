@@ -339,6 +339,8 @@
     "yacl3.config.nmbct-football.server.player.shoot_force_max.desc": "Shoot force at full charge",
     "yacl3.config.nmbct-football.server.player.chip_force": "Chip force",
     "yacl3.config.nmbct-football.server.player.chip_force.desc": "Force for chip kick",
+    "yacl3.config.nmbct-football.server.player.chip_horizontal_scale": "Chip horizontal scale",
+    "yacl3.config.nmbct-football.server.player.chip_horizontal_scale.desc": "Extra forward damp on chip beyond angle cos (0–1, lower = more vertical)",
     "yacl3.config.nmbct-football.server.player.action_cooldown": "Action cooldown",
     "yacl3.config.nmbct-football.server.player.action_cooldown.desc": "Minimum ticks between football actions per player",
     "yacl3.config.nmbct-football.server.player.tap_max_ms": "Tap max (ms)",

@@ -131,6 +131,7 @@ object FootballServerConfigScreen {
                     addDouble("$PI.shoot_force_min", "$PI.shoot_force_min.desc", PL_KICK.shootForceMin, { kick().shootForceMin }, { v -> setKick { it.copy(shootForceMin = v) } }, 0.1..10.0)
                     addDouble("$PI.shoot_force_max", "$PI.shoot_force_max.desc", PL_KICK.shootForceMax, { kick().shootForceMax }, { v -> setKick { it.copy(shootForceMax = v) } }, 0.1..15.0)
                     addDouble("$PI.chip_force", "$PI.chip_force.desc", PL_KICK.chipForce, { kick().chipForce }, { v -> setKick { it.copy(chip = it.chip.copy(chipForce = v)) } }, 0.1..10.0)
+                    addDouble("$PI.chip_horizontal_scale", "$PI.chip_horizontal_scale.desc", PL_KICK.chipHorizontalScale, { kick().chipHorizontalScale }, { v -> setKick { it.copy(chip = it.chip.copy(chipHorizontalScale = v)) } }, 0.0..1.0)
                     addInt("$PI.action_cooldown", "$PI.action_cooldown.desc", PL_KICK.actionCooldownTicks, { kick().actionCooldownTicks }, { v -> setKick { it.copy(actionCooldownTicks = v) } }, 0..40)
                 }
                 .build(),

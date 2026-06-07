@@ -15,7 +15,9 @@ import kotlin.math.sin
 data class KickParams(
     val force: Double,
     val angleDegrees: Double,
-    val heightOffset: Double
+    val heightOffset: Double,
+    /** 仅挑球等需削弱前冲时使用：水平分量额外乘以该系数（0~1）。 */
+    val horizontalScale: Double = 1.0,
 )
 
 object FootballKickUtil {
@@ -36,7 +38,8 @@ object FootballKickUtil {
         horizontalLook: Vec3,
         look: Vec3,
         force: Double,
-        angleDegrees: Double
+        angleDegrees: Double,
+        horizontalScale: Double = 1.0,
     ): Vec3 {
         if (horizontalLook.lengthSqr() < 1.0e-8) {
             return look.scale(force)
@@ -44,7 +47,8 @@ object FootballKickUtil {
 
         val horizontalUnit = Vec3Math.normalizeSafe(horizontalLook)
         val pitchRad = Math.toRadians(angleDegrees)
-        val unitDirection = horizontalUnit.scale(cos(pitchRad)).add(0.0, sin(pitchRad), 0.0)
+        val horizFactor = cos(pitchRad) * horizontalScale.coerceIn(0.0, 1.0)
+        val unitDirection = horizontalUnit.scale(horizFactor).add(0.0, sin(pitchRad), 0.0)
         return unitDirection.scale(force)
     }
 
@@ -91,7 +95,8 @@ object FootballKickUtil {
         return KickParams(
             force = FootballInputConfig.CHIP_FORCE,
             angleDegrees = FootballInputConfig.CHIP_ANGLE_DEG + extraAngle,
-            heightOffset = FootballInputConfig.CHIP_HEIGHT_OFFSET
+            heightOffset = FootballInputConfig.CHIP_HEIGHT_OFFSET,
+            horizontalScale = FootballInputConfig.CHIP_HORIZONTAL_SCALE,
         )
     }
 
@@ -135,7 +140,9 @@ object FootballKickUtil {
         val horizontalLook = Vec3Math.horizontal(look)
         val pitchOffset = lookPitchAngleOffset(lookPitch)
         val adjustedParams = params.copy(angleDegrees = params.angleDegrees + pitchOffset)
-        val direction = buildKickDirection(horizontalLook, look, adjustedParams.force, adjustedParams.angleDegrees)
+        val direction = buildKickDirection(
+            horizontalLook, look, adjustedParams.force, adjustedParams.angleDegrees, adjustedParams.horizontalScale,
+        )
         football.recordActiveKick(player, direction)
     }
 
@@ -228,7 +235,9 @@ object FootballKickUtil {
     ) {
         val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         val kickPoint = buildKickPoint(ballCenter, horizontalLook, params.heightOffset)
-        val direction = buildKickDirection(horizontalLook, verticalReference, params.force, params.angleDegrees)
+        val direction = buildKickDirection(
+            horizontalLook, verticalReference, params.force, params.angleDegrees, params.horizontalScale,
+        )
         football.kick(kickPoint, direction, ignoreImmovableTargets = true)
     }
 
@@ -265,7 +274,9 @@ object FootballKickUtil {
     ): Boolean {
         val ballCenter = football.position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         val kickPoint = buildKickPoint(ballCenter, horizontalLook, params.heightOffset)
-        var direction = buildKickDirection(horizontalLook, verticalReference, params.force, params.angleDegrees)
+        var direction = buildKickDirection(
+            horizontalLook, verticalReference, params.force, params.angleDegrees, params.horizontalScale,
+        )
         if (random != null && spreadInaccuracy > 0.0) {
             direction = applyProjectileSpread(direction, random, spreadInaccuracy)
         }
