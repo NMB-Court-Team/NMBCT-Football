@@ -62,6 +62,7 @@ object NMBCTFootball : ModInitializer {
 		FootballItemUseGuards.register()
 		SlideTackleSessions.registerEvents()
 		FootballDribbleSessions.registerEvents()
+		KickCurveSessions.registerServerTick()
 		GoalkeeperDiveSessions.registerEvents()
 		SetPieceAreaViolationMonitor.register()
 		PostGoalBallResetScheduler.register()
@@ -78,6 +79,7 @@ object NMBCTFootball : ModInitializer {
 			FootballPlayerBallContactGrace.removePlayer(playerId)
 			FootballKickPushGrace.removePlayer(playerId)
 			FootballDribbleSessions.removePlayer(playerId)
+			KickCurveSessions.clear(playerId)
 		}
 
 		LOGGER.info("NMBCT Football initialized")

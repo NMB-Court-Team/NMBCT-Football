@@ -63,6 +63,15 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     private var holderEntityId: Int = -1
     private var holdStartTick: Long = 0L
     private var immovableSnapshot: FootballImmovableSnapshot? = null
+    private var curveRamp: CurveRampState? = null
+
+    private class CurveRampState(
+        val kickHorizontal: Vec3,
+        val yawDeltaDeg: Double,
+        val targetLateralSpeed: Double,
+        val sourcePlayerUuid: UUID,
+        var currentLateralSpeed: Double = 0.0,
+    )
 
     init {
         isNoGravity = true
@@ -292,6 +301,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
 
         FootballPhysicsSimulator.applyAirForces(physicsState)
+        tickCurveRamp()
 
         val movement = physicsState.linearVelocity
         val worldMotion = advanceWithWorldCollisions(movement)
@@ -1347,6 +1357,91 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         previousOrientation.set(physicsState.orientation)
         syncPhysicsToEntityData()
         notifySetPieceGoalKickBallMoved(player)
+        return true
+    }
+
+    fun beginCurveRamp(
+        kickHorizontal: Vec3,
+        yawDeltaDeg: Double,
+        targetLateralSpeed: Double,
+        player: ServerPlayer,
+    ): Boolean {
+        if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player)) {
+            return false
+        }
+        if (isHoldStealProtectedFrom(player)) {
+            return false
+        }
+        if (targetLateralSpeed < 1.0e-6) {
+            return false
+        }
+        curveRamp = CurveRampState(
+            kickHorizontal = Vec3Math.normalizeSafe(Vec3Math.horizontal(kickHorizontal)),
+            yawDeltaDeg = yawDeltaDeg,
+            targetLateralSpeed = targetLateralSpeed,
+            sourcePlayerUuid = player.uuid,
+        )
+        return true
+    }
+
+    private fun tickCurveRamp() {
+        val ramp = curveRamp ?: return
+        val serverLevel = level() as? ServerLevel ?: run {
+            curveRamp = null
+            return
+        }
+        val player = serverLevel.server.playerList.getPlayer(ramp.sourcePlayerUuid)
+        if (player == null || !isAlive || isPlayerBallMovementForbidden(player)) {
+            curveRamp = null
+            return
+        }
+
+        val rampTicks = FootballInputConfig.CURVE_RAMP_TICKS.coerceAtLeast(1L).toDouble()
+        val step = ramp.targetLateralSpeed / rampTicks
+        ramp.currentLateralSpeed = min(ramp.currentLateralSpeed + step, ramp.targetLateralSpeed)
+        applyCurveLateral(ramp.kickHorizontal, ramp.yawDeltaDeg, ramp.currentLateralSpeed, player)
+
+        if (ramp.currentLateralSpeed >= ramp.targetLateralSpeed - 1.0e-6) {
+            curveRamp = null
+        }
+    }
+
+    /**
+     * 蓄力射门弧线：保留沿射门方向的速度分量，按偏航峰值重设垂直于射门方向的侧向速度。
+     * yawDelta 正=右转弧线。
+     */
+    fun applyCurveLateral(
+        kickHorizontal: Vec3,
+        yawDeltaDeg: Double,
+        lateralSpeed: Double,
+        player: ServerPlayer,
+    ): Boolean {
+        if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player)) {
+            return false
+        }
+        if (isHoldStealProtectedFrom(player)) {
+            return false
+        }
+
+        val kick = Vec3Math.normalizeSafe(Vec3Math.horizontal(kickHorizontal))
+        if (kick.lengthSqr() < 1.0e-8 || lateralSpeed < 1.0e-6) {
+            return false
+        }
+
+        // 与 MC 视角一致：yaw 增大（右转）→ 沿 up×kick 的反方向弯（面朝 +Z 时弯向 -X）
+        val right = Vec3(-kick.z, 0.0, kick.x)
+        val lateralDir = if (yawDeltaDeg >= 0.0) right else right.scale(-1.0)
+
+        val vel = physicsState.linearVelocity
+        val horiz = Vec3(vel.x, 0.0, vel.z)
+        val alongKick = kick.scale(horiz.dot(kick))
+        val newHoriz = alongKick.add(lateralDir.scale(lateralSpeed))
+        physicsState.linearVelocity = Vec3(newHoriz.x, vel.y, newHoriz.z)
+        val rolling = Vec3Math.rollingAngularVelocity(newHoriz, FootballPhysicsConfig.RADIUS)
+        physicsState.angularVelocity = Vec3(rolling.x, physicsState.angularVelocity.y, rolling.z)
+        deltaMovement = physicsState.linearVelocity
+        recordDribbleTouch(player)
+        syncPhysicsToEntityData()
         return true
     }
 

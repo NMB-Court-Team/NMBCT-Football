@@ -225,6 +225,14 @@ object FootballPlayerActions {
                     FootballSounds.playKick(player, params.force)
                     FootballParticles.playKick(player, football, params.force)
                     markKickAwayAction(player, now)
+                    val look = FootballKickUtil.lookDirection(player.yRot, player.xRot)
+                    KickCurveSessions.begin(
+                        player,
+                        football,
+                        Vec3Math.horizontal(look),
+                        chargeRatio,
+                        now,
+                    )
                 }
             }
             FootballActionType.TRAP -> {

@@ -42,6 +42,12 @@ object FootballInputConfig {
     val CHARGE_DECAY_MS get() = FootballConfigs.server.playerInput.chargeDecayMs
     val KICK_SPREAD_INACCURACY get() = FootballConfigs.server.playerInput.kickSpreadInaccuracy
     val PERFECT_CHARGE_FORCE_BONUS get() = FootballConfigs.server.playerInput.perfectChargeForceBonus
+    val CURVE_WINDOW_MS get() = FootballConfigs.server.playerInput.curveWindowMs
+    val CURVE_MAX_YAW_DEG get() = FootballConfigs.server.playerInput.curveMaxYawDeg
+    val CURVE_MIN_YAW_DEG get() = FootballConfigs.server.playerInput.curveMinYawDeg
+    val CURVE_MAX_LATERAL_SPEED get() = FootballConfigs.server.playerInput.curveMaxLateralSpeed
+    val CURVE_MIN_CHARGE_RATIO get() = FootballConfigs.server.playerInput.curveMinChargeRatio
+    val CURVE_RAMP_TICKS get() = FootballConfigs.server.playerInput.curveRampTicks
 
     fun chargeSettings() = FootballConfigs.server.playerInput.charge
     val ACTION_COOLDOWN_TICKS get() = FootballConfigs.server.playerInput.actionCooldownTicks

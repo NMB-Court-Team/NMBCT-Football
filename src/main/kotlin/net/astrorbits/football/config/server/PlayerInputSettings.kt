@@ -187,6 +187,12 @@ data class PlayerInputSettings(
     val chargeDecayMs get() = charge.chargeDecayMs
     val kickSpreadInaccuracy get() = charge.kickSpreadInaccuracy
     val perfectChargeForceBonus get() = charge.perfectChargeForceBonus
+    val curveWindowMs get() = charge.curveWindowMs
+    val curveMaxYawDeg get() = charge.curveMaxYawDeg
+    val curveMinYawDeg get() = charge.curveMinYawDeg
+    val curveMaxLateralSpeed get() = charge.curveMaxLateralSpeed
+    val curveMinChargeRatio get() = charge.curveMinChargeRatio
+    val curveRampTicks get() = charge.curveRampTicks
     val ballPlayerRecoilMinSpeed get() = collision.ballPlayerRecoilMinSpeed
     val ballPlayerPushScale get() = collision.ballPlayerPushScale
     val ballPlayerMaxPush get() = collision.ballPlayerMaxPush

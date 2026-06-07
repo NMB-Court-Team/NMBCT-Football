@@ -4,6 +4,7 @@ import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.config.server.FootballServerConfig
 import net.astrorbits.football.config.server.FootballServerConfigHolder
 import net.astrorbits.football.input.FootballPlayerActions
+import net.astrorbits.football.input.KickCurveSessions
 import net.astrorbits.football.input.GoalkeeperHoldActionPermissions
 import net.astrorbits.football.input.GoalkeeperHoldLock
 import net.astrorbits.football.match.*
@@ -36,6 +37,7 @@ object FootballNetworking {
 		registry.register(HalfKickoffRequestC2SPayload.TYPE, HalfKickoffRequestC2SPayload.CODEC)
 		registry.register(MatchResultRequestC2SPayload.TYPE, MatchResultRequestC2SPayload.CODEC)
         registry.register(BoostSprintToggleC2SPayload.TYPE, BoostSprintToggleC2SPayload.CODEC)
+        registry.register(FootballKickCurveC2SPayload.TYPE, FootballKickCurveC2SPayload.CODEC)
     }
 
     private fun registerS2CPayloadType(registry: PayloadTypeRegistry<RegistryFriendlyByteBuf>) {
@@ -141,6 +143,12 @@ object FootballNetworking {
         ServerPlayNetworking.registerGlobalReceiver(BoostSprintToggleC2SPayload.TYPE) { payload, context ->
             context.server().execute {
                 BoostSprintState.setRequested(context.player(), payload.enabled)
+            }
+        }
+        ServerPlayNetworking.registerGlobalReceiver(FootballKickCurveC2SPayload.TYPE) { payload, context ->
+            context.server().execute {
+                val player = context.player()
+                KickCurveSessions.tryApplyCurve(player, payload.curveYawDeltaDeg, player.level().gameTime)
             }
         }
     }

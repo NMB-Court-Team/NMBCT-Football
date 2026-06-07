@@ -1,4 +1,4 @@
-﻿package net.astrorbits.football.client.key
+package net.astrorbits.football.client.key
 import net.astrorbits.football.client.*
 import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.config.FootballConfigs
@@ -140,6 +140,7 @@ object FootballInputHandler {
             }
             try {
                 handleFootballInput(player)
+                KickCurveClient.tick(player)
             } finally {
                 updatePrevTickPressed()
             }
@@ -409,7 +410,10 @@ object FootballInputHandler {
                             blockDribbleResume(player)
                         }
                         KickChargeUtil.isCharging(heldMs, chargeSettings()) -> {
-                            maybeSendFootballAction(player, FootballActionType.SHOOT, shootChargeRatio, heldMs, flags)
+                            if (canSendFootballAction(player, FootballActionType.SHOOT)) {
+                                maybeSendFootballAction(player, FootballActionType.SHOOT, shootChargeRatio, heldMs, flags)
+                                KickCurveClient.begin(player.yHeadRot, shootChargeRatio)
+                            }
                             blockDribbleResume(player)
                         }
                         else -> {
@@ -722,6 +726,7 @@ object FootballInputHandler {
         DribbleBallIndicatorClient.onDribbleEnd()
         resetSlideSprintTicks()
         wasSlidingLastTick = false
+        KickCurveClient.reset()
     }
     private fun resetTransientState(player: LocalPlayer? = null, notifyDribbleEnd: Boolean = true) {
         resetFootballActionState(player, notifyDribbleEnd)

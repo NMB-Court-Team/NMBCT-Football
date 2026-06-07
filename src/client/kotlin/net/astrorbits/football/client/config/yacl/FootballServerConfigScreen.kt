@@ -204,6 +204,58 @@ object FootballServerConfigScreen {
                         1.0..1.5,
                         step = 0.01,
                     )
+                    addLong(
+                        "$PI.curve_window_ms",
+                        "$PI.curve_window_ms.desc",
+                        PL_CHARGE.curveWindowMs,
+                        { charge().curveWindowMs },
+                        { v -> setCharge { it.copy(curveWindowMs = v) } },
+                        50L..2000L,
+                    )
+                    addDouble(
+                        "$PI.curve_max_yaw_deg",
+                        "$PI.curve_max_yaw_deg.desc",
+                        PL_CHARGE.curveMaxYawDeg,
+                        { charge().curveMaxYawDeg },
+                        { v -> setCharge { it.copy(curveMaxYawDeg = v) } },
+                        5.0..90.0,
+                        step = 1.0,
+                    )
+                    addDouble(
+                        "$PI.curve_min_yaw_deg",
+                        "$PI.curve_min_yaw_deg.desc",
+                        PL_CHARGE.curveMinYawDeg,
+                        { charge().curveMinYawDeg },
+                        { v -> setCharge { it.copy(curveMinYawDeg = v) } },
+                        0.0..30.0,
+                        step = 0.5,
+                    )
+                    addDouble(
+                        "$PI.curve_max_lateral_speed",
+                        "$PI.curve_max_lateral_speed.desc",
+                        PL_CHARGE.curveMaxLateralSpeed,
+                        { charge().curveMaxLateralSpeed },
+                        { v -> setCharge { it.copy(curveMaxLateralSpeed = v) } },
+                        0.05..2.0,
+                        step = 0.01,
+                    )
+                    addFloat(
+                        "$PI.curve_min_charge_ratio",
+                        "$PI.curve_min_charge_ratio.desc",
+                        PL_CHARGE.curveMinChargeRatio,
+                        { charge().curveMinChargeRatio },
+                        { v -> setCharge { it.copy(curveMinChargeRatio = v) } },
+                        0f..1f,
+                        step = 0.01f,
+                    )
+                    addLong(
+                        "$PI.curve_ramp_ticks",
+                        "$PI.curve_ramp_ticks.desc",
+                        PL_CHARGE.curveRampTicks,
+                        { charge().curveRampTicks },
+                        { v -> setCharge { it.copy(curveRampTicks = v) } },
+                        1L..80L,
+                    )
                 }
                 .build(),
         )
