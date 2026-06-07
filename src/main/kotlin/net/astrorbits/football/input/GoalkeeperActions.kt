@@ -5,6 +5,7 @@ import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.config.FootballConfigs
 import net.astrorbits.football.match.GoalKickSetPieceFlow
+import net.astrorbits.football.match.GoalkeeperCatchFoulDetector
 import net.astrorbits.football.match.SetPieceRestrictionCoordinator
 import net.astrorbits.football.match.ThrowInSetPieceFlow
 import net.astrorbits.football.network.FootballActionC2SPayload
@@ -232,6 +233,10 @@ object GoalkeeperActions {
         if (!football.isHeldBy(player)) {
             return
         }
+        if (GoalkeeperCatchFoulDetector.tryAwardCatchOutsidePenaltyArea(player, football)) {
+            lastActionTick[player.uuid] = now
+            return
+        }
         val recoil = computeCatchRecoil(speed, incoming)
         applyCatchMomentumDamping(player, player.lookAngle, recoil)
         FootballSounds.playGkCatch(player, speed)
@@ -346,6 +351,9 @@ object GoalkeeperActions {
         football.enterHold(player)
         if (!football.isHeldBy(player)) {
             return false
+        }
+        if (GoalkeeperCatchFoulDetector.tryAwardCatchOutsidePenaltyArea(player, football)) {
+            return true
         }
         applyCatchMomentumDamping(player, diveDirection, computeCatchRecoil(speed, incoming))
 
