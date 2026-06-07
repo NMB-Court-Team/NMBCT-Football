@@ -125,8 +125,16 @@ object GoalkeeperDiveSessions {
             return
         }
 
-        GoalkeeperActions.tryResolveDiveCatch(player, football, session.forwardDirection)
-        sessions.remove(player.uuid)
+        val centered = GoalkeeperUtil.isDiveCatchCentered(player, football, player.yRot, player.xRot)
+        val resolved = if (centered) {
+            GoalkeeperActions.tryResolveDiveCatch(player, football, session.forwardDirection) ||
+                GoalkeeperActions.tryResolveDiveDeflect(player, football)
+        } else {
+            GoalkeeperActions.tryResolveDiveDeflect(player, football)
+        }
+        if (resolved) {
+            sessions.remove(player.uuid)
+        }
     }
 
     private fun lerp(min: Double, max: Double, ratio: Double): Double {

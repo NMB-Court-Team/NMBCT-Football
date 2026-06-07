@@ -47,8 +47,10 @@ data class GoalkeeperCatchSettings(
 data class GoalkeeperDiveBehaviorSettings(
     val diveDurationTicks: Int = 8,
     val diveCooldownTicks: Int = 24,
-    val diveRange: Double = 4.0,
+    val diveRange: Double = 3.0,
     val diveHalfAngleDeg: Double = 60.0,
+    /** 接球锥：球相对扑救视线半角小于此值视为“正中”，否则挡出。 */
+    val diveCatchCenterHalfAngleDeg: Double = 18.0,
     val diveSpeed: Double = 0.35,
     val diveCatchMaxSpeed: Double = 2.2,
     val diveDeflectForceScale: Double = 0.6,
@@ -67,6 +69,8 @@ data class GoalkeeperDiveBehaviorSettings(
                 Codec.INT.fieldOf("dive_cooldown_ticks").forGetter(GoalkeeperDiveBehaviorSettings::diveCooldownTicks),
                 Codec.DOUBLE.fieldOf("dive_range").forGetter(GoalkeeperDiveBehaviorSettings::diveRange),
                 Codec.DOUBLE.fieldOf("dive_half_angle_deg").forGetter(GoalkeeperDiveBehaviorSettings::diveHalfAngleDeg),
+                Codec.DOUBLE.optionalFieldOf("dive_catch_center_half_angle_deg", 18.0)
+                    .forGetter(GoalkeeperDiveBehaviorSettings::diveCatchCenterHalfAngleDeg),
                 Codec.DOUBLE.fieldOf("dive_speed").forGetter(GoalkeeperDiveBehaviorSettings::diveSpeed),
                 Codec.DOUBLE.fieldOf("dive_catch_max_speed").forGetter(GoalkeeperDiveBehaviorSettings::diveCatchMaxSpeed),
                 Codec.DOUBLE.fieldOf("dive_deflect_force_scale").forGetter(GoalkeeperDiveBehaviorSettings::diveDeflectForceScale),
@@ -180,6 +184,7 @@ data class GoalkeeperDiveSettings(
     val diveCooldownTicks get() = behavior.diveCooldownTicks
     val diveRange get() = behavior.diveRange
     val diveHalfAngleDeg get() = behavior.diveHalfAngleDeg
+    val diveCatchCenterHalfAngleDeg get() = behavior.diveCatchCenterHalfAngleDeg
     val diveSpeed get() = behavior.diveSpeed
     val diveCatchMaxSpeed get() = behavior.diveCatchMaxSpeed
     val diveDeflectForceScale get() = behavior.diveDeflectForceScale
@@ -239,6 +244,7 @@ data class GoalkeeperSettings(
     val diveCooldownTicks get() = dive.diveCooldownTicks
     val diveRange get() = dive.diveRange
     val diveHalfAngleDeg get() = dive.diveHalfAngleDeg
+    val diveCatchCenterHalfAngleDeg get() = dive.diveCatchCenterHalfAngleDeg
     val diveSpeed get() = dive.diveSpeed
     val diveCatchMaxSpeed get() = dive.diveCatchMaxSpeed
     val diveDeflectForceScale get() = dive.diveDeflectForceScale

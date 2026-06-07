@@ -18,7 +18,7 @@ class GoalkeeperHoldLockHudElement : HudElement {
             return
         }
 
-        val ratio = GoalkeeperStateClient.liveHoldReleaseLockRatio(delta.getGameTimeDeltaTicks(false))
+        val ratio = GoalkeeperStateClient.liveHoldReleaseLockRatio(delta.getGameTimeDeltaTicks())
         if (ratio <= 0f) {
             return
         }

@@ -385,6 +385,8 @@
     "yacl3.config.nmbct-football.server.goalkeeper.dive_cooldown.desc": "Cooldown between dives (ticks)",
     "yacl3.config.nmbct-football.server.goalkeeper.dive_half_angle": "Dive half-angle",
     "yacl3.config.nmbct-football.server.goalkeeper.dive_half_angle.desc": "Save sector half-angle (deg); total = 2× this",
+    "yacl3.config.nmbct-football.server.goalkeeper.dive_catch_center_half_angle": "Dive catch center half-angle",
+    "yacl3.config.nmbct-football.server.goalkeeper.dive_catch_center_half_angle.desc": "Catch if ball is within this half-angle of look; otherwise deflect along offset (deg)",
     "yacl3.config.nmbct-football.server.goalkeeper.dive_duration": "Dive duration",
     "yacl3.config.nmbct-football.server.goalkeeper.dive_duration.desc": "Dive session length (ticks)",
     "yacl3.config.nmbct-football.server.goalkeeper.dive_recoil_min_speed": "Dive recoil speed floor",

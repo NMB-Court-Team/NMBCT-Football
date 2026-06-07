@@ -298,6 +298,38 @@ object GoalkeeperActions {
         diveCooldownUntil[player.uuid] = now + GoalkeeperInputConfig.GK_DIVE_COOLDOWN_TICKS
     }
 
+    fun tryResolveDiveDeflect(player: ServerPlayer, football: Football): Boolean {
+        if (football.isPlayerBallMovementForbidden(player) || football.isHeld()) {
+            return false
+        }
+
+        val unitDir = GoalkeeperUtil.diveCatchDeflectDirection(player, football)
+        if (unitDir.lengthSqr() < 1.0e-8) {
+            return false
+        }
+
+        val params = GoalkeeperUtil.resolvePunchParams()
+        val horizontal = Vec3Math.horizontal(unitDir)
+        val kickDirection = if (horizontal.lengthSqr() > 1.0e-8) {
+            FootballKickUtil.buildKickDirection(horizontal, unitDir, params.force, params.angleDegrees)
+        } else {
+            unitDir.scale(params.force)
+        }
+
+        football.recordActiveKick(player, kickDirection)
+        val ballCenter = GoalkeeperUtil.ballCenter(football)
+        val horizForPoint = if (horizontal.lengthSqr() > 1.0e-8) horizontal else Vec3Math.horizontal(player.lookAngle)
+        val kickPoint = FootballKickUtil.buildKickPoint(ballCenter, horizForPoint, 0.0)
+        if (!football.kick(kickPoint, kickDirection, actingPlayer = player)) {
+            return false
+        }
+
+        net.astrorbits.football.match.MatchState.tryNotifyKickoffBallTouched(player)
+        FootballSounds.playGkPunch(player)
+        FootballParticles.playGkPunch(player, football)
+        return true
+    }
+
     fun tryResolveDiveCatch(player: ServerPlayer, football: Football, diveDirection: Vec3): Boolean {
         if (football.isPlayerBallMovementForbidden(player)) {
             return false

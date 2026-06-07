@@ -273,6 +273,7 @@ object FootballServerConfigScreen {
 
                     addDouble("$GK.dive_range", "$GK.dive_range.desc", GK_DIVE_BEH.diveRange, { gk().diveRange }, { v -> setBehavior { it.copy(diveRange = v) } }, 1.0..10.0)
                     addDouble("$GK.dive_half_angle", "$GK.dive_half_angle.desc", GK_DIVE_BEH.diveHalfAngleDeg, { gk().diveHalfAngleDeg }, { v -> setBehavior { it.copy(diveHalfAngleDeg = v) } }, 15.0..90.0)
+                    addDouble("$GK.dive_catch_center_half_angle", "$GK.dive_catch_center_half_angle.desc", GK_DIVE_BEH.diveCatchCenterHalfAngleDeg, { gk().diveCatchCenterHalfAngleDeg }, { v -> setBehavior { it.copy(diveCatchCenterHalfAngleDeg = v) } }, 5.0..45.0)
                     addDouble("$GK.dive_speed", "$GK.dive_speed.desc", GK_DIVE_BEH.diveSpeed, { gk().diveSpeed }, { v -> setBehavior { it.copy(diveSpeed = v) } }, 0.05..2.0)
                     addInt("$GK.dive_duration", "$GK.dive_duration.desc", GK_DIVE_BEH.diveDurationTicks, { gk().diveDurationTicks }, { v -> setBehavior { it.copy(diveDurationTicks = v) } }, 1..40)
                     addInt("$GK.dive_cooldown", "$GK.dive_cooldown.desc", GK_DIVE_BEH.diveCooldownTicks, { gk().diveCooldownTicks }, { v -> setBehavior { it.copy(diveCooldownTicks = v) } }, 0..200)

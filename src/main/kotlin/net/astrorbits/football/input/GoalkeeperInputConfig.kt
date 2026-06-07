@@ -20,6 +20,7 @@ object GoalkeeperInputConfig {
     val GK_DIVE_COOLDOWN_TICKS get() = FootballConfigs.server.goalkeeper.diveCooldownTicks
     val GK_DIVE_RANGE get() = FootballConfigs.server.goalkeeper.diveRange
     val GK_DIVE_HALF_ANGLE_DEG get() = FootballConfigs.server.goalkeeper.diveHalfAngleDeg
+    val GK_DIVE_CATCH_CENTER_HALF_ANGLE_DEG get() = FootballConfigs.server.goalkeeper.diveCatchCenterHalfAngleDeg
     val GK_DIVE_SPEED get() = FootballConfigs.server.goalkeeper.diveSpeed
     val GK_DIVE_CATCH_MAX_SPEED get() = FootballConfigs.server.goalkeeper.diveCatchMaxSpeed
     val GK_DIVE_DEFLECT_FORCE_SCALE get() = FootballConfigs.server.goalkeeper.diveDeflectForceScale

@@ -385,6 +385,8 @@
     "yacl3.config.nmbct-football.server.goalkeeper.dive_cooldown.desc": "两次鱼跃之间的冷却（tick）",
     "yacl3.config.nmbct-football.server.goalkeeper.dive_half_angle": "鱼跃扇形半角",
     "yacl3.config.nmbct-football.server.goalkeeper.dive_half_angle.desc": "扑救判定扇形半角（度），总角=2×此值",
+    "yacl3.config.nmbct-football.server.goalkeeper.dive_catch_center_half_angle": "鱼跃接球正中半角",
+    "yacl3.config.nmbct-football.server.goalkeeper.dive_catch_center_half_angle.desc": "球相对视线半角小于此值则接球，否则沿偏移方向挡出（度）",
     "yacl3.config.nmbct-football.server.goalkeeper.dive_duration": "鱼跃持续",
     "yacl3.config.nmbct-football.server.goalkeeper.dive_duration.desc": "鱼跃会话持续 tick 数",
     "yacl3.config.nmbct-football.server.goalkeeper.dive_recoil_min_speed": "鱼跃后坐力球速阈值",

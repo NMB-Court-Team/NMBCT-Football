@@ -149,6 +149,38 @@ object GoalkeeperUtil {
         return dot >= minDot
     }
 
+    /** 球心相对扑救视线落在正中锥内（可接球）；否则仅挡出。 */
+    fun isDiveCatchCentered(
+        player: ServerPlayer,
+        football: Football,
+        lookYaw: Float,
+        lookPitch: Float,
+    ): Boolean {
+        val origin = diveCatchOrigin(player)
+        val offset = ballCenter(football).subtract(origin)
+        if (offset.lengthSqr() < 1.0e-8) {
+            return true
+        }
+
+        val lookDir = Vec3Math.normalizeSafe(Vec3.directionFromRotation(lookPitch, lookYaw))
+        if (lookDir.lengthSqr() < 1.0e-8) {
+            return false
+        }
+
+        val halfAngle = GoalkeeperInputConfig.GK_DIVE_CATCH_CENTER_HALF_ANGLE_DEG.coerceAtLeast(0.0)
+        val minDot = cos(Math.toRadians(halfAngle))
+        return lookDir.dot(Vec3Math.normalizeSafe(offset)) >= minDot
+    }
+
+    /** 扑救原点 → 球心，用于偏心挡出方向。 */
+    fun diveCatchDeflectDirection(player: ServerPlayer, football: Football): Vec3 {
+        val offset = ballCenter(football).subtract(diveCatchOrigin(player))
+        if (offset.lengthSqr() < 1.0e-8) {
+            return Vec3Math.normalizeSafe(Vec3Math.horizontal(player.lookAngle))
+        }
+        return Vec3Math.normalizeSafe(offset)
+    }
+
     fun isInDirectionalSector(
         origin: Vec3,
         direction: Vec3,
