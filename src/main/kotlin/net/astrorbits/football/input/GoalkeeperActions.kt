@@ -385,7 +385,7 @@ object GoalkeeperActions {
         else -> false
     }
 
-    /** 界外球主罚员抛球成功/犯规后才算触球，避免往外扔时误解除开球锁。 */
+    /** 界外球主罚员合法抛球后才算触球，避免往外扔犯规时误解除开球锁。 */
     private fun defersThrowInKickoffTouchNotify(player: ServerPlayer, action: FootballActionType): Boolean {
         if (action != FootballActionType.GK_THROW_SHORT && action != FootballActionType.GK_THROW_LONG) {
             return false

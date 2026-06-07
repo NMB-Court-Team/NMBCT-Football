@@ -104,7 +104,7 @@ object ThrowInSetPieceFlow {
         MatchState.notifyKickoffBallTouched(player)
     }
 
-    /** 界外球抛球方向须朝向场内；往外扔则原地重掷（球不离开双手）。 */
+    /** 界外球抛球方向须朝向场内；往外扔则同位置改判对方发球（球不离开双手）。 */
     fun isInwardThrow(lookYaw: Float, lookPitch: Float): Boolean {
         val ctx = SetPieceState.active ?: return true
         if (ctx.kind != SetPieceKind.THROW_IN) return true
@@ -122,39 +122,11 @@ object ThrowInSetPieceFlow {
         val ctx = SetPieceState.active ?: return
         if (ctx.kind != SetPieceKind.THROW_IN) return
         if (player.uuid != ctx.throwInTakerUuid) return
-
-        val level = player.level() as ServerLevel
-        val server = level.server
-        val spot = resolveGroundSpot(level, ctx.ballPos)
-
-        player.teleportTo(
-            level,
-            spot.ballPos.x,
-            spot.takerFeetY,
-            spot.ballPos.z,
-            java.util.HashSet(),
-            player.yRot,
-            player.xRot,
-            false,
-        )
-        player.setDeltaMovement(Vec3.ZERO)
-        anchorPositions[player.uuid] = Vec3(player.x, player.y, player.z)
-
-        val football = GoalkeeperUtil.findHeldFootball(player) ?: findFootballNear(level, spot.ballPos)
-        if (football != null) {
-            football.setDeltaMovement(Vec3.ZERO)
-            football.setPos(spot.ballPos.x, spot.ballPos.y, spot.ballPos.z)
-            ensureTakerHoldingBall(player, football)
-        }
-
-        GoalkeeperHoldActionPermissions.setAll(player, catch = false, drop = false, throwBall = true)
-        FootballSounds.playMatchWhistle(server, 6)
-        FootballNetworking.broadcastSetPieceRestart(server, SetPieceRestartKind.THROW_IN, ctx.restartTeam)
-        FootballNetworking.broadcastSetPieceState(server)
+        awardOpponentThrowInAtSameSpot(player.level() as ServerLevel, ctx.ballPos, ctx.restartTeam)
     }
 
     /**
-     * 界外球掷出后球仍越过同一边线出界：改判同队同位置界外球（不交换发球权）。
+     * 界外球掷出后球仍越过同一边线出界：同位置改判对方发球。
      * @return 已按犯规重掷处理
      */
     fun tryRetakeFoulThrowSidelineOut(
@@ -173,10 +145,32 @@ object ThrowInSetPieceFlow {
         if (!isSameSideline(sideline, spotSideline)) return false
 
         foulThrowWatch = null
-        begin(level, watch.restartTeam, watch.spot, watch.takerUuid)
-        FootballSounds.playMatchWhistle(server, 6)
-        FootballNetworking.broadcastSetPieceRestart(server, SetPieceRestartKind.THROW_IN, watch.restartTeam)
+        awardOpponentThrowInAtSameSpot(level, watch.spot, watch.restartTeam)
         return true
+    }
+
+    private fun awardOpponentThrowInAtSameSpot(level: ServerLevel, spot: Vec3, foulingTeam: TeamSide) {
+        val server = level.server
+        val opponentTeam = foulingTeam.opponent()
+        val groundSpot = resolveGroundSpot(level, spot)
+
+        SetPieceState.active?.throwInTakerUuid?.let { uuid ->
+            server.playerList.getPlayer(uuid)?.let { taker ->
+                GoalkeeperUtil.findHeldFootball(taker)?.let { football ->
+                    football.setDeltaMovement(Vec3.ZERO)
+                    football.setPos(groundSpot.ballPos.x, groundSpot.ballPos.y, groundSpot.ballPos.z)
+                    football.releaseHold()
+                }
+            }
+        }
+
+        clear(server)
+        MatchState.kickoffTeam = opponentTeam
+        MatchState.kickoffTouched = false
+        begin(level, opponentTeam, groundSpot.ballPos, null)
+        FootballSounds.playMatchWhistle(server, 6)
+        FootballNetworking.broadcastRestartKickoff(server, opponentTeam, goalLineOut = true)
+        FootballNetworking.broadcastSetPieceRestart(server, SetPieceRestartKind.THROW_IN, opponentTeam)
     }
 
     fun tickMovementFreeze(server: MinecraftServer) {
