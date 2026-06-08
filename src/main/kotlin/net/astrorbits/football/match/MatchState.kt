@@ -388,6 +388,16 @@ object MatchState {
         if (MatchPenaltyKickState.isMovementRestricted(player)) {
             return true
         }
+        if (PenaltyShootoutState.allowsPenaltyKickerAction(player, action) ||
+            PenaltyShootoutState.allowsPenaltyGoalkeeperAction(player, action)
+        ) {
+            return false
+        }
+        if (MatchPenaltyKickState.allowsPenaltyKickerAction(player, action) ||
+            MatchPenaltyKickState.allowsPenaltyGoalkeeperAction(player, action)
+        ) {
+            return false
+        }
         if (currentPhase == MatchPhase.PENALTIES && !PenaltyShootoutState.isPenaltyFootballInteractionAllowed(player)) {
             if (!PenaltyShootoutState.allowsPenaltyGoalkeeperAction(player, action)) {
                 return true
@@ -404,17 +414,21 @@ object MatchState {
         if (GoalKickSetPieceFlow.isAwaitingPenaltyAreaExit()) {
             return false
         }
-        val phaseActive = KickoffLock.isKickoffPhaseActive(kickoffTeam, kickoffTouched, kickoffTimerStartMs)
+        val activeKickoffTeam = activeRestartTeam()
+        val phaseActive = KickoffLock.isKickoffPhaseActive(activeKickoffTeam, kickoffTouched, kickoffTimerStartMs)
         val elapsed = if (phaseActive) System.currentTimeMillis() - kickoffTimerStartMs else 0L
         return KickoffLock.isPlayerLocked(
             postGoalResetPending = postGoalResetPending,
             kickoffPhaseActive = phaseActive,
             playerTeam = MatchParticipation.participatingTeam(player),
-            kickoffTeam = kickoffTeam,
+            kickoffTeam = activeKickoffTeam,
             kickoffElapsedMs = elapsed,
             kickoffLockMs = kickoffLockMs,
         )
     }
+
+    private fun activeRestartTeam(): TeamSide? =
+        SetPieceState.active?.restartTeam ?: kickoffTeam
 
     private fun allowsGoalKickPlacedKickDuringKickoffLock(
         action: net.astrorbits.football.network.FootballActionType?,
@@ -427,18 +441,23 @@ object MatchState {
     }
 
     fun tryNotifyKickoffBallTouched(player: ServerPlayer) {
-        if (shouldDeferKickoffTouchForActiveGoalKick()) return
+        if (shouldDeferKickoffTouchForActiveSetPiece()) return
         if (isKickoffInteractionLocked(player)) return
         notifyKickoffBallTouched(player)
     }
 
-    /** 球门球流程未结束（含等待球出大禁区）前不得解除开球锁。 */
-    private fun shouldDeferKickoffTouchForActiveGoalKick(): Boolean =
-        SetPieceState.active?.kind == SetPieceKind.GOAL_KICK
+    /** 球门球和点球由各自流程在真实触球后推进状态，不由动作包提前解除通用开球锁。 */
+    private fun shouldDeferKickoffTouchForActiveSetPiece(): Boolean =
+        when (SetPieceState.active?.kind) {
+            SetPieceKind.GOAL_KICK,
+            SetPieceKind.PENALTY_KICK,
+            -> true
+            else -> false
+        }
 
     /** 开球锁定倒计时是否仍在进行（全员不可触球/开球）。 */
     fun isKickoffCountdownActive(): Boolean {
-        val phaseActive = KickoffLock.isKickoffPhaseActive(kickoffTeam, kickoffTouched, kickoffTimerStartMs)
+        val phaseActive = KickoffLock.isKickoffPhaseActive(activeRestartTeam(), kickoffTouched, kickoffTimerStartMs)
         if (!phaseActive) return false
         return System.currentTimeMillis() - kickoffTimerStartMs < kickoffLockMs
     }
@@ -521,7 +540,7 @@ object MatchState {
     /** 发球方已触球：广播解锁非发球方（由 [tryNotifyKickoffBallTouched] 在通过锁判定后调用）。 */
     fun notifyKickoffBallTouched(player: ServerPlayer) {
         if (kickoffTouched) return
-        val kt = kickoffTeam ?: return
+        val kt = activeRestartTeam() ?: return
         if (MatchParticipation.participatingTeam(player) != kt) return
         kickoffTouched = true
         val maxTicks = MatchConfigHolder.current.stoppageTimeMaxMinutes * 60 * 20
@@ -613,11 +632,12 @@ object MatchState {
         return true
     }
 
-    /** 进入赛前准备：分配缺失的守门员、公示双方门将并开始准备计时。 */
+    /** 进入赛前准备：在中圈放置练习球，分配缺失的守门员、公示双方门将并开始准备计时。 */
     fun beginPreMatchPreparation(server: MinecraftServer) {
         PlayerRoleState.assignGoalkeepersIfMissing(server)
         broadcastGoalkeepersAnnouncement(server)
         setPhase(MatchPhase.PRE_MATCH_PREP, server)
+        resetFootball(matchFieldLevel(server))
         broadcastPreparationStarted(server)
         FootballNetworking.syncTimerToClients(server)
     }

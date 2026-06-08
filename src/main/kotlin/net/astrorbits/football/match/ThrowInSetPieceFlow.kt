@@ -167,7 +167,11 @@ object ThrowInSetPieceFlow {
 
         clear(server)
         MatchState.kickoffTeam = opponentTeam
-        MatchState.kickoffTouched = false
+        MatchState.beginKickoffPhase(
+            MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS,
+            KickoffWhistleContext.GOAL_LINE_OUT,
+        )
+        MatchState.onRestrictedRestartBallPlaced()
         begin(level, opponentTeam, groundSpot.ballPos, null)
         FootballSounds.playMatchWhistle(server, 6)
         FootballNetworking.broadcastRestartKickoff(server, opponentTeam, goalLineOut = true)

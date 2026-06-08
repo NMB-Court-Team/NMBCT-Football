@@ -85,7 +85,7 @@ object SetPieceRestrictionCoordinator {
         if (MatchState.kickoffTouched) return false
         val ctx = SetPieceState.active
         val team = MatchState.getPlayerTeam(player.uuid) ?: return false
-        val kickoffTeam = MatchState.kickoffTeam ?: ctx?.restartTeam ?: return false
+        val kickoffTeam = ctx?.restartTeam ?: MatchState.kickoffTeam ?: return false
         if (team != kickoffTeam) return false
 
         if (ctx != null) {

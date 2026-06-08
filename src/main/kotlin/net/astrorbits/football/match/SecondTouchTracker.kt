@@ -109,7 +109,7 @@ object SecondTouchTracker {
 
     fun beginFromKickoffTouch(player: ServerPlayer) {
         val ctx = SetPieceState.active
-        val restartTeam = MatchState.kickoffTeam ?: ctx?.restartTeam ?: return
+        val restartTeam = ctx?.restartTeam ?: MatchState.kickoffTeam ?: return
         val kind = ctx?.kind ?: SetPieceKind.CENTER_KICKOFF
         val takerUuid = when (kind) {
             SetPieceKind.GOAL_KICK -> ctx?.goalKickPickerUuid ?: player.uuid

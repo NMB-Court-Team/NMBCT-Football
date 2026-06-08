@@ -65,14 +65,18 @@ object FootballOperabilityClient {
         }
     }
 
-    private fun isPenaltyShootoutDefendingGoalkeeper(player: LocalPlayer): Boolean {
-        if (MatchState.currentPhase != MatchPhase.PENALTIES || !PenaltyShootoutClient.active) {
-            return false
-        }
+    private fun isPenaltyDefendingGoalkeeper(player: LocalPlayer): Boolean {
         if (!GoalkeeperStateClient.isGoalkeeper) {
             return false
         }
-        return localPlayerTeam(player) == PenaltyShootoutClient.activeDefendingTeam
+        val defendingTeam = when {
+            MatchState.currentPhase == MatchPhase.PENALTIES && PenaltyShootoutClient.active ->
+                PenaltyShootoutClient.activeDefendingTeam
+            SetPieceClient.kind == SetPieceKind.PENALTY_KICK ->
+                SetPieceClient.defendingSide
+            else -> null
+        }
+        return defendingTeam != null && localPlayerTeam(player) == defendingTeam
     }
 
     /** 按住右键鱼跃蓄力（含点球大战 Banner 期间）。 */
@@ -83,9 +87,9 @@ object FootballOperabilityClient {
         if (!MatchState.isDuringMatch()) {
             return true
         }
-        if (isPenaltyShootoutDefendingGoalkeeper(player)) {
-            return PenaltyShootoutClient.kickPhase == PenaltyKickPhase.SETUP ||
-                PenaltyShootoutClient.kickPhase == PenaltyKickPhase.AWAITING_KICK
+        if (isPenaltyDefendingGoalkeeper(player)) {
+            return activePenaltyKickPhase() == PenaltyKickPhase.SETUP ||
+                activePenaltyKickPhase() == PenaltyKickPhase.AWAITING_KICK
         }
         return canUseDiveAndCatch(player)
     }
@@ -98,9 +102,9 @@ object FootballOperabilityClient {
         if (!MatchState.isDuringMatch()) {
             return true
         }
-        if (isPenaltyShootoutDefendingGoalkeeper(player)) {
-            return PenaltyShootoutClient.kickPhase == PenaltyKickPhase.AWAITING_KICK ||
-                PenaltyShootoutClient.kickPhase == PenaltyKickPhase.RESOLVING
+        if (isPenaltyDefendingGoalkeeper(player)) {
+            return activePenaltyKickPhase() == PenaltyKickPhase.AWAITING_KICK ||
+                activePenaltyKickPhase() == PenaltyKickPhase.RESOLVING
         }
         return canUseDiveAndCatch(player)
     }
@@ -232,12 +236,16 @@ object FootballOperabilityClient {
     private fun isKickoffLockedForPlayer(player: LocalPlayer): Boolean {
         if (isGoalKickAwaitingPenaltyAreaExit()) return false
         if (isGoalKickPlacedKicker(player)) return false
+        if (bypassesKickoffLockForFootballInput(player)) return false
         return MatchStartClient.isLocked
     }
 
     /** 球门球放下后主罚、等待出区期间须在开球锁倒计时内也能发送踢球包。 */
     fun bypassesKickoffLockForFootballInput(player: LocalPlayer): Boolean =
-        isGoalKickPlacedKicker(player) || isGoalKickAwaitingPenaltyAreaExit()
+        isGoalKickPlacedKicker(player) ||
+            isGoalKickAwaitingPenaltyAreaExit() ||
+            isPenaltyKickerAwaitingKick(player) ||
+            isPenaltyDefendingGoalkeeper(player)
 
     /**
      * 倒计时期间不发送定位球动作，但保留主罚键的“首次按下”边沿。
@@ -251,7 +259,19 @@ object FootballOperabilityClient {
             SetPieceKind.THROW_IN ->
                 isThrowInTaker(player) &&
                     key == FootballKeyBindings.GK_DIVE
+            SetPieceKind.PENALTY_KICK -> when {
+                isPenaltyKicker(player) -> key == FootballKeyBindings.KICK
+                isPenaltyDefendingGoalkeeper(player) -> key == FootballKeyBindings.GK_DIVE
+                else -> false
+            }
             else -> false
+        }
+
+    private fun activePenaltyKickPhase(): PenaltyKickPhase? =
+        if (MatchState.currentPhase == MatchPhase.PENALTIES && PenaltyShootoutClient.active) {
+            PenaltyShootoutClient.kickPhase
+        } else {
+            SetPieceClient.penaltyKickPhase
         }
 
     private fun isGoalKickAwaitingPenaltyAreaExit(): Boolean =

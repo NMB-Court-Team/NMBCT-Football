@@ -615,10 +615,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return
         }
         trySecondTouchFoul(player)
-        MatchPenaltyKickState.onKickerTouchedBall(player, this)
-        if (MatchState.currentPhase == MatchPhase.PENALTIES) {
-            PenaltyShootoutState.onKickerTouchedBall(player, this)
-        }
         lastPhysicalTouch = player.uuid
         setGoalAttribution(player)
         val ballCenter = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
@@ -1357,6 +1353,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
         syncPhysicsToEntityData()
         syncPacketPositionCodec(x, y, z)
+        actingPlayer?.let { player ->
+            MatchPenaltyKickState.onKickerTouchedBall(player, this)
+            if (MatchState.currentPhase == MatchPhase.PENALTIES) {
+                PenaltyShootoutState.onKickerTouchedBall(player, this)
+            }
+        }
         actingPlayer?.let { notifySetPieceGoalKickBallMoved(it) }
         return true
     }

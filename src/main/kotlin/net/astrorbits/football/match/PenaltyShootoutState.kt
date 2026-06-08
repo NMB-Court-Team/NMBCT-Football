@@ -163,12 +163,18 @@ object PenaltyShootoutState {
     /** 主罚仅可在等待开踢时踢球一次（传球/蓄力射门）；其余动作与其它阶段一律拒绝。 */
     fun deniesPenaltyKickerAction(player: ServerPlayer, action: FootballActionType?): Boolean {
         if (!isActive() || player.uuid != currentKickerUuid) return false
-        if (kickPhase != PenaltyKickPhase.AWAITING_KICK) return true
+        return !allowsPenaltyKickerAction(player, action)
+    }
+
+    fun allowsPenaltyKickerAction(player: ServerPlayer, action: FootballActionType?): Boolean {
+        if (!isActive() || player.uuid != currentKickerUuid) return false
+        if (kickPhase != PenaltyKickPhase.AWAITING_KICK) return false
         return when (action) {
+            null,
             FootballActionType.PASS,
             FootballActionType.SHOOT,
-            -> false
-            else -> true
+            -> true
+            else -> false
         }
     }
 
@@ -223,6 +229,9 @@ object PenaltyShootoutState {
         football.isImmovable = false
         football.immovableTargetPlayers = emptySet()
         SecondTouchTracker.begin(currentKickerTeam, player.uuid, SetPieceKind.PENALTY_KICK)
+        val server = player.level().server
+        FootballNetworking.broadcastPenaltyShootoutSync(server)
+        FootballNetworking.broadcastSetPieceState(server)
     }
 
     fun onGoalLineCrossing(crossing: GoalCrossingUtil.GoalLineCrossing) {

@@ -339,7 +339,7 @@ flowchart TB
 
 当 `rules.isPreMatchPreparationEnabled()`（`enable_pre_match_preparation == true` 且 `pre_match_preparation_minutes > 0`）：
 
-1. `beginPreMatchPreparation`：`assignGoalkeepersIfMissing` → **聊天公示守门员** → `setPhase(PRE_MATCH_PREP)` → 聊天提示准备时长 → `syncTimerToClients`。
+1. `beginPreMatchPreparation`：`assignGoalkeepersIfMissing` → **聊天公示守门员** → `setPhase(PRE_MATCH_PREP)` → 清除全场旧球并在中圈生成练习球 → 聊天提示准备时长 → `syncTimerToClients`。
 2. 准备倒计时结束（服务端 tick）→ `finishPreMatchPreparation` → `startRegularMatch`（见下）。
 
 ### C. 直接开赛
@@ -347,7 +347,7 @@ flowchart TB
 `startRegularMatch`：
 
 1. `assignGoalkeepersIfMissing` → **聊天公示守门员**。
-2. 随机 `kickoffTeam`；`setPhase(FIRST_HALF)`；`broadcastMatchStart`（哨声 1 + 各队员 `MatchStartS2CPayload`）；`syncTimerToClients`。
+2. 随机 `kickoffTeam`；`setPhase(FIRST_HALF)`（清除赛前练习球）；`broadcastMatchStart`（延迟在中圈重新生成正式比赛用球 + 哨声 1 + 各队员 `MatchStartS2CPayload`）；`syncTimerToClients`。
 
 > 从 `FINISHED` 开赛时不再调用 `advancePhase()`（`FINISHED.next` 为 null），改为直接 `setPhase(FIRST_HALF)` 或经准备阶段进入。
 

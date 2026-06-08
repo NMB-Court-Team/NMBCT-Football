@@ -49,11 +49,17 @@ object MatchStartClient {
             if (client?.isSpectator == true) {
                 return startTimeMs > 0L && !kickoffTouched
             }
+            val effectiveKickoffTeam = pendingRestartTeam ?: kickoffTeam
+            val effectivePlayerTeam = if (isKickoffTeam) {
+                effectiveKickoffTeam
+            } else {
+                effectiveKickoffTeam.opponent()
+            }
             return KickoffLock.isPlayerLocked(
                 postGoalResetPending = MatchState.postGoalResetPending || ballResetPending,
                 kickoffPhaseActive = (startTimeMs > 0L && !kickoffTouched) || ballResetPending,
-                playerTeam = playerTeam,
-                kickoffTeam = pendingRestartTeam ?: kickoffTeam,
+                playerTeam = effectivePlayerTeam,
+                kickoffTeam = effectiveKickoffTeam,
                 kickoffElapsedMs = elapsedMs,
                 kickoffLockMs = lockDurationMs,
             )
