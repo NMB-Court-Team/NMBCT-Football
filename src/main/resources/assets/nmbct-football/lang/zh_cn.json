@@ -732,8 +732,8 @@
     "hud.nmbct-football.penalty.kicker": "点球球员",
     "hud.nmbct-football.penalty.kick_round": "点球 第 %s 踢",
     "hud.nmbct-football.penalty.kick_sudden_death": "突然死亡 第 %s 踢",
-    "hud.nmbct-football.penalty.scored": "点球进了！",
+    "hud.nmbct-football.penalty.scored": "进球！",
     "hud.nmbct-football.result.win_penalties": "点球大战获胜",
-    "hud.nmbct-football.result.loss_penalties": "点球大战失利",
+    "hud.nmbct-football.result.loss_penalties": "点球大战结果",
     "match.phase.finished": "结算"
 }

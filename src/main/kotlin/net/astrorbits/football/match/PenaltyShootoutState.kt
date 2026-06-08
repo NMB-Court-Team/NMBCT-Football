@@ -75,6 +75,10 @@ object PenaltyShootoutState {
     private var outcomeRecorded = false
     private var activeFootballId: Int = -1
     private var kickIntroTicksRemaining = 0
+    private var lastKickScored = false
+    private var lastGoalBannerAtMs = 0L
+    private var pendingResultWinner: TeamSide? = null
+    private var pendingResultBroadcastAtMs = 0L
     private val penaltyWaitingSpectators = mutableSetOf<UUID>()
     private val penaltyWaitingPreviousGameModes = mutableMapOf<UUID, GameType>()
 
@@ -145,6 +149,10 @@ object PenaltyShootoutState {
         outcomeRecorded = false
         activeFootballId = -1
         kickIntroTicksRemaining = 0
+        lastKickScored = false
+        lastGoalBannerAtMs = 0L
+        pendingResultWinner = null
+        pendingResultBroadcastAtMs = 0L
         server?.overworld()?.let { PostGoalBallResetScheduler.cancel(it.dimension()) }
         lastWinner = null
         restoreAllPenaltyWaitingSpectators(server)
@@ -266,6 +274,7 @@ object PenaltyShootoutState {
     }
 
     fun tick(server: MinecraftServer) {
+        tickPendingMatchResult(server)
         if (!isActive()) return
         if (kickPhase == PenaltyKickPhase.SETUP && kickIntroTicksRemaining > 0) {
             kickIntroTicksRemaining--
@@ -311,6 +320,7 @@ object PenaltyShootoutState {
     private fun applyOutcome(scored: Boolean, server: MinecraftServer) {
         if (outcomeRecorded || !active || MatchState.postGoalResetPending) return
         outcomeRecorded = true
+        lastKickScored = scored
         currentKickerUuid?.let { uuid ->
             kickCountByPlayer[uuid] = (kickCountByPlayer[uuid] ?: 0) + 1
             when (currentKickerTeam) {
@@ -319,6 +329,7 @@ object PenaltyShootoutState {
             }
         }
         if (scored) {
+            lastGoalBannerAtMs = System.currentTimeMillis()
             when (currentKickerTeam) {
                 TeamSide.A -> penaltyScoreA++
                 TeamSide.B -> penaltyScoreB++
@@ -647,6 +658,28 @@ object PenaltyShootoutState {
         kickPhase = PenaltyKickPhase.SETUP
         FootballNetworking.broadcastPenaltyShootoutSync(server)
         MatchState.setPhase(MatchPhase.FINISHED, server)
+        if (lastKickScored) {
+            val remainingBannerMs = (
+                PenaltyShootoutTiming.KICK_BANNER_MS -
+                    (System.currentTimeMillis() - lastGoalBannerAtMs)
+                ).coerceAtLeast(0L)
+            if (remainingBannerMs > 0L) {
+                pendingResultWinner = winner
+                pendingResultBroadcastAtMs = System.currentTimeMillis() + remainingBannerMs
+                return
+            }
+        }
+        broadcastMatchResultNow(server, winner)
+    }
+
+    private fun tickPendingMatchResult(server: MinecraftServer) {
+        val winner = pendingResultWinner ?: return
+        if (System.currentTimeMillis() < pendingResultBroadcastAtMs) return
+        pendingResultWinner = null
+        broadcastMatchResultNow(server, winner)
+    }
+
+    private fun broadcastMatchResultNow(server: MinecraftServer, winner: TeamSide) {
         val nameA = MatchState.getTeamName(TeamSide.A).string
         val nameB = MatchState.getTeamName(TeamSide.B).string
         FootballNetworking.broadcastMatchResult(
