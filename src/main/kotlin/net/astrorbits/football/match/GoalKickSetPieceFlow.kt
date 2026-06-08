@@ -4,6 +4,7 @@ import net.astrorbits.football.Football
 import net.astrorbits.football.input.GoalkeeperHoldActionPermissions
 import net.astrorbits.football.input.GoalkeeperHoldLock
 import net.astrorbits.football.network.FootballNetworking
+import net.astrorbits.football.util.Vec3Math
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -166,6 +167,15 @@ object GoalKickSetPieceFlow {
         } else {
             MatchState.forceKickoffBallTouched(resumeTick)
         }
+    }
+
+    /** 球门球 [GoalKickPhase.PLACING] 主罚员放球/持球时，球应落在球员靠场内一侧。 */
+    fun resolvePlacingFieldward(player: ServerPlayer): Vec3? {
+        val ctx = SetPieceState.active ?: return null
+        if (ctx.kind != SetPieceKind.GOAL_KICK || ctx.goalKickPhase != GoalKickPhase.PLACING) return null
+        if (player.uuid != ctx.goalKickPickerUuid) return null
+        val goal = MatchFieldAreaUtil.goalForSide(MatchConfigHolder.current, ctx.restartTeam)
+        return Vec3Math.normalizeSafe(Vec3Math.horizontal(goal.penaltyKickBehindBall()))
     }
 
     fun canDropInGoalArea(player: ServerPlayer): Boolean {

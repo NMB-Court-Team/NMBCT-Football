@@ -235,6 +235,7 @@ object FootballOperabilityClient {
     }
 
     private fun isKickoffLockedForPlayer(player: LocalPlayer): Boolean {
+        if (canUseGoalKickCatch(player)) return false
         if (isGoalKickAwaitingPenaltyAreaExit()) return false
         if (isGoalKickPlacedKicker(player)) return false
         if (bypassesKickoffLockForFootballInput(player)) return false
@@ -265,6 +266,8 @@ object FootballOperabilityClient {
                 isPenaltyDefendingGoalkeeper(player) -> key == FootballKeyBindings.GK_DIVE
                 else -> false
             }
+            SetPieceKind.GOAL_KICK ->
+                canUseGoalKickCatch(player) && key == FootballKeyBindings.GK_CATCH
             else -> false
         }
 

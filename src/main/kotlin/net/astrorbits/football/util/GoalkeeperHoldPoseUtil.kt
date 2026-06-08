@@ -32,6 +32,21 @@ object GoalkeeperHoldPoseUtil {
         return Vec3(center.x, center.y - FootballPhysicsConfig.RADIUS, center.z)
     }
 
+    /** 沿固定水平方向持球（球门球放球阶段：球在身前靠场内一侧，避免落在靠球门一侧）。 */
+    fun computeBallEntityPosFieldward(player: Entity, fieldward: Vec3): Vec3 {
+        val fwd = Vec3(fieldward.x, 0.0, fieldward.z)
+        val lenSq = fwd.lengthSqr()
+        val horiz = if (lenSq < 1.0e-8) Vec3(0.0, 0.0, 1.0) else fwd.scale(1.0 / kotlin.math.sqrt(lenSq))
+        val height = holdHeight(player)
+        val base = player.position()
+        val center = Vec3(
+            base.x + horiz.x * GoalkeeperInputConfig.GK_HOLD_FORWARD,
+            base.y + height,
+            base.z + horiz.z * GoalkeeperInputConfig.GK_HOLD_FORWARD,
+        )
+        return Vec3(center.x, center.y - FootballPhysicsConfig.RADIUS, center.z)
+    }
+
     /** 开球前球心位置：与第一人称持球渲染一致，沿视线水平方向。 */
     fun computeThrowReleaseEntityPos(player: Entity, lookYaw: Float, lookPitch: Float): Vec3 {
         val forward = forwardFromLookYawPitch(lookYaw, lookPitch)

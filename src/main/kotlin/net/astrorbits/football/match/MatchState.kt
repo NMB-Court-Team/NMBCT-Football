@@ -669,14 +669,29 @@ object MatchState {
         return true
     }
 
-    /** 进入赛前准备：在中圈放置练习球，分配缺失的守门员、公示双方门将并开始准备计时。 */
+    /** 进入赛前准备：清除场上足球并在双方点球点各放置练习球。 */
     fun beginPreMatchPreparation(server: MinecraftServer) {
         PlayerRoleState.assignGoalkeepersIfMissing(server)
         broadcastGoalkeepersAnnouncement(server)
         setPhase(MatchPhase.PRE_MATCH_PREP, server)
-        resetFootball(matchFieldLevel(server))
+        placePreMatchPreparationFootballs(matchFieldLevel(server))
         broadcastPreparationStarted(server)
         FootballNetworking.syncTimerToClients(server)
+    }
+
+    /** 赛前准备：清场后在 A/B 球门点球点各生成一颗足球。 */
+    private fun placePreMatchPreparationFootballs(level: ServerLevel) {
+        DeferredBallResetScheduler.cancel(level.dimension())
+        PostGoalBallResetScheduler.cancel(level.dimension())
+        postGoalResetPending = false
+        clearAllFootballs(level.server)
+        val config = MatchConfigHolder.current
+        for (side in TeamSide.entries) {
+            val spot = MatchFieldAreaUtil.goalForSide(config, side).resolvedPenaltySpot().toVec3()
+            val football = Football(Football.ENTITY_TYPE, level)
+            football.setPos(spot.x, spot.y, spot.z)
+            level.addFreshEntity(football)
+        }
     }
 
     /** 准备时间结束后进入上半场并执行常规开赛流程。 */

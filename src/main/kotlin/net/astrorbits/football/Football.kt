@@ -648,7 +648,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return
         }
         val server = (level() as? ServerLevel)?.server
-        if (server != null && GoalKickSetPieceFlow.tryRestartOnGoalKickTouch(player, server)) {
+        if (evaluateSecondTouch && server != null && GoalKickSetPieceFlow.tryRestartOnGoalKickTouch(player, server)) {
             return
         }
         if (evaluateSecondTouch) {
@@ -1660,8 +1660,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (level().isClientSide || isImmovable || holderEntityId != player.id) {
             return
         }
-        val look = Vec3Math.normalizeSafe(Vec3Math.horizontal(player.lookAngle))
-        val dropPos = player.position().add(look.scale(GoalkeeperInputConfig.GK_DROP_DISTANCE))
+        val dropDir = GoalKickSetPieceFlow.resolvePlacingFieldward(player)
+            ?: Vec3Math.normalizeSafe(Vec3Math.horizontal(player.lookAngle))
+        val dropPos = player.position().add(dropDir.scale(GoalkeeperInputConfig.GK_DROP_DISTANCE))
         releaseHold()
         setPos(dropPos.x, dropPos.y, dropPos.z)
         physicsState.linearVelocity = Vec3.ZERO
@@ -1708,10 +1709,13 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     private fun updateHeldPosition(player: ServerPlayer, lookYaw: Float? = null, lookPitch: Float? = null) {
-        val pos = if (lookYaw != null && lookPitch != null) {
-            GoalkeeperHoldPoseUtil.computeThrowReleaseEntityPos(player, lookYaw, lookPitch)
-        } else {
-            GoalkeeperHoldPoseUtil.computeBallEntityPos(player)
+        val placingFieldward = GoalKickSetPieceFlow.resolvePlacingFieldward(player)
+        val pos = when {
+            placingFieldward != null ->
+                GoalkeeperHoldPoseUtil.computeBallEntityPosFieldward(player, placingFieldward)
+            lookYaw != null && lookPitch != null ->
+                GoalkeeperHoldPoseUtil.computeThrowReleaseEntityPos(player, lookYaw, lookPitch)
+            else -> GoalkeeperHoldPoseUtil.computeBallEntityPos(player)
         }
         setPos(pos.x, pos.y, pos.z)
     }

@@ -281,7 +281,7 @@ object FootballHudHintResolver {
         return isGoalkeeperSetPieceServer(player)
     }
 
-    /** 门将仅在明确担任该定位球主罚/捡球/摆球者时显示发球提示（球门球捡球阶段默认由门将执行）。 */
+    /** 门将仅在明确担任该定位球主罚/捡球/摆球者时显示发球提示（球门球捡球阶段发球方任一球员均可）。 */
     private fun isGoalkeeperSetPieceServer(player: LocalPlayer): Boolean = when (activeSetPieceKind()) {
         SetPieceKind.GOAL_KICK -> when (SetPieceClient.goalKickPhase) {
             GoalKickPhase.WAITING_PICKUP, null -> true

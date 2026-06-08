@@ -87,7 +87,7 @@
     "hud.nmbct-football.set_piece.role.wait.goal_kick_kick_out": "Wait for the ball to be kicked out of the penalty area.",
     "hud.nmbct-football.set_piece.role.leave_penalty_area.goal_kick_await": "Please leave the penalty area.",
     "hud.nmbct-football.goal_kick.hint.pickup": "Go to the goal line and pick up the ball",
-    "hud.nmbct-football.goal_kick.hint.place": "Place the ball in the penalty area and take the kick",
+    "hud.nmbct-football.goal_kick.hint.place": "Place the ball in the goal area and take the kick",
     "hud.nmbct-football.goal.goal": "Goal!",
     "hud.nmbct-football.goal.own_goal": "Own goal!",
     "hud.nmbct-football.goal.headline": "GOAL",
