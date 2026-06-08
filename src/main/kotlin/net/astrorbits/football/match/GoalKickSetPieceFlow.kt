@@ -142,8 +142,19 @@ object GoalKickSetPieceFlow {
             return
         }
         val kickerUuid = ctx.goalKickPickerUuid
+        val restartTeam = ctx.restartTeam
+        val level = server.overworld()
+        val resumeTick = level.gameTime
+        if (kickerUuid != null) {
+            SecondTouchTracker.beginAfterOpeningPlay(
+                restartTeam = restartTeam,
+                takerUuid = kickerUuid,
+                sourceKind = SetPieceKind.GOAL_KICK,
+                resumeGameTick = resumeTick,
+            )
+        }
         clear(server)
-        val kicker = kickerUuid?.let { server.overworld().getEntity(it) as? ServerPlayer }
+        val kicker = kickerUuid?.let { level.getEntity(it) as? ServerPlayer }
         if (kicker != null) {
             MatchState.notifyKickoffBallTouched(kicker)
         } else {
