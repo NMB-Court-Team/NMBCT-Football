@@ -11,6 +11,7 @@ import net.minecraft.world.phys.Vec3
 object GoalkeeperCatchFoulDetector {
     fun tryAwardCatchOutsidePenaltyArea(player: ServerPlayer, football: Football): Boolean {
         if (!MatchState.isDuringMatch()) return false
+        if (MatchState.postGoalResetPending) return false
         if (PenaltyShootoutState.isActive() || MatchPenaltyKickState.isActive()) return false
         if (!PlayerRoleState.isGoalkeeper(player)) return false
         val team = MatchState.getPlayerTeam(player.uuid) ?: return false

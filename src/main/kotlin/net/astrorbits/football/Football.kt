@@ -611,6 +611,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         curveRamp?.sourcePlayerUuid == playerUuid
 
     private fun trySecondTouchFoul(player: ServerPlayer) {
+        if (MatchState.postGoalResetPending) return
         if (!SecondTouchTracker.isActive()) return
         if (shouldDeferSecondTouchForKickCurveFollowUp(player)) return
         val serverLevel = level() as? ServerLevel ?: return

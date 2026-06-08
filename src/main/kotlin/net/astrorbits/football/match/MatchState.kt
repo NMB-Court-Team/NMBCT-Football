@@ -430,7 +430,6 @@ object MatchState {
         val phaseActive = KickoffLock.isKickoffPhaseActive(activeKickoffTeam, kickoffTouched, kickoffTimerStartMs)
         val elapsed = if (phaseActive) System.currentTimeMillis() - kickoffTimerStartMs else 0L
         return KickoffLock.isPlayerLocked(
-            postGoalResetPending = postGoalResetPending,
             kickoffPhaseActive = phaseActive,
             playerTeam = MatchParticipation.participatingTeam(player),
             kickoffTeam = activeKickoffTeam,
@@ -483,7 +482,6 @@ object MatchState {
             return true
         }
         if (kickoffTouched) return false
-        if (postGoalResetPending) return true
         val kickTeam = activeRestartTeam() ?: kickoffTeam ?: return false
         return KickoffLock.isKickoffPhaseActive(kickTeam, kickoffTouched, kickoffTimerStartMs)
     }
@@ -634,7 +632,7 @@ object MatchState {
     /** 清除服务器所有维度上的足球实体（持球状态一并释放）。 */
     fun clearAllFootballs(server: MinecraftServer) {
         for (level in server.allLevels) {
-            for (football in level.getEntitiesOfClass(Football::class.java, ALL_FOOTBALLS_AABB)) {
+            for (football in level.getEntitiesOfClass(Football::class.java, ALL_FOOTBALLS_AABB).toList()) {
                 football.releaseHold()
                 football.discard()
             }

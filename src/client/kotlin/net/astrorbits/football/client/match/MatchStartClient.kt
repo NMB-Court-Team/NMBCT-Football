@@ -58,7 +58,6 @@ object MatchStartClient {
             val effectivePlayerTeam =
                 client?.let { FootballOperabilityClient.resolveLocalPlayerTeam(it) } ?: playerTeam
             return KickoffLock.isPlayerLocked(
-                postGoalResetPending = MatchState.postGoalResetPending || ballResetPending,
                 kickoffPhaseActive = startTimeMs > 0L && !kickoffTouched,
                 playerTeam = effectivePlayerTeam,
                 kickoffTeam = effectiveKickoffTeam,
@@ -119,7 +118,6 @@ object MatchStartClient {
         ballResetPending = true
         pendingRestartTeam = restartTeam
         pendingSetPieceKind = setPieceKind
-        MatchState.postGoalResetPending = true
         kickoffTeam = restartTeam
         isKickoffTeam = playerTeam == restartTeam
     }
@@ -128,7 +126,6 @@ object MatchStartClient {
         ballResetPending = false
         pendingRestartTeam = null
         pendingSetPieceKind = null
-        MatchState.postGoalResetPending = false
     }
 
     fun startPostGoalKickoff(kickoff: TeamSide, isKickoffTeam: Boolean) {

@@ -53,6 +53,7 @@ object SetPieceAreaViolationMonitor {
             if (trackers.isNotEmpty()) clearAll(server)
             return
         }
+        if (MatchState.postGoalResetPending) return
 
         val seen = mutableSetOf<UUID>()
         for (player in server.playerList.players) {
