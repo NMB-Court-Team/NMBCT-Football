@@ -1,5 +1,6 @@
 package net.astrorbits.football.client.match
 
+import net.astrorbits.football.client.FootballOperabilityClient
 import net.astrorbits.football.match.KickoffLock
 import net.astrorbits.football.match.MatchKickoffTiming
 import net.astrorbits.football.match.MatchState
@@ -54,14 +55,11 @@ object MatchStartClient {
                 return startTimeMs > 0L && !kickoffTouched
             }
             val effectiveKickoffTeam = pendingRestartTeam ?: kickoffTeam
-            val effectivePlayerTeam = if (isKickoffTeam) {
-                effectiveKickoffTeam
-            } else {
-                effectiveKickoffTeam.opponent()
-            }
+            val effectivePlayerTeam =
+                client?.let { FootballOperabilityClient.resolveLocalPlayerTeam(it) } ?: playerTeam
             return KickoffLock.isPlayerLocked(
                 postGoalResetPending = MatchState.postGoalResetPending || ballResetPending,
-                kickoffPhaseActive = (startTimeMs > 0L && !kickoffTouched) || ballResetPending,
+                kickoffPhaseActive = startTimeMs > 0L && !kickoffTouched,
                 playerTeam = effectivePlayerTeam,
                 kickoffTeam = effectiveKickoffTeam,
                 kickoffElapsedMs = elapsedMs,
@@ -160,6 +158,7 @@ object MatchStartClient {
         get() = halfKickoffActive && (System.currentTimeMillis() - halfKickoffStartMs) < 4000L
 
     fun startHalfKickoff(kickoff: TeamSide, isKickoffTeam: Boolean, phaseKey: String, nameA: String, nameB: String) {
+        clearBallResetPending()
         this.isKickoffTeam = isKickoffTeam
         kickoffTeam = kickoff; teamAName = nameA; teamBName = nameB
         kickoffTouched = false; isPostGoal = true; isGoalLineOut = false; isPenaltyKick = false

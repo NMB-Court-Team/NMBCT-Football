@@ -748,6 +748,7 @@ object MatchState {
     fun broadcastMatchStart(server: MinecraftServer, kickoff: TeamSide) {
         kickoffTeam = kickoff
         lastHalfKickoffTeam = kickoff
+        postGoalResetPending = false
         beginKickoffPhase(MatchKickoffTiming.MATCH_START_LOCK_MS, KickoffWhistleContext.MATCH_START)
         val level = matchFieldLevel(server)
         val kickPos = MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
