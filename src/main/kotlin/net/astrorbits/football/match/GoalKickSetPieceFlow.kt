@@ -115,8 +115,14 @@ object GoalKickSetPieceFlow {
             when {
                 player.uuid == pickerUuid -> Unit
                 team == restartTeam -> {
-                    val canCatch = SetPieceState.active?.goalKickPhase == GoalKickPhase.WAITING_PICKUP
-                    GoalkeeperHoldActionPermissions.setAll(player, catch = canCatch, drop = false, throwBall = false)
+                    when (SetPieceState.active?.goalKickPhase) {
+                        GoalKickPhase.WAITING_PICKUP ->
+                            GoalkeeperHoldActionPermissions.setAll(player, catch = true, drop = false, throwBall = false)
+                        GoalKickPhase.PLACED ->
+                            GoalkeeperHoldActionPermissions.resetToDefaults(player)
+                        else ->
+                            GoalkeeperHoldActionPermissions.setAll(player, catch = false, drop = false, throwBall = false)
+                    }
                 }
                 team == defendingSide.opponent() -> {
                     GoalkeeperHoldActionPermissions.setAll(player, catch = false, drop = false, throwBall = false)

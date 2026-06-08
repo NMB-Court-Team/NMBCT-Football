@@ -42,10 +42,7 @@ object SetPieceRestrictionCoordinator {
         val team = MatchState.getPlayerTeam(player.uuid) ?: return false
         if (team != ctx.restartTeam) return false
         val phase = ctx.goalKickPhase ?: return false
-        return (phase == GoalKickPhase.WAITING_PICKUP && PlayerRoleState.isDesignatedGoalkeeper(player)) ||
-            (phase == GoalKickPhase.PLACED &&
-                player.uuid == ctx.goalKickPickerUuid &&
-                PlayerRoleState.isGoalkeeper(player))
+        return phase == GoalKickPhase.WAITING_PICKUP
     }
 
     fun allowsCatchDespiteRole(player: ServerPlayer): Boolean = allowsGoalKickCatch(player)
@@ -91,9 +88,7 @@ object SetPieceRestrictionCoordinator {
             when (ctx.kind) {
                 SetPieceKind.THROW_IN -> return false
                 SetPieceKind.GOAL_KICK -> {
-                    if (ctx.goalKickPhase == GoalKickPhase.PLACED &&
-                        player.uuid == ctx.goalKickPickerUuid
-                    ) {
+                    if (ctx.goalKickPhase == GoalKickPhase.PLACED) {
                         return isKickOpenBlocked(action)
                     }
                     return false
@@ -134,10 +129,7 @@ object SetPieceRestrictionCoordinator {
         when (ctx.goalKickPhase) {
             GoalKickPhase.WAITING_PICKUP -> {
                 if (team == ctx.restartTeam) {
-                    if (action == FootballActionType.GK_CATCH && PlayerRoleState.isDesignatedGoalkeeper(player)) {
-                        return false
-                    }
-                    return true
+                    return action != null && action != FootballActionType.GK_CATCH
                 }
                 if (team == opponent) return true
             }
@@ -148,11 +140,8 @@ object SetPieceRestrictionCoordinator {
                 return true
             }
             GoalKickPhase.PLACED -> {
-                if (player.uuid == ctx.goalKickPickerUuid) {
-                    return isKickOpenBlocked(action)
-                }
                 if (team == ctx.restartTeam) {
-                    return true
+                    return isKickOpenBlocked(action)
                 }
                 if (team == opponent) return true
             }

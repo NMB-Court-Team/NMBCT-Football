@@ -54,9 +54,8 @@ object SetPieceRoleHintResolver {
             SetPieceKind.THROW_IN -> player.uuid == SetPieceClient.throwInTakerUuid
             SetPieceKind.PENALTY_KICK -> player.uuid == SetPieceClient.penaltyKickerUuid
             SetPieceKind.GOAL_KICK -> when (SetPieceClient.goalKickPhase) {
-                GoalKickPhase.WAITING_PICKUP -> true
-                GoalKickPhase.PLACING, GoalKickPhase.PLACED ->
-                    player.uuid == SetPieceClient.goalKickPickerUuid
+                GoalKickPhase.WAITING_PICKUP, GoalKickPhase.PLACED -> true
+                GoalKickPhase.PLACING -> player.uuid == SetPieceClient.goalKickPickerUuid
                 else -> false
             }
             SetPieceKind.CENTER_KICKOFF, SetPieceKind.NONE -> MatchStartClient.isKickoffTeam
