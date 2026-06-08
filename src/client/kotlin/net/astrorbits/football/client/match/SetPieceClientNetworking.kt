@@ -2,6 +2,10 @@ package net.astrorbits.football.client.match
 
 import net.astrorbits.football.client.SetPieceAreaViolationClient
 import net.astrorbits.football.client.SetPieceClient
+import net.astrorbits.football.match.MatchPhase
+import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.match.PenaltyKickPhase
+import net.astrorbits.football.match.SetPieceKind
 import net.astrorbits.football.network.SetPieceAreaViolationS2CPayload
 import net.astrorbits.football.network.SetPieceRestartS2CPayload
 import net.astrorbits.football.network.SetPieceStateS2CPayload
@@ -42,7 +46,17 @@ object SetPieceClientNetworking {
                     payload.freeKickTakerUuid,
                     payload.cornerKickTakerUuid,
                 )
+                syncMatchPenaltyKickIntro(payload)
             }
         }
+    }
+
+    /** 正赛犯规点球：与点球大战不同，不发送 [PenaltyKickStartS2CPayload]，在此启动开球倒计时。 */
+    private fun syncMatchPenaltyKickIntro(payload: SetPieceStateS2CPayload) {
+        if (payload.kind != SetPieceKind.PENALTY_KICK) return
+        if (payload.penaltyKickPhase != PenaltyKickPhase.SETUP) return
+        if (MatchState.currentPhase == MatchPhase.PENALTIES) return
+        val kickerTeam = payload.restartTeam ?: return
+        MatchStartClient.startPenaltyKick(kickerTeam)
     }
 }

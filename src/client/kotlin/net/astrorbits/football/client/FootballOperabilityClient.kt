@@ -89,7 +89,8 @@ object FootballOperabilityClient {
         }
         if (isPenaltyDefendingGoalkeeper(player)) {
             return activePenaltyKickPhase() == PenaltyKickPhase.SETUP ||
-                activePenaltyKickPhase() == PenaltyKickPhase.AWAITING_KICK
+                activePenaltyKickPhase() == PenaltyKickPhase.AWAITING_KICK ||
+                activePenaltyKickPhase() == PenaltyKickPhase.RESOLVING
         }
         return canUseDiveAndCatch(player)
     }

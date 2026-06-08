@@ -135,7 +135,9 @@ object MatchPenaltyKickState {
 
     fun isPenaltyGoalkeeperDiveChargeAllowed(player: ServerPlayer): Boolean {
         if (!isActive() || !isDefendingGoalkeeper(player)) return false
-        return kickPhase == PenaltyKickPhase.SETUP || kickPhase == PenaltyKickPhase.AWAITING_KICK
+        return kickPhase == PenaltyKickPhase.SETUP ||
+            kickPhase == PenaltyKickPhase.AWAITING_KICK ||
+            kickPhase == PenaltyKickPhase.RESOLVING
     }
 
     fun isPenaltyGoalkeeperDiveExecutionAllowed(player: ServerPlayer): Boolean {

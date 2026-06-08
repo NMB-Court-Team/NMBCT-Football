@@ -187,13 +187,15 @@ object PenaltyShootoutState {
         return true
     }
 
-    /** 开踢前/等待主罚：防守门将可按住右键蓄力鱼跃。 */
+    /** 等待主罚至球路判定结束：防守门将可按住右键蓄力鱼跃（含主罚触球后的反应扑救）。 */
     fun isPenaltyGoalkeeperDiveChargeAllowed(player: ServerPlayer): Boolean {
         if (!isActive() || !isDefendingGoalkeeper(player)) return false
-        return kickPhase == PenaltyKickPhase.SETUP || kickPhase == PenaltyKickPhase.AWAITING_KICK
+        return kickPhase == PenaltyKickPhase.SETUP ||
+            kickPhase == PenaltyKickPhase.AWAITING_KICK ||
+            kickPhase == PenaltyKickPhase.RESOLVING
     }
 
-    /** 主罚触球后或等待开踢：防守门将可释放鱼跃扑救。 */
+    /** 等待开踢至球路判定结束：防守门将可释放鱼跃扑救。 */
     fun isPenaltyGoalkeeperDiveExecutionAllowed(player: ServerPlayer): Boolean {
         if (!isActive() || !isDefendingGoalkeeper(player)) return false
         return kickPhase == PenaltyKickPhase.AWAITING_KICK || kickPhase == PenaltyKickPhase.RESOLVING
