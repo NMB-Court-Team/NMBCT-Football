@@ -21,10 +21,13 @@ class PenaltyKickHudElement : HudElement {
         val teamAName = PenaltyKickClient.teamAName.ifBlank { MatchHudTeams.name(TeamSide.A) }
         val teamBName = PenaltyKickClient.teamBName.ifBlank { MatchHudTeams.name(TeamSide.B) }
         val kickerDisplay = PenaltyKickClient.kickerName.ifBlank { "?" }
-        val headline = if (PenaltyKickClient.suddenDeath) {
-            Component.translatable("hud.nmbct-football.penalty.kick_sudden_death", PenaltyKickClient.kickNumber).string
-        } else {
-            Component.translatable("hud.nmbct-football.penalty.kick_round", PenaltyKickClient.kickNumber).string
+        val headline = when {
+            PenaltyKickClient.scored ->
+                Component.translatable("hud.nmbct-football.penalty.scored").string
+            PenaltyKickClient.suddenDeath ->
+                Component.translatable("hud.nmbct-football.penalty.kick_sudden_death", PenaltyKickClient.kickNumber).string
+            else ->
+                Component.translatable("hud.nmbct-football.penalty.kick_round", PenaltyKickClient.kickNumber).string
         }
 
         val kickingName = if (team == TeamSide.A) teamAName else teamBName

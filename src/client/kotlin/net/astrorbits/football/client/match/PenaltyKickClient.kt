@@ -15,6 +15,7 @@ object PenaltyKickClient {
     var suddenDeath: Boolean = false; private set
     var teamAName: String = ""; private set
     var teamBName: String = ""; private set
+    var scored: Boolean = false; private set
 
     val isActive: Boolean
         get() = startTimeMs > 0 && (System.currentTimeMillis() - startTimeMs) < DURATION_MS
@@ -30,6 +31,7 @@ object PenaltyKickClient {
         suddenDeath: Boolean,
         teamAName: String,
         teamBName: String,
+        scored: Boolean = false,
     ) {
         this.kickerTeam = kickerTeam
         this.kickerName = kickerName
@@ -39,6 +41,7 @@ object PenaltyKickClient {
         this.suddenDeath = suddenDeath
         this.teamAName = teamAName
         this.teamBName = teamBName
+        this.scored = scored
         startTimeMs = System.currentTimeMillis()
     }
 }

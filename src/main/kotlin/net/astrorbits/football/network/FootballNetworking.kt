@@ -343,19 +343,34 @@ object FootballNetworking {
     }
 
     fun broadcastPenaltyKickStart(server: MinecraftServer) {
+        broadcastPenaltyKickBanner(server, scored = false)
+    }
+
+    fun broadcastPenaltyShootoutGoal(server: MinecraftServer) {
+        broadcastPenaltyKickBanner(server, scored = true)
+        FootballSounds.playMatchWhistle(server, 4)
+    }
+
+    private fun broadcastPenaltyKickBanner(server: MinecraftServer, scored: Boolean) {
         val kickerName = PenaltyShootoutState.currentKickerUuid?.let { uuid ->
             server.playerList.getPlayer(uuid)?.gameProfile?.name
         } ?: "?"
         val cfg = MatchConfigHolder.current
+        val kickNumber = if (scored) {
+            PenaltyShootoutState.totalKicksTaken
+        } else {
+            PenaltyShootoutState.totalKicksTaken + 1
+        }
         val payload = PenaltyKickStartS2CPayload(
             kickerTeam = PenaltyShootoutState.currentKickerTeam,
             kickerName = kickerName,
             penaltyScoreA = PenaltyShootoutState.penaltyScoreA,
             penaltyScoreB = PenaltyShootoutState.penaltyScoreB,
-            kickNumber = PenaltyShootoutState.totalKicksTaken + 1,
+            kickNumber = kickNumber,
             suddenDeath = PenaltyShootoutState.suddenDeath,
             teamAName = cfg.teamAName,
             teamBName = cfg.teamBName,
+            scored = scored,
         )
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)

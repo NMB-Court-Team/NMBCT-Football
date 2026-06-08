@@ -1,6 +1,7 @@
 package net.astrorbits.football.match
 
 import net.astrorbits.football.Football
+import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.network.FootballNetworking
@@ -322,6 +323,10 @@ object PenaltyShootoutState {
                 TeamSide.A -> penaltyScoreA++
                 TeamSide.B -> penaltyScoreB++
             }
+            findActiveFootball(server)?.let { football ->
+                FootballParticles.playGoal(server.overworld(), FootballParticles.centerOfFootball(football))
+            }
+            FootballNetworking.broadcastPenaltyShootoutGoal(server)
         }
         when (currentKickerTeam) {
             TeamSide.A -> kicksTakenA++

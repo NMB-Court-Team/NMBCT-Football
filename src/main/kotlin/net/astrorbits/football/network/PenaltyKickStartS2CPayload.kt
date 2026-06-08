@@ -17,6 +17,8 @@ data class PenaltyKickStartS2CPayload(
     val suddenDeath: Boolean,
     val teamAName: String,
     val teamBName: String,
+    /** true = 本轮点球已进，显示进球 Banner；false = 开踢提示。 */
+    val scored: Boolean = false,
 ) : CustomPacketPayload {
     override fun type() = TYPE
 
@@ -32,6 +34,7 @@ data class PenaltyKickStartS2CPayload(
             ByteBufCodecs.BOOL, PenaltyKickStartS2CPayload::suddenDeath,
             ByteBufCodecs.STRING_UTF8, PenaltyKickStartS2CPayload::teamAName,
             ByteBufCodecs.STRING_UTF8, PenaltyKickStartS2CPayload::teamBName,
+            ByteBufCodecs.BOOL, PenaltyKickStartS2CPayload::scored,
             ::PenaltyKickStartS2CPayload,
         )
     }

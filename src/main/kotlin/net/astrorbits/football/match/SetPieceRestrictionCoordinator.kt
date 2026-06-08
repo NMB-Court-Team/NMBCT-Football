@@ -238,6 +238,8 @@ object SetPieceRestrictionCoordinator {
     fun isGkHoldOutsidePenaltyAreaViolation(player: ServerPlayer): Boolean {
         if (!PlayerRoleState.isGoalkeeper(player)) return false
         if (GoalkeeperUtil.findHeldFootball(player) == null) return false
+        // 点球阶段不适用「持球出禁区 → 任意球」；大战固定球门与 roster 主队罚球区可能不一致。
+        if (PenaltyShootoutState.isActive() || MatchPenaltyKickState.isActive()) return false
         val ctx = SetPieceState.active
         if (ctx?.kind == SetPieceKind.GOAL_KICK) {
             val phase = ctx.goalKickPhase ?: return false

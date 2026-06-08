@@ -732,6 +732,7 @@
     "hud.nmbct-football.penalty.kicker": "Kicker",
     "hud.nmbct-football.penalty.kick_round": "Penalty kick %s",
     "hud.nmbct-football.penalty.kick_sudden_death": "Sudden death kick %s",
+    "hud.nmbct-football.penalty.scored": "GOAL!",
     "hud.nmbct-football.result.win_penalties": "Won on penalties",
     "hud.nmbct-football.result.loss_penalties": "Lost on penalties",
     "match.phase.finished": "Full Time"
