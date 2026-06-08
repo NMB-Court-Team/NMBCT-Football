@@ -22,6 +22,8 @@ data class PenaltyShootoutSyncS2CPayload(
     val penaltyGoalTeam: TeamSide,
     val activeDefendingTeam: TeamSide,
     val firstKickTeam: TeamSide,
+    /** 单轮罚球出结果后的球延迟复位宽限（与 [MatchState.postGoalResetPending] 一致）。 */
+    val ballGracePending: Boolean,
 ) : CustomPacketPayload {
     override fun type() = TYPE
 
@@ -49,6 +51,7 @@ data class PenaltyShootoutSyncS2CPayload(
                 TeamSide.STREAM_CODEC.encode(buf, payload.penaltyGoalTeam)
                 TeamSide.STREAM_CODEC.encode(buf, payload.activeDefendingTeam)
                 TeamSide.STREAM_CODEC.encode(buf, payload.firstKickTeam)
+                buf.writeBoolean(payload.ballGracePending)
             },
             { buf ->
                 PenaltyShootoutSyncS2CPayload(
@@ -64,6 +67,7 @@ data class PenaltyShootoutSyncS2CPayload(
                     penaltyGoalTeam = TeamSide.STREAM_CODEC.decode(buf),
                     activeDefendingTeam = TeamSide.STREAM_CODEC.decode(buf),
                     firstKickTeam = TeamSide.STREAM_CODEC.decode(buf),
+                    ballGracePending = buf.readBoolean(),
                 )
             },
         )

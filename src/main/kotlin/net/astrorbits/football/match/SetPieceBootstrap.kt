@@ -49,6 +49,7 @@ object SetPieceBootstrap {
                 }
             }
             is PendingAfterReset.MatchPenaltyKick -> Unit
+            is PendingAfterReset.PenaltyShootoutAdvance -> Unit
             is PendingAfterReset.FreeKick -> {
                 FreeKickSetPieceFlow.begin(
                     level,

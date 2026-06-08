@@ -17,6 +17,7 @@ object PenaltyShootoutClient {
     var penaltyGoalTeam: TeamSide = TeamSide.A
     var activeDefendingTeam: TeamSide = TeamSide.A
     var firstKickTeam: TeamSide = TeamSide.A
+    var ballGracePending: Boolean = false
 
     fun sync(
         active: Boolean,
@@ -31,6 +32,7 @@ object PenaltyShootoutClient {
         penaltyGoalTeam: TeamSide,
         activeDefendingTeam: TeamSide,
         firstKickTeam: TeamSide,
+        ballGracePending: Boolean,
     ) {
         this.active = active
         this.penaltyScoreA = penaltyScoreA
@@ -44,6 +46,7 @@ object PenaltyShootoutClient {
         this.penaltyGoalTeam = penaltyGoalTeam
         this.activeDefendingTeam = activeDefendingTeam
         this.firstKickTeam = firstKickTeam
+        this.ballGracePending = ballGracePending
     }
 
     fun reset() {
@@ -55,5 +58,6 @@ object PenaltyShootoutClient {
         kickerName = ""
         currentKickerUuid = null
         kickPhase = PenaltyKickPhase.SETUP
+        ballGracePending = false
     }
 }

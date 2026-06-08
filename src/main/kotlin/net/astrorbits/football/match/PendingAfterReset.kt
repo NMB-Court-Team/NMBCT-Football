@@ -38,4 +38,7 @@ sealed interface PendingAfterReset {
         val lastTouchPlayerUuid: UUID?,
         val foulPos: Vec3,
     ) : PendingAfterReset
+
+    /** 点球大战：单轮罚球出结果后延迟再进入下一轮。 */
+    data class PenaltyShootoutAdvance(override val kickoffTeam: TeamSide) : PendingAfterReset
 }

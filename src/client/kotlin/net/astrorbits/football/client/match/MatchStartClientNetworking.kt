@@ -5,6 +5,8 @@ import net.astrorbits.football.client.SetPieceAreaViolationClient
 import net.astrorbits.football.client.SetPieceClient
 import net.astrorbits.football.match.MatchPhase
 import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.match.PenaltyKickPhase
+import net.astrorbits.football.match.SetPieceKind
 import net.astrorbits.football.network.*
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking
 import net.minecraft.client.Minecraft
@@ -67,7 +69,13 @@ object MatchStartClientNetworking {
                     payload.penaltyGoalTeam,
                     payload.activeDefendingTeam,
                     payload.firstKickTeam,
+                    payload.ballGracePending,
                 )
+                if (payload.active && payload.ballGracePending) {
+                    MatchStartClient.beginBallResetPending(payload.currentKickerTeam, SetPieceKind.PENALTY_KICK)
+                } else if (payload.active && !payload.ballGracePending && payload.kickPhase == PenaltyKickPhase.SETUP) {
+                    MatchStartClient.clearBallResetPending()
+                }
             }
         }
         ClientPlayNetworking.registerGlobalReceiver(PenaltyKickStartS2CPayload.TYPE) { payload, _ ->

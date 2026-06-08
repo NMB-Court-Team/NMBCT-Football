@@ -156,7 +156,7 @@ object FootballOperabilityClient {
         if (isBlockedByPassOnlySetPiece(player, key)) {
             return false
         }
-        if (isPenaltyKicker(player)) {
+        if (isPenaltyKicker(player) && !MatchStartClient.ballResetPending) {
             if (!isPenaltyKickerAwaitingKick(player)) return false
             return when (key) {
                 FootballKeyBindings.KICK ->

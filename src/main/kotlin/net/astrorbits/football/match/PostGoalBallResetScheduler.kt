@@ -62,6 +62,7 @@ object PostGoalBallResetScheduler {
                 }
                 FootballNetworking.broadcastRestartKickoff(srv, action.kickoffTeam, goalLineOut = true)
             }
+            is PendingAfterReset.PenaltyShootoutAdvance -> Unit
         }
     }
 
@@ -83,15 +84,23 @@ object PostGoalBallResetScheduler {
     }
 
     private fun finishReset(level: ServerLevel, resetPos: Vec3?, afterReset: PendingAfterReset?) {
-        MatchState.resetFootball(level, resetPos)
-        afterReset?.let { applyBallLastTouch(level, it) }
-        afterReset?.let { applyAfterReset(level.server, it) }
         when (afterReset) {
-            is PendingAfterReset.MatchPenaltyKick -> {
-                val server = level.server ?: return
-                MatchPenaltyKickState.begin(server, level, afterReset)
+            is PendingAfterReset.PenaltyShootoutAdvance -> {
+                MatchState.postGoalResetPending = false
+                PenaltyShootoutState.completeDelayedAdvance(level.server ?: return)
             }
-            else -> afterReset?.let { SetPieceBootstrap.onAfterReset(level, it) }
+            else -> {
+                MatchState.resetFootball(level, resetPos)
+                afterReset?.let { applyBallLastTouch(level, it) }
+                afterReset?.let { applyAfterReset(level.server, it) }
+                when (afterReset) {
+                    is PendingAfterReset.MatchPenaltyKick -> {
+                        val server = level.server ?: return
+                        MatchPenaltyKickState.begin(server, level, afterReset)
+                    }
+                    else -> afterReset?.let { SetPieceBootstrap.onAfterReset(level, it) }
+                }
+            }
         }
     }
 

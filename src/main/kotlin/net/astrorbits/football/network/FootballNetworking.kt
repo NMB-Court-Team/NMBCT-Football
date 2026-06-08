@@ -335,6 +335,7 @@ object FootballNetworking {
             penaltyGoalTeam = PenaltyShootoutState.penaltyGoalTeam,
             activeDefendingTeam = PenaltyShootoutState.activeDefendingTeam,
             firstKickTeam = PenaltyShootoutState.firstKickTeam,
+            ballGracePending = PenaltyShootoutState.isActive() && MatchState.postGoalResetPending,
         )
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)

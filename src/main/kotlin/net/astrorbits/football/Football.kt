@@ -1051,7 +1051,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     private fun detectPenaltyKick(prevCenter: Vec3, currCenter: Vec3) {
-        if (!PenaltyShootoutState.isActive()) return
+        if (!PenaltyShootoutState.shouldDetectBallResolution()) return
+        val level = level() as? ServerLevel ?: return
+        val server = level.server
+        val config = MatchConfigHolder.current
+        if (detectPenaltyShootoutSidelineOut(server, config.sidelineA, prevCenter, currCenter)) return
+        if (detectPenaltyShootoutSidelineOut(server, config.sidelineB, prevCenter, currCenter)) return
         val goal = PenaltyShootoutState.defendingGoal()
         val defending = PenaltyShootoutState.penaltyGoalTeam
         val attacking = PenaltyShootoutState.currentKickerTeam
@@ -1060,8 +1065,29 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         ) ?: return
         val effectiveInGoal = crossing.inGoal || GoalCrossingUtil.isCenterInGoal(goal, currCenter)
         PenaltyShootoutState.onGoalLineCrossing(
+            server,
             crossing.copy(inGoal = effectiveInGoal, definiteGoalLineOut = crossing.definiteGoalLineOut && !effectiveInGoal),
         )
+    }
+
+    private fun detectPenaltyShootoutSidelineOut(
+        server: MinecraftServer,
+        sideline: SidelineConfig,
+        prevCenter: Vec3,
+        currCenter: Vec3,
+    ): Boolean {
+        val facing = sideline.facing()
+        if (facing.lengthSqr() < 1e-6) return false
+        val origin = sideline.origin()
+        val refX = origin.x
+        val refY = origin.y
+        val refZ = origin.z
+        val d1 = (prevCenter.x - refX) * facing.x + (prevCenter.y - refY) * facing.y + (prevCenter.z - refZ) * facing.z
+        val d2 = (currCenter.x - refX) * facing.x + (currCenter.y - refY) * facing.y + (currCenter.z - refZ) * facing.z
+        if (d1 * d2 >= 0) return false
+        if (d2 - d1 >= 0) return false
+        PenaltyShootoutState.onOutOfPlay(server)
+        return true
     }
 
     /** 检测球是否穿越边线出界 */

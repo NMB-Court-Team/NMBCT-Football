@@ -71,12 +71,14 @@ object PenaltyShootoutState {
     private var stationaryTicks = 0
     private var outcomeRecorded = false
     private var activeFootballId: Int = -1
-    private var pendingAdvance = false
     private var kickIntroTicksRemaining = 0
     private val penaltyWaitingSpectators = mutableSetOf<UUID>()
     private val penaltyWaitingPreviousGameModes = mutableMapOf<UUID, GameType>()
 
     fun isActive(): Boolean = active && MatchState.currentPhase == MatchPhase.PENALTIES
+
+    fun shouldDetectBallResolution(): Boolean =
+        isActive() && kickPhase == PenaltyKickPhase.RESOLVING && !outcomeRecorded && !MatchState.postGoalResetPending
 
     fun isPenaltyWaitingSpectator(player: ServerPlayer): Boolean =
         player.uuid in penaltyWaitingSpectators
@@ -97,6 +99,7 @@ object PenaltyShootoutState {
         MatchState.kickoffTeam = null
         MatchState.kickoffTouched = false
         MatchState.postGoalResetPending = false
+        PostGoalBallResetScheduler.cancel(server.overworld().dimension())
         MatchState.clearDirectGoalRestriction()
 
         captureEligibleKickPools(server)
@@ -136,8 +139,8 @@ object PenaltyShootoutState {
         stationaryTicks = 0
         outcomeRecorded = false
         activeFootballId = -1
-        pendingAdvance = false
         kickIntroTicksRemaining = 0
+        server?.overworld()?.let { PostGoalBallResetScheduler.cancel(it.dimension()) }
         lastWinner = null
         restoreAllPenaltyWaitingSpectators(server)
     }
@@ -152,6 +155,7 @@ object PenaltyShootoutState {
 
     fun isPenaltyFootballInteractionAllowed(player: ServerPlayer): Boolean {
         if (!isActive()) return true
+        if (MatchState.postGoalResetPending) return MatchParticipation.isParticipating(player)
         if (kickPhase == PenaltyKickPhase.SETUP) return false
         if (player.uuid == currentKickerUuid) {
             return kickPhase == PenaltyKickPhase.AWAITING_KICK
@@ -237,22 +241,26 @@ object PenaltyShootoutState {
         FootballNetworking.broadcastSetPieceState(server)
     }
 
-    fun onGoalLineCrossing(crossing: GoalCrossingUtil.GoalLineCrossing) {
-        if (!isActive() || kickPhase != PenaltyKickPhase.RESOLVING || outcomeRecorded) return
+    fun onGoalLineCrossing(server: MinecraftServer, crossing: GoalCrossingUtil.GoalLineCrossing) {
+        if (!shouldDetectBallResolution()) return
         if (crossing.defendingTeam != penaltyGoalTeam) return
         if (crossing.inGoal && crossing.attackingTeam == currentKickerTeam) {
-            applyOutcome(scored = true)
+            applyOutcome(scored = true, server)
         } else if (!crossing.inGoal) {
-            applyOutcome(scored = false)
+            applyOutcome(scored = false, server)
         }
     }
 
+    fun onOutOfPlay(server: MinecraftServer) {
+        if (!shouldDetectBallResolution()) return
+        applyOutcome(scored = false, server)
+    }
+
+    fun completeDelayedAdvance(server: MinecraftServer) {
+        advanceAfterOutcome(server)
+    }
+
     fun tick(server: MinecraftServer) {
-        if (pendingAdvance) {
-            pendingAdvance = false
-            advanceAfterOutcome(server)
-            return
-        }
         if (!isActive()) return
         if (kickPhase == PenaltyKickPhase.SETUP && kickIntroTicksRemaining > 0) {
             kickIntroTicksRemaining--
@@ -267,14 +275,14 @@ object PenaltyShootoutState {
         if (kickPhase != PenaltyKickPhase.RESOLVING || outcomeRecorded) return
         resolveTicks++
         if (resolveTicks >= RESOLVE_TIMEOUT_TICKS) {
-            applyOutcome(scored = false)
+            applyOutcome(scored = false, server)
             return
         }
         val football = findActiveFootball(server) ?: return
         if (football.simulationVelocity().lengthSqr() < STATIONARY_SPEED_SQR) {
             stationaryTicks++
             if (stationaryTicks >= STATIONARY_TICKS_NEEDED) {
-                applyOutcome(scored = false)
+                applyOutcome(scored = false, server)
             }
         } else {
             stationaryTicks = 0
@@ -295,8 +303,8 @@ object PenaltyShootoutState {
         findActiveFootball(server)?.isImmovable = false
     }
 
-    private fun applyOutcome(scored: Boolean) {
-        if (outcomeRecorded || !active) return
+    private fun applyOutcome(scored: Boolean, server: MinecraftServer) {
+        if (outcomeRecorded || !active || MatchState.postGoalResetPending) return
         outcomeRecorded = true
         currentKickerUuid?.let { uuid ->
             kickCountByPlayer[uuid] = (kickCountByPlayer[uuid] ?: 0) + 1
@@ -316,7 +324,18 @@ object PenaltyShootoutState {
             TeamSide.B -> kicksTakenB++
         }
         totalKicksTaken++
-        pendingAdvance = true
+        scheduleDelayedAdvance(server)
+        FootballNetworking.broadcastPenaltyShootoutSync(server)
+    }
+
+    private fun scheduleDelayedAdvance(server: MinecraftServer) {
+        if (MatchState.postGoalResetPending) return
+        MatchState.postGoalResetPending = true
+        val level = server.overworld()
+        PostGoalBallResetScheduler.schedule(
+            level,
+            afterReset = PendingAfterReset.PenaltyShootoutAdvance(currentKickerTeam),
+        )
     }
 
     private fun advanceAfterOutcome(server: MinecraftServer) {
