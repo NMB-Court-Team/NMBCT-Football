@@ -601,6 +601,24 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
     }
 
+    /** 触球前球路已预测会进门则保持原进球归属；仅当「不碰不会进」时才改归属。 */
+    private fun maybeUpdateGoalAttribution(
+        player: ServerPlayer,
+        preTouchPhysics: FootballPhysicsState,
+        preTouchBottomPos: Vec3,
+    ) {
+        val serverLevel = level() as? ServerLevel ?: return
+        val wouldScore = FootballTrajectoryPredictor.predictWouldScore(
+            serverLevel,
+            preTouchBottomPos,
+            preTouchPhysics,
+            MatchConfigHolder.current,
+        ).wouldScore
+        if (!wouldScore) {
+            setGoalAttribution(player)
+        }
+    }
+
     private fun shouldDeferSecondTouchForKickCurveFollowUp(player: ServerPlayer): Boolean {
         val serverLevel = level() as? ServerLevel ?: return false
         return KickCurveSessions.isFollowUpActive(player.uuid, id, serverLevel.gameTime) ||
@@ -619,7 +637,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         SecondTouchTracker.onBallTouched(player, ballCenter, serverLevel)
     }
 
-    /** 主动踢球：重置进球归属链（含滑铲推球）。 */
+    /** 主动踢球（含滑铲、门将扑球/抛球等）：始终更新最后物理触球；进球归属仅在本不会进门时改触球者。 */
     fun recordActiveKick(player: ServerPlayer, kickDirection: Vec3?) {
         if (!MatchParticipation.isParticipating(player)) {
             return
@@ -630,7 +648,11 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
         trySecondTouchFoul(player)
         lastPhysicalTouch = player.uuid
-        setGoalAttribution(player)
+        maybeUpdateGoalAttribution(
+            player,
+            FootballTrajectoryPredictor.copyState(physicsState),
+            position(),
+        )
         val ballCenter = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         lastActiveKickTowardGoal = kickDirection != null &&
             GoalCrossingUtil.isKickTowardOpponentGoal(player, ballCenter, kickDirection)
@@ -659,8 +681,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     /**
-     * 被动身体触球：始终更新最后物理触球；仅当球路预测显示本不会进门时，
-     * 才将进球归属改为触球者。
+     * 被动身体触球：始终更新最后物理触球；进球归属规则同 [recordActiveKick]。
      */
     fun recordPassiveBodyTouch(
         player: ServerPlayer,
@@ -676,15 +697,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
         trySecondTouchFoul(player)
         lastPhysicalTouch = player.uuid
-        val prediction = FootballTrajectoryPredictor.predictWouldScore(
-            serverLevel,
-            preTouchBottomPos,
-            preTouchPhysics,
-            MatchConfigHolder.current,
-        )
-        if (!prediction.wouldScore) {
-            setGoalAttribution(player)
-        }
+        maybeUpdateGoalAttribution(player, preTouchPhysics, preTouchBottomPos)
         val ballCenter = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         OffsideDetector.tryAwardOnTouch(player, ballCenter, serverLevel)
     }

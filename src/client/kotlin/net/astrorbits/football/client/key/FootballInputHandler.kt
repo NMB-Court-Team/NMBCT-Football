@@ -1,9 +1,13 @@
 package net.astrorbits.football.client.key
 import net.astrorbits.football.client.*
 import net.astrorbits.football.client.match.MatchStartClient
+import net.astrorbits.football.client.match.PenaltyShootoutClient
 import net.astrorbits.football.config.FootballConfigs
 import net.astrorbits.football.input.FootballInputConfig
 import net.astrorbits.football.input.FootballMovementInputUtil
+import net.astrorbits.football.match.MatchPhase
+import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.match.SetPieceKind
 import net.astrorbits.football.network.FootballActionC2SPayload
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.util.KickChargeUtil
@@ -513,11 +517,18 @@ object FootballInputHandler {
         }
     }
     fun canSlideTackle(nowTick: Long = 0L): Boolean {
+        if (isPenaltyKickSetPieceActive()) {
+            return false
+        }
         if (SlideTackleStateClient.isOnCooldown(nowTick)) {
             return false
         }
         return consecutiveSprintTicks >= FootballInputConfig.SLIDE_MIN_SPRINT_TICKS
     }
+
+    private fun isPenaltyKickSetPieceActive(): Boolean =
+        (MatchState.currentPhase == MatchPhase.PENALTIES && PenaltyShootoutClient.active) ||
+            SetPieceClient.kind == SetPieceKind.PENALTY_KICK
     fun resetSlideSprintTicks() {
         consecutiveSprintTicks = 0
     }
