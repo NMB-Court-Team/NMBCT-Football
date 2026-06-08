@@ -105,7 +105,7 @@ object GoalkeeperStateClient {
         ).any { it.getHolderEntityId() == player.id }
 
         if (holding && !wasHoldingBall) {
-            if (isGoalkeeper && !shouldDeferHoldLockPredictionForGoalKick(player)) {
+            if (!shouldDeferHoldLockPredictionForGoalKick(player) && isGoalkeeper) {
                 predictHoldReleaseLock(level.gameTime)
             }
             FootballInputHandler.onGoalkeeperBeganHoldingBall()

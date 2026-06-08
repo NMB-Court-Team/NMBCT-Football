@@ -174,6 +174,7 @@ object FootballInputHandler {
             GoalkeeperStateClient.isHoldReleaseLocked() &&
             !throwInTaker
         val canGk = FootballOperabilityClient.canUseGoalkeeperActions()
+        val canGoalKickCatch = FootballOperabilityClient.canUseGoalKickCatch(player)
         if (holdingBall) {
             if (!releaseLocked) {
                 handleThrowLongPress(player)
@@ -185,6 +186,8 @@ object FootballInputHandler {
             if (canGk) {
                 tickGoalkeeperDiveChargeDrain(player)
                 handleDivePress(player)
+            }
+            if (canGk || canGoalKickCatch) {
                 handleCatchPress(player)
             }
             handleKickLongPress(player)

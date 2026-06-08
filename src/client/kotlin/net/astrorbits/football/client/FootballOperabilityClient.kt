@@ -290,7 +290,7 @@ object FootballOperabilityClient {
             SetPieceClient.goalKickPhase == GoalKickPhase.PLACED &&
             isGoalKickPlacedKicker(player)
 
-    private fun canUseGoalKickCatch(player: LocalPlayer): Boolean {
+    fun canUseGoalKickCatch(player: LocalPlayer): Boolean {
         if (SetPieceClient.kind != SetPieceKind.GOAL_KICK) return false
         if (SetPieceClient.restartTeam != localPlayerTeam(player)) return false
         return SetPieceClient.goalKickPhase == GoalKickPhase.WAITING_PICKUP

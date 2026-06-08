@@ -169,11 +169,22 @@ object GoalKickSetPieceFlow {
         }
     }
 
-    /** 球门球 [GoalKickPhase.PLACING] 主罚员放球/持球时，球应落在球员靠场内一侧。 */
-    fun resolvePlacingFieldward(player: ServerPlayer): Vec3? {
+    /**
+     * 球门球捡球/摆球持球时，球固定在球员靠场内一侧（球员更靠近球门线）。
+     * [GoalKickPhase.WAITING_PICKUP] 发球方全员；[GoalKickPhase.PLACING] 仅主罚员。
+     */
+    fun resolveCarryFieldward(player: ServerPlayer): Vec3? {
         val ctx = SetPieceState.active ?: return null
-        if (ctx.kind != SetPieceKind.GOAL_KICK || ctx.goalKickPhase != GoalKickPhase.PLACING) return null
-        if (player.uuid != ctx.goalKickPickerUuid) return null
+        if (ctx.kind != SetPieceKind.GOAL_KICK) return null
+        when (ctx.goalKickPhase) {
+            GoalKickPhase.WAITING_PICKUP -> {
+                if (MatchState.getPlayerTeam(player.uuid) != ctx.restartTeam) return null
+            }
+            GoalKickPhase.PLACING -> {
+                if (player.uuid != ctx.goalKickPickerUuid) return null
+            }
+            else -> return null
+        }
         val goal = MatchFieldAreaUtil.goalForSide(MatchConfigHolder.current, ctx.restartTeam)
         return Vec3Math.normalizeSafe(Vec3Math.horizontal(goal.penaltyKickBehindBall()))
     }

@@ -1660,7 +1660,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (level().isClientSide || isImmovable || holderEntityId != player.id) {
             return
         }
-        val dropDir = GoalKickSetPieceFlow.resolvePlacingFieldward(player)
+        val dropDir = GoalKickSetPieceFlow.resolveCarryFieldward(player)
             ?: Vec3Math.normalizeSafe(Vec3Math.horizontal(player.lookAngle))
         val dropPos = player.position().add(dropDir.scale(GoalkeeperInputConfig.GK_DROP_DISTANCE))
         releaseHold()
@@ -1709,7 +1709,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     private fun updateHeldPosition(player: ServerPlayer, lookYaw: Float? = null, lookPitch: Float? = null) {
-        val placingFieldward = GoalKickSetPieceFlow.resolvePlacingFieldward(player)
+        val placingFieldward = GoalKickSetPieceFlow.resolveCarryFieldward(player)
         val pos = when {
             placingFieldward != null ->
                 GoalkeeperHoldPoseUtil.computeBallEntityPosFieldward(player, placingFieldward)
