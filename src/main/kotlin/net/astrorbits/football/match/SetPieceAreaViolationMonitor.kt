@@ -186,14 +186,15 @@ object SetPieceAreaViolationMonitor {
                 val config = MatchConfigHolder.current
                 if (team == restartTeam) return null
                 if (PlayerRoleState.isGoalkeeper(player)) return null
-                if (MatchFieldAreaUtil.isBallInPenaltyArea(restartTeam, ballPos)) {
-                    if (MatchFieldAreaUtil.isPlayerInPenaltyArea(player, restartTeam)) {
+                // 球在对方球门侧禁区（进攻方向）：防守方须退出该禁区并距球 ≥10 格
+                if (MatchFieldAreaUtil.isBallInPenaltyArea(defending, ballPos)) {
+                    if (MatchFieldAreaUtil.isPlayerInPenaltyArea(player, defending)) {
                         return SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA
                     }
                     if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
                         return SetPieceAreaViolationType.FREE_KICK_TOO_CLOSE
                     }
-                } else if (MatchFieldAreaUtil.isBallInPenaltyArea(defending, ballPos)) {
+                } else if (MatchFieldAreaUtil.isBallInPenaltyArea(restartTeam, ballPos)) {
                     if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
                         return SetPieceAreaViolationType.FREE_KICK_TOO_CLOSE
                     }
@@ -366,8 +367,10 @@ object SetPieceAreaViolationMonitor {
                 val spot = ctx?.ballPos ?: return
                 outsideCirclePosition(player, spot, config.freeKickDistanceRadius, config)
             }
-            SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA ->
-                ctx?.restartTeam?.let { outsidePenaltyAreaPosition(player, it, config) }
+            SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA -> {
+                val paSide = ctx?.defendingSide ?: ctx?.restartTeam?.opponent()
+                paSide?.let { outsidePenaltyAreaPosition(player, it, config) }
+            }
             SetPieceAreaViolationType.GOAL_KICK_BALL_IN_AREA,
             SetPieceAreaViolationType.FREE_KICK_BALL_IN_ATTACK_PA,
             -> null

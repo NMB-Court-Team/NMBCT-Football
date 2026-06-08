@@ -468,6 +468,16 @@ object MatchState {
         return System.currentTimeMillis() - kickoffTimerStartMs < kickoffLockMs
     }
 
+    /**
+     * 开球/复位阶段且尚未合法触球：滑铲动作允许，但不得以滑铲推动足球（含倒计时结束后发球方提前滑铲蹭球）。
+     */
+    fun shouldSuppressKickoffPhaseSlideBallContact(player: ServerPlayer): Boolean {
+        if (kickoffTouched) return false
+        if (postGoalResetPending) return true
+        val kickTeam = activeRestartTeam() ?: kickoffTeam ?: return false
+        return KickoffLock.isKickoffPhaseActive(kickTeam, kickoffTouched, kickoffTimerStartMs)
+    }
+
     /** 进入开球锁定阶段（重置触球标记与开球哨计时）。 */
     fun beginKickoffPhase(lockMs: Long, context: KickoffWhistleContext) {
         kickoffTouched = false

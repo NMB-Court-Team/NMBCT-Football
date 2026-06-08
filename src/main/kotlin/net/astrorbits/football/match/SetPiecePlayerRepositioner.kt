@@ -95,17 +95,17 @@ object SetPiecePlayerRepositioner {
         val defending = context.defendingSide ?: restartTeam.opponent()
         val config = MatchConfigHolder.current
 
-        // 球在进攻方大禁区：防守方须出 PA 且距球 ≥10 格
-        if (MatchFieldAreaUtil.isBallInPenaltyArea(restartTeam, ballPos)) {
-            if (MatchFieldAreaUtil.isPlayerInPenaltyArea(player, restartTeam)) {
-                return outsidePenaltyAreaPosition(player, restartTeam)
+        // 球在对方球门侧禁区：防守方须出该 PA 且距球 ≥10 格
+        if (MatchFieldAreaUtil.isBallInPenaltyArea(defending, ballPos)) {
+            if (MatchFieldAreaUtil.isPlayerInPenaltyArea(player, defending)) {
+                return outsidePenaltyAreaPosition(player, defending)
             }
             if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
                 return outsideCirclePosition(player, ballPos, config.freeKickDistanceRadius)
             }
         }
-        // 球在防守方大禁区（间接）：仅 10 格
-        else if (MatchFieldAreaUtil.isBallInPenaltyArea(defending, ballPos)) {
+        // 球在发球方己方禁区：仅 10 格
+        else if (MatchFieldAreaUtil.isBallInPenaltyArea(restartTeam, ballPos)) {
             if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
                 return outsideCirclePosition(player, ballPos, config.freeKickDistanceRadius)
             }

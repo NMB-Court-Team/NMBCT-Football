@@ -539,6 +539,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         repositionCenter: Vec3? = null,
         now: Long,
     ): Boolean {
+        if (MatchState.shouldSuppressKickoffPhaseSlideBallContact(player)) {
+            return false
+        }
         if (isImmovable || isPlayerBallMovementForbidden(player) || isHoldStealProtectedFrom(player)) {
             return false
         }
