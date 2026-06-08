@@ -101,7 +101,7 @@ object ThrowInSetPieceFlow {
             expireTick = player.level().gameTime + FOUL_THROW_WATCH_TICKS,
         )
         SecondTouchTracker.begin(ctx.restartTeam, player.uuid, SetPieceKind.THROW_IN)
-        clear(player.level().server)
+        clear(player.level().server, preserveFoulThrowWatch = true)
         MatchState.notifyKickoffBallTouched(player)
     }
 
@@ -228,7 +228,13 @@ object ThrowInSetPieceFlow {
     }
 
     fun clear(server: MinecraftServer?) {
-        foulThrowWatch = null
+        clear(server, preserveFoulThrowWatch = false)
+    }
+
+    private fun clear(server: MinecraftServer?, preserveFoulThrowWatch: Boolean) {
+        if (!preserveFoulThrowWatch) {
+            foulThrowWatch = null
+        }
         if (SetPieceState.active?.kind != SetPieceKind.THROW_IN) return
         val takerUuid = SetPieceState.active?.throwInTakerUuid
         if (takerUuid != null) {

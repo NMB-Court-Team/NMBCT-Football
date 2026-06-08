@@ -382,6 +382,12 @@ object MatchState {
         if (MatchPenaltyKickState.deniesPenaltyKickerAction(player, action)) {
             return true
         }
+        if (PenaltyShootoutState.isActive() && PenaltyShootoutState.isPenaltyFootballInteractionAllowed(player)) {
+            return false
+        }
+        if (MatchPenaltyKickState.isActive() && MatchPenaltyKickState.isFootballInteractionAllowed(player)) {
+            return false
+        }
         if (PenaltyShootoutState.isPenaltyMovementRestricted(player)) {
             return true
         }

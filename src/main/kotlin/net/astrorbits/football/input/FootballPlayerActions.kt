@@ -299,6 +299,8 @@ object FootballPlayerActions {
     /** 持球后的守门员动作路由：含界外球主罚员（非门将也可抛球）。 */
     private fun canRouteToGoalkeeperHoldActions(player: ServerPlayer): Boolean =
         GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player) ||
+            net.astrorbits.football.match.PenaltyShootoutState.isDefendingGoalkeeper(player) ||
+            net.astrorbits.football.match.MatchPenaltyKickState.isDefendingGoalkeeper(player) ||
             SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player) ||
             SetPieceRestrictionCoordinator.allowsGoalKickDrop(player) ||
             ThrowInSetPieceFlow.isMovementFrozen(player)
