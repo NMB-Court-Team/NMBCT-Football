@@ -105,6 +105,9 @@ object FootballPlayerActions {
     }
 
     private fun handleSlideTackle(player: ServerPlayer, payload: FootballActionC2SPayload) {
+        if (MatchState.isPenaltyKickSetPieceActive()) {
+            return
+        }
         val now = player.level().gameTime
         if (SlideTackleSessions.isSliding(player)) {
             SlideTackleSessions.requestEnd(player, now)
