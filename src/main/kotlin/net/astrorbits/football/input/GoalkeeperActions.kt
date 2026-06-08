@@ -257,7 +257,11 @@ object GoalkeeperActions {
                     GoalKickSetPieceFlow.onPlayerCaughtBall(player, football)
                 net.astrorbits.football.match.GoalKickPhase.PLACED -> {
                     val server = player.level().server
-                    GoalKickSetPieceFlow.onBallMoved(server, football)
+                    if (!GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, server)) {
+                        GoalKickSetPieceFlow.onBallMoved(server, football, player)
+                    } else {
+                        football.releaseHold()
+                    }
                 }
                 else -> Unit
             }

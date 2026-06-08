@@ -68,9 +68,29 @@ object GoalKickSetPieceFlow {
         FootballNetworking.broadcastSetPieceState(server)
     }
 
-    fun onBallMoved(server: MinecraftServer, football: Football) {
+    /**
+     * [GoalKickPhase.PLACED] 期间非距球最近发球方球员触球 → 重新发球门球。
+     * @return true 表示已触发重发，调用方应中止后续开球/持球逻辑。
+     */
+    fun tryRestartOnInvalidPlacedTouch(player: ServerPlayer, server: MinecraftServer): Boolean {
+        val ctx = SetPieceState.active ?: return false
+        if (ctx.kind != SetPieceKind.GOAL_KICK || ctx.goalKickPhase != GoalKickPhase.PLACED) {
+            return false
+        }
+        if (isPlacedKicker(player)) {
+            return false
+        }
+        findActiveFootball(player.level().server.overworld())?.releaseHold()
+        SetPieceRestartAwards.restartGoalKick(server)
+        return true
+    }
+
+    fun onBallMoved(server: MinecraftServer, football: Football, actingPlayer: ServerPlayer? = null) {
         val ctx = SetPieceState.active ?: return
         if (ctx.kind != SetPieceKind.GOAL_KICK) return
+        if (actingPlayer != null && tryRestartOnInvalidPlacedTouch(actingPlayer, server)) {
+            return
+        }
         clear(server)
         val holderId = football.getHolderEntityId()
         if (holderId >= 0) {
@@ -144,5 +164,31 @@ object GoalKickSetPieceFlow {
         val box = AABB.ofSize(ctx.ballPos, 8.0, 8.0, 8.0)
         return level.getEntitiesOfClass(Football::class.java, box)
             .minByOrNull { it.distanceToSqr(ctx.ballPos) }
+    }
+
+    /** [GoalKickPhase.PLACED] 时发球方距球水平距离最近的参赛球员。 */
+    fun findClosestPlacedKicker(server: MinecraftServer, restartTeam: TeamSide, ballX: Double, ballZ: Double): UUID? =
+        GoalKickPlacedKickerUtil.findClosestParticipatingPlayer(
+            players = server.playerList.players,
+            restartTeam = restartTeam,
+            ballX = ballX,
+            ballZ = ballZ,
+            teamOf = { player -> MatchState.getPlayerTeam(player.uuid) },
+            isParticipating = MatchParticipation::isParticipating,
+        )
+
+    fun isPlacedKicker(player: ServerPlayer): Boolean {
+        val ctx = SetPieceState.active ?: return false
+        if (ctx.kind != SetPieceKind.GOAL_KICK || ctx.goalKickPhase != GoalKickPhase.PLACED) return false
+        val team = MatchState.getPlayerTeam(player.uuid) ?: return false
+        if (team != ctx.restartTeam) return false
+        val football = findActiveFootball(player.level().server.overworld()) ?: return false
+        val closest = findClosestPlacedKicker(
+            player.level().server,
+            ctx.restartTeam,
+            football.x,
+            football.z,
+        ) ?: return false
+        return player.uuid == closest
     }
 }

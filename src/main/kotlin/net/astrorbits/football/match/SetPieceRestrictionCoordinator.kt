@@ -88,7 +88,9 @@ object SetPieceRestrictionCoordinator {
             when (ctx.kind) {
                 SetPieceKind.THROW_IN -> return false
                 SetPieceKind.GOAL_KICK -> {
-                    if (ctx.goalKickPhase == GoalKickPhase.PLACED) {
+                    if (ctx.goalKickPhase == GoalKickPhase.PLACED &&
+                        GoalKickSetPieceFlow.isPlacedKicker(player)
+                    ) {
                         return isKickOpenBlocked(action)
                     }
                     return false
@@ -141,7 +143,12 @@ object SetPieceRestrictionCoordinator {
             }
             GoalKickPhase.PLACED -> {
                 if (team == ctx.restartTeam) {
-                    return isKickOpenBlocked(action)
+                    return when (action) {
+                        FootballActionType.PASS, FootballActionType.SHOOT ->
+                            !GoalKickSetPieceFlow.isPlacedKicker(player)
+                        null -> false
+                        else -> true
+                    }
                 }
                 if (team == opponent) return true
             }

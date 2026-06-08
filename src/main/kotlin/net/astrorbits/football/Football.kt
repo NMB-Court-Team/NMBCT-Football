@@ -135,7 +135,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     private fun notifySetPieceGoalKickBallMoved(actingPlayer: ServerPlayer?) {
         if (SetPieceState.active?.kind != SetPieceKind.GOAL_KICK) return
         val server = (level() as? ServerLevel)?.server ?: return
-        GoalKickSetPieceFlow.onBallMoved(server, this)
+        GoalKickSetPieceFlow.onBallMoved(server, this, actingPlayer)
     }
 
     private fun isMatchPaused(): Boolean =
@@ -609,6 +609,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (!MatchParticipation.isParticipating(player)) {
             return
         }
+        val server = (level() as? ServerLevel)?.server
+        if (server != null && GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, server)) {
+            return
+        }
         trySecondTouchFoul(player)
         MatchPenaltyKickState.onKickerTouchedBall(player, this)
         if (MatchState.currentPhase == MatchPhase.PENALTIES) {
@@ -633,6 +637,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (!MatchParticipation.isParticipating(player)) {
             return
         }
+        val server = (level() as? ServerLevel)?.server
+        if (server != null && GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, server)) {
+            return
+        }
         trySecondTouchFoul(player)
         lastPhysicalTouch = player.uuid
     }
@@ -649,9 +657,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (!MatchParticipation.isParticipating(player)) {
             return
         }
+        val serverLevel = level() as? ServerLevel ?: return
+        if (GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, serverLevel.server)) {
+            return
+        }
         trySecondTouchFoul(player)
         lastPhysicalTouch = player.uuid
-        val serverLevel = level() as? ServerLevel ?: return
         val prediction = FootballTrajectoryPredictor.predictWouldScore(
             serverLevel,
             preTouchBottomPos,
@@ -1303,6 +1314,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (level().isClientSide || isImmovable) {
             return false
         }
+        actingPlayer?.let { player ->
+            val server = (level() as? ServerLevel)?.server
+            if (server != null && GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, server)) {
+                return false
+            }
+        }
         if (!ignoreImmovableTargets) {
             val forbidden = when {
                 actingPlayer != null -> isPlayerBallMovementForbidden(actingPlayer)
@@ -1362,6 +1379,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     fun trap(player: ServerPlayer): Boolean {
         if (level().isClientSide || isImmovable) {
+            return false
+        }
+        val server = (level() as? ServerLevel)?.server
+        if (server != null && GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, server)) {
             return false
         }
         if (isPlayerBallMovementForbidden(player)) {
@@ -1471,6 +1492,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player)) {
             return
         }
+        val server = (level() as? ServerLevel)?.server
+        if (server != null && GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, server)) {
+            return
+        }
         if (isHoldStealProtectedFrom(player)) {
             return
         }
@@ -1568,6 +1593,17 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         syncPacketPositionCodec(x, y, z)
         if (!throwInHoldAllowed && !goalKickCatchAllowed) {
             GoalkeeperHoldLock.beginLock(player, level().gameTime)
+        }
+        val placedCtx = SetPieceState.active
+        if (placedCtx?.kind == SetPieceKind.GOAL_KICK &&
+            placedCtx.goalKickPhase == GoalKickPhase.PLACED
+        ) {
+            val server = (level() as? ServerLevel)?.server ?: return
+            if (GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, server)) {
+                releaseHold()
+                return
+            }
+            GoalKickSetPieceFlow.onBallMoved(server, this, player)
         }
     }
 

@@ -58,7 +58,9 @@ object FootballOperabilityClient {
         return when (SetPieceClient.kind) {
             SetPieceKind.FREE_KICK -> player.uuid == SetPieceClient.freeKickTakerUuid
             SetPieceKind.CORNER_KICK -> player.uuid == SetPieceClient.cornerKickTakerUuid
-            SetPieceKind.GOAL_KICK -> SetPieceClient.goalKickPhase == GoalKickPhase.PLACED
+            SetPieceKind.GOAL_KICK ->
+                SetPieceClient.goalKickPhase == GoalKickPhase.PLACED &&
+                    GoalKickPlacedKickerClient.isPlacedKicker(player)
             else -> false
         }
     }
@@ -286,8 +288,8 @@ object FootballOperabilityClient {
                     key != FootballKeyBindings.LOOK_AROUND
             }
             GoalKickPhase.PLACED -> {
-                if (isRestartTeam) {
-                    if (MatchStartClient.kickoffTouched) return false
+                if (MatchStartClient.kickoffTouched) return false
+                if (isRestartTeam && GoalKickPlacedKickerClient.isPlacedKicker(player)) {
                     return key != FootballKeyBindings.KICK &&
                         key != FootballKeyBindings.BOOST_SPRINT &&
                         key != FootballKeyBindings.LOOK_AROUND

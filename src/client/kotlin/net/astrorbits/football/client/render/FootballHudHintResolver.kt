@@ -1,6 +1,7 @@
 package net.astrorbits.football.client.render
 
 import net.astrorbits.football.client.FootballOperabilityClient
+import net.astrorbits.football.client.GoalKickPlacedKickerClient
 import net.astrorbits.football.client.GoalkeeperHoldStealProtectionClient
 import net.astrorbits.football.client.GoalkeeperStateClient
 import net.astrorbits.football.client.SetPieceAreaViolationClient
@@ -197,6 +198,16 @@ object FootballHudHintResolver {
     }
 
     private fun resolveSetPieceRoleHint(player: LocalPlayer): TextLine? {
+        if (activeSetPieceKind() == SetPieceKind.GOAL_KICK &&
+            SetPieceClient.goalKickPhase == GoalKickPhase.PLACED
+        ) {
+            return if (GoalKickPlacedKickerClient.isPlacedKicker(player)) {
+                TextLine(KEY_SERVE_GOAL_KICK_KICK_OUT, COLOR_SERVE)
+            } else {
+                TextLine(KEY_WAIT_GOAL_KICK_KICK_OUT, COLOR_WAIT)
+            }
+        }
+
         val restartTeam = activeRestartTeam() ?: return null
         val localTeam = FootballOperabilityClient.resolveLocalPlayerTeam(player) ?: MatchStartClient.playerTeam
         if (localTeam != restartTeam) {
@@ -227,8 +238,9 @@ object FootballHudHintResolver {
             SetPieceKind.THROW_IN -> player.uuid == SetPieceClient.throwInTakerUuid
             SetPieceKind.PENALTY_KICK -> player.uuid == SetPieceClient.penaltyKickerUuid
             SetPieceKind.GOAL_KICK -> when (SetPieceClient.goalKickPhase) {
-                GoalKickPhase.WAITING_PICKUP, GoalKickPhase.PLACED -> true
+                GoalKickPhase.WAITING_PICKUP -> true
                 GoalKickPhase.PLACING -> player.uuid == SetPieceClient.goalKickPickerUuid
+                GoalKickPhase.PLACED -> GoalKickPlacedKickerClient.isPlacedKicker(player)
                 else -> false
             }
             SetPieceKind.CENTER_KICKOFF, SetPieceKind.NONE -> MatchStartClient.isKickoffTeam
@@ -334,6 +346,8 @@ object FootballHudHintResolver {
     private const val KEY_SERVE_GOAL_KICK = "hud.nmbct-football.set_piece.role.serve.goal_kick"
     private const val KEY_SERVE_GOAL_KICK_PICKUP = "hud.nmbct-football.set_piece.role.serve.goal_kick_pickup"
     private const val KEY_SERVE_GOAL_KICK_PLACE = "hud.nmbct-football.set_piece.role.serve.goal_kick_place"
+    private const val KEY_SERVE_GOAL_KICK_KICK_OUT = "hud.nmbct-football.set_piece.role.serve.goal_kick_kick_out"
+    private const val KEY_WAIT_GOAL_KICK_KICK_OUT = "hud.nmbct-football.set_piece.role.wait.goal_kick_kick_out"
 
     // ── 语言键：准心 / 进度条 ──
 
