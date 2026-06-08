@@ -88,32 +88,17 @@ object SetPiecePlayerRepositioner {
         if (MatchState.kickoffTouched) return null
         if (team == context.restartTeam) return null
         if (player.uuid == context.freeKickTakerUuid) return null
-        if (PlayerRoleState.isGoalkeeper(player)) return null
 
         val ballPos = context.ballPos
-        val restartTeam = context.restartTeam
-        val defending = context.defendingSide ?: restartTeam.opponent()
         val config = MatchConfigHolder.current
-
-        // 球在对方球门侧禁区：防守方须出该 PA 且距球 ≥10 格
-        if (MatchFieldAreaUtil.isBallInPenaltyArea(defending, ballPos)) {
-            if (MatchFieldAreaUtil.isPlayerInPenaltyArea(player, defending)) {
-                return outsidePenaltyAreaPosition(player, defending)
-            }
-            if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
-                return outsideCirclePosition(player, ballPos, config.freeKickDistanceRadius)
-            }
-        }
-        // 球在发球方己方禁区：仅 10 格
-        else if (MatchFieldAreaUtil.isBallInPenaltyArea(restartTeam, ballPos)) {
-            if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
-                return outsideCirclePosition(player, ballPos, config.freeKickDistanceRadius)
-            }
-        }
-        // 禁区外：防守方距球 ≥10 格
-        else if (team == defending &&
-            MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)
+        val ballPaSide = MatchFieldAreaUtil.penaltyAreaSideContainingBall(ballPos, config)
+        if (ballPaSide != null &&
+            team == ballPaSide &&
+            MatchFieldAreaUtil.isPlayerInPenaltyArea(player, ballPaSide, config)
         ) {
+            return outsidePenaltyAreaPosition(player, ballPaSide)
+        }
+        if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
             return outsideCirclePosition(player, ballPos, config.freeKickDistanceRadius)
         }
         return null

@@ -184,6 +184,16 @@ object MatchFieldAreaUtil {
         config: MatchConfig = MatchConfigHolder.current,
     ): Boolean = isInPenaltyArea(config, side, ballPos.x, ballPos.z)
 
+    /** 球心所在的大禁区一侧；不在任一侧禁区内时返回 null。 */
+    fun penaltyAreaSideContainingBall(
+        ballPos: Vec3,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): TeamSide? = when {
+        isBallInPenaltyArea(TeamSide.A, ballPos, config) -> TeamSide.A
+        isBallInPenaltyArea(TeamSide.B, ballPos, config) -> TeamSide.B
+        else -> null
+    }
+
     fun isWithinFreeKickDistance(
         ballPos: Vec3,
         playerX: Double,

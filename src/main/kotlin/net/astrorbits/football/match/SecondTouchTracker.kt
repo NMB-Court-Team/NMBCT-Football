@@ -58,12 +58,24 @@ object SecondTouchTracker {
         )
     }
 
+    /** 界外球掷出后：开球已完成，掷球者下一次触球即二次触球犯规（无宽限）。 */
+    fun beginAfterThrowIn(restartTeam: TeamSide, takerUuid: UUID) {
+        state = State(
+            restartTeam = restartTeam,
+            takerUuid = takerUuid,
+            sourceKind = SetPieceKind.THROW_IN,
+            phase = Phase.AWAITING_OTHER,
+            takerGraceUntilTick = -1L,
+        )
+    }
+
     private fun grantTakerGrace(current: State, gameTick: Long) {
         current.takerGraceUntilTick = gameTick + TAKER_GRACE_TICKS
     }
 
     private fun isWithinTakerGrace(current: State, player: ServerPlayer, gameTick: Long): Boolean =
-        player.uuid == current.takerUuid && gameTick <= current.takerGraceUntilTick
+        current.sourceKind != SetPieceKind.THROW_IN &&
+            player.uuid == current.takerUuid && gameTick <= current.takerGraceUntilTick
 
     /**
      * 球权/触球事件。返回 true 表示已判罚间接任意球。

@@ -182,25 +182,16 @@ object SetPieceAreaViolationMonitor {
                 if (MatchState.kickoffTouched) return null
                 val ballPos = ctx.ballPos
                 val restartTeam = ctx.restartTeam
-                val defending = ctx.defendingSide ?: restartTeam.opponent()
                 val config = MatchConfigHolder.current
                 if (team == restartTeam) return null
-                if (PlayerRoleState.isGoalkeeper(player)) return null
-                // 球在对方球门侧禁区（进攻方向）：防守方须退出该禁区并距球 ≥10 格
-                if (MatchFieldAreaUtil.isBallInPenaltyArea(defending, ballPos)) {
-                    if (MatchFieldAreaUtil.isPlayerInPenaltyArea(player, defending)) {
-                        return SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA
-                    }
-                    if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
-                        return SetPieceAreaViolationType.FREE_KICK_TOO_CLOSE
-                    }
-                } else if (MatchFieldAreaUtil.isBallInPenaltyArea(restartTeam, ballPos)) {
-                    if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
-                        return SetPieceAreaViolationType.FREE_KICK_TOO_CLOSE
-                    }
-                } else if (team == defending &&
-                    MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)
+                val ballPaSide = MatchFieldAreaUtil.penaltyAreaSideContainingBall(ballPos, config)
+                if (ballPaSide != null &&
+                    team == ballPaSide &&
+                    MatchFieldAreaUtil.isPlayerInPenaltyArea(player, ballPaSide, config)
                 ) {
+                    return SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA
+                }
+                if (MatchFieldAreaUtil.isPlayerWithinFreeKickDistance(player, ballPos, config)) {
                     return SetPieceAreaViolationType.FREE_KICK_TOO_CLOSE
                 }
             }
@@ -236,11 +227,12 @@ object SetPieceAreaViolationMonitor {
         when (ctx.kind) {
             SetPieceKind.GOAL_KICK -> Unit
             SetPieceKind.FREE_KICK -> {
-                if (!MatchFieldAreaUtil.isBallInPenaltyArea(ctx.restartTeam, ctx.ballPos)) {
-                    freeKickBallViolationTicks = 0
-                    return
-                }
-                if (MatchFieldAreaUtil.isBallInPenaltyArea(ctx.restartTeam, ballPos)) {
+                val paSide = MatchFieldAreaUtil.penaltyAreaSideContainingBall(ctx.ballPos)
+                    ?: run {
+                        freeKickBallViolationTicks = 0
+                        return
+                    }
+                if (MatchFieldAreaUtil.isBallInPenaltyArea(paSide, ballPos)) {
                     freeKickBallViolationTicks++
                     if (freeKickBallViolationTicks >= VIOLATION_TICKS) {
                         freeKickBallViolationTicks = 0
@@ -367,10 +359,10 @@ object SetPieceAreaViolationMonitor {
                 val spot = ctx?.ballPos ?: return
                 outsideCirclePosition(player, spot, config.freeKickDistanceRadius, config)
             }
-            SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA -> {
-                val paSide = ctx?.defendingSide ?: ctx?.restartTeam?.opponent()
-                paSide?.let { outsidePenaltyAreaPosition(player, it, config) }
-            }
+            SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA ->
+                ctx?.ballPos
+                    ?.let { MatchFieldAreaUtil.penaltyAreaSideContainingBall(it, config) }
+                    ?.let { outsidePenaltyAreaPosition(player, it, config) }
             SetPieceAreaViolationType.GOAL_KICK_BALL_IN_AREA,
             SetPieceAreaViolationType.FREE_KICK_BALL_IN_ATTACK_PA,
             -> null
