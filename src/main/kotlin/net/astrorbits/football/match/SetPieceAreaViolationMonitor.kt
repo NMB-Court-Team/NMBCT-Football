@@ -185,8 +185,8 @@ object SetPieceAreaViolationMonitor {
                 val config = MatchConfigHolder.current
                 if (team == restartTeam) return null
                 val ballPaSide = MatchFieldAreaUtil.penaltyAreaSideContainingBall(ballPos, config)
-                if (ballPaSide != null &&
-                    team == ballPaSide &&
+                // 球在发球方己方禁区：对方不得进入该禁区（攻方在守方禁区罚球不适用此条）
+                if (ballPaSide == restartTeam &&
                     MatchFieldAreaUtil.isPlayerInPenaltyArea(player, ballPaSide, config)
                 ) {
                     return SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA
@@ -228,10 +228,10 @@ object SetPieceAreaViolationMonitor {
             SetPieceKind.GOAL_KICK -> Unit
             SetPieceKind.FREE_KICK -> {
                 val paSide = MatchFieldAreaUtil.penaltyAreaSideContainingBall(ctx.ballPos)
-                    ?: run {
-                        freeKickBallViolationTicks = 0
-                        return
-                    }
+                if (paSide != ctx.restartTeam) {
+                    freeKickBallViolationTicks = 0
+                    return
+                }
                 if (MatchFieldAreaUtil.isBallInPenaltyArea(paSide, ballPos)) {
                     freeKickBallViolationTicks++
                     if (freeKickBallViolationTicks >= VIOLATION_TICKS) {
@@ -359,10 +359,15 @@ object SetPieceAreaViolationMonitor {
                 val spot = ctx?.ballPos ?: return
                 outsideCirclePosition(player, spot, config.freeKickDistanceRadius, config)
             }
-            SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA ->
-                ctx?.ballPos
-                    ?.let { MatchFieldAreaUtil.penaltyAreaSideContainingBall(it, config) }
-                    ?.let { outsidePenaltyAreaPosition(player, it, config) }
+            SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA -> {
+                val spotCtx = ctx ?: return
+                val paSide = MatchFieldAreaUtil.penaltyAreaSideContainingBall(spotCtx.ballPos, config)
+                if (paSide == spotCtx.restartTeam) {
+                    outsidePenaltyAreaPosition(player, paSide, config)
+                } else {
+                    null
+                }
+            }
             SetPieceAreaViolationType.GOAL_KICK_BALL_IN_AREA,
             SetPieceAreaViolationType.FREE_KICK_BALL_IN_ATTACK_PA,
             -> null

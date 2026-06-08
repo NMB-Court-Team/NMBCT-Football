@@ -92,8 +92,7 @@ object SetPiecePlayerRepositioner {
         val ballPos = context.ballPos
         val config = MatchConfigHolder.current
         val ballPaSide = MatchFieldAreaUtil.penaltyAreaSideContainingBall(ballPos, config)
-        if (ballPaSide != null &&
-            team == ballPaSide &&
+        if (ballPaSide == context.restartTeam &&
             MatchFieldAreaUtil.isPlayerInPenaltyArea(player, ballPaSide, config)
         ) {
             return outsidePenaltyAreaPosition(player, ballPaSide)

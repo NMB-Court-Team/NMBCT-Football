@@ -229,7 +229,7 @@ object SetPieceForbiddenZoneResolver {
                 if (kickoffTouched || playerTeam == restartTeam) return zones
                 val spot = ballPos ?: return zones
                 val ballPaSide = MatchFieldAreaUtil.penaltyAreaSideContainingBall(spot, config)
-                if (ballPaSide != null && playerTeam == ballPaSide) {
+                if (ballPaSide != null && ballPaSide == restartTeam) {
                     zones += InteriorForbiddenPenaltyArea(ballPaSide)
                 }
                 zones += InteriorForbiddenCircle(
