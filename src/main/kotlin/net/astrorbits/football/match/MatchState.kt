@@ -25,6 +25,7 @@ object MatchState {
     private const val SCOREBOARD_TEAM_B = "football_B"
     private val ALL_FOOTBALLS_AABB = AABB(Vec3(-3.0E7, -3.0E7, -3.0E7), Vec3(3.0E7, 3.0E7, 3.0E7))
     private const val SCOREBOARD_TEAM_SPEC = "spec"
+    private const val KICKOFF_BODY_CONTACT_RELEASE_DELAY_TICKS = 5L
 
     var timerTicks = 0
     var stoppageTimerTicks = 0
@@ -40,6 +41,8 @@ object MatchState {
     private val spectatorPreviousGameModes: MutableMap<UUID, GameType> = mutableMapOf()
     var kickoffTeam: TeamSide? = null
     var kickoffTouched: Boolean = false
+    /** 发球方合法触球后仍抑制身体推球，直至该 tick（含）。 */
+    private var kickoffBodyContactReleaseUntilTick: Long = -1L
     private var kickoffTimerStartMs: Long = 0L
     private var kickoffLockMs: Long = 0L
     private var kickoffWhistleContext: KickoffWhistleContext? = null
@@ -269,6 +272,7 @@ object MatchState {
         teamBScore = 0
         kickoffTeam = null
         kickoffTouched = false
+        kickoffBodyContactReleaseUntilTick = -1L
         clearKickoffWhistleTimers()
         dynamicStoppageTicks = 0
         lastDynamicStoppageAccumMs = 0L
@@ -287,9 +291,10 @@ object MatchState {
 
     fun kickoffWhistleContext(): KickoffWhistleContext? = kickoffWhistleContext
 
-    fun forceKickoffBallTouched() {
+    fun forceKickoffBallTouched(resumeGameTick: Long) {
         if (kickoffTouched) return
         kickoffTouched = true
+        scheduleKickoffBodyContactRelease(resumeGameTick)
         clearKickoffWhistleTimers()
     }
 
@@ -470,9 +475,12 @@ object MatchState {
 
     /**
      * 开球/定位球发球阶段且发球方尚未以踢球等方式合法触球：禁止身体推挤足球。
-     * 合法触球后 [kickoffTouched] 为 true，身体推球恢复。
+     * 合法触球后 [kickoffTouched] 为 true，再延迟 [KICKOFF_BODY_CONTACT_RELEASE_DELAY_TICKS] 恢复身体推球。
      */
-    fun shouldSuppressKickoffPhaseBodyBallContact(): Boolean {
+    fun shouldSuppressKickoffPhaseBodyBallContact(gameTick: Long): Boolean {
+        if (kickoffBodyContactReleaseUntilTick >= 0L && gameTick <= kickoffBodyContactReleaseUntilTick) {
+            return true
+        }
         if (kickoffTouched) return false
         if (postGoalResetPending) return true
         val kickTeam = activeRestartTeam() ?: kickoffTeam ?: return false
@@ -483,11 +491,12 @@ object MatchState {
      * 开球/复位阶段且尚未合法触球：滑铲动作允许，但不得以滑铲推动足球（含倒计时结束后发球方提前滑铲蹭球）。
      */
     fun shouldSuppressKickoffPhaseSlideBallContact(player: ServerPlayer): Boolean =
-        shouldSuppressKickoffPhaseBodyBallContact()
+        shouldSuppressKickoffPhaseBodyBallContact(player.level().gameTime)
 
     /** 进入开球锁定阶段（重置触球标记与开球哨计时）。 */
     fun beginKickoffPhase(lockMs: Long, context: KickoffWhistleContext) {
         kickoffTouched = false
+        kickoffBodyContactReleaseUntilTick = -1L
         kickoffTimerStartMs = System.currentTimeMillis()
         kickoffLockMs = lockMs
         kickoffWhistleContext = context
@@ -495,6 +504,10 @@ object MatchState {
         kickoffWhistle3Played = false
         kickoffWhistle5Played = false
         lastDynamicStoppageAccumMs = 0L
+    }
+
+    private fun scheduleKickoffBodyContactRelease(touchGameTick: Long) {
+        kickoffBodyContactReleaseUntilTick = touchGameTick + KICKOFF_BODY_CONTACT_RELEASE_DELAY_TICKS
     }
 
     /** 点球开踢：接入拖延哨（3/5）与正赛动态补时累积。 */
@@ -566,6 +579,7 @@ object MatchState {
         val kt = activeRestartTeam() ?: return
         if (MatchParticipation.participatingTeam(player) != kt) return
         kickoffTouched = true
+        scheduleKickoffBodyContactRelease(player.level().gameTime)
         val maxTicks = MatchConfigHolder.current.stoppageTimeMaxMinutes * 60 * 20
         if (dynamicStoppageTicks > maxTicks) {
             dynamicStoppageTicks = maxTicks

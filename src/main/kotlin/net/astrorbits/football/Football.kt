@@ -690,15 +690,15 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     private fun resolveGoalScorerUuid(): UUID? = goalAttributionPlayer ?: lastPhysicalTouch
 
-    private fun shouldSkipPlayerBodyCollisionDetection(player: ServerPlayer): Boolean {
+    private fun shouldSkipPlayerBodyCollisionDetection(player: ServerPlayer, now: Long): Boolean {
         if (FootballDribbleSessions.hasActiveSessionBlockingCollision(player, this)) {
             return true
         }
-        return MatchState.shouldSuppressKickoffPhaseBodyBallContact()
+        return MatchState.shouldSuppressKickoffPhaseBodyBallContact(now)
     }
 
     private fun shouldSuppressPlayerBodyImpulse(player: ServerPlayer, now: Long): Boolean {
-        if (MatchState.shouldSuppressKickoffPhaseBodyBallContact()) {
+        if (MatchState.shouldSuppressKickoffPhaseBodyBallContact(now)) {
             return true
         }
         if (FootballKickPushGrace.shouldSuppressPlayerPush(player, this, now)) {
@@ -776,7 +776,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             if (isPlayerBallMovementForbidden(player)) {
                 continue
             }
-            if (shouldSkipPlayerBodyCollisionDetection(player)) {
+            if (shouldSkipPlayerBodyCollisionDetection(player, now)) {
                 continue
             }
 
@@ -1516,11 +1516,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player)) {
             return
         }
-        if (MatchState.shouldSuppressKickoffPhaseBodyBallContact()) {
+        val serverLevel = level() as? ServerLevel ?: return
+        if (MatchState.shouldSuppressKickoffPhaseBodyBallContact(serverLevel.gameTime)) {
             return
         }
-        val server = (level() as? ServerLevel)?.server
-        if (server != null && GoalKickSetPieceFlow.tryRestartOnGoalKickTouch(player, server)) {
+        val server = serverLevel.server
+        if (GoalKickSetPieceFlow.tryRestartOnGoalKickTouch(player, server)) {
             return
         }
         if (isHoldStealProtectedFrom(player)) {
@@ -1830,7 +1831,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
                 return
             }
             val now = (level() as? ServerLevel)?.gameTime ?: 0L
-            if (shouldSkipPlayerBodyCollisionDetection(entity)) {
+            if (shouldSkipPlayerBodyCollisionDetection(entity, now)) {
                 return
             }
             val radius = FootballPhysicsConfig.RADIUS

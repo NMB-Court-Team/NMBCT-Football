@@ -158,7 +158,7 @@ object GoalKickSetPieceFlow {
         if (kicker != null) {
             MatchState.notifyKickoffBallTouched(kicker)
         } else {
-            MatchState.forceKickoffBallTouched()
+            MatchState.forceKickoffBallTouched(resumeTick)
         }
     }
 
