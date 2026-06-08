@@ -6,7 +6,6 @@ import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.item.FootballItem
 import net.astrorbits.football.match.MatchParticipation
 import net.astrorbits.football.match.MatchState
-import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.match.SetPieceRestrictionCoordinator
 import net.astrorbits.football.match.ThrowInSetPieceFlow
 import net.astrorbits.football.network.FootballActionC2SPayload
@@ -133,10 +132,6 @@ object FootballPlayerActions {
 
     private fun handleDribbleHold(player: ServerPlayer, payload: FootballActionC2SPayload) {
         if (SlideTackleSessions.isSliding(player)) {
-            FootballDribbleSessions.end(player)
-            return
-        }
-        if (PlayerRoleState.isGoalkeeper(player)) {
             FootballDribbleSessions.end(player)
             return
         }

@@ -355,12 +355,10 @@ object MatchState {
         if (!MatchParticipation.isParticipating(player)) {
             return true
         }
-        if (action == net.astrorbits.football.network.FootballActionType.GK_CATCH &&
-            SetPieceRestrictionCoordinator.allowsGoalKickCatch(player)
-        ) {
+        if (postGoalResetPending) {
             return false
         }
-        if (action == net.astrorbits.football.network.FootballActionType.GK_DROP &&
+        if (SetPieceRestrictionCoordinator.allowsGoalKickCatch(player) ||
             SetPieceRestrictionCoordinator.allowsGoalKickDrop(player)
         ) {
             return false

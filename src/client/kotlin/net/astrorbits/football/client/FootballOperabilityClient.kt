@@ -235,19 +235,25 @@ object FootballOperabilityClient {
     }
 
     private fun isKickoffLockedForPlayer(player: LocalPlayer): Boolean {
-        if (canUseGoalKickCatch(player)) return false
-        if (isGoalKickAwaitingPenaltyAreaExit()) return false
-        if (isGoalKickPlacedKicker(player)) return false
+        if (MatchStartClient.ballResetPending) return false
         if (bypassesKickoffLockForFootballInput(player)) return false
         return MatchStartClient.isLocked
     }
 
-    /** 球门球放下后主罚、等待出区期间须在开球锁倒计时内也能发送踢球包。 */
+    /** 开球锁倒计时内仍须发送足球操作包的阶段（球门球捡球/摆球带球、主罚踢球等）。 */
     fun bypassesKickoffLockForFootballInput(player: LocalPlayer): Boolean =
-        isGoalKickPlacedKicker(player) ||
+        canUseGoalKickCatch(player) ||
+            isGoalKickPlacingPicker(player) ||
+            isGoalKickPlacedKicker(player) ||
             isGoalKickAwaitingPenaltyAreaExit() ||
             isPenaltyKickerAwaitingKick(player) ||
             isPenaltyDefendingGoalkeeper(player)
+
+    private fun isGoalKickPlacingPicker(player: LocalPlayer): Boolean {
+        if (SetPieceClient.kind != SetPieceKind.GOAL_KICK) return false
+        if (SetPieceClient.goalKickPhase != GoalKickPhase.PLACING) return false
+        return SetPieceClient.goalKickPickerUuid == player.uuid
+    }
 
     /**
      * 倒计时期间不发送定位球动作，但保留主罚键的“首次按下”边沿。

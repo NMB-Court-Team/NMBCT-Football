@@ -4,7 +4,6 @@ import net.astrorbits.football.Football
 import net.astrorbits.football.FootballParticles
 import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.match.MatchState
-import net.astrorbits.football.match.PlayerRoleState
 import net.astrorbits.football.network.FootballActionC2SPayload
 import net.astrorbits.football.util.FootballKickUtil
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
@@ -46,9 +45,6 @@ object FootballDribbleSessions {
             return
         }
         if (MatchState.isKickoffInteractionLocked(player)) {
-            return
-        }
-        if (PlayerRoleState.isGoalkeeper(player)) {
             return
         }
         if (football.isPlayerBallMovementForbidden(player)) {

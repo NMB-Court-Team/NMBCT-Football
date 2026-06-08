@@ -461,6 +461,15 @@ object FootballInputHandler {
         }
     }
     private fun handleDribbleHold(player: LocalPlayer) {
+        if (FootballOperabilityClient.canUseGoalkeeperActions() &&
+            !GoalkeeperStateClient.isHoldingBall &&
+            isDiveOrThrowChargeActive()
+        ) {
+            if (getDribbleLongPressState() == LongPressState.STARTED) {
+                cancelDiveCharge()
+            }
+            return
+        }
         if (!FootballKeyBindings.DRIBBLE.isDown) {
             dribbleResumeBlocked = false
             if (dribblePrevTickPressed) {
