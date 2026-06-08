@@ -1,6 +1,7 @@
 package net.astrorbits.football.client
 
 import net.astrorbits.football.Football
+import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.match.GoalKickPhase
 import net.astrorbits.football.match.GoalKickPlacedKickerUtil
 import net.astrorbits.football.match.MatchParticipation
@@ -17,8 +18,10 @@ object GoalKickPlacedKickerClient {
     fun isPlacedKicker(player: LocalPlayer): Boolean {
         if (SetPieceClient.kind != SetPieceKind.GOAL_KICK) return false
         if (SetPieceClient.goalKickPhase != GoalKickPhase.PLACED) return false
+        SetPieceClient.goalKickPickerUuid?.let { return player.uuid == it }
         val restartTeam = SetPieceClient.restartTeam ?: return false
-        if (FootballOperabilityClient.resolveLocalPlayerTeam(player) != restartTeam) return false
+        val localTeam = FootballOperabilityClient.resolveLocalPlayerTeam(player) ?: MatchStartClient.playerTeam
+        if (localTeam != restartTeam) return false
         val ballPos = ballPosition(player.level()) ?: return false
         val closest = findClosestRestartTeamPlayer(player.level(), restartTeam, ballPos.x, ballPos.z)
             ?: return false

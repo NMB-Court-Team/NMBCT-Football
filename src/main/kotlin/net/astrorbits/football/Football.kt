@@ -127,6 +127,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             if (ThrowInSetPieceFlow.isMovementFrozen(player)) return false
             if (SetPieceRestrictionCoordinator.isPlayerBallMovementForbidden(player)) return true
             if (SetPieceRestrictionCoordinator.isFreeKickDefendingGoalkeeperHolding(player)) return false
+            if (SetPieceRestrictionCoordinator.allowsGoalKickPlacedKick(player)) return false
             if (MatchState.isKickoffInteractionLocked(player)) return true
         }
         return false

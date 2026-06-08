@@ -359,6 +359,11 @@ object MatchState {
         ) {
             return false
         }
+        if (SetPieceRestrictionCoordinator.allowsGoalKickPlacedKick(player) &&
+            allowsGoalKickPlacedKickDuringKickoffLock(action)
+        ) {
+            return false
+        }
         if (SetPieceRestrictionCoordinator.isFootballOperationBlocked(player, action)) {
             return true
         }
@@ -406,6 +411,16 @@ object MatchState {
             kickoffElapsedMs = elapsed,
             kickoffLockMs = kickoffLockMs,
         )
+    }
+
+    private fun allowsGoalKickPlacedKickDuringKickoffLock(
+        action: net.astrorbits.football.network.FootballActionType?,
+    ): Boolean = when (action) {
+        null,
+        net.astrorbits.football.network.FootballActionType.PASS,
+        net.astrorbits.football.network.FootballActionType.SHOOT,
+        -> true
+        else -> false
     }
 
     fun tryNotifyKickoffBallTouched(player: ServerPlayer) {

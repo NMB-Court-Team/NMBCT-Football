@@ -55,6 +55,10 @@ object SetPieceRestrictionCoordinator {
         return ctx.goalKickPhase == GoalKickPhase.PLACING && player.uuid == ctx.goalKickPickerUuid
     }
 
+    /** 球门球已放下、待踢出大禁区的主罚员（须在底线开球锁倒计时内也能踢球）。 */
+    fun allowsGoalKickPlacedKick(player: ServerPlayer): Boolean =
+        GoalKickSetPieceFlow.isPlacedKicker(player)
+
     /** 对方任意球期间，防守方门将已持球（扑救/摘球后需手抛或放下）。 */
     fun isFreeKickDefendingGoalkeeperHolding(player: ServerPlayer): Boolean {
         if (!isFreeKickDefendingGoalkeeper(player)) return false

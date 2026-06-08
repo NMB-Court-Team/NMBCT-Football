@@ -197,6 +197,7 @@ object GoalKickSetPieceFlow {
         if (ctx.kind != SetPieceKind.GOAL_KICK || ctx.goalKickPhase != GoalKickPhase.PLACED) return false
         val team = MatchState.getPlayerTeam(player.uuid) ?: return false
         if (team != ctx.restartTeam) return false
+        ctx.goalKickPickerUuid?.let { return player.uuid == it }
         val football = findActiveFootball(player.level().server.overworld()) ?: return false
         val closest = findClosestPlacedKicker(
             player.level().server,

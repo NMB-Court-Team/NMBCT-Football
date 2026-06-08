@@ -64,10 +64,14 @@ object FootballInputHandler {
     fun isAnyChargeActive(): Boolean = isDiveOrThrowChargeActive() || isKickChargeActive()
     /** 鍩轰簬瀹炴椂鏃堕挓閲囨牱钃勫姏锛堜緵 HUD 姣忓抚璋冪敤锛岄伩鍏嶄粎 tick 鏇存柊瀵艰嚧杩涘害鏉″崱椤匡級銆?*/
     fun liveKickChargeDisplay(): KickChargeDisplayState? {
-        if (MatchStartClient.isLocked) return null
+        val player = net.minecraft.client.Minecraft.getInstance().player
+        if (MatchStartClient.isLocked &&
+            (player == null || !FootballOperabilityClient.bypassesKickoffLockForFootballInput(player))
+        ) {
+            return null
+        }
         syncDivePressRealtimeClock()
         syncKickPressRealtimeClock()
-        val player = net.minecraft.client.Minecraft.getInstance().player
         val holdingBall = GoalkeeperStateClient.isHoldingBall
         val diveDown = FootballKeyBindings.GK_DIVE.isDown
         val kickDown = FootballKeyBindings.KICK.isDown
@@ -128,7 +132,9 @@ object FootballInputHandler {
                 return@reg
             }
             tickBoostSprint(player)
-            if (MatchStartClient.isLocked) {
+            if (MatchStartClient.isLocked &&
+                !FootballOperabilityClient.bypassesKickoffLockForFootballInput(player)
+            ) {
                 handleSlideTacklePress(player)
                 updatePrevTickPressed()
                 return@reg
@@ -159,7 +165,8 @@ object FootballInputHandler {
             return
         }
         val throwInTaker = FootballOperabilityClient.isThrowInTaker(player)
-        val holdingBall = GoalkeeperStateClient.isHoldingBall ||
+        val goalKickPlacedKicker = FootballOperabilityClient.isGoalKickPlacedKicker(player)
+        val holdingBall = (GoalkeeperStateClient.isHoldingBall && !goalKickPlacedKicker) ||
             (throwInTaker && SetPieceClient.isMovementFrozen(player.uuid))
         tryInterruptCharges(player)
         val releaseLocked = holdingBall &&

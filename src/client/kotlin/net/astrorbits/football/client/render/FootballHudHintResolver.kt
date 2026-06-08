@@ -216,6 +216,9 @@ object FootballHudHintResolver {
         if (isSetPieceServer(player, restartTeam)) {
             return TextLine(resolveServeKey(), COLOR_SERVE)
         }
+        if (GoalkeeperStateClient.isGoalkeeper) {
+            return null
+        }
         return TextLine(KEY_WAIT_TEAMMATE, COLOR_WAIT)
     }
 
@@ -229,23 +232,41 @@ object FootballHudHintResolver {
     }
 
     private fun isSetPieceServer(player: LocalPlayer, restartTeam: TeamSide): Boolean {
-        if (MatchStartClient.ballResetPending) {
-            return MatchStartClient.playerTeam == restartTeam
-        }
-        return when (SetPieceClient.kind) {
-            SetPieceKind.FREE_KICK -> player.uuid == SetPieceClient.freeKickTakerUuid
-            SetPieceKind.CORNER_KICK -> player.uuid == SetPieceClient.cornerKickTakerUuid
-            SetPieceKind.THROW_IN -> player.uuid == SetPieceClient.throwInTakerUuid
-            SetPieceKind.PENALTY_KICK -> player.uuid == SetPieceClient.penaltyKickerUuid
-            SetPieceKind.GOAL_KICK -> when (SetPieceClient.goalKickPhase) {
-                GoalKickPhase.WAITING_PICKUP -> true
-                GoalKickPhase.PLACING -> player.uuid == SetPieceClient.goalKickPickerUuid
-                GoalKickPhase.PLACED -> GoalKickPlacedKickerClient.isPlacedKicker(player)
+        val base = when {
+            MatchStartClient.ballResetPending -> MatchStartClient.playerTeam == restartTeam
+            else -> when (SetPieceClient.kind) {
+                SetPieceKind.FREE_KICK -> player.uuid == SetPieceClient.freeKickTakerUuid
+                SetPieceKind.CORNER_KICK -> player.uuid == SetPieceClient.cornerKickTakerUuid
+                SetPieceKind.THROW_IN -> player.uuid == SetPieceClient.throwInTakerUuid
+                SetPieceKind.PENALTY_KICK -> player.uuid == SetPieceClient.penaltyKickerUuid
+                SetPieceKind.GOAL_KICK -> when (SetPieceClient.goalKickPhase) {
+                    GoalKickPhase.WAITING_PICKUP -> true
+                    GoalKickPhase.PLACING -> player.uuid == SetPieceClient.goalKickPickerUuid
+                    GoalKickPhase.PLACED -> GoalKickPlacedKickerClient.isPlacedKicker(player)
+                    else -> false
+                }
+                SetPieceKind.CENTER_KICKOFF, SetPieceKind.NONE -> MatchStartClient.isKickoffTeam
                 else -> false
             }
-            SetPieceKind.CENTER_KICKOFF, SetPieceKind.NONE -> MatchStartClient.isKickoffTeam
+        }
+        if (!base) return false
+        if (!GoalkeeperStateClient.isGoalkeeper) return true
+        return isGoalkeeperSetPieceServer(player)
+    }
+
+    /** 门将仅在明确担任该定位球主罚/捡球/摆球者时显示发球提示（球门球捡球阶段默认由门将执行）。 */
+    private fun isGoalkeeperSetPieceServer(player: LocalPlayer): Boolean = when (activeSetPieceKind()) {
+        SetPieceKind.GOAL_KICK -> when (SetPieceClient.goalKickPhase) {
+            GoalKickPhase.WAITING_PICKUP, null -> true
+            GoalKickPhase.PLACING -> player.uuid == SetPieceClient.goalKickPickerUuid
+            GoalKickPhase.PLACED -> GoalKickPlacedKickerClient.isPlacedKicker(player)
             else -> false
         }
+        SetPieceKind.FREE_KICK -> player.uuid == SetPieceClient.freeKickTakerUuid
+        SetPieceKind.CORNER_KICK -> player.uuid == SetPieceClient.cornerKickTakerUuid
+        SetPieceKind.THROW_IN -> player.uuid == SetPieceClient.throwInTakerUuid
+        SetPieceKind.PENALTY_KICK -> player.uuid == SetPieceClient.penaltyKickerUuid
+        else -> false
     }
 
     private fun resolveServeKey(): String = when (activeSetPieceKind()) {

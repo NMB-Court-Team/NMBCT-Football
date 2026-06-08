@@ -141,7 +141,7 @@ object FootballOperabilityClient {
         val holdingBall = GoalkeeperStateClient.isHoldingBall ||
             (throwInTaker && SetPieceClient.isMovementFrozen(player.uuid))
         val canGk = canUseGoalkeeperActions()
-        val kickoffLocked = MatchStartClient.isLocked
+        val kickoffLocked = isKickoffLockedForPlayer(player)
         if (isBlockedByGoalKickSetPiece(player, key)) {
             return false
         }
@@ -229,6 +229,23 @@ object FootballOperabilityClient {
         return range
     }
 
+    private fun isKickoffLockedForPlayer(player: LocalPlayer): Boolean {
+        if (isGoalKickPlacedKicker(player)) return false
+        return MatchStartClient.isLocked
+    }
+
+    /** 球门球放下后主罚须在开球锁倒计时内也能发送踢球包。 */
+    fun bypassesKickoffLockForFootballInput(player: LocalPlayer): Boolean =
+        isGoalKickPlacedKicker(player)
+
+    fun isGoalKickPlacedKicker(player: LocalPlayer): Boolean =
+        GoalKickPlacedKickerClient.isPlacedKicker(player)
+
+    private fun isGoalKickPlacedKickerAwaitingKick(player: LocalPlayer): Boolean =
+        SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
+            SetPieceClient.goalKickPhase == GoalKickPhase.PLACED &&
+            isGoalKickPlacedKicker(player)
+
     private fun canUseGoalKickCatch(player: LocalPlayer): Boolean {
         if (SetPieceClient.kind != SetPieceKind.GOAL_KICK) return false
         if (SetPieceClient.restartTeam != MatchStartClient.playerTeam) return false
@@ -289,7 +306,7 @@ object FootballOperabilityClient {
             }
             GoalKickPhase.PLACED -> {
                 if (MatchStartClient.kickoffTouched) return false
-                if (isRestartTeam && GoalKickPlacedKickerClient.isPlacedKicker(player)) {
+                if (isRestartTeam && isGoalKickPlacedKicker(player)) {
                     return key != FootballKeyBindings.KICK &&
                         key != FootballKeyBindings.BOOST_SPRINT &&
                         key != FootballKeyBindings.LOOK_AROUND
