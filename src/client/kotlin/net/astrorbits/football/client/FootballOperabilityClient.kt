@@ -54,7 +54,7 @@ object FootballOperabilityClient {
     /** 定位球主罚待开球（轻触传球 / 蓄力射门）。 */
     fun isSetPieceKickTakerAwaitingKick(player: LocalPlayer): Boolean {
         if (MatchStartClient.kickoffTouched) return false
-        if (SetPieceClient.restartTeam != MatchStartClient.playerTeam) return false
+        if (SetPieceClient.restartTeam != localPlayerTeam(player)) return false
         return when (SetPieceClient.kind) {
             SetPieceKind.FREE_KICK -> player.uuid == SetPieceClient.freeKickTakerUuid
             SetPieceKind.CORNER_KICK -> player.uuid == SetPieceClient.cornerKickTakerUuid
@@ -268,7 +268,7 @@ object FootballOperabilityClient {
 
     private fun canUseGoalKickCatch(player: LocalPlayer): Boolean {
         if (SetPieceClient.kind != SetPieceKind.GOAL_KICK) return false
-        if (SetPieceClient.restartTeam != MatchStartClient.playerTeam) return false
+        if (SetPieceClient.restartTeam != localPlayerTeam(player)) return false
         return SetPieceClient.goalKickPhase == GoalKickPhase.WAITING_PICKUP
     }
 
@@ -304,7 +304,7 @@ object FootballOperabilityClient {
                 else -> true
             }
         }
-        if (SetPieceClient.restartTeam == MatchStartClient.playerTeam) {
+        if (SetPieceClient.restartTeam == localPlayerTeam(player)) {
             return key != FootballKeyBindings.BOOST_SPRINT && key != FootballKeyBindings.LOOK_AROUND
         }
         return false
@@ -312,7 +312,7 @@ object FootballOperabilityClient {
 
     private fun isBlockedByGoalKickSetPiece(player: LocalPlayer, key: KeyMapping): Boolean {
         if (SetPieceClient.kind != SetPieceKind.GOAL_KICK) return false
-        val isRestartTeam = SetPieceClient.restartTeam == MatchStartClient.playerTeam
+        val isRestartTeam = SetPieceClient.restartTeam == localPlayerTeam(player)
         val isPicker = SetPieceClient.goalKickPickerUuid == player.uuid
         val isCatchKey = key == FootballKeyBindings.GK_CATCH
         return when (SetPieceClient.goalKickPhase) {
@@ -341,7 +341,7 @@ object FootballOperabilityClient {
 
     private fun isBlockedByPassOnlySetPiece(player: LocalPlayer, key: KeyMapping): Boolean {
         if (MatchStartClient.kickoffTouched) return false
-        val team = MatchStartClient.playerTeam
+        val team = localPlayerTeam(player)
         val passOnlyAllowed = setOf(
             FootballKeyBindings.KICK,
             FootballKeyBindings.BOOST_SPRINT,

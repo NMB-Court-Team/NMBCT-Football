@@ -105,7 +105,7 @@ object GoalkeeperStateClient {
         ).any { it.getHolderEntityId() == player.id }
 
         if (holding && !wasHoldingBall) {
-            if (isGoalkeeper && !shouldDeferHoldLockPredictionForGoalKick()) {
+            if (isGoalkeeper && !shouldDeferHoldLockPredictionForGoalKick(player)) {
                 predictHoldReleaseLock(level.gameTime)
             }
             FootballInputHandler.onGoalkeeperBeganHoldingBall()
@@ -120,9 +120,11 @@ object GoalkeeperStateClient {
     }
 
     /** 球门球捡球由服务端下发 [GOAL_KICK_HOLD_LOCK_TICKS] 窗口，避免与默认持球保护时长不同步。 */
-    private fun shouldDeferHoldLockPredictionForGoalKick(): Boolean =
-        SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
-            SetPieceClient.restartTeam == MatchStartClient.playerTeam
+    private fun shouldDeferHoldLockPredictionForGoalKick(player: LocalPlayer): Boolean {
+        val localTeam = FootballOperabilityClient.resolveLocalPlayerTeam(player) ?: MatchStartClient.playerTeam
+        return SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
+            SetPieceClient.restartTeam == localTeam
+    }
 
     /** 鱼跃摘球等场景下实体同步可能晚于 S2C；仅在尚无服务端窗口时做短预测。 */
     private fun predictHoldReleaseLock(now: Long) {

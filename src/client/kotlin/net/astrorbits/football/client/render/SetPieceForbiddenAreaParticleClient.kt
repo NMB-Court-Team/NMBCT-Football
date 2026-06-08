@@ -1,6 +1,7 @@
 package net.astrorbits.football.client.render
 
 import net.astrorbits.football.client.GoalkeeperStateClient
+import net.astrorbits.football.client.FootballOperabilityClient
 import net.astrorbits.football.client.SetPieceClient
 import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.client.match.PenaltyShootoutClient
@@ -53,11 +54,12 @@ object SetPieceForbiddenAreaParticleClient {
             SetPieceClient.kind == SetPieceKind.PENALTY_KICK -> SetPieceClient.penaltyKickerUuid
             else -> null
         }
+        val playerTeam = FootballOperabilityClient.resolveLocalPlayerTeam(player) ?: MatchStartClient.playerTeam
         val zones = SetPieceForbiddenZoneResolver.resolve(
             playerX = player.x,
             playerZ = player.z,
             playerUuid = player.uuid,
-            playerTeam = MatchStartClient.playerTeam,
+            playerTeam = playerTeam,
             isGoalkeeper = GoalkeeperStateClient.isGoalkeeper,
             isHoldingBall = GoalkeeperStateClient.isHoldingBall,
             kickoffTouched = MatchStartClient.kickoffTouched,
@@ -72,7 +74,7 @@ object SetPieceForbiddenAreaParticleClient {
             penaltyDefendingTeam = penaltyDefendingTeam,
             isDefendingGoalkeeper = GoalkeeperStateClient.isGoalkeeper &&
                 penaltyGoalkeeperTeam != null &&
-                MatchStartClient.playerTeam == penaltyGoalkeeperTeam,
+                playerTeam == penaltyGoalkeeperTeam,
             config = MatchConfigHolder.current,
         )
         if (zones.isEmpty()) {

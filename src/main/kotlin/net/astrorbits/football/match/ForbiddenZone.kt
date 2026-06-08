@@ -184,7 +184,8 @@ object SetPieceForbiddenZoneResolver {
         when (setPieceKind) {
             SetPieceKind.CENTER_KICKOFF -> {
                 if (!kickoffTouched) {
-                    val kickoff = kickoffTeam ?: restartTeam
+                    // 当前定位球状态比通用开球缓存更新，半场切换等场景必须优先使用 restartTeam。
+                    val kickoff = restartTeam ?: kickoffTeam
                     if (kickoff != null && playerTeam != kickoff) {
                         val center = config.kickOff
                         zones += InteriorForbiddenCircle(center.x, center.z, config.centerCircleRadius)

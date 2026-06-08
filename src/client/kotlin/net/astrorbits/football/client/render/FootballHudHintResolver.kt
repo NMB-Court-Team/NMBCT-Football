@@ -257,8 +257,9 @@ object FootballHudHintResolver {
     }
 
     private fun isSetPieceServer(player: LocalPlayer, restartTeam: TeamSide): Boolean {
+        val localTeam = FootballOperabilityClient.resolveLocalPlayerTeam(player) ?: MatchStartClient.playerTeam
         val base = when {
-            MatchStartClient.ballResetPending -> MatchStartClient.playerTeam == restartTeam
+            MatchStartClient.ballResetPending -> localTeam == restartTeam
             else -> when (SetPieceClient.kind) {
                 SetPieceKind.FREE_KICK -> player.uuid == SetPieceClient.freeKickTakerUuid
                 SetPieceKind.CORNER_KICK -> player.uuid == SetPieceClient.cornerKickTakerUuid
@@ -270,7 +271,8 @@ object FootballHudHintResolver {
                     GoalKickPhase.PLACED -> GoalKickPlacedKickerClient.isPlacedKicker(player)
                     else -> false
                 }
-                SetPieceKind.CENTER_KICKOFF, SetPieceKind.NONE -> MatchStartClient.isKickoffTeam
+                SetPieceKind.CENTER_KICKOFF -> localTeam == restartTeam
+                SetPieceKind.NONE -> MatchStartClient.isKickoffTeam
                 else -> false
             }
         }
