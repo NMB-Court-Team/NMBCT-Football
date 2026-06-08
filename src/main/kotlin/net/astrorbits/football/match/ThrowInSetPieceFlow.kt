@@ -1,7 +1,6 @@
 package net.astrorbits.football.match
 
 import net.astrorbits.football.Football
-import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.input.GoalkeeperHoldActionPermissions
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.network.FootballNetworking
@@ -123,7 +122,13 @@ object ThrowInSetPieceFlow {
         val ctx = SetPieceState.active ?: return
         if (ctx.kind != SetPieceKind.THROW_IN) return
         if (player.uuid != ctx.throwInTakerUuid) return
-        awardOpponentThrowInAtSameSpot(player.level() as ServerLevel, ctx.ballPos, ctx.restartTeam)
+        awardOpponentThrowInAtSameSpot(
+            player.level() as ServerLevel,
+            ctx.ballPos,
+            ctx.restartTeam,
+            releaseHeldBall = true,
+            lastTouchUuid = player.uuid,
+        )
     }
 
     /**
@@ -145,37 +150,68 @@ object ThrowInSetPieceFlow {
         val spotSideline = sidelineAt(watch.spot) ?: return false
         if (!isSameSideline(sideline, spotSideline)) return false
 
-        foulThrowWatch = null
-        awardOpponentThrowInAtSameSpot(level, watch.spot, watch.restartTeam)
+        awardOpponentThrowInAtSameSpot(
+            level,
+            watch.spot,
+            watch.restartTeam,
+            releaseHeldBall = false,
+            lastTouchUuid = watch.takerUuid,
+        )
         return true
     }
 
-    private fun awardOpponentThrowInAtSameSpot(level: ServerLevel, spot: Vec3, foulingTeam: TeamSide) {
+    /** 界外球犯规（往外扔 / 掷出后再出界）：延迟复位后同位置改判对方发球。 */
+    private fun awardOpponentThrowInAtSameSpot(
+        level: ServerLevel,
+        spot: Vec3,
+        foulingTeam: TeamSide,
+        releaseHeldBall: Boolean,
+        lastTouchUuid: UUID?,
+    ) {
+        if (MatchState.postGoalResetPending) return
         val server = level.server
         val opponentTeam = foulingTeam.opponent()
-        val groundSpot = resolveGroundSpot(level, spot)
+        val groundBallPos = resolveGroundBallPosition(level, spot)
 
-        SetPieceState.active?.throwInTakerUuid?.let { uuid ->
-            server.playerList.getPlayer(uuid)?.let { taker ->
-                GoalkeeperUtil.findHeldFootball(taker)?.let { football ->
-                    football.setDeltaMovement(Vec3.ZERO)
-                    football.setPos(groundSpot.ballPos.x, groundSpot.ballPos.y, groundSpot.ballPos.z)
-                    football.releaseHold()
+        if (releaseHeldBall) {
+            SetPieceState.active?.throwInTakerUuid?.let { uuid ->
+                server.playerList.getPlayer(uuid)?.let { taker ->
+                    GoalkeeperUtil.findHeldFootball(taker)?.releaseHold()
+                    GoalkeeperHoldActionPermissions.resetToDefaults(taker)
                 }
             }
         }
 
+        foulThrowWatch = null
         clear(server)
-        MatchState.kickoffTeam = opponentTeam
-        MatchState.beginKickoffPhase(
-            MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS,
-            KickoffWhistleContext.GOAL_LINE_OUT,
+
+        MatchState.clearPendingOffsideSnapshot()
+        MatchState.postGoalResetPending = true
+
+        val throwInTakerUuid = pickThrowInTaker(server, opponentTeam, groundBallPos)?.uuid
+        PostGoalBallResetScheduler.schedule(
+            level,
+            groundBallPos,
+            PendingAfterReset.GoalLineOut(
+                kickoffTeam = opponentTeam,
+                outType = GoalLineOutType.THROW_IN,
+                ballPos = groundBallPos,
+                throwInDirectGoalRestrict = true,
+                throwInTakerUuid = throwInTakerUuid,
+            ),
         )
-        MatchState.onRestrictedRestartBallPlaced()
-        begin(level, opponentTeam, groundSpot.ballPos, null)
-        FootballSounds.playMatchWhistle(server, 6)
-        FootballNetworking.broadcastRestartKickoff(server, opponentTeam, goalLineOut = true)
-        // 球已在 begin 中同步就位，勿再 broadcastSetPieceRestart —— 否则客户端会误设 ballResetPending 并永久锁定。
+
+        val lastTouchName = lastTouchUuid?.let { server.playerList.getPlayer(it)?.gameProfile?.name } ?: "?"
+        FootballNetworking.broadcastGoalLineOut(
+            server,
+            GoalLineOutType.THROW_IN,
+            opponentTeam,
+            groundBallPos.x,
+            groundBallPos.y,
+            groundBallPos.z,
+            lastTouchName,
+            foulingTeam,
+        )
     }
 
     fun tickMovementFreeze(server: MinecraftServer) {
