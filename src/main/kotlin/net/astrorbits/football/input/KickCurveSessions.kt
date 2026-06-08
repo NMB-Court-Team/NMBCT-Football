@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 
 object KickCurveSessions {
-    private const val COMMIT_GRACE_TICKS = 8L
+    const val COMMIT_GRACE_TICKS = 8L
 
     private data class Pending(
         val footballId: Int,
@@ -94,5 +94,12 @@ object KickCurveSessions {
 
     fun clear(playerId: UUID) {
         pending.remove(playerId)
+    }
+
+    /** 蓄力射门松开后至弧线提交/丢弃前，主罚可能仍在转头调弧线。 */
+    fun isFollowUpActive(playerUuid: UUID, footballId: Int, now: Long): Boolean {
+        val session = pending[playerUuid] ?: return false
+        if (session.footballId != footballId) return false
+        return now <= session.discardAfterTick
     }
 }

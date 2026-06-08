@@ -601,8 +601,18 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
     }
 
+    private fun shouldDeferSecondTouchForKickCurveFollowUp(player: ServerPlayer): Boolean {
+        val serverLevel = level() as? ServerLevel ?: return false
+        return KickCurveSessions.isFollowUpActive(player.uuid, id, serverLevel.gameTime) ||
+            isCurveRampActiveFor(player.uuid)
+    }
+
+    private fun isCurveRampActiveFor(playerUuid: UUID): Boolean =
+        curveRamp?.sourcePlayerUuid == playerUuid
+
     private fun trySecondTouchFoul(player: ServerPlayer) {
         if (!SecondTouchTracker.isActive()) return
+        if (shouldDeferSecondTouchForKickCurveFollowUp(player)) return
         val serverLevel = level() as? ServerLevel ?: return
         val ballCenter = position().add(0.0, FootballPhysicsConfig.RADIUS, 0.0)
         SecondTouchTracker.onBallTouched(player, ballCenter, serverLevel)
@@ -681,10 +691,16 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     private fun resolveGoalScorerUuid(): UUID? = goalAttributionPlayer ?: lastPhysicalTouch
 
     private fun shouldSkipPlayerBodyCollisionDetection(player: ServerPlayer): Boolean {
-        return FootballDribbleSessions.hasActiveSessionBlockingCollision(player, this)
+        if (FootballDribbleSessions.hasActiveSessionBlockingCollision(player, this)) {
+            return true
+        }
+        return MatchState.shouldSuppressKickoffPhaseBodyBallContact()
     }
 
     private fun shouldSuppressPlayerBodyImpulse(player: ServerPlayer, now: Long): Boolean {
+        if (MatchState.shouldSuppressKickoffPhaseBodyBallContact()) {
+            return true
+        }
         if (FootballKickPushGrace.shouldSuppressPlayerPush(player, this, now)) {
             return true
         }
@@ -1498,6 +1514,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
 
     fun applyDribbleAssist(horizontalVelocity: Vec3, player: ServerPlayer) {
         if (level().isClientSide || isImmovable || isPlayerBallMovementForbidden(player)) {
+            return
+        }
+        if (MatchState.shouldSuppressKickoffPhaseBodyBallContact()) {
             return
         }
         val server = (level() as? ServerLevel)?.server

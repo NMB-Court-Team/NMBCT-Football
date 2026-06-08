@@ -1,5 +1,7 @@
 package net.astrorbits.football.match
 
+import net.astrorbits.football.input.FootballInputConfig
+import net.astrorbits.football.input.KickCurveSessions
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
 import net.minecraft.world.phys.Vec3
@@ -54,8 +56,25 @@ object SecondTouchTracker {
             takerUuid = takerUuid,
             sourceKind = sourceKind,
             phase = Phase.AWAITING_OTHER,
-            takerGraceUntilTick = resumeGameTick + TAKER_GRACE_TICKS,
+            takerGraceUntilTick = resumeGameTick + takerGraceTicksAfterOpening(sourceKind),
         )
+    }
+
+    /**
+     * 球门球踢球后球可能仍在禁区内滑行；监测从球出区才开始。
+     * 宽限需覆盖蓄力射门的弧线输入窗口与侧向爬升，避免偏头调弧线时身体蹭球误判二次触球。
+     */
+    private fun takerGraceTicksAfterOpening(sourceKind: SetPieceKind): Long = when (sourceKind) {
+        SetPieceKind.GOAL_KICK -> goalKickOpeningGraceTicks()
+        else -> TAKER_GRACE_TICKS
+    }
+
+    private fun goalKickOpeningGraceTicks(): Long {
+        val windowTicks = (FootballInputConfig.CURVE_WINDOW_MS * 20L + 999L) / 1000L
+        return windowTicks +
+            KickCurveSessions.COMMIT_GRACE_TICKS +
+            FootballInputConfig.CURVE_RAMP_TICKS +
+            TAKER_GRACE_TICKS
     }
 
     /** 界外球掷出后：开球已完成，掷球者下一次触球即二次触球犯规（无宽限）。 */
