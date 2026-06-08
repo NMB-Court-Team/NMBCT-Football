@@ -137,6 +137,7 @@ object FootballInputHandler {
             ) {
                 handleSlideTacklePress(player)
                 updatePrevTickPressed()
+                primeLockedRestartKey(player)
                 return@reg
             }
             if (!player.mainHandItem.isEmpty) {
@@ -300,7 +301,8 @@ object FootballInputHandler {
                     diveReleaseHeldMsOverride = null
                     val flags = buildFlags(player)
                     when {
-                        GoalkeeperStateClient.isHoldReleaseLocked() -> Unit
+                        GoalkeeperStateClient.isHoldReleaseLocked() &&
+                            !FootballOperabilityClient.isThrowInTaker(player) -> Unit
                         heldMs < FootballInputConfig.TAP_MAX_MS ->
                             maybeSendFootballAction(player, FootballActionType.GK_THROW_SHORT, 0f, heldMs, flags)
                         KickChargeUtil.isCharging(heldMs, chargeSettings()) ->
@@ -579,6 +581,15 @@ object FootballInputHandler {
         dribblePrevTickPressed = FootballKeyBindings.DRIBBLE.isDown
         slidePrevTickPressed = FootballKeyBindings.SLIDE_TACKLE.isDown
         interruptPrevTickPressed = FootballKeyBindings.INTERRUPT_CHARGE.isDown
+    }
+
+    private fun primeLockedRestartKey(player: LocalPlayer) {
+        if (FootballOperabilityClient.shouldPrimeRestartKeyWhileKickoffLocked(player, FootballKeyBindings.KICK)) {
+            kickPrevTickPressed = false
+        }
+        if (FootballOperabilityClient.shouldPrimeRestartKeyWhileKickoffLocked(player, FootballKeyBindings.GK_DIVE)) {
+            divePrevTickPressed = false
+        }
     }
     private fun buildFlags(player: LocalPlayer): Int {
         var flags = 0

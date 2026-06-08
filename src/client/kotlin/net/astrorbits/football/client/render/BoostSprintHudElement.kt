@@ -124,11 +124,11 @@ class BoostSprintHudElement : HudElement {
         const val ICON_TRANSLATE_Y = 0f
 
         /** 与原版快捷栏底边对齐的参考高度。 */
-        private const val HOTBAR_HEIGHT = 22
+        private const val HOTBAR_HEIGHT = 10
         /** 图标主体与屏幕左缘、快捷栏上缘的等距边距。 */
-        private const val ICON_MARGIN = 12
+        private const val ICON_MARGIN = 24
         /** boost_sprint.png 中球鞋主体下缘至纹理底部的透明留白。 */
-        private const val ICON_TEXTURE_BOTTOM_PAD = 12
+        private const val ICON_TEXTURE_BOTTOM_PAD = 8
 
         private const val VIOLET_RGB = 0x9C27B0
 

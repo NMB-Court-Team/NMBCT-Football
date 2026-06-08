@@ -239,6 +239,21 @@ object FootballOperabilityClient {
     fun bypassesKickoffLockForFootballInput(player: LocalPlayer): Boolean =
         isGoalKickPlacedKicker(player) || isGoalKickAwaitingPenaltyAreaExit()
 
+    /**
+     * 倒计时期间不发送定位球动作，但保留主罚键的“首次按下”边沿。
+     * 玩家提前按住按键时，解锁后的首 tick 仍能正常开始蓄力。
+     */
+    fun shouldPrimeRestartKeyWhileKickoffLocked(player: LocalPlayer, key: KeyMapping): Boolean =
+        when (SetPieceClient.kind) {
+            SetPieceKind.CENTER_KICKOFF ->
+                SetPieceClient.restartTeam == localPlayerTeam(player) &&
+                    key == FootballKeyBindings.KICK
+            SetPieceKind.THROW_IN ->
+                isThrowInTaker(player) &&
+                    key == FootballKeyBindings.GK_DIVE
+            else -> false
+        }
+
     private fun isGoalKickAwaitingPenaltyAreaExit(): Boolean =
         SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
             SetPieceClient.goalKickPhase == GoalKickPhase.AWAITING_PA_EXIT

@@ -16,16 +16,16 @@ object SecondTouchTracker {
         AWAITING_OTHER,
     }
 
-    /** 球门球出区后，主罚脚与球分离前的短暂宽限（避免踢球余波误判二次触球）。 */
-    private const val GOAL_KICK_TAKER_GRACE_TICKS = 15L
+    /** 主罚触球后短暂宽限，避免同一开球动作的连续触球（推球分离、带球等）误判二次触球。 */
+    private const val TAKER_GRACE_TICKS = 5L
 
     private data class State(
         val restartTeam: TeamSide,
         val takerUuid: UUID,
         val sourceKind: SetPieceKind,
         var phase: Phase,
-        /** 球门球比赛恢复时刻；用于主罚宽限。 */
-        val resumeGameTick: Long = 0L,
+        /** 宽限截止 tick（含）；此时间前主罚再次触球不计二次触球。 */
+        var takerGraceUntilTick: Long = 0L,
     )
 
     private var state: State? = null
@@ -49,8 +49,21 @@ object SecondTouchTracker {
         sourceKind: SetPieceKind,
         resumeGameTick: Long,
     ) {
-        state = State(restartTeam, takerUuid, sourceKind, Phase.AWAITING_OTHER, resumeGameTick)
+        state = State(
+            restartTeam = restartTeam,
+            takerUuid = takerUuid,
+            sourceKind = sourceKind,
+            phase = Phase.AWAITING_OTHER,
+            takerGraceUntilTick = resumeGameTick + TAKER_GRACE_TICKS,
+        )
     }
+
+    private fun grantTakerGrace(current: State, gameTick: Long) {
+        current.takerGraceUntilTick = gameTick + TAKER_GRACE_TICKS
+    }
+
+    private fun isWithinTakerGrace(current: State, player: ServerPlayer, gameTick: Long): Boolean =
+        player.uuid == current.takerUuid && gameTick <= current.takerGraceUntilTick
 
     /**
      * 球权/触球事件。返回 true 表示已判罚间接任意球。
@@ -63,6 +76,7 @@ object SecondTouchTracker {
             Phase.OPENING -> {
                 if (player.uuid == current.takerUuid) {
                     current.phase = Phase.AWAITING_OTHER
+                    grantTakerGrace(current, level.gameTime)
                     return false
                 }
                 clear()
@@ -73,10 +87,7 @@ object SecondTouchTracker {
                     clear()
                     return false
                 }
-                if (player.uuid == current.takerUuid &&
-                    current.sourceKind == SetPieceKind.GOAL_KICK &&
-                    level.gameTime - current.resumeGameTick < GOAL_KICK_TAKER_GRACE_TICKS
-                ) {
+                if (isWithinTakerGrace(current, player, level.gameTime)) {
                     return false
                 }
                 if (player.uuid == current.takerUuid) {

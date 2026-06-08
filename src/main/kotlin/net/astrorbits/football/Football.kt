@@ -634,7 +634,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     /** 带球触球：仅更新最后物理触球，不重置进球归属链。 */
-    fun recordDribbleTouch(player: ServerPlayer) {
+    fun recordDribbleTouch(player: ServerPlayer, evaluateSecondTouch: Boolean = true) {
         if (!MatchParticipation.isParticipating(player)) {
             return
         }
@@ -642,7 +642,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (server != null && GoalKickSetPieceFlow.tryRestartOnGoalKickTouch(player, server)) {
             return
         }
-        trySecondTouchFoul(player)
+        if (evaluateSecondTouch) {
+            trySecondTouchFoul(player)
+        }
         lastPhysicalTouch = player.uuid
     }
 
@@ -1484,7 +1486,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val rolling = Vec3Math.rollingAngularVelocity(newHoriz, FootballPhysicsConfig.RADIUS)
         physicsState.angularVelocity = Vec3(rolling.x, physicsState.angularVelocity.y, rolling.z)
         deltaMovement = physicsState.linearVelocity
-        recordDribbleTouch(player)
+        recordDribbleTouch(player, evaluateSecondTouch = false)
         syncPhysicsToEntityData()
         return true
     }
