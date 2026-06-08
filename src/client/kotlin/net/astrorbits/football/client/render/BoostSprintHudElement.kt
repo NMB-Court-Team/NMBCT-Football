@@ -31,8 +31,8 @@ class BoostSprintHudElement : HudElement {
 
         if (blend > 0f) {
             val displayH = (ICON_TEX_H * ICON_SCALE).roundToInt()
-            val iconX = ICON_MARGIN_LEFT
-            val iconY = height - HOTBAR_HEIGHT - displayH - ICON_MARGIN_BOTTOM
+            val iconX = ICON_MARGIN
+            val iconY = height - HOTBAR_HEIGHT - displayH - (ICON_MARGIN - ICON_TEXTURE_BOTTOM_PAD)
             drawBoostSprintIcon(extra, iconX, iconY, blend)
         }
     }
@@ -125,8 +125,10 @@ class BoostSprintHudElement : HudElement {
 
         /** 与原版快捷栏底边对齐的参考高度。 */
         private const val HOTBAR_HEIGHT = 22
-        private const val ICON_MARGIN_LEFT = 6
-        private const val ICON_MARGIN_BOTTOM = 4
+        /** 图标主体与屏幕左缘、快捷栏上缘的等距边距。 */
+        private const val ICON_MARGIN = 12
+        /** boost_sprint.png 中球鞋主体下缘至纹理底部的透明留白。 */
+        private const val ICON_TEXTURE_BOTTOM_PAD = 12
 
         private const val VIOLET_RGB = 0x9C27B0
 

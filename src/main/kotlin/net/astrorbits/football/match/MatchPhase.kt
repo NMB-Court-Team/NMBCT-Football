@@ -4,18 +4,18 @@ import net.minecraft.network.FriendlyByteBuf
 import net.minecraft.network.codec.StreamCodec
 
 enum class MatchPhase(val displayNameKey: String) {
-    PRE_MATCH("match.phase.pre_match"),
-    FIRST_HALF("match.phase.first_half"),
-    FIRST_HALF_ET("match.phase.first_half_et"),
-    SECOND_HALF("match.phase.second_half"),
-    SECOND_HALF_ET("match.phase.second_half_et"),
-    EXTRA_FIRST("match.phase.extra_first"),
-    EXTRA_FIRST_ET("match.phase.extra_first_et"),
-    EXTRA_SECOND("match.phase.extra_second"),
-    EXTRA_SECOND_ET("match.phase.extra_second_et"),
-    PENALTIES("match.phase.penalties"),
-    PRE_MATCH_PREP("match.phase.pre_match_prep"),
-    FINISHED("match.phase.finished");
+    PRE_MATCH("match.phase.pre_match"), // 未开始
+    FIRST_HALF("match.phase.first_half"), // 上半场
+    FIRST_HALF_ET("match.phase.first_half_et"), // 上半场补时
+    SECOND_HALF("match.phase.second_half"), // 下半场
+    SECOND_HALF_ET("match.phase.second_half_et"), // 下半场补时
+    EXTRA_FIRST("match.phase.extra_first"), // 加时上半场
+    EXTRA_FIRST_ET("match.phase.extra_first_et"), // 加时上半场补时
+    EXTRA_SECOND("match.phase.extra_second"), // 加时下半场
+    EXTRA_SECOND_ET("match.phase.extra_second_et"), // 加时下半场补时
+    PENALTIES("match.phase.penalties"), // 点球大战
+    PRE_MATCH_PREP("match.phase.pre_match_prep"), // 赛前准备
+    FINISHED("match.phase.finished"); // 结算
 
     companion object {
         val STREAM_CODEC: StreamCodec<FriendlyByteBuf, MatchPhase> =
