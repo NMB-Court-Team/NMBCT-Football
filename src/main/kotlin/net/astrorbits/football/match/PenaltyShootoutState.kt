@@ -229,6 +229,7 @@ object PenaltyShootoutState {
         football.isImmovable = false
         football.immovableTargetPlayers = emptySet()
         SecondTouchTracker.begin(currentKickerTeam, player.uuid, SetPieceKind.PENALTY_KICK)
+        MatchState.notifyKickoffBallTouched(player)
         val server = player.level().server
         FootballNetworking.broadcastPenaltyShootoutSync(server)
         FootballNetworking.broadcastSetPieceState(server)
@@ -606,7 +607,6 @@ object PenaltyShootoutState {
         active = false
         lastWinner = winner
         kickPhase = PenaltyKickPhase.SETUP
-        FootballSounds.playMatchWhistle(server, 2)
         FootballNetworking.broadcastPenaltyShootoutSync(server)
         MatchState.setPhase(MatchPhase.FINISHED, server)
         val nameA = MatchState.getTeamName(TeamSide.A).string

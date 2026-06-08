@@ -3,6 +3,7 @@ package net.astrorbits.football.client.match
 import net.astrorbits.football.match.KickoffLock
 import net.astrorbits.football.match.MatchKickoffTiming
 import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.match.PenaltyShootoutTiming
 import net.astrorbits.football.match.SetPieceKind
 import net.astrorbits.football.match.TeamSide
 
@@ -24,6 +25,7 @@ object MatchStartClient {
     var kickoffTouched: Boolean = false; private set
     var isPostGoal: Boolean = false; private set
     var isGoalLineOut: Boolean = false; private set
+    var isPenaltyKick: Boolean = false; private set
 
     /** 球延迟复位期间（服务端 [MatchState.postGoalResetPending] 镜像）。 */
     var ballResetPending: Boolean = false; private set
@@ -34,6 +36,7 @@ object MatchStartClient {
     private var lastStoppageTickMs: Long = 0L
 
     private val lockDurationMs: Long get() = when {
+        isPenaltyKick -> PenaltyShootoutTiming.KICK_INTRO_LOCK_MS
         isGoalLineOut -> GOAL_LINE_OUT_LOCK_MS
         isPostGoal -> POST_GOAL_LOCK_MS
         else -> LOCK_DURATION_MS
@@ -41,7 +44,8 @@ object MatchStartClient {
     private val allowedMs: Long get() = lockDurationMs + GRACE_MS
 
     val isHudActive: Boolean
-        get() = !isPostGoal && !isGoalLineOut && startTimeMs > 0 && elapsedMs < HUD_DURATION_MS
+        get() = !isPostGoal && !isGoalLineOut && !isPenaltyKick &&
+            startTimeMs > 0 && elapsedMs < HUD_DURATION_MS
 
     val isLocked: Boolean
         get() {
@@ -66,12 +70,17 @@ object MatchStartClient {
         }
 
     val isChoosing: Boolean
-        get() = !isPostGoal && !isGoalLineOut && startTimeMs > 0 && elapsedMs < 3000L
+        get() = !isPostGoal && !isGoalLineOut && !isPenaltyKick &&
+            startTimeMs > 0 && elapsedMs < 3000L
 
     val countdownSeconds: Int
         get() {
             val remain = (lockDurationMs - elapsedMs + 999L) / 1000L
-            val cap = if (isGoalLineOut) GOAL_LINE_OUT_COUNTDOWN.toLong() else COUNTDOWN_SECONDS.toLong()
+            val cap = when {
+                isPenaltyKick -> (PenaltyShootoutTiming.KICK_INTRO_LOCK_MS / 1000L)
+                isGoalLineOut -> GOAL_LINE_OUT_COUNTDOWN.toLong()
+                else -> COUNTDOWN_SECONDS.toLong()
+            }
             return remain.coerceIn(0L, cap).toInt()
         }
 
@@ -90,9 +99,22 @@ object MatchStartClient {
         playerTeam = team; isGk = gk; kickoffTeam = kickoff
         isKickoffTeam = team == kickoff
         teamAName = nameA; teamBName = nameB
-        kickoffTouched = false; isPostGoal = false; isGoalLineOut = false
+        kickoffTouched = false; isPostGoal = false; isGoalLineOut = false; isPenaltyKick = false
         startTimeMs = System.currentTimeMillis()
         kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
+    }
+
+    fun startPenaltyKick(kickerTeam: TeamSide) {
+        clearBallResetPending()
+        kickoffTeam = kickerTeam
+        isKickoffTeam = playerTeam == kickerTeam
+        kickoffTouched = false
+        isPostGoal = false
+        isGoalLineOut = false
+        isPenaltyKick = true
+        startTimeMs = System.currentTimeMillis()
+        kickoffStartMs = startTimeMs
+        lastStoppageTickMs = 0L
     }
 
     fun beginBallResetPending(restartTeam: TeamSide, setPieceKind: SetPieceKind) {
@@ -115,7 +137,7 @@ object MatchStartClient {
         clearBallResetPending()
         this.isKickoffTeam = isKickoffTeam
         kickoffTeam = kickoff
-        kickoffTouched = false; isPostGoal = true; isGoalLineOut = false
+        kickoffTouched = false; isPostGoal = true; isGoalLineOut = false; isPenaltyKick = false
         startTimeMs = System.currentTimeMillis()
         kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
     }
@@ -124,7 +146,7 @@ object MatchStartClient {
         clearBallResetPending()
         this.isKickoffTeam = isKickoffTeam
         kickoffTeam = kickoff
-        kickoffTouched = false; isPostGoal = false; isGoalLineOut = true
+        kickoffTouched = false; isPostGoal = false; isGoalLineOut = true; isPenaltyKick = false
         startTimeMs = System.currentTimeMillis()
         kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
     }
@@ -140,7 +162,7 @@ object MatchStartClient {
     fun startHalfKickoff(kickoff: TeamSide, isKickoffTeam: Boolean, phaseKey: String, nameA: String, nameB: String) {
         this.isKickoffTeam = isKickoffTeam
         kickoffTeam = kickoff; teamAName = nameA; teamBName = nameB
-        kickoffTouched = false; isPostGoal = true; isGoalLineOut = false
+        kickoffTouched = false; isPostGoal = true; isGoalLineOut = false; isPenaltyKick = false
         halfKickoffPhaseKey = phaseKey; halfKickoffActive = true
         halfKickoffStartMs = System.currentTimeMillis()
         startTimeMs = halfKickoffStartMs; kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
@@ -160,6 +182,7 @@ object MatchStartClient {
         if (kickoffTouched) return
         kickoffTouched = true
         isGoalLineOut = false
+        isPenaltyKick = false
         lastStoppageTickMs = 0L
     }
 
@@ -181,6 +204,7 @@ object MatchStartClient {
             kickoffTouched = true
             isPostGoal = false
             isGoalLineOut = false
+            isPenaltyKick = false
         }
         kickoffStartMs = 0L
         lastStoppageTickMs = 0L
@@ -193,6 +217,7 @@ object MatchStartClient {
         kickoffTouched = false
         isPostGoal = false
         isGoalLineOut = false
+        isPenaltyKick = false
         halfKickoffActive = false
         kickoffStartMs = 0L
         lastStoppageTickMs = 0L

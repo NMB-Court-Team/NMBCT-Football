@@ -72,6 +72,7 @@ object MatchStartClientNetworking {
         }
         ClientPlayNetworking.registerGlobalReceiver(PenaltyKickStartS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
+                MatchStartClient.startPenaltyKick(payload.kickerTeam)
                 PenaltyKickClient.show(
                     payload.kickerTeam,
                     payload.kickerName,

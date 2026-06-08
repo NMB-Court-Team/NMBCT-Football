@@ -173,6 +173,7 @@ object MatchPenaltyKickState {
         football.isImmovable = false
         football.immovableTargetPlayers = emptySet()
         SecondTouchTracker.begin(kickingTeam, player.uuid, SetPieceKind.PENALTY_KICK)
+        MatchState.notifyKickoffBallTouched(player)
         lastServer?.let { FootballNetworking.broadcastSetPieceState(it) }
     }
 
