@@ -2,6 +2,7 @@ package net.astrorbits.football.match
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.FootballSounds
+import net.astrorbits.football.util.GoalkeeperUtil
 import net.astrorbits.football.match.MatchState.isRunning
 import net.astrorbits.football.match.MatchState.tryNotifyKickoffBallTouched
 import net.astrorbits.football.network.FootballNetworking
@@ -608,8 +609,26 @@ object MatchState {
         MatchPhase.EXTRA_FIRST,
         MatchPhase.EXTRA_SECOND,
         MatchPhase.PENALTIES,
+        MatchPhase.PRE_MATCH_PREP,
+        MatchPhase.FINISHED,
         -> true
         else -> false
+    }
+
+    /**
+     * 进入赛前准备或结算：取消待复位任务、放下持球并清除全场足球。
+     * 避免延迟复位在清场后再次生成上一场遗留的球。
+     */
+    private fun clearFootballsLeavingPlay(server: MinecraftServer) {
+        for (level in server.allLevels) {
+            DeferredBallResetScheduler.cancel(level.dimension())
+            PostGoalBallResetScheduler.cancel(level.dimension())
+        }
+        postGoalResetPending = false
+        for (player in server.playerList.players) {
+            GoalkeeperUtil.findHeldFootball(player)?.dropAt(player)
+        }
+        clearAllFootballs(server)
     }
 
     /** 清除服务器所有维度上的足球实体（持球状态一并释放）。 */
@@ -679,12 +698,8 @@ object MatchState {
         FootballNetworking.syncTimerToClients(server)
     }
 
-    /** 赛前准备：清场后在 A/B 球门点球点各生成一颗足球。 */
+    /** 赛前准备：在 A/B 球门点球点各生成一颗练习足球（清场由 [setPhase] 完成）。 */
     private fun placePreMatchPreparationFootballs(level: ServerLevel) {
-        DeferredBallResetScheduler.cancel(level.dimension())
-        PostGoalBallResetScheduler.cancel(level.dimension())
-        postGoalResetPending = false
-        clearAllFootballs(level.server)
         val config = MatchConfigHolder.current
         for (side in TeamSide.entries) {
             val spot = MatchFieldAreaUtil.goalForSide(config, side).resolvedPenaltySpot().toVec3()
@@ -943,7 +958,10 @@ object MatchState {
             PenaltyShootoutState.clear(server)
         }
         if (server != null && shouldClearFootballsBeforePhaseBallPlacement(phase)) {
-            clearAllFootballs(server)
+            when (phase) {
+                MatchPhase.FINISHED, MatchPhase.PRE_MATCH_PREP -> clearFootballsLeavingPlay(server)
+                else -> clearAllFootballs(server)
+            }
         }
         currentPhase = phase
         stoppageTimerTicks = 0
