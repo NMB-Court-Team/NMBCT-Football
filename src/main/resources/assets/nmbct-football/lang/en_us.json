@@ -135,7 +135,7 @@
     "hud.nmbct-football.restart.reason.penalty_intrusion": "Intruded penalty area",
     "hud.nmbct-football.restart.reason.free_kick_distance": "Too close to ball",
     "hud.nmbct-football.restart.reason.goal_kick_early_touch": "Illegal touch before goal kick",
-    "hud.nmbct-football.restart.reason.goal_kick_premature_touch": "Touched ball before it left area",
+    "hud.nmbct-football.restart.reason.goal_kick_premature_touch": "Touched ball before it left the penalty area",
     "hud.nmbct-football.restart.reason.goal_kick_ball_stationary": "Ball did not leave penalty area",
     "hud.nmbct-football.restart.reason.free_kick_ball_in_area": "Ball entered penalty area",
     "hud.nmbct-football.free_kick.foul_line": "Foul: %1$s · %2$s",
