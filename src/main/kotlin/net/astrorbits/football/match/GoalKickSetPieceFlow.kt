@@ -81,7 +81,10 @@ object GoalKickSetPieceFlow {
             return false
         }
         findMatchFootball(server.overworld())?.releaseHold()
-        SetPieceRestartAwards.restartGoalKick(server)
+        SetPieceRestartAwards.restartGoalKick(
+            server,
+            SetPieceRestartCause.fromPlayer(player, SetPieceRestartReasonKeys.GOAL_KICK_EARLY_TOUCH),
+        )
         return true
     }
 
@@ -101,7 +104,10 @@ object GoalKickSetPieceFlow {
             return false
         }
         ball.releaseHold()
-        SetPieceRestartAwards.restartGoalKick(server)
+        SetPieceRestartAwards.restartGoalKick(
+            server,
+            SetPieceRestartCause.fromPlayer(player, SetPieceRestartReasonKeys.GOAL_KICK_PREMATURE_TOUCH),
+        )
         return true
     }
 

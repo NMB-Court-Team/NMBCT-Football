@@ -29,6 +29,7 @@ class SetPieceRestartHudElement : HudElement {
         }
         val restartName = MatchHudTeams.name(SetPieceRestartClient.restartTeam)
         val restartLine = Component.translatable("hud.nmbct-football.free_kick.restart", restartName).string
+        val foulLine = buildFoulLine()
 
         MatchEventBanner.renderFreeKick(
             extra = extra,
@@ -38,10 +39,27 @@ class SetPieceRestartHudElement : HudElement {
             elapsedMs = SetPieceRestartClient.elapsedMs,
             durationMs = 4000L,
             typeText = Component.translatable(typeKey).string,
-            foulLine = "",
-            foulPlayerColor = 0xFFCCCCCC.toInt(),
+            foulLine = foulLine,
+            foulPlayerColor = SetPieceRestartClient.foulingTeam?.let { MatchEventBanner.teamColor(it) }
+                ?: 0xFFCCCCCC.toInt(),
             restartLine = restartLine,
             restartColor = MatchEventBanner.teamColor(SetPieceRestartClient.restartTeam),
         )
+    }
+
+    private fun buildFoulLine(): String {
+        val reasonKey = SetPieceRestartClient.reasonKey
+        if (reasonKey.isBlank()) return ""
+        val reasonText = Component.translatable(reasonKey).string
+        val playerName = SetPieceRestartClient.foulingPlayerName
+        return if (playerName.isBlank()) {
+            Component.translatable("hud.nmbct-football.restart.violation_line_no_player", reasonText).string
+        } else {
+            Component.translatable(
+                "hud.nmbct-football.free_kick.foul_line",
+                reasonText,
+                playerName,
+            ).string
+        }
     }
 }

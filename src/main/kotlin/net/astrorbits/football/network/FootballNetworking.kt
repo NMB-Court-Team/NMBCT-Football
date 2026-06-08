@@ -681,8 +681,19 @@ object FootballNetworking {
         ServerPlayNetworking.send(player, SetPieceAreaViolationS2CPayload(areaNameKey, secondsRemaining))
     }
 
-    fun broadcastSetPieceRestart(server: MinecraftServer, kind: SetPieceRestartKind, restartTeam: TeamSide) {
-        val payload = SetPieceRestartS2CPayload(kind, restartTeam)
+    fun broadcastSetPieceRestart(
+        server: MinecraftServer,
+        kind: SetPieceRestartKind,
+        restartTeam: TeamSide,
+        cause: SetPieceRestartCause = SetPieceRestartCause.NONE,
+    ) {
+        val payload = SetPieceRestartS2CPayload(
+            kind = kind,
+            restartTeam = restartTeam,
+            reasonKey = cause.reasonKey,
+            foulingPlayerName = cause.foulingPlayerName,
+            foulingTeam = cause.foulingTeam,
+        )
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
         }

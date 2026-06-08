@@ -6,7 +6,7 @@ import net.minecraft.server.MinecraftServer
 import net.minecraft.world.phys.Vec3
 
 object SetPieceRestartAwards {
-    fun restartCenterKickoff(server: MinecraftServer) {
+    fun restartCenterKickoff(server: MinecraftServer, cause: SetPieceRestartCause = SetPieceRestartCause.NONE) {
         val kickoffTeam = MatchState.kickoffTeam ?: return
         val context = MatchState.kickoffWhistleContext() ?: KickoffWhistleContext.POST_GOAL
         val lockMs = when (context) {
@@ -23,10 +23,10 @@ object SetPieceRestartAwards {
         SetPieceBootstrap.onCenterKickoffBegin(kickoffTeam, pos, server)
         FootballNetworking.broadcastRestartKickoff(server, kickoffTeam, goalLineOut = false)
         FootballNetworking.broadcastSetPieceState(server)
-        broadcastRestart(server, SetPieceRestartKind.KICKOFF, kickoffTeam)
+        broadcastRestart(server, SetPieceRestartKind.KICKOFF, kickoffTeam, cause)
     }
 
-    fun restartGoalKick(server: MinecraftServer) {
+    fun restartGoalKick(server: MinecraftServer, cause: SetPieceRestartCause = SetPieceRestartCause.NONE) {
         val ctx = SetPieceState.active ?: return
         if (ctx.kind != SetPieceKind.GOAL_KICK) return
         val level = server.overworld()
@@ -42,10 +42,10 @@ object SetPieceRestartAwards {
                 defendingSide = ctx.defendingSide,
             ),
         )
-        broadcastRestart(server, SetPieceRestartKind.GOAL_KICK, ctx.restartTeam)
+        broadcastRestart(server, SetPieceRestartKind.GOAL_KICK, ctx.restartTeam, cause)
     }
 
-    fun restartCornerKick(server: MinecraftServer) {
+    fun restartCornerKick(server: MinecraftServer, cause: SetPieceRestartCause = SetPieceRestartCause.NONE) {
         val ctx = SetPieceState.active ?: return
         if (ctx.kind != SetPieceKind.CORNER_KICK) return
         val level = server.overworld()
@@ -61,10 +61,10 @@ object SetPieceRestartAwards {
                 defendingSide = ctx.defendingSide,
             ),
         )
-        broadcastRestart(server, SetPieceRestartKind.CORNER_KICK, ctx.restartTeam)
+        broadcastRestart(server, SetPieceRestartKind.CORNER_KICK, ctx.restartTeam, cause)
     }
 
-    fun restartFreeKick(server: MinecraftServer) {
+    fun restartFreeKick(server: MinecraftServer, cause: SetPieceRestartCause = SetPieceRestartCause.NONE) {
         val ctx = SetPieceState.active ?: return
         if (ctx.kind != SetPieceKind.FREE_KICK) return
         val level = server.overworld()
@@ -83,10 +83,10 @@ object SetPieceRestartAwards {
                 foulPos = ctx.foulPos ?: ctx.ballPos,
             ),
         )
-        broadcastRestart(server, SetPieceRestartKind.FREE_KICK, ctx.restartTeam)
+        broadcastRestart(server, SetPieceRestartKind.FREE_KICK, ctx.restartTeam, cause)
     }
 
-    fun restartPenaltyKick(server: MinecraftServer) {
+    fun restartPenaltyKick(server: MinecraftServer, cause: SetPieceRestartCause = SetPieceRestartCause.NONE) {
         if (!MatchPenaltyKickState.isActive()) return
         val kickingTeam = MatchPenaltyKickState.kickingTeam
         val defendingTeam = MatchPenaltyKickState.defendingTeam
@@ -109,10 +109,10 @@ object SetPieceRestartAwards {
                 lastTouchPlayerUuid = null,
             ),
         )
-        broadcastRestart(server, SetPieceRestartKind.PENALTY_KICK, kickingTeam)
+        broadcastRestart(server, SetPieceRestartKind.PENALTY_KICK, kickingTeam, cause)
     }
 
-    fun restartThrowIn(server: MinecraftServer) {
+    fun restartThrowIn(server: MinecraftServer, cause: SetPieceRestartCause = SetPieceRestartCause.NONE) {
         val ctx = SetPieceState.active ?: return
         if (ctx.kind != SetPieceKind.THROW_IN) return
         val level = server.overworld()
@@ -129,7 +129,7 @@ object SetPieceRestartAwards {
                 throwInTakerUuid = ctx.throwInTakerUuid,
             ),
         )
-        broadcastRestart(server, SetPieceRestartKind.THROW_IN, ctx.restartTeam)
+        broadcastRestart(server, SetPieceRestartKind.THROW_IN, ctx.restartTeam, cause)
     }
 
     private fun clearViolationsAndFlows(server: MinecraftServer) {
@@ -141,8 +141,13 @@ object SetPieceRestartAwards {
         SetPieceState.clear()
     }
 
-    private fun broadcastRestart(server: MinecraftServer, kind: SetPieceRestartKind, team: TeamSide) {
+    private fun broadcastRestart(
+        server: MinecraftServer,
+        kind: SetPieceRestartKind,
+        team: TeamSide,
+        cause: SetPieceRestartCause,
+    ) {
         FootballSounds.playMatchWhistle(server, 6)
-        FootballNetworking.broadcastSetPieceRestart(server, kind, team)
+        FootballNetworking.broadcastSetPieceRestart(server, kind, team, cause)
     }
 }

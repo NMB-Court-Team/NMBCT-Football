@@ -236,7 +236,10 @@ object SetPieceAreaViolationMonitor {
                     freeKickBallViolationTicks++
                     if (freeKickBallViolationTicks >= VIOLATION_TICKS) {
                         freeKickBallViolationTicks = 0
-                        SetPieceRestartAwards.restartFreeKick(server)
+                        SetPieceRestartAwards.restartFreeKick(
+                            server,
+                            SetPieceRestartCause.ballOnly(SetPieceRestartReasonKeys.FREE_KICK_BALL_IN_AREA),
+                        )
                     }
                 } else {
                     freeKickBallViolationTicks = 0
@@ -263,7 +266,10 @@ object SetPieceAreaViolationMonitor {
             if (goalKickAwaitingExitStationaryTicks >= STATIONARY_TICKS_NEEDED) {
                 goalKickAwaitingExitStationaryTicks = 0
                 ball.releaseHold()
-                SetPieceRestartAwards.restartGoalKick(server)
+                SetPieceRestartAwards.restartGoalKick(
+                    server,
+                    SetPieceRestartCause.ballOnly(SetPieceRestartReasonKeys.GOAL_KICK_BALL_STATIONARY),
+                )
             }
         } else {
             goalKickAwaitingExitStationaryTicks = 0
@@ -299,23 +305,38 @@ object SetPieceAreaViolationMonitor {
             SetPieceAreaViolationType.KICKOFF_CROSS_MIDLINE,
             -> {
                 repositionPlayerOutsideViolationArea(player, type)
-                SetPieceRestartAwards.restartCenterKickoff(server)
+                SetPieceRestartAwards.restartCenterKickoff(
+                    server,
+                    SetPieceRestartCause.fromViolation(player, type),
+                )
             }
             SetPieceAreaViolationType.GOAL_KICK_OPPONENT_IN_AREA -> {
                 repositionPlayerOutsideViolationArea(player, type)
-                SetPieceRestartAwards.restartGoalKick(server)
+                SetPieceRestartAwards.restartGoalKick(
+                    server,
+                    SetPieceRestartCause.fromViolation(player, type),
+                )
             }
             SetPieceAreaViolationType.CORNER_KICK_OPPONENT_IN_AREA -> {
                 repositionPlayerOutsideViolationArea(player, type)
-                SetPieceRestartAwards.restartCornerKick(server)
+                SetPieceRestartAwards.restartCornerKick(
+                    server,
+                    SetPieceRestartCause.fromViolation(player, type),
+                )
             }
             SetPieceAreaViolationType.THROW_IN_OPPONENT_IN_AREA -> {
                 repositionPlayerOutsideViolationArea(player, type)
-                SetPieceRestartAwards.restartThrowIn(server)
+                SetPieceRestartAwards.restartThrowIn(
+                    server,
+                    SetPieceRestartCause.fromViolation(player, type),
+                )
             }
             SetPieceAreaViolationType.PENALTY_KICK_INTRUSION -> {
                 if (MatchPenaltyKickState.isActive()) {
-                    SetPieceRestartAwards.restartPenaltyKick(server)
+                    SetPieceRestartAwards.restartPenaltyKick(
+                        server,
+                        SetPieceRestartCause.fromViolation(player, type),
+                    )
                 } else {
                     repositionPlayerOutsideViolationArea(player, type)
                 }
@@ -324,7 +345,10 @@ object SetPieceAreaViolationMonitor {
             SetPieceAreaViolationType.FREE_KICK_OPPONENT_IN_ATTACK_PA,
             -> {
                 repositionPlayerOutsideViolationArea(player, type)
-                SetPieceRestartAwards.restartFreeKick(server)
+                SetPieceRestartAwards.restartFreeKick(
+                    server,
+                    SetPieceRestartCause.fromViolation(player, type),
+                )
             }
             SetPieceAreaViolationType.GOAL_KICK_BALL_IN_AREA,
             SetPieceAreaViolationType.FREE_KICK_BALL_IN_ATTACK_PA,
