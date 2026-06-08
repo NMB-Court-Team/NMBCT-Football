@@ -6,7 +6,6 @@ import net.astrorbits.football.util.GoalkeeperUtil
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerPlayer
-import net.minecraft.world.phys.AABB
 import net.minecraft.world.phys.Vec3
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -16,8 +15,10 @@ import kotlin.math.sqrt
 object SetPieceAreaViolationMonitor {
     private const val VIOLATION_TICKS = 60
     private const val REPOSITION_BUFFER = 1.0
+    private const val STATIONARY_SPEED_SQR = 0.002
+    private const val STATIONARY_TICKS_NEEDED = 20
 
-    private var goalKickBallViolationTicks = 0
+    private var goalKickAwaitingExitStationaryTicks = 0
     private var freeKickBallViolationTicks = 0
 
     private data class Tracker(
@@ -32,7 +33,6 @@ object SetPieceAreaViolationMonitor {
     }
 
     fun clearAll(server: MinecraftServer) {
-        GoalKickSetPieceFlow.clearBallExitMonitor()
         resetBallViolationTicks()
         val affected = trackers.keys.toList()
         trackers.clear()
@@ -110,6 +110,7 @@ object SetPieceAreaViolationMonitor {
                 }
             }
             SetPieceKind.GOAL_KICK -> {
+                if (ctx.goalKickPhase == GoalKickPhase.AWAITING_PA_EXIT) return null
                 val defending = ctx.defendingSide ?: return null
                 if (!MatchState.kickoffTouched &&
                     team == defending.opponent() &&
@@ -212,43 +213,27 @@ object SetPieceAreaViolationMonitor {
             resetBallViolationTicks()
             return
         }
-        if (!MatchState.kickoffTouched) {
-            resetBallViolationTicks()
-            return
-        }
         val level = server.overworld()
-        val ball = findMatchFootball(level) ?: run {
+        val ball = GoalKickSetPieceFlow.findMatchFootball(level) ?: run {
             resetBallViolationTicks()
             return
         }
         val ballPos = Vec3(ball.x, ball.y, ball.z)
-        if (GoalKickSetPieceFlow.isMonitoringBallExitFromPenaltyArea()) {
-            val defending = GoalKickSetPieceFlow.ballExitDefendingSide() ?: run {
-                GoalKickSetPieceFlow.clearBallExitMonitor()
-                goalKickBallViolationTicks = 0
-                return
-            }
-            if (MatchFieldAreaUtil.isBallInPenaltyArea(defending, ballPos)) {
-                goalKickBallViolationTicks++
-                if (goalKickBallViolationTicks >= VIOLATION_TICKS) {
-                    goalKickBallViolationTicks = 0
-                    GoalKickSetPieceFlow.clearBallExitMonitor()
-                    SetPieceRestartAwards.restartGoalKick(server)
-                }
-            } else {
-                goalKickBallViolationTicks = 0
-                GoalKickSetPieceFlow.clearBallExitMonitor()
-            }
+        val ctx = SetPieceState.active
+        if (ctx?.kind == SetPieceKind.GOAL_KICK && ctx.goalKickPhase == GoalKickPhase.AWAITING_PA_EXIT) {
+            tickGoalKickAwaitingPenaltyAreaExit(server, ball, ballPos, ctx)
             return
         }
-        val ctx = SetPieceState.active ?: run {
+        if (!MatchState.kickoffTouched) {
+            resetBallViolationTicks()
+            return
+        }
+        if (ctx == null) {
             resetBallViolationTicks()
             return
         }
         when (ctx.kind) {
-            SetPieceKind.GOAL_KICK -> {
-                goalKickBallViolationTicks = 0
-            }
+            SetPieceKind.GOAL_KICK -> Unit
             SetPieceKind.FREE_KICK -> {
                 if (!MatchFieldAreaUtil.isBallInPenaltyArea(ctx.restartTeam, ctx.ballPos)) {
                     freeKickBallViolationTicks = 0
@@ -268,14 +253,33 @@ object SetPieceAreaViolationMonitor {
         }
     }
 
-    private fun resetBallViolationTicks() {
-        goalKickBallViolationTicks = 0
-        freeKickBallViolationTicks = 0
+    private fun tickGoalKickAwaitingPenaltyAreaExit(
+        server: MinecraftServer,
+        ball: Football,
+        ballPos: Vec3,
+        ctx: SetPieceContext,
+    ) {
+        val defending = GoalKickSetPieceFlow.penaltyAreaSide(ctx)
+        if (!MatchFieldAreaUtil.isBallInPenaltyArea(defending, ballPos)) {
+            goalKickAwaitingExitStationaryTicks = 0
+            GoalKickSetPieceFlow.completeAwaitingPaExit(server, ball)
+            return
+        }
+        if (ball.simulationVelocity().lengthSqr() < STATIONARY_SPEED_SQR) {
+            goalKickAwaitingExitStationaryTicks++
+            if (goalKickAwaitingExitStationaryTicks >= STATIONARY_TICKS_NEEDED) {
+                goalKickAwaitingExitStationaryTicks = 0
+                ball.releaseHold()
+                SetPieceRestartAwards.restartGoalKick(server)
+            }
+        } else {
+            goalKickAwaitingExitStationaryTicks = 0
+        }
     }
 
-    private fun findMatchFootball(level: net.minecraft.server.level.ServerLevel): Football? {
-        val all = AABB(Vec3(-3.0E7, -3.0E7, -3.0E7), Vec3(3.0E7, 3.0E7, 3.0E7))
-        return level.getEntitiesOfClass(Football::class.java, all).firstOrNull()
+    private fun resetBallViolationTicks() {
+        goalKickAwaitingExitStationaryTicks = 0
+        freeKickBallViolationTicks = 0
     }
 
     private fun applyPenalty(server: MinecraftServer, player: ServerPlayer, type: SetPieceAreaViolationType) {

@@ -401,6 +401,9 @@ object MatchState {
         if (SetPieceRestrictionCoordinator.allowsFreeKickDefendingGoalkeeperHoldAction(player, action)) {
             return false
         }
+        if (GoalKickSetPieceFlow.isAwaitingPenaltyAreaExit()) {
+            return false
+        }
         val phaseActive = KickoffLock.isKickoffPhaseActive(kickoffTeam, kickoffTouched, kickoffTimerStartMs)
         val elapsed = if (phaseActive) System.currentTimeMillis() - kickoffTimerStartMs else 0L
         return KickoffLock.isPlayerLocked(
@@ -429,7 +432,7 @@ object MatchState {
         notifyKickoffBallTouched(player)
     }
 
-    /** 球门球流程未结束（球尚未被踢动）前不得解除开球锁，否则禁区球位监测会误触发重发。 */
+    /** 球门球流程未结束（含等待球出大禁区）前不得解除开球锁。 */
     private fun shouldDeferKickoffTouchForActiveGoalKick(): Boolean =
         SetPieceState.active?.kind == SetPieceKind.GOAL_KICK
 

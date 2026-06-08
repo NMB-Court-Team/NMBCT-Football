@@ -611,7 +611,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return
         }
         val server = (level() as? ServerLevel)?.server
-        if (server != null && GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, server)) {
+        if (server != null && GoalKickSetPieceFlow.tryRestartOnGoalKickTouch(player, server)) {
             return
         }
         trySecondTouchFoul(player)
@@ -639,7 +639,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return
         }
         val server = (level() as? ServerLevel)?.server
-        if (server != null && GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, server)) {
+        if (server != null && GoalKickSetPieceFlow.tryRestartOnGoalKickTouch(player, server)) {
             return
         }
         trySecondTouchFoul(player)
@@ -659,7 +659,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return
         }
         val serverLevel = level() as? ServerLevel ?: return
-        if (GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, serverLevel.server)) {
+        if (GoalKickSetPieceFlow.tryRestartOnGoalKickTouch(player, serverLevel.server)) {
             return
         }
         trySecondTouchFoul(player)
@@ -1317,7 +1317,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         }
         actingPlayer?.let { player ->
             val server = (level() as? ServerLevel)?.server
-            if (server != null && GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, server)) {
+            if (server != null && GoalKickSetPieceFlow.tryRestartOnGoalKickTouch(player, server)) {
                 return false
             }
         }
@@ -1383,7 +1383,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return false
         }
         val server = (level() as? ServerLevel)?.server
-        if (server != null && GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, server)) {
+        if (server != null && GoalKickSetPieceFlow.tryRestartOnGoalKickTouch(player, server)) {
             return false
         }
         if (isPlayerBallMovementForbidden(player)) {
@@ -1494,7 +1494,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             return
         }
         val server = (level() as? ServerLevel)?.server
-        if (server != null && GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, server)) {
+        if (server != null && GoalKickSetPieceFlow.tryRestartOnGoalKickTouch(player, server)) {
             return
         }
         if (isHoldStealProtectedFrom(player)) {
@@ -1600,7 +1600,7 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             placedCtx.goalKickPhase == GoalKickPhase.PLACED
         ) {
             val server = (level() as? ServerLevel)?.server ?: return
-            if (GoalKickSetPieceFlow.tryRestartOnInvalidPlacedTouch(player, server)) {
+            if (GoalKickSetPieceFlow.tryRestartOnGoalKickTouch(player, server)) {
                 releaseHold()
                 return
             }

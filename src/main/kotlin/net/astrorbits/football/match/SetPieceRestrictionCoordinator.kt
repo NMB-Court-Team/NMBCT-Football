@@ -156,6 +156,7 @@ object SetPieceRestrictionCoordinator {
                 }
                 if (team == opponent) return true
             }
+            GoalKickPhase.AWAITING_PA_EXIT -> Unit
             null -> Unit
         }
         return false
@@ -226,6 +227,7 @@ object SetPieceRestrictionCoordinator {
         if (isGeneralFootballBlocked(player)) return true
         val ctx = SetPieceState.active ?: return false
         if (ctx.kind == SetPieceKind.GOAL_KICK) {
+            if (ctx.goalKickPhase == GoalKickPhase.AWAITING_PA_EXIT) return false
             val team = MatchState.getPlayerTeam(player.uuid) ?: return false
             val defending = ctx.defendingSide ?: return false
             if (team == defending.opponent()) return true

@@ -230,13 +230,18 @@ object FootballOperabilityClient {
     }
 
     private fun isKickoffLockedForPlayer(player: LocalPlayer): Boolean {
+        if (isGoalKickAwaitingPenaltyAreaExit()) return false
         if (isGoalKickPlacedKicker(player)) return false
         return MatchStartClient.isLocked
     }
 
-    /** 球门球放下后主罚须在开球锁倒计时内也能发送踢球包。 */
+    /** 球门球放下后主罚、等待出区期间须在开球锁倒计时内也能发送踢球包。 */
     fun bypassesKickoffLockForFootballInput(player: LocalPlayer): Boolean =
-        isGoalKickPlacedKicker(player)
+        isGoalKickPlacedKicker(player) || isGoalKickAwaitingPenaltyAreaExit()
+
+    private fun isGoalKickAwaitingPenaltyAreaExit(): Boolean =
+        SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
+            SetPieceClient.goalKickPhase == GoalKickPhase.AWAITING_PA_EXIT
 
     fun isGoalKickPlacedKicker(player: LocalPlayer): Boolean =
         GoalKickPlacedKickerClient.isPlacedKicker(player)
@@ -314,6 +319,7 @@ object FootballOperabilityClient {
                 key != FootballKeyBindings.BOOST_SPRINT &&
                     key != FootballKeyBindings.LOOK_AROUND
             }
+            GoalKickPhase.AWAITING_PA_EXIT -> false
             null -> false
         }
     }

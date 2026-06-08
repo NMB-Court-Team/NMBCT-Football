@@ -20,7 +20,9 @@ object FootballClientAttackInteractions {
             if (player.cooldowns.isOnCooldown(player.mainHandItem)) {
                 return@ClientPreAttackCallback true
             }
-            if (MatchStartClient.isLocked) {
+            if (MatchStartClient.isLocked &&
+                !FootballOperabilityClient.bypassesKickoffLockForFootballInput(player)
+            ) {
                 return@ClientPreAttackCallback true
             }
             FootballInputHandler.sendItemThrow(player)

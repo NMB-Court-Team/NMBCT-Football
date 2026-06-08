@@ -135,7 +135,6 @@ object SetPieceRestartAwards {
     private fun clearViolationsAndFlows(server: MinecraftServer) {
         SetPieceAreaViolationMonitor.clearAll(server)
         SecondTouchTracker.clear()
-        GoalKickSetPieceFlow.clearBallExitMonitor()
         GoalKickSetPieceFlow.clear(server)
         ThrowInSetPieceFlow.clear(server)
         FreeKickSetPieceFlow.clear(server)

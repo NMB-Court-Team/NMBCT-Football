@@ -10,6 +10,7 @@ import net.astrorbits.football.client.key.FootballInputHandler
 import net.astrorbits.football.client.key.FootballKeyBindings
 import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.match.GoalKickPhase
+import net.astrorbits.football.match.MatchFieldAreaUtil
 import net.astrorbits.football.match.SetPieceKind
 import net.astrorbits.football.match.TeamSide
 import net.minecraft.client.DeltaTracker
@@ -194,10 +195,24 @@ object FootballHudHintResolver {
     private fun isAwaitingSetPieceTouch(): Boolean {
         if (MatchStartClient.isChoosing) return false
         if (MatchStartClient.ballResetPending) return true
+        if (SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
+            SetPieceClient.goalKickPhase == GoalKickPhase.AWAITING_PA_EXIT
+        ) {
+            return true
+        }
         return MatchStartClient.startTimeMs > 0L && !MatchStartClient.kickoffTouched
     }
 
     private fun resolveSetPieceRoleHint(player: LocalPlayer): TextLine? {
+        if (activeSetPieceKind() == SetPieceKind.GOAL_KICK &&
+            SetPieceClient.goalKickPhase == GoalKickPhase.AWAITING_PA_EXIT
+        ) {
+            return if (isInGoalKickAwaitingExitPenaltyArea(player)) {
+                TextLine(KEY_LEAVE_PENALTY_AREA_GOAL_KICK_AWAIT, COLOR_LEAVE_PA_HINT)
+            } else {
+                TextLine(KEY_WAIT_GOAL_KICK_KICK_OUT, COLOR_WAIT)
+            }
+        }
         if (activeSetPieceKind() == SetPieceKind.GOAL_KICK &&
             SetPieceClient.goalKickPhase == GoalKickPhase.PLACED
         ) {
@@ -220,6 +235,16 @@ object FootballHudHintResolver {
             return null
         }
         return TextLine(KEY_WAIT_TEAMMATE, COLOR_WAIT)
+    }
+
+    private fun isInGoalKickAwaitingExitPenaltyArea(player: LocalPlayer): Boolean {
+        if (SetPieceClient.kind != SetPieceKind.GOAL_KICK ||
+            SetPieceClient.goalKickPhase != GoalKickPhase.AWAITING_PA_EXIT
+        ) {
+            return false
+        }
+        val areaSide = SetPieceClient.defendingSide ?: SetPieceClient.restartTeam ?: return false
+        return MatchFieldAreaUtil.isPlayerInPenaltyArea(player, areaSide)
     }
 
     private fun activeRestartTeam() =
@@ -331,6 +356,7 @@ object FootballHudHintResolver {
 
     private const val COLOR_COUNTDOWN = 0xFFFF5555.toInt()
     private const val COLOR_WAIT = 0xFFFFAA00.toInt()
+    private const val COLOR_LEAVE_PA_HINT = 0xFFFFCC66.toInt()
     private const val COLOR_SERVE = 0xFF55FF55.toInt()
     private const val COLOR_GK_HOLD_LOCK_LABEL = 0xFF90CAF9.toInt()
     private const val COLOR_GK_HOLD_LOCK_TIME = 0xFFCCCCCC.toInt()
@@ -369,6 +395,8 @@ object FootballHudHintResolver {
     private const val KEY_SERVE_GOAL_KICK_PLACE = "hud.nmbct-football.set_piece.role.serve.goal_kick_place"
     private const val KEY_SERVE_GOAL_KICK_KICK_OUT = "hud.nmbct-football.set_piece.role.serve.goal_kick_kick_out"
     private const val KEY_WAIT_GOAL_KICK_KICK_OUT = "hud.nmbct-football.set_piece.role.wait.goal_kick_kick_out"
+    private const val KEY_LEAVE_PENALTY_AREA_GOAL_KICK_AWAIT =
+        "hud.nmbct-football.set_piece.role.leave_penalty_area.goal_kick_await"
 
     // ── 语言键：准心 / 进度条 ──
 

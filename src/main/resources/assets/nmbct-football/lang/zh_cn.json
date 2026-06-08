@@ -85,6 +85,7 @@
     "hud.nmbct-football.set_piece.role.serve.goal_kick_place": "请在小禁区内放下球并开球。",
     "hud.nmbct-football.set_piece.role.serve.goal_kick_kick_out": "请将球踢出大禁区。",
     "hud.nmbct-football.set_piece.role.wait.goal_kick_kick_out": "等待将球踢出大禁区。",
+    "hud.nmbct-football.set_piece.role.leave_penalty_area.goal_kick_await": "请离开大禁区。",
     "hud.nmbct-football.goal_kick.hint.pickup": "请前往球门前捡起球",
     "hud.nmbct-football.goal_kick.hint.place": "请在罚球区内放下球并开球",
     "hud.nmbct-football.goal.goal": "进球！",
