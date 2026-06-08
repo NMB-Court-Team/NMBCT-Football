@@ -175,7 +175,7 @@ object ThrowInSetPieceFlow {
         begin(level, opponentTeam, groundSpot.ballPos, null)
         FootballSounds.playMatchWhistle(server, 6)
         FootballNetworking.broadcastRestartKickoff(server, opponentTeam, goalLineOut = true)
-        FootballNetworking.broadcastSetPieceRestart(server, SetPieceRestartKind.THROW_IN, opponentTeam)
+        // 球已在 begin 中同步就位，勿再 broadcastSetPieceRestart —— 否则客户端会误设 ballResetPending 并永久锁定。
     }
 
     fun tickMovementFreeze(server: MinecraftServer) {

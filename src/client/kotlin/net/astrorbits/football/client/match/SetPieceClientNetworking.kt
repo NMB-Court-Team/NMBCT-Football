@@ -47,8 +47,16 @@ object SetPieceClientNetworking {
                     payload.cornerKickTakerUuid,
                 )
                 syncMatchPenaltyKickIntro(payload)
+                syncThrowInBallReady(payload)
             }
         }
+    }
+
+    /** 界外球主罚已持球就位时，球不在延迟复位流程中。 */
+    private fun syncThrowInBallReady(payload: SetPieceStateS2CPayload) {
+        if (payload.kind != SetPieceKind.THROW_IN) return
+        if (payload.throwInTakerUuid == null || !payload.movementFrozen) return
+        MatchStartClient.clearBallResetPending()
     }
 
     /** 正赛犯规点球：与点球大战不同，不发送 [PenaltyKickStartS2CPayload]，在此启动开球倒计时。 */
