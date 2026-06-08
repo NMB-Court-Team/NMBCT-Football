@@ -748,10 +748,7 @@ object MatchState {
             ).withStyle(Style.EMPTY.withColor(ChatFormatting.GREEN).withBold(true)))
             .append(Component.translatable("match.prep.started.1").withColor(ChatFormatting.YELLOW.color!!))
 
-        broadcastToMatchPlayers(
-            server,
-            matchPrepMsg
-        )
+        broadcastToMatchPlayers(server, matchPrepMsg)
     }
 
     private fun broadcastToMatchPlayers(server: MinecraftServer, message: Component) {

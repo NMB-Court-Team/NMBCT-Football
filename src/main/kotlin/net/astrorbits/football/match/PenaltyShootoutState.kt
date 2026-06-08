@@ -5,7 +5,9 @@ import net.astrorbits.football.FootballSounds
 import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.util.GoalCrossingUtil
+import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.Style
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -101,12 +103,14 @@ object PenaltyShootoutState {
 
         captureEligibleKickPools(server)
         FootballSounds.playMatchWhistle(server, 1)
-        val goalName = MatchState.getTeamName(penaltyGoalTeam).string
-        val firstName = MatchState.getTeamName(firstKickTeam).string
-        server.playerList.broadcastSystemMessage(
-            Component.translatable("match.penalty.toss", goalName, firstName),
-            false,
-        )
+        val goalName = MatchState.getTeamName(penaltyGoalTeam)
+        val firstName = MatchState.getTeamName(firstKickTeam)
+        val tossMsg = Component.empty()
+            .append(Component.translatable("match.penalty.toss.0")
+                .withStyle(Style.EMPTY.withColor(ChatFormatting.GOLD).withBold(true))
+            ).append(Component.translatable("match.penalty.toss.1", goalName, firstName).withColor(ChatFormatting.YELLOW.color!!))
+
+        server.playerList.broadcastSystemMessage(tossMsg, false)
         beginKick(server)
     }
 
@@ -331,7 +335,8 @@ object PenaltyShootoutState {
         ) {
             suddenDeath = true
             server.playerList.broadcastSystemMessage(
-                Component.translatable("match.penalty.sudden_death"),
+                Component.translatable("match.penalty.sudden_death")
+                    .withStyle(Style.EMPTY.withColor(ChatFormatting.GOLD).withBold(true)),
                 false,
             )
         }
