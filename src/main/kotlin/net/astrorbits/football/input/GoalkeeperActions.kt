@@ -34,6 +34,8 @@ object GoalkeeperActions {
             return
         }
         if (!GoalkeeperActionAccess.canUseGoalkeeperFieldActions(player) &&
+            !net.astrorbits.football.match.PenaltyShootoutState.isDefendingGoalkeeper(player) &&
+            !net.astrorbits.football.match.MatchPenaltyKickState.isDefendingGoalkeeper(player) &&
             !SetPieceRestrictionCoordinator.allowsCatchDespiteRole(player) &&
             !SetPieceRestrictionCoordinator.allowsGoalKickDrop(player) &&
             !ThrowInSetPieceFlow.isMovementFrozen(player)

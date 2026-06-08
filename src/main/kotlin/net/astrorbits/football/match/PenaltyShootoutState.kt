@@ -604,6 +604,13 @@ object PenaltyShootoutState {
     private fun finish(server: MinecraftServer, winner: TeamSide) {
         PlayerRoleState.clearPenaltyKickOutfieldOverrides(server)
         restoreAllPenaltyWaitingSpectators(server)
+        MatchState.clearKickoffWhistleTimers()
+        MatchState.kickoffTeam = null
+        MatchState.kickoffTouched = true
+        if (SetPieceState.active?.kind == SetPieceKind.PENALTY_KICK) {
+            SetPieceState.clear()
+            FootballNetworking.broadcastSetPieceState(server)
+        }
         active = false
         lastWinner = winner
         kickPhase = PenaltyKickPhase.SETUP
