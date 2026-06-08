@@ -9,6 +9,7 @@ import net.astrorbits.football.network.FootballNetworking
 import net.astrorbits.football.stamina.StaminaState
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Component
+import net.minecraft.network.chat.Style
 import net.minecraft.server.MinecraftServer
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -725,27 +726,29 @@ object MatchState {
     /** 向双方队员聊天栏公示各队守门员。 */
     fun broadcastGoalkeepersAnnouncement(server: MinecraftServer) {
         for (team in TeamSide.entries) {
-            val teamName = getTeamName(team).string
+            val teamName = getTeamName(team)
             val gkUuid = when (team) {
                 TeamSide.A -> PlayerRoleState.teamAGoalkeeper
                 TeamSide.B -> PlayerRoleState.teamBGoalkeeper
             }
             val gkName = gkUuid?.let { server.playerList.getPlayer(it)?.gameProfile?.name }
-            val message = if (gkName != null) {
-                Component.translatable("match.announce.goalkeeper", teamName, gkName)
-            } else {
-                Component.translatable("match.announce.goalkeeper_unassigned", teamName)
-            }
+                ?.let { Component.literal(it).withColor(ChatFormatting.GREEN.color!!) }
+                ?: Component.translatable("match.announce.goalkeeper_unassigned").withColor(ChatFormatting.LIGHT_PURPLE.color!!)
+            val message = Component.translatable("match.announce.goalkeeper", teamName, gkName).withColor(ChatFormatting.YELLOW.color!!)
             broadcastToMatchPlayers(server, message)
         }
     }
 
     private fun broadcastPreparationStarted(server: MinecraftServer) {
         val minutes = MatchConfigHolder.current.preMatchPreparationMinutes
-        broadcastToMatchPlayers(
-            server,
-            Component.translatable("match.prep.started", minutes),
-        )
+        val matchPrepMsg = Component.empty()
+            .append(Component.translatable(
+                "match.prep.started.0",
+                Component.literal(minutes.toString()).withColor(ChatFormatting.LIGHT_PURPLE.color!!)
+            ).withStyle(Style.EMPTY.withColor(ChatFormatting.GREEN).withBold(true)))
+            .append(Component.translatable("match.prep.started.1").withColor(ChatFormatting.YELLOW.color!!))
+
+        broadcastToMatchPlayers(server, matchPrepMsg)
     }
 
     private fun broadcastToMatchPlayers(server: MinecraftServer, message: Component) {
