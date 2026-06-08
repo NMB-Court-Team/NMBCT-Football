@@ -6,6 +6,7 @@ import net.astrorbits.football.match.MatchConfig
 import net.astrorbits.football.match.MatchConfigHolder
 import net.astrorbits.football.match.TeamSide
 import net.astrorbits.football.match.goalCenter
+import net.astrorbits.football.match.penaltyKickBehindBall
 import net.astrorbits.football.match.toVec3
 import net.astrorbits.football.physics.FootballPhysicsConfig
 import net.minecraft.server.level.ServerPlayer
@@ -178,8 +179,17 @@ object GoalCrossingUtil {
         return towardGoal.normalize().dot(kickHoriz.normalize()) >= KICK_TOWARD_GOAL_DOT_THRESHOLD
     }
 
-    fun goalKickRestartPosition(goal: GoalConfig): Vec3 =
-        snapRestartBallToFieldSide(goal, goal.goalKick)
+    private const val GOAL_KICK_BALL_FIELDWARD_OFFSET = 1.5
+
+    fun goalKickRestartPosition(goal: GoalConfig): Vec3 {
+        val snapped = snapRestartBallToFieldSide(goal, goal.goalKick)
+        val fieldward = goal.penaltyKickBehindBall()
+        return Vec3(
+            snapped.x + fieldward.x * GOAL_KICK_BALL_FIELDWARD_OFFSET,
+            snapped.y + fieldward.y * GOAL_KICK_BALL_FIELDWARD_OFFSET,
+            snapped.z + fieldward.z * GOAL_KICK_BALL_FIELDWARD_OFFSET,
+        )
+    }
 
     /**
      * 按 IFAB：角球在球离开场地一侧、距出界点最近的角旗区发球。

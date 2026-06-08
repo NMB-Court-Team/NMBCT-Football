@@ -32,6 +32,7 @@ object SetPieceAreaViolationMonitor {
     }
 
     fun clearAll(server: MinecraftServer) {
+        GoalKickSetPieceFlow.clearBallExitMonitor()
         resetBallViolationTicks()
         val affected = trackers.keys.toList()
         trackers.clear()
@@ -215,31 +216,38 @@ object SetPieceAreaViolationMonitor {
             resetBallViolationTicks()
             return
         }
-        val ctx = SetPieceState.active ?: run {
-            resetBallViolationTicks()
-            return
-        }
         val level = server.overworld()
         val ball = findMatchFootball(level) ?: run {
             resetBallViolationTicks()
             return
         }
         val ballPos = Vec3(ball.x, ball.y, ball.z)
+        if (GoalKickSetPieceFlow.isMonitoringBallExitFromPenaltyArea()) {
+            val defending = GoalKickSetPieceFlow.ballExitDefendingSide() ?: run {
+                GoalKickSetPieceFlow.clearBallExitMonitor()
+                goalKickBallViolationTicks = 0
+                return
+            }
+            if (MatchFieldAreaUtil.isBallInPenaltyArea(defending, ballPos)) {
+                goalKickBallViolationTicks++
+                if (goalKickBallViolationTicks >= VIOLATION_TICKS) {
+                    goalKickBallViolationTicks = 0
+                    GoalKickSetPieceFlow.clearBallExitMonitor()
+                    SetPieceRestartAwards.restartGoalKick(server)
+                }
+            } else {
+                goalKickBallViolationTicks = 0
+                GoalKickSetPieceFlow.clearBallExitMonitor()
+            }
+            return
+        }
+        val ctx = SetPieceState.active ?: run {
+            resetBallViolationTicks()
+            return
+        }
         when (ctx.kind) {
             SetPieceKind.GOAL_KICK -> {
-                val defending = ctx.defendingSide ?: run {
-                    resetBallViolationTicks()
-                    return
-                }
-                if (MatchFieldAreaUtil.isBallInPenaltyArea(defending, ballPos)) {
-                    goalKickBallViolationTicks++
-                    if (goalKickBallViolationTicks >= VIOLATION_TICKS) {
-                        goalKickBallViolationTicks = 0
-                        SetPieceRestartAwards.restartGoalKick(server)
-                    }
-                } else {
-                    goalKickBallViolationTicks = 0
-                }
+                goalKickBallViolationTicks = 0
             }
             SetPieceKind.FREE_KICK -> {
                 if (!MatchFieldAreaUtil.isBallInPenaltyArea(ctx.restartTeam, ctx.ballPos)) {

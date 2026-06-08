@@ -409,9 +409,14 @@ object MatchState {
     }
 
     fun tryNotifyKickoffBallTouched(player: ServerPlayer) {
+        if (shouldDeferKickoffTouchForActiveGoalKick()) return
         if (isKickoffInteractionLocked(player)) return
         notifyKickoffBallTouched(player)
     }
+
+    /** 球门球流程未结束（球尚未被踢动）前不得解除开球锁，否则禁区球位监测会误触发重发。 */
+    private fun shouldDeferKickoffTouchForActiveGoalKick(): Boolean =
+        SetPieceState.active?.kind == SetPieceKind.GOAL_KICK
 
     /** 开球锁定倒计时是否仍在进行（全员不可触球/开球）。 */
     fun isKickoffCountdownActive(): Boolean {

@@ -9,8 +9,8 @@ import kotlin.math.sqrt
 
 /** 定位球主罚员站位：球门球门将、角球主罚员等。 */
 object SetPieceTakerPlacement {
-    /** 门将站位：沿球→球门方向的比例（0=球心，1=球门中心）。 */
-    private const val GOAL_KICK_KEEPER_GOALWARD_RATIO = 0.4
+    /** 门将站位：沿场内方向距球心的水平偏移（远离球门线）。 */
+    private const val GOAL_KICK_KEEPER_FIELDWARD_OFFSET = 1.2
     private const val CORNER_TAKER_OUTWARD_OFFSET = 1.0
 
     fun resolveGoalkeeper(server: MinecraftServer, team: TeamSide): ServerPlayer? {
@@ -24,16 +24,15 @@ object SetPieceTakerPlacement {
         return player
     }
 
-    /** 门将站在足球与球门之间，面向场内。 */
+    /** 门将站在球靠场内一侧，面向场内。 */
     fun goalKickKeeperStand(restartTeam: TeamSide, ballPos: Vec3): Pair<Vec3, Float> {
         val goal = MatchFieldAreaUtil.goalForSide(MatchConfigHolder.current, restartTeam)
-        val goalCenter = goal.goalCenter()
         val towardField = goal.penaltyKickBehindBall()
-        val ratio = GOAL_KICK_KEEPER_GOALWARD_RATIO
+        val offset = GOAL_KICK_KEEPER_FIELDWARD_OFFSET
         val pos = Vec3(
-            ballPos.x + (goalCenter.x - ballPos.x) * ratio,
+            ballPos.x + towardField.x * offset,
             ballPos.y,
-            ballPos.z + (goalCenter.z - ballPos.z) * ratio,
+            ballPos.z + towardField.z * offset,
         )
         return pos to horizontalYaw(towardField)
     }

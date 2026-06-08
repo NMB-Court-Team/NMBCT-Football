@@ -232,6 +232,13 @@ object SetPieceRestrictionCoordinator {
     fun isGkHoldOutsidePenaltyAreaViolation(player: ServerPlayer): Boolean {
         if (!PlayerRoleState.isGoalkeeper(player)) return false
         if (GoalkeeperUtil.findHeldFootball(player) == null) return false
+        val ctx = SetPieceState.active
+        if (ctx?.kind == SetPieceKind.GOAL_KICK) {
+            val phase = ctx.goalKickPhase ?: return false
+            if (phase == GoalKickPhase.WAITING_PICKUP || phase == GoalKickPhase.PLACING) {
+                return false
+            }
+        }
         val team = MatchState.getPlayerTeam(player.uuid) ?: return false
         return !MatchFieldAreaUtil.isPlayerInPenaltyArea(player, team)
     }

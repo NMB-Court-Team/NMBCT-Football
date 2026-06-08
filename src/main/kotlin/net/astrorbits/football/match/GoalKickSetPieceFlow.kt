@@ -14,7 +14,11 @@ import java.util.*
 object GoalKickSetPieceFlow {
     private const val GOAL_KICK_HOLD_LOCK_TICKS = 100
 
+    private var monitorBallExitFromPenaltyArea = false
+    private var ballExitDefendingSide: TeamSide? = null
+
     fun begin(level: ServerLevel, restartTeam: TeamSide, ballPos: Vec3, defendingSide: TeamSide) {
+        clearBallExitMonitor()
         val server = level.server
         SetPieceState.begin(
             SetPieceContext(
@@ -91,6 +95,8 @@ object GoalKickSetPieceFlow {
         if (actingPlayer != null && tryRestartOnInvalidPlacedTouch(actingPlayer, server)) {
             return
         }
+        monitorBallExitFromPenaltyArea = true
+        ballExitDefendingSide = ctx.defendingSide ?: ctx.restartTeam
         clear(server)
         val holderId = football.getHolderEntityId()
         if (holderId >= 0) {
@@ -122,6 +128,15 @@ object GoalKickSetPieceFlow {
         SetPieceState.clear()
         server?.let { FootballNetworking.broadcastSetPieceState(it) }
     }
+
+    fun clearBallExitMonitor() {
+        monitorBallExitFromPenaltyArea = false
+        ballExitDefendingSide = null
+    }
+
+    fun ballExitDefendingSide(): TeamSide? = ballExitDefendingSide
+
+    fun isMonitoringBallExitFromPenaltyArea(): Boolean = monitorBallExitFromPenaltyArea
 
     private fun applyTeamPermissions(
         server: MinecraftServer,
