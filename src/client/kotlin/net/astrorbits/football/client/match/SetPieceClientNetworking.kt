@@ -21,6 +21,7 @@ object SetPieceClientNetworking {
         }
         ClientPlayNetworking.registerGlobalReceiver(SetPieceRestartS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
+                SetPiecePendingRestart.fromRestartAward(payload.kind, payload.restartTeam)
                 SetPieceRestartClient.show(payload.kind, payload.restartTeam)
             }
         }

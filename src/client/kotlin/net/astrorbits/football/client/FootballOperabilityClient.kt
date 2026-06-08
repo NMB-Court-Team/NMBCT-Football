@@ -60,7 +60,7 @@ object FootballOperabilityClient {
             SetPieceKind.CORNER_KICK -> player.uuid == SetPieceClient.cornerKickTakerUuid
             SetPieceKind.GOAL_KICK ->
                 SetPieceClient.goalKickPhase == GoalKickPhase.PLACED &&
-                    player.uuid == SetPieceClient.goalKickPickerUuid
+                    GoalKickPlacedKickerClient.isPlacedKicker(player)
             else -> false
         }
     }
@@ -141,7 +141,7 @@ object FootballOperabilityClient {
         val holdingBall = GoalkeeperStateClient.isHoldingBall ||
             (throwInTaker && SetPieceClient.isMovementFrozen(player.uuid))
         val canGk = canUseGoalkeeperActions()
-        val kickoffLocked = MatchStartClient.isLocked
+        val kickoffLocked = isKickoffLockedForPlayer(player)
         if (isBlockedByGoalKickSetPiece(player, key)) {
             return false
         }
@@ -160,16 +160,19 @@ object FootballOperabilityClient {
             }
         }
 
+        val freeKickGkHolding = isFreeKickDefendingGoalkeeperHolding(player)
         if (holdingBall) {
             return when (key) {
                 FootballKeyBindings.GK_DIVE ->
-                    !kickoffLocked && GoalkeeperHoldActionPermissionsClient.canThrow &&
+                    (freeKickGkHolding || !kickoffLocked) && GoalkeeperHoldActionPermissionsClient.canThrow &&
                         (!GoalkeeperStateClient.isHoldReleaseLocked() || throwInTaker) &&
                         (canGk || throwInTaker)
                 FootballKeyBindings.GK_CATCH ->
                     GoalkeeperHoldActionPermissionsClient.canDrop &&
                         (!GoalkeeperStateClient.isHoldReleaseLocked() || throwInTaker) &&
-                        (canUseGoalKickDrop(player) || (!kickoffLocked && canGk && !throwInTaker))
+                        (canUseGoalKickDrop(player) ||
+                            freeKickGkHolding ||
+                            (!kickoffLocked && canGk && !throwInTaker))
                 FootballKeyBindings.BOOST_SPRINT -> player.isSprinting && StaminaClient.stamina > 0f
                 FootballKeyBindings.INTERRUPT_CHARGE -> FootballInputHandler.isAnyChargeActive()
                 FootballKeyBindings.LOOK_AROUND -> true
@@ -226,21 +229,48 @@ object FootballOperabilityClient {
         return range
     }
 
+    private fun isKickoffLockedForPlayer(player: LocalPlayer): Boolean {
+        if (isGoalKickAwaitingPenaltyAreaExit()) return false
+        if (isGoalKickPlacedKicker(player)) return false
+        return MatchStartClient.isLocked
+    }
+
+    /** 球门球放下后主罚、等待出区期间须在开球锁倒计时内也能发送踢球包。 */
+    fun bypassesKickoffLockForFootballInput(player: LocalPlayer): Boolean =
+        isGoalKickPlacedKicker(player) || isGoalKickAwaitingPenaltyAreaExit()
+
+    private fun isGoalKickAwaitingPenaltyAreaExit(): Boolean =
+        SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
+            SetPieceClient.goalKickPhase == GoalKickPhase.AWAITING_PA_EXIT
+
+    fun isGoalKickPlacedKicker(player: LocalPlayer): Boolean =
+        GoalKickPlacedKickerClient.isPlacedKicker(player)
+
+    private fun isGoalKickPlacedKickerAwaitingKick(player: LocalPlayer): Boolean =
+        SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
+            SetPieceClient.goalKickPhase == GoalKickPhase.PLACED &&
+            isGoalKickPlacedKicker(player)
+
     private fun canUseGoalKickCatch(player: LocalPlayer): Boolean {
         if (SetPieceClient.kind != SetPieceKind.GOAL_KICK) return false
         if (SetPieceClient.restartTeam != MatchStartClient.playerTeam) return false
-        return when (SetPieceClient.goalKickPhase) {
-            GoalKickPhase.WAITING_PICKUP -> true
-            GoalKickPhase.PLACED -> GoalkeeperStateClient.isGoalkeeper &&
-                SetPieceClient.goalKickPickerUuid == player.uuid
-            else -> false
-        }
+        return SetPieceClient.goalKickPhase == GoalKickPhase.WAITING_PICKUP
     }
 
-    private fun canUseGoalKickDrop(player: LocalPlayer): Boolean =
-        SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
-            SetPieceClient.goalKickPhase == GoalKickPhase.PLACING &&
-            SetPieceClient.goalKickPickerUuid == player.uuid
+    private fun canUseGoalKickDrop(player: LocalPlayer): Boolean {
+        if (SetPieceClient.kind != SetPieceKind.GOAL_KICK) return false
+        if (SetPieceClient.goalKickPhase != GoalKickPhase.PLACING) return false
+        if (SetPieceClient.goalKickPickerUuid != player.uuid) return false
+        val goalAreaSide = SetPieceClient.defendingSide ?: SetPieceClient.restartTeam ?: return false
+        return MatchFieldAreaUtil.isPlayerInGoalArea(player, goalAreaSide)
+    }
+
+    private fun isFreeKickDefendingGoalkeeperHolding(player: LocalPlayer): Boolean {
+        if (SetPieceClient.kind != SetPieceKind.FREE_KICK) return false
+        if (!GoalkeeperStateClient.isHoldingBall) return false
+        if (!GoalkeeperStateClient.isGoalkeeper) return false
+        return SetPieceClient.restartTeam != localPlayerTeam(player)
+    }
 
     fun isThrowInTaker(player: LocalPlayer): Boolean =
         SetPieceClient.kind == SetPieceKind.THROW_IN &&
@@ -280,8 +310,8 @@ object FootballOperabilityClient {
                     key != FootballKeyBindings.LOOK_AROUND
             }
             GoalKickPhase.PLACED -> {
-                if (isPicker) {
-                    if (MatchStartClient.kickoffTouched) return false
+                if (MatchStartClient.kickoffTouched) return false
+                if (isRestartTeam && isGoalKickPlacedKicker(player)) {
                     return key != FootballKeyBindings.KICK &&
                         key != FootballKeyBindings.BOOST_SPRINT &&
                         key != FootballKeyBindings.LOOK_AROUND
@@ -289,6 +319,7 @@ object FootballOperabilityClient {
                 key != FootballKeyBindings.BOOST_SPRINT &&
                     key != FootballKeyBindings.LOOK_AROUND
             }
+            GoalKickPhase.AWAITING_PA_EXIT -> false
             null -> false
         }
     }

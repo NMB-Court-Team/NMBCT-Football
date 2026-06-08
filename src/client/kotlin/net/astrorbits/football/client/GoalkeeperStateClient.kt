@@ -2,7 +2,9 @@ package net.astrorbits.football.client
 
 import net.astrorbits.football.Football
 import net.astrorbits.football.client.key.FootballInputHandler
+import net.astrorbits.football.client.match.MatchStartClient
 import net.astrorbits.football.input.GoalkeeperInputConfig
+import net.astrorbits.football.match.SetPieceKind
 import net.astrorbits.football.network.GoalkeeperHoldActionPermissionsS2CPayload
 import net.astrorbits.football.network.GoalkeeperHoldLockS2CPayload
 import net.astrorbits.football.network.GoalkeeperRoleS2CPayload
@@ -103,7 +105,7 @@ object GoalkeeperStateClient {
         ).any { it.getHolderEntityId() == player.id }
 
         if (holding && !wasHoldingBall) {
-            if (isGoalkeeper) {
+            if (isGoalkeeper && !shouldDeferHoldLockPredictionForGoalKick()) {
                 predictHoldReleaseLock(level.gameTime)
             }
             FootballInputHandler.onGoalkeeperBeganHoldingBall()
@@ -116,6 +118,11 @@ object GoalkeeperStateClient {
         wasHoldingBall = holding
         isHoldingBall = holding
     }
+
+    /** 球门球捡球由服务端下发 [GOAL_KICK_HOLD_LOCK_TICKS] 窗口，避免与默认持球保护时长不同步。 */
+    private fun shouldDeferHoldLockPredictionForGoalKick(): Boolean =
+        SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
+            SetPieceClient.restartTeam == MatchStartClient.playerTeam
 
     /** 鱼跃摘球等场景下实体同步可能晚于 S2C；仅在尚无服务端窗口时做短预测。 */
     private fun predictHoldReleaseLock(now: Long) {

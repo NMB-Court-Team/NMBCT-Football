@@ -8,6 +8,7 @@ object FreeKickAwardClientNetworking {
     fun register() {
         ClientPlayNetworking.registerGlobalReceiver(FreeKickAwardS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
+                SetPiecePendingRestart.fromFreeKickAward(payload.freeKickType, payload.restartTeam)
                 FreeKickAwardClient.show(
                     payload.freeKickType,
                     payload.foulReason,

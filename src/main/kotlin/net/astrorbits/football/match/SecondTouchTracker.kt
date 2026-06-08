@@ -16,11 +16,16 @@ object SecondTouchTracker {
         AWAITING_OTHER,
     }
 
+    /** 球门球出区后，主罚脚与球分离前的短暂宽限（避免踢球余波误判二次触球）。 */
+    private const val GOAL_KICK_TAKER_GRACE_TICKS = 15L
+
     private data class State(
         val restartTeam: TeamSide,
         val takerUuid: UUID,
         val sourceKind: SetPieceKind,
         var phase: Phase,
+        /** 球门球比赛恢复时刻；用于主罚宽限。 */
+        val resumeGameTick: Long = 0L,
     )
 
     private var state: State? = null
@@ -33,6 +38,18 @@ object SecondTouchTracker {
 
     fun begin(restartTeam: TeamSide, takerUuid: UUID, sourceKind: SetPieceKind) {
         state = State(restartTeam, takerUuid, sourceKind, Phase.OPENING)
+    }
+
+    /**
+     * 主罚已完成开球触球后启动监测（如球门球：踢球在前、球出大禁区后比赛才恢复）。
+     */
+    fun beginAfterOpeningPlay(
+        restartTeam: TeamSide,
+        takerUuid: UUID,
+        sourceKind: SetPieceKind,
+        resumeGameTick: Long,
+    ) {
+        state = State(restartTeam, takerUuid, sourceKind, Phase.AWAITING_OTHER, resumeGameTick)
     }
 
     /**
@@ -54,6 +71,12 @@ object SecondTouchTracker {
             Phase.AWAITING_OTHER -> {
                 if (team != current.restartTeam) {
                     clear()
+                    return false
+                }
+                if (player.uuid == current.takerUuid &&
+                    current.sourceKind == SetPieceKind.GOAL_KICK &&
+                    level.gameTime - current.resumeGameTick < GOAL_KICK_TAKER_GRACE_TICKS
+                ) {
                     return false
                 }
                 if (player.uuid == current.takerUuid) {

@@ -3,6 +3,7 @@ package net.astrorbits.football.client.match
 import net.astrorbits.football.match.KickoffLock
 import net.astrorbits.football.match.MatchKickoffTiming
 import net.astrorbits.football.match.MatchState
+import net.astrorbits.football.match.SetPieceKind
 import net.astrorbits.football.match.TeamSide
 
 object MatchStartClient {
@@ -24,6 +25,11 @@ object MatchStartClient {
     var isPostGoal: Boolean = false; private set
     var isGoalLineOut: Boolean = false; private set
 
+    /** 球延迟复位期间（服务端 [MatchState.postGoalResetPending] 镜像）。 */
+    var ballResetPending: Boolean = false; private set
+    var pendingRestartTeam: TeamSide? = null; private set
+    var pendingSetPieceKind: SetPieceKind? = null; private set
+
     private var kickoffStartMs: Long = 0L
     private var lastStoppageTickMs: Long = 0L
 
@@ -44,10 +50,10 @@ object MatchStartClient {
                 return startTimeMs > 0L && !kickoffTouched
             }
             return KickoffLock.isPlayerLocked(
-                postGoalResetPending = MatchState.postGoalResetPending,
-                kickoffPhaseActive = startTimeMs > 0L && !kickoffTouched,
+                postGoalResetPending = MatchState.postGoalResetPending || ballResetPending,
+                kickoffPhaseActive = (startTimeMs > 0L && !kickoffTouched) || ballResetPending,
                 playerTeam = playerTeam,
-                kickoffTeam = kickoffTeam,
+                kickoffTeam = pendingRestartTeam ?: kickoffTeam,
                 kickoffElapsedMs = elapsedMs,
                 kickoffLockMs = lockDurationMs,
             )
@@ -74,6 +80,7 @@ object MatchStartClient {
     }
 
     fun startMatch(team: TeamSide, gk: Boolean, kickoff: TeamSide, nameA: String, nameB: String) {
+        clearBallResetPending()
         playerTeam = team; isGk = gk; kickoffTeam = kickoff
         isKickoffTeam = team == kickoff
         teamAName = nameA; teamBName = nameB
@@ -82,7 +89,24 @@ object MatchStartClient {
         kickoffStartMs = startTimeMs; lastStoppageTickMs = 0L
     }
 
+    fun beginBallResetPending(restartTeam: TeamSide, setPieceKind: SetPieceKind) {
+        ballResetPending = true
+        pendingRestartTeam = restartTeam
+        pendingSetPieceKind = setPieceKind
+        MatchState.postGoalResetPending = true
+        kickoffTeam = restartTeam
+        isKickoffTeam = playerTeam == restartTeam
+    }
+
+    fun clearBallResetPending() {
+        ballResetPending = false
+        pendingRestartTeam = null
+        pendingSetPieceKind = null
+        MatchState.postGoalResetPending = false
+    }
+
     fun startPostGoalKickoff(kickoff: TeamSide, isKickoffTeam: Boolean) {
+        clearBallResetPending()
         this.isKickoffTeam = isKickoffTeam
         kickoffTeam = kickoff
         kickoffTouched = false; isPostGoal = true; isGoalLineOut = false
@@ -91,6 +115,7 @@ object MatchStartClient {
     }
 
     fun startGoalLineOutKickoff(kickoff: TeamSide, isKickoffTeam: Boolean) {
+        clearBallResetPending()
         this.isKickoffTeam = isKickoffTeam
         kickoffTeam = kickoff
         kickoffTouched = false; isPostGoal = false; isGoalLineOut = true
@@ -157,6 +182,7 @@ object MatchStartClient {
 
     val elapsedMs: Long get() = if (startTimeMs > 0) System.currentTimeMillis() - startTimeMs else 0L
     fun reset() {
+        clearBallResetPending()
         startTimeMs = 0L
         kickoffTouched = false
         isPostGoal = false

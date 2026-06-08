@@ -359,6 +359,11 @@ object MatchState {
         ) {
             return false
         }
+        if (SetPieceRestrictionCoordinator.allowsGoalKickPlacedKick(player) &&
+            allowsGoalKickPlacedKickDuringKickoffLock(action)
+        ) {
+            return false
+        }
         if (SetPieceRestrictionCoordinator.isFootballOperationBlocked(player, action)) {
             return true
         }
@@ -393,6 +398,12 @@ object MatchState {
                 return true
             }
         }
+        if (SetPieceRestrictionCoordinator.allowsFreeKickDefendingGoalkeeperHoldAction(player, action)) {
+            return false
+        }
+        if (GoalKickSetPieceFlow.isAwaitingPenaltyAreaExit()) {
+            return false
+        }
         val phaseActive = KickoffLock.isKickoffPhaseActive(kickoffTeam, kickoffTouched, kickoffTimerStartMs)
         val elapsed = if (phaseActive) System.currentTimeMillis() - kickoffTimerStartMs else 0L
         return KickoffLock.isPlayerLocked(
@@ -405,10 +416,25 @@ object MatchState {
         )
     }
 
+    private fun allowsGoalKickPlacedKickDuringKickoffLock(
+        action: net.astrorbits.football.network.FootballActionType?,
+    ): Boolean = when (action) {
+        null,
+        net.astrorbits.football.network.FootballActionType.PASS,
+        net.astrorbits.football.network.FootballActionType.SHOOT,
+        -> true
+        else -> false
+    }
+
     fun tryNotifyKickoffBallTouched(player: ServerPlayer) {
+        if (shouldDeferKickoffTouchForActiveGoalKick()) return
         if (isKickoffInteractionLocked(player)) return
         notifyKickoffBallTouched(player)
     }
+
+    /** 球门球流程未结束（含等待球出大禁区）前不得解除开球锁。 */
+    private fun shouldDeferKickoffTouchForActiveGoalKick(): Boolean =
+        SetPieceState.active?.kind == SetPieceKind.GOAL_KICK
 
     /** 开球锁定倒计时是否仍在进行（全员不可触球/开球）。 */
     fun isKickoffCountdownActive(): Boolean {
@@ -508,7 +534,7 @@ object MatchState {
         }
         val server = player.level().server
         when (SetPieceState.active?.kind) {
-            SetPieceKind.CENTER_KICKOFF, SetPieceKind.CORNER_KICK -> {
+            SetPieceKind.CENTER_KICKOFF, SetPieceKind.CORNER_KICK, SetPieceKind.FREE_KICK -> {
                 SetPieceState.clear()
                 FootballNetworking.broadcastSetPieceState(server)
             }

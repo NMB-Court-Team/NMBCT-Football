@@ -27,6 +27,8 @@ enum class GoalKickPhase {
     WAITING_PICKUP,
     PLACING,
     PLACED,
+    /** 已踢出，球须离开守方大禁区后比赛才恢复；禁区内停球或他人触球则重发。 */
+    AWAITING_PA_EXIT,
     ;
 
     companion object {

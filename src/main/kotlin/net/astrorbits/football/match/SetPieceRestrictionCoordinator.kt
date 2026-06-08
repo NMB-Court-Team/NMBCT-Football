@@ -4,6 +4,12 @@ import net.astrorbits.football.network.FootballActionType
 import net.astrorbits.football.util.GoalkeeperUtil
 import net.minecraft.server.level.ServerPlayer
 
+private val FREE_KICK_DEFENDING_GK_HOLD_ACTIONS = setOf(
+    FootballActionType.GK_THROW_SHORT,
+    FootballActionType.GK_THROW_LONG,
+    FootballActionType.GK_DROP,
+)
+
 /**
  * 定位球期间硬性操作限制的统一裁决（服务端权威；客户端镜像见 [net.astrorbits.football.client.SetPieceClient]）。
  */
@@ -36,10 +42,7 @@ object SetPieceRestrictionCoordinator {
         val team = MatchState.getPlayerTeam(player.uuid) ?: return false
         if (team != ctx.restartTeam) return false
         val phase = ctx.goalKickPhase ?: return false
-        return (phase == GoalKickPhase.WAITING_PICKUP && PlayerRoleState.isDesignatedGoalkeeper(player)) ||
-            (phase == GoalKickPhase.PLACED &&
-                player.uuid == ctx.goalKickPickerUuid &&
-                PlayerRoleState.isGoalkeeper(player))
+        return phase == GoalKickPhase.WAITING_PICKUP
     }
 
     fun allowsCatchDespiteRole(player: ServerPlayer): Boolean = allowsGoalKickCatch(player)
@@ -50,6 +53,29 @@ object SetPieceRestrictionCoordinator {
         val ctx = SetPieceState.active ?: return false
         if (ctx.kind != SetPieceKind.GOAL_KICK) return false
         return ctx.goalKickPhase == GoalKickPhase.PLACING && player.uuid == ctx.goalKickPickerUuid
+    }
+
+    /** 球门球已放下、待踢出大禁区的主罚员（须在底线开球锁倒计时内也能踢球）。 */
+    fun allowsGoalKickPlacedKick(player: ServerPlayer): Boolean =
+        GoalKickSetPieceFlow.isPlacedKicker(player)
+
+    /** 对方任意球期间，防守方门将已持球（扑救/摘球后需手抛或放下）。 */
+    fun isFreeKickDefendingGoalkeeperHolding(player: ServerPlayer): Boolean {
+        if (!isFreeKickDefendingGoalkeeper(player)) return false
+        return GoalkeeperUtil.findHeldFootball(player) != null
+    }
+
+    fun allowsFreeKickDefendingGoalkeeperHoldAction(player: ServerPlayer, action: FootballActionType?): Boolean {
+        if (!isFreeKickDefendingGoalkeeperHolding(player)) return false
+        return action == null || action in FREE_KICK_DEFENDING_GK_HOLD_ACTIONS
+    }
+
+    private fun isFreeKickDefendingGoalkeeper(player: ServerPlayer): Boolean {
+        val ctx = SetPieceState.active ?: return false
+        if (ctx.kind != SetPieceKind.FREE_KICK) return false
+        if (!PlayerRoleState.isGoalkeeper(player)) return false
+        val team = MatchState.getPlayerTeam(player.uuid) ?: return false
+        return team != ctx.restartTeam
     }
 
     /** 开球锁定期内，发球方仅允许传球开球（界外球除外）。 */
@@ -67,7 +93,7 @@ object SetPieceRestrictionCoordinator {
                 SetPieceKind.THROW_IN -> return false
                 SetPieceKind.GOAL_KICK -> {
                     if (ctx.goalKickPhase == GoalKickPhase.PLACED &&
-                        player.uuid == ctx.goalKickPickerUuid
+                        GoalKickSetPieceFlow.isPlacedKicker(player)
                     ) {
                         return isKickOpenBlocked(action)
                     }
@@ -109,28 +135,28 @@ object SetPieceRestrictionCoordinator {
         when (ctx.goalKickPhase) {
             GoalKickPhase.WAITING_PICKUP -> {
                 if (team == ctx.restartTeam) {
-                    if (action == FootballActionType.GK_CATCH && PlayerRoleState.isDesignatedGoalkeeper(player)) {
-                        return false
-                    }
-                    return true
+                    return action != null && action != FootballActionType.GK_CATCH
                 }
                 if (team == opponent) return true
             }
             GoalKickPhase.PLACING -> {
                 if (player.uuid == ctx.goalKickPickerUuid) {
-                    return action != FootballActionType.GK_DROP
+                    return action != null && action != FootballActionType.GK_DROP
                 }
                 return true
             }
             GoalKickPhase.PLACED -> {
-                if (player.uuid == ctx.goalKickPickerUuid) {
-                    return isKickOpenBlocked(action)
-                }
                 if (team == ctx.restartTeam) {
-                    return true
+                    return when (action) {
+                        FootballActionType.PASS, FootballActionType.SHOOT ->
+                            !GoalKickSetPieceFlow.isPlacedKicker(player)
+                        null -> false
+                        else -> true
+                    }
                 }
                 if (team == opponent) return true
             }
+            GoalKickPhase.AWAITING_PA_EXIT -> Unit
             null -> Unit
         }
         return false
@@ -201,6 +227,7 @@ object SetPieceRestrictionCoordinator {
         if (isGeneralFootballBlocked(player)) return true
         val ctx = SetPieceState.active ?: return false
         if (ctx.kind == SetPieceKind.GOAL_KICK) {
+            if (ctx.goalKickPhase == GoalKickPhase.AWAITING_PA_EXIT) return false
             val team = MatchState.getPlayerTeam(player.uuid) ?: return false
             val defending = ctx.defendingSide ?: return false
             if (team == defending.opponent()) return true
@@ -211,6 +238,13 @@ object SetPieceRestrictionCoordinator {
     fun isGkHoldOutsidePenaltyAreaViolation(player: ServerPlayer): Boolean {
         if (!PlayerRoleState.isGoalkeeper(player)) return false
         if (GoalkeeperUtil.findHeldFootball(player) == null) return false
+        val ctx = SetPieceState.active
+        if (ctx?.kind == SetPieceKind.GOAL_KICK) {
+            val phase = ctx.goalKickPhase ?: return false
+            if (phase == GoalKickPhase.WAITING_PICKUP || phase == GoalKickPhase.PLACING) {
+                return false
+            }
+        }
         val team = MatchState.getPlayerTeam(player.uuid) ?: return false
         return !MatchFieldAreaUtil.isPlayerInPenaltyArea(player, team)
     }
