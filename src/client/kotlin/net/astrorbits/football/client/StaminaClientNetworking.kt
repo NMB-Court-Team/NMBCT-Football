@@ -8,6 +8,10 @@ object StaminaClientNetworking {
     fun register() {
         ClientPlayNetworking.registerGlobalReceiver(StaminaSyncS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
+                val player = Minecraft.getInstance().player
+                if (player?.isSpectator == true) {
+                    return@execute
+                }
                 StaminaClient.applySync(payload.stamina, payload.maxStamina, payload.boostSprintActive)
             }
         }

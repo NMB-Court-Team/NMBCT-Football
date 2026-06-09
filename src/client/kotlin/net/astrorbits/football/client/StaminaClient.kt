@@ -30,17 +30,36 @@ object StaminaClient {
     private const val BOOST_BLEND_STEP = 0.125f
 
     fun applySync(stamina: Float, maxStamina: Float, boostSprintActive: Boolean) {
+        applySyncInternal(stamina, maxStamina, boostSprintActive, playBoostSounds = shouldPlayLocalBoostSounds())
+    }
+
+    /** 旁观/回放时只更新数值，不触发加速疾跑起止音效。 */
+    private fun applySyncInternal(
+        stamina: Float,
+        maxStamina: Float,
+        boostSprintActive: Boolean,
+        playBoostSounds: Boolean,
+    ) {
         val wasBoost = this.boostSprintActive
         this.stamina = stamina.coerceAtLeast(0f)
         this.maxStamina = maxStamina.coerceAtLeast(1f)
-        if (!boostSprintActive && wasBoost) {
+        if (playBoostSounds) {
+            if (!boostSprintActive && wasBoost) {
+                BoostSprintClient.onServerDeactivated()
+                BoostSprintSoundsClient.playEnd()
+            }
+            if (boostSprintActive && !wasBoost) {
+                BoostSprintSoundsClient.playStart()
+            }
+        } else if (!boostSprintActive && wasBoost) {
             BoostSprintClient.onServerDeactivated()
-            BoostSprintSoundsClient.playEnd()
-        }
-        if (boostSprintActive && !wasBoost) {
-            BoostSprintSoundsClient.playStart()
         }
         this.boostSprintActive = boostSprintActive
+    }
+
+    private fun shouldPlayLocalBoostSounds(): Boolean {
+        val player = Minecraft.getInstance().player ?: return false
+        return !player.isSpectator
     }
 
     fun getSpeedMultiplier(): Double {
@@ -71,7 +90,7 @@ object StaminaClient {
 
         if (player.isSpectator) {
             val max = FootballConfigs.server.staminaMechanism.maxStamina
-            applySync(max, max, false)
+            applySyncInternal(max, max, false, playBoostSounds = false)
             clearSpeedModifiers(player)
             return
         }
