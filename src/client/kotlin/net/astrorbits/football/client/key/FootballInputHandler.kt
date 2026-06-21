@@ -135,6 +135,9 @@ object FootballInputHandler {
             }
             tickBoostSprint(player)
             clearKickoffFrozenChargeState(player)
+            if (KickCurveClient.isActive()) {
+                KickCurveClient.tick(player)
+            }
             if (MatchStartClient.penaltyFoulGoalWatchActive) {
                 updatePrevTickPressed()
                 return@reg

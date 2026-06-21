@@ -123,13 +123,11 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (isMatchPaused()) return true
         if (immovableTargetPlayers.contains(player.uuid)) return true
         if (player is ServerPlayer) {
-            // 蓄力射门弧线窗口 / 侧向加速 ramp：点球 RESOLVING 等开球锁仍须允许跟进；判例后须停止
-            if (!MatchState.postGoalResetPending && MatchState.pendingGoalLineOut == null) {
-                if (KickCurveSessions.isFollowUpActive(player.uuid, id, player.level().gameTime) ||
-                    isCurveRampActiveFor(player.uuid)
-                ) {
-                    return false
-                }
+            // 蓄力射门弧线窗口 / 侧向加速 ramp：点球 RESOLVING 等开球锁仍须允许跟进
+            if (KickCurveSessions.isFollowUpActive(player.uuid, id, player.level().gameTime) ||
+                isCurveRampActiveFor(player.uuid)
+            ) {
+                return false
             }
             // 界外球主罚员：踢球层放开（掷出与否由 GoalkeeperActions / allowsThrowAction 把关）
             if (ThrowInSetPieceFlow.isMovementFrozen(player)) return false
@@ -1570,10 +1568,6 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     private fun tickCurveRamp() {
-        if (MatchState.postGoalResetPending || MatchState.pendingGoalLineOut != null) {
-            curveRamp = null
-            return
-        }
         val ramp = curveRamp ?: return
         val serverLevel = level() as? ServerLevel ?: run {
             curveRamp = null

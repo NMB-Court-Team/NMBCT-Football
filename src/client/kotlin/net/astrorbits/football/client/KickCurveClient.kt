@@ -57,4 +57,6 @@ object KickCurveClient {
         windowEndMs = 0L
         peakYawDelta = 0f
     }
+
+    fun isActive(): Boolean = active
 }
