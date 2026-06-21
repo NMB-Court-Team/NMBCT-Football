@@ -256,10 +256,13 @@ object FootballOperabilityClient {
         return SetPieceClient.goalKickPickerUuid == player.uuid
     }
 
-    /** 开球/点球 intro 倒计时内禁止蓄力计时（仍可 priming 按键边沿，解锁后从零开始）。 */
-    fun isKickoffChargeFrozen(player: LocalPlayer): Boolean =
-        MatchStartClient.penaltyFoulGoalWatchActive ||
-            (!MatchStartClient.ballResetPending && MatchStartClient.isLocked)
+    /** 开球倒计时内禁止蓄力；点球防守门将等 [bypassesKickoffLockForFootballInput] 除外。 */
+    fun isKickoffChargeFrozen(player: LocalPlayer): Boolean {
+        if (MatchStartClient.penaltyFoulGoalWatchActive) return true
+        if (MatchStartClient.ballResetPending) return false
+        if (bypassesKickoffLockForFootballInput(player)) return false
+        return MatchStartClient.isLocked
+    }
 
     /**
      * 倒计时期间不发送定位球动作，但保留主罚键的“首次按下”边沿。
