@@ -283,8 +283,7 @@ object FootballNetworking {
         ms.kickoffTeam = kickoffTeam
         ms.postGoalResetPending = false
         PostGoalBallResetScheduler.cancel(fieldLevel.dimension())
-        MatchSendOffState.restoreAllForHalfKickoff(server)
-        ms.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.HALF)
+        ms.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.HALF, server)
         ms.teleportTeamsToSpawnPositions(server)
         val kickPos = MatchConfigHolder.current.kickOff.let { net.minecraft.world.phys.Vec3(it.x, it.y, it.z) }
         val nameA = ms.getTeamName(TeamSide.A).string

@@ -199,7 +199,6 @@ object FootballHudHintResolver {
         ) {
             return true
         }
-        // 开球锁已启动时始终显示倒计时；ballResetPending 仅用于操作层禁触，不应压制 HUD
         return MatchStartClient.startTimeMs > 0L && !MatchStartClient.kickoffTouched
     }
 

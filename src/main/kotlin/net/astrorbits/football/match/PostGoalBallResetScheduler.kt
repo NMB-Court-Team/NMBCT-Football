@@ -44,11 +44,19 @@ object PostGoalBallResetScheduler {
         MatchState.kickoffTeam = action.kickoffTeam
         when (action) {
             is PendingAfterReset.PostGoal -> {
-                MatchState.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.POST_GOAL)
+                MatchState.beginKickoffPhase(
+                    MatchKickoffTiming.POST_GOAL_LOCK_MS,
+                    KickoffWhistleContext.POST_GOAL,
+                    srv,
+                )
                 FootballNetworking.broadcastRestartKickoff(srv, action.kickoffTeam, goalLineOut = false)
             }
             is PendingAfterReset.GoalLineOut -> {
-                MatchState.beginKickoffPhase(MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS, KickoffWhistleContext.GOAL_LINE_OUT)
+                MatchState.beginKickoffPhase(
+                    MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS,
+                    KickoffWhistleContext.GOAL_LINE_OUT,
+                    srv,
+                )
                 if (action.throwInDirectGoalRestrict) {
                     MatchState.beginThrowInDirectGoalRestriction()
                 }
@@ -56,7 +64,11 @@ object PostGoalBallResetScheduler {
             }
             is PendingAfterReset.MatchPenaltyKick -> Unit
             is PendingAfterReset.FreeKick -> {
-                MatchState.beginKickoffPhase(MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS, KickoffWhistleContext.GOAL_LINE_OUT)
+                MatchState.beginKickoffPhase(
+                    MatchKickoffTiming.GOAL_LINE_OUT_LOCK_MS,
+                    KickoffWhistleContext.GOAL_LINE_OUT,
+                    srv,
+                )
                 if (action.freeKickType == FreeKickType.INDIRECT) {
                     MatchState.beginThrowInDirectGoalRestriction()
                 }

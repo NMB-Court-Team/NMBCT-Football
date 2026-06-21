@@ -22,7 +22,6 @@ object SetPiecePendingRestart {
     }
 
     fun fromRestartAward(kind: SetPieceRestartKind, restartTeam: TeamSide) {
-        // 中圈开球犯规重发：服务端已即时复位并广播开球锁，无需标记延迟复位
         if (kind == SetPieceRestartKind.KICKOFF) return
         val setPieceKind = when (kind) {
             SetPieceRestartKind.KICKOFF -> SetPieceKind.CENTER_KICKOFF

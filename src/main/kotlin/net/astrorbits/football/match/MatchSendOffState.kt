@@ -9,12 +9,13 @@ import net.minecraft.world.level.GameType
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
-/** 禁区内滑铲犯规：罚下（比赛计时）或下次中场开球时回归。 */
+/** 禁区内滑铲犯规：罚下（比赛计时）或中圈开球时回归。 */
 object MatchSendOffState {
     private data class Entry(
         val team: TeamSide,
         val expireAtTimerTicks: Int,
         val previousGameMode: GameType,
+        val skipNextCenterKickoffRestore: Boolean = false,
     )
 
     private val sentOff = ConcurrentHashMap<UUID, Entry>()
@@ -49,6 +50,11 @@ object MatchSendOffState {
             return
         }
         tryFinishForForfeit(server, team)
+    }
+
+    fun skipNextCenterKickoffRestore(uuid: UUID) {
+        val entry = sentOff[uuid] ?: return
+        sentOff[uuid] = entry.copy(skipNextCenterKickoffRestore = true)
     }
 
     /** 若该队登记队员全部处于罚下状态，则对手直接获胜。 */
@@ -93,8 +99,15 @@ object MatchSendOffState {
         }
     }
 
-    fun restoreAllForHalfKickoff(server: MinecraftServer) {
-        restoreAll(server, repositionToCorner = true)
+    fun restoreAllForCenterKickoff(server: MinecraftServer) {
+        for (uuid in sentOff.keys.toList()) {
+            val entry = sentOff[uuid] ?: continue
+            if (entry.skipNextCenterKickoffRestore) {
+                sentOff[uuid] = entry.copy(skipNextCenterKickoffRestore = false)
+                continue
+            }
+            restore(server, uuid, repositionToCorner = true)
+        }
     }
 
     /** 比赛结束或重置：恢复游戏模式，不再视为罚下（不传送）。 */
@@ -110,9 +123,18 @@ object MatchSendOffState {
 
     fun restore(server: MinecraftServer, uuid: UUID, repositionToCorner: Boolean = true) {
         val entry = sentOff[uuid] ?: return
-        val player = server.playerList.getPlayer(uuid) ?: return
+        val player = server.playerList.getPlayer(uuid)
+        if (player == null) {
+            sentOff.remove(uuid)
+            return
+        }
         sentOff.remove(uuid)
-        player.setGameMode(entry.previousGameMode)
+        val restoredMode = if (entry.previousGameMode == GameType.SPECTATOR) {
+            GameType.ADVENTURE
+        } else {
+            entry.previousGameMode
+        }
+        player.setGameMode(restoredMode)
         if (repositionToCorner) {
             MatchState.teleportPlayerToTeamCornerFarFromBall(player, entry.team, server)
         }

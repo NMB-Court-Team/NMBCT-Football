@@ -320,7 +320,6 @@ object PenaltyShootoutState {
         }
     }
 
-    /** 已记录结果但延迟推进丢失时（如 resetFootball 取消了调度）自动恢复。 */
     private fun tickRecordedOutcome(server: MinecraftServer) {
         val level = server.overworld()
         if (MatchState.postGoalResetPending &&

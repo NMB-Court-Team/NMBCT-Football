@@ -507,7 +507,7 @@ object MatchState {
         PenaltyShootoutState.isActive() || MatchPenaltyKickState.isActive()
 
     /** 进入开球锁定阶段（重置触球标记与开球哨计时）。 */
-    fun beginKickoffPhase(lockMs: Long, context: KickoffWhistleContext) {
+    fun beginKickoffPhase(lockMs: Long, context: KickoffWhistleContext, server: MinecraftServer? = null) {
         kickoffTouched = false
         kickoffBodyContactReleaseUntilTick = -1L
         kickoffTimerStartMs = System.currentTimeMillis()
@@ -517,6 +517,19 @@ object MatchState {
         kickoffWhistle3Played = false
         kickoffWhistle5Played = false
         lastDynamicStoppageAccumMs = 0L
+        if (server != null && context.isCenterKickoffRestore()) {
+            MatchSendOffState.restoreAllForCenterKickoff(server)
+        }
+    }
+
+    private fun KickoffWhistleContext.isCenterKickoffRestore(): Boolean = when (this) {
+        KickoffWhistleContext.MATCH_START,
+        KickoffWhistleContext.POST_GOAL,
+        KickoffWhistleContext.HALF,
+        -> true
+        KickoffWhistleContext.GOAL_LINE_OUT,
+        KickoffWhistleContext.PENALTY_KICK,
+        -> false
     }
 
     private fun scheduleKickoffBodyContactRelease(touchGameTick: Long) {
@@ -810,7 +823,7 @@ object MatchState {
         kickoffTeam = kickoff
         lastHalfKickoffTeam = kickoff
         postGoalResetPending = false
-        beginKickoffPhase(MatchKickoffTiming.MATCH_START_LOCK_MS, KickoffWhistleContext.MATCH_START)
+        beginKickoffPhase(MatchKickoffTiming.MATCH_START_LOCK_MS, KickoffWhistleContext.MATCH_START, server)
         val level = matchFieldLevel(server)
         val kickPos = MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
         DeferredBallResetScheduler.schedule(level, kickPos) { loadedLevel ->

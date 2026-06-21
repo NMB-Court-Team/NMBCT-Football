@@ -113,6 +113,7 @@ object PenaltyFoulGoalWatchState {
         if (football != null) {
             FootballParticles.playGoal(level, FootballParticles.centerOfFootball(football))
         }
+        pendingPenalty?.lastTouchPlayerUuid?.let { MatchSendOffState.skipNextCenterKickoffRestore(it) }
         clear()
         PostGoalBallResetScheduler.schedule(
             level,
