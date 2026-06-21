@@ -123,11 +123,13 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (isMatchPaused()) return true
         if (immovableTargetPlayers.contains(player.uuid)) return true
         if (player is ServerPlayer) {
-            // 蓄力射门弧线窗口 / 侧向加速 ramp：点球 RESOLVING 等开球锁仍须允许跟进
-            if (KickCurveSessions.isFollowUpActive(player.uuid, id, player.level().gameTime) ||
-                isCurveRampActiveFor(player.uuid)
-            ) {
-                return false
+            // 蓄力射门弧线窗口 / 侧向加速 ramp：点球 RESOLVING 等开球锁仍须允许跟进；判例后须停止
+            if (!MatchState.postGoalResetPending && MatchState.pendingGoalLineOut == null) {
+                if (KickCurveSessions.isFollowUpActive(player.uuid, id, player.level().gameTime) ||
+                    isCurveRampActiveFor(player.uuid)
+                ) {
+                    return false
+                }
             }
             // 界外球主罚员：踢球层放开（掷出与否由 GoalkeeperActions / allowsThrowAction 把关）
             if (ThrowInSetPieceFlow.isMovementFrozen(player)) return false
@@ -427,22 +429,30 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         FootballSounds.playCollisionBounces(level(), blockPosition(), bounce, level().random)
         FootballParticles.playCollisionBounces(level(), blockPosition(), bounce)
 
+        val resetPendingBefore = MatchState.postGoalResetPending
+        val goalLineOutBefore = MatchState.pendingGoalLineOut
         if (detectGoals) {
             detectGoal(beforeMove, position())
         }
-        applyWorldContactGuards(beforeMove, position())
+        val boundaryEventThisTick = (!resetPendingBefore && MatchState.postGoalResetPending) ||
+            (goalLineOutBefore == null && MatchState.pendingGoalLineOut != null)
+        applyWorldContactGuards(beforeMove, position(), skipPositionNudge = boundaryEventThisTick)
 
         return WorldMotionResult(beforeMove, actualMotion)
     }
 
-    private fun applyWorldContactGuards(beforeMove: Vec3, afterMove: Vec3) {
+    private fun applyWorldContactGuards(
+        beforeMove: Vec3,
+        afterMove: Vec3,
+        skipPositionNudge: Boolean = false,
+    ) {
         val radius = FootballPhysicsConfig.RADIUS
         val prevCenter = beforeMove.add(0.0, radius, 0.0)
         val currCenter = afterMove.add(0.0, radius, 0.0)
         val netContact = FootballNetInteraction.apply(level(), physicsState, prevCenter, currCenter)
         if (netContact != null) {
             val restCenter = netContact.restCenter
-            if (restCenter != null) {
+            if (restCenter != null && !skipPositionNudge) {
                 val target = restCenter.subtract(0.0, radius, 0.0)
                 setPos(target.x, target.y, target.z)
             }
@@ -456,8 +466,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             radius
         )
         if (blockDepenetration.correction.lengthSqr() > 1.0e-9) {
-            val target = blockDepenetration.center.subtract(0.0, radius, 0.0)
-            setPos(target.x, target.y, target.z)
+            val depenCenter = blockDepenetration.center
+            val allowDepenPosition = !skipPositionNudge && isCenterInPitchForDepenetration(depenCenter)
+            if (allowDepenPosition) {
+                val target = depenCenter.subtract(0.0, radius, 0.0)
+                setPos(target.x, target.y, target.z)
+            }
             val correctionLength = sqrt(blockDepenetration.correction.lengthSqr())
             if (correctionLength > 1.0e-9) {
                 val outward = blockDepenetration.correction.scale(1.0 / correctionLength)
@@ -468,6 +482,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             }
             deltaMovement = physicsState.linearVelocity
         }
+    }
+
+    /** 球心已出边线/门线外时，防穿透只做速度修正，不再 setPos 把球顶进场外方块（判例瞬间「往前窜」）。 */
+    private fun isCenterInPitchForDepenetration(center: Vec3): Boolean {
+        val rect = MatchFieldBounds.pitchRect(MatchConfigHolder.current) ?: return true
+        return rect.containsHorizontal(center.x, center.z)
     }
 
     private fun setCenterWithWorldContactGuards(center: Vec3) {
@@ -1550,6 +1570,10 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
     }
 
     private fun tickCurveRamp() {
+        if (MatchState.postGoalResetPending || MatchState.pendingGoalLineOut != null) {
+            curveRamp = null
+            return
+        }
         val ramp = curveRamp ?: return
         val serverLevel = level() as? ServerLevel ?: run {
             curveRamp = null
