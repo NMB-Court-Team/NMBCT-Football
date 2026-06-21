@@ -65,7 +65,7 @@ object FootballOperabilityClient {
         }
     }
 
-    private fun isPenaltyDefendingGoalkeeper(player: LocalPlayer): Boolean {
+    fun isPenaltyDefendingGoalkeeper(player: LocalPlayer): Boolean {
         if (!GoalkeeperStateClient.isGoalkeeper) {
             return false
         }
@@ -165,6 +165,17 @@ object FootballOperabilityClient {
             }
         }
 
+        if (isPenaltyDefendingGoalkeeper(player)) {
+            return when (key) {
+                FootballKeyBindings.GK_DIVE ->
+                    canGk && (canPrepareGoalkeeperDiveCharge(player) || canExecuteGoalkeeperDive(player))
+                FootballKeyBindings.BOOST_SPRINT -> player.isSprinting && StaminaClient.stamina > 0f
+                FootballKeyBindings.INTERRUPT_CHARGE -> FootballInputHandler.isAnyChargeActive()
+                FootballKeyBindings.LOOK_AROUND -> true
+                else -> false
+            }
+        }
+
         val freeKickGkHolding = isFreeKickDefendingGoalkeeperHolding(player)
         if (holdingBall) {
             return when (key) {
@@ -247,8 +258,11 @@ object FootballOperabilityClient {
             isGoalKickPlacingPicker(player) ||
             isGoalKickPlacedKicker(player) ||
             isGoalKickAwaitingPenaltyAreaExit() ||
-            isPenaltyKickerAwaitingKick(player) ||
-            isPenaltyDefendingGoalkeeper(player)
+            isPenaltyKickerAwaitingKick(player)
+
+    /** 点球防守门将：开球锁期间仍可按住右键鱼跃蓄力（不可触球踢球）。 */
+    fun canPenaltyGoalkeeperChargeDiveDuringKickoffLock(player: LocalPlayer): Boolean =
+        isPenaltyDefendingGoalkeeper(player) && canPrepareGoalkeeperDiveCharge(player)
 
     private fun isGoalKickPlacingPicker(player: LocalPlayer): Boolean {
         if (SetPieceClient.kind != SetPieceKind.GOAL_KICK) return false
@@ -256,10 +270,11 @@ object FootballOperabilityClient {
         return SetPieceClient.goalKickPickerUuid == player.uuid
     }
 
-    /** 开球倒计时内禁止蓄力；点球防守门将等 [bypassesKickoffLockForFootballInput] 除外。 */
+    /** 开球倒计时内禁止蓄力；点球防守门将鱼跃蓄力除外。 */
     fun isKickoffChargeFrozen(player: LocalPlayer): Boolean {
         if (MatchStartClient.penaltyFoulGoalWatchActive) return true
         if (MatchStartClient.ballResetPending) return false
+        if (canPenaltyGoalkeeperChargeDiveDuringKickoffLock(player)) return false
         if (bypassesKickoffLockForFootballInput(player)) return false
         return MatchStartClient.isLocked
     }
@@ -268,25 +283,34 @@ object FootballOperabilityClient {
      * 倒计时期间不发送定位球动作，但保留主罚键的“首次按下”边沿。
      * 玩家提前按住按键时，解锁后的首 tick 仍能正常开始蓄力。
      */
-    fun shouldPrimeRestartKeyWhileKickoffLocked(player: LocalPlayer, key: KeyMapping): Boolean =
-        when (SetPieceClient.kind) {
+    fun shouldPrimeRestartKeyWhileKickoffLocked(player: LocalPlayer, key: KeyMapping): Boolean {
+        if (SetPieceClient.kind == SetPieceKind.PENALTY_KICK ||
+            (MatchState.currentPhase == MatchPhase.PENALTIES && PenaltyShootoutClient.active)
+        ) {
+            return when {
+                isPenaltyKicker(player) -> key == FootballKeyBindings.KICK
+                isPenaltyDefendingGoalkeeper(player) -> key == FootballKeyBindings.GK_DIVE
+                else -> false
+            }
+        }
+        return when (SetPieceClient.kind) {
             SetPieceKind.CENTER_KICKOFF ->
                 SetPieceClient.restartTeam == localPlayerTeam(player) &&
                     key == FootballKeyBindings.KICK
             SetPieceKind.THROW_IN ->
                 isThrowInTaker(player) &&
                     key == FootballKeyBindings.GK_DIVE
-            SetPieceKind.PENALTY_KICK -> when {
-                isPenaltyKicker(player) -> key == FootballKeyBindings.KICK
-                isPenaltyDefendingGoalkeeper(player) -> key == FootballKeyBindings.GK_DIVE
-                else -> false
-            }
+            SetPieceKind.PENALTY_KICK -> false
             SetPieceKind.GOAL_KICK ->
                 canUseGoalKickCatch(player) && key == FootballKeyBindings.GK_CATCH
             else -> false
         }
+    }
 
-    private fun activePenaltyKickPhase(): PenaltyKickPhase? =
+    fun isPenaltyGoalkeeperResolving(player: LocalPlayer): Boolean =
+        isPenaltyDefendingGoalkeeper(player) && activePenaltyKickPhase() == PenaltyKickPhase.RESOLVING
+
+    fun activePenaltyKickPhase(): PenaltyKickPhase? =
         if (MatchState.currentPhase == MatchPhase.PENALTIES && PenaltyShootoutClient.active) {
             PenaltyShootoutClient.kickPhase
         } else {

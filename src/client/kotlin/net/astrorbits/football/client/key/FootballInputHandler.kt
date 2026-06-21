@@ -143,7 +143,8 @@ object FootballInputHandler {
                 return@reg
             }
             if (MatchStartClient.isLocked &&
-                !FootballOperabilityClient.bypassesKickoffLockForFootballInput(player)
+                !FootballOperabilityClient.bypassesKickoffLockForFootballInput(player) &&
+                !FootballOperabilityClient.canPenaltyGoalkeeperChargeDiveDuringKickoffLock(player)
             ) {
                 handleSlideTacklePress(player)
                 updatePrevTickPressed()
@@ -185,6 +186,7 @@ object FootballInputHandler {
             !throwInTaker
         val canGk = FootballOperabilityClient.canUseGoalkeeperActions()
         val canGoalKickCatch = FootballOperabilityClient.canUseGoalKickCatch(player)
+        val penaltyDefendingGk = FootballOperabilityClient.isPenaltyDefendingGoalkeeper(player)
         if (holdingBall) {
             if (!releaseLocked) {
                 handleThrowLongPress(player)
@@ -197,13 +199,16 @@ object FootballInputHandler {
                 tickGoalkeeperDiveChargeDrain(player)
                 handleDivePress(player)
             }
-            if (canGk || canGoalKickCatch) {
+            val canPenaltyGkCatch = !penaltyDefendingGk || FootballOperabilityClient.isPenaltyGoalkeeperResolving(player)
+            if ((canGk || canGoalKickCatch) && canPenaltyGkCatch) {
                 handleCatchPress(player)
             }
-            handleKickLongPress(player)
-            handleTrapPress(player, FootballActionType.TRAP)
-            handleChipPress(player)
-            handleDribbleHold(player)
+            if (!penaltyDefendingGk) {
+                handleKickLongPress(player)
+                handleTrapPress(player, FootballActionType.TRAP)
+                handleChipPress(player)
+                handleDribbleHold(player)
+            }
             handleSlideTacklePress(player)
         }
     }

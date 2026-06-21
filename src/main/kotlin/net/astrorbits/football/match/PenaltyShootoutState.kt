@@ -176,7 +176,6 @@ object PenaltyShootoutState {
         if (player.uuid == currentKickerUuid) {
             return kickPhase == PenaltyKickPhase.AWAITING_KICK
         }
-        if (isDefendingGoalkeeper(player)) return true
         return false
     }
 
@@ -530,7 +529,7 @@ object PenaltyShootoutState {
             football.isImmovable = true
             val immovable = mutableSetOf<UUID>()
             for (player in server.playerList.players) {
-                if (player.uuid != currentKickerUuid && !isDefendingGoalkeeper(player)) {
+                if (player.uuid != currentKickerUuid) {
                     immovable.add(player.uuid)
                 }
             }
