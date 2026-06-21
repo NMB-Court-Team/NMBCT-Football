@@ -32,7 +32,7 @@ object FootballInputHandler {
     private var divePressStartMs: Long? = null
     private var diveReleaseHeldMsOverride: Long? = null
     private var diveRealtimePrevDown = false
-    /** 鎸?Shift 鎵撴柇楸艰穬钃勫姏鍚庯紝蹇界暐鏈鍙抽敭鏉惧紑瑙﹀彂鐨勯奔璺冦€?*/
+    /** 按 Shift 打断鱼跃蓄力后，忽略本次右键松开触发的鱼跃。 */
     private var diveChargeCancelled = false
     private var fullChargeHoldTicks = 0
     var shootChargeRatio: Float = 0f
@@ -51,14 +51,14 @@ object FootballInputHandler {
         val ratio: Float,
         val phase: KickChargeUtil.Phase,
     )
-    /** 姝ｅ湪鎸変綇鍙抽敭杩涜楸艰穬鎴栨姏鍑鸿搫鍔涗笖灏氭湭琚?Shift 鎵撴柇锛堜緵 HUD 鎻愮ず鐢級銆?*/
+    /** 正在按住右键进行鱼跃或抛出蓄力且尚未被 Shift 打断（供 HUD 提示用）。 */
     fun isDiveOrThrowChargeActive(): Boolean {
         syncDivePressRealtimeClock()
         return FootballKeyBindings.GK_DIVE.isDown &&
             divePressStartMs != null &&
             !diveChargeCancelled
     }
-    /** 姝ｅ湪鎸変綇 R 杩涜浼犵悆/灏勯棬钃勫姏銆?*/
+    /** 正在按住 R 进行传球/射门蓄力。 */
     fun isKickChargeActive(): Boolean {
         syncKickPressRealtimeClock()
         return !GoalkeeperStateClient.isHoldingBall &&
@@ -66,12 +66,10 @@ object FootballInputHandler {
             kickPressStartMs != null
     }
     fun isAnyChargeActive(): Boolean = isDiveOrThrowChargeActive() || isKickChargeActive()
-    /** 鍩轰簬瀹炴椂鏃堕挓閲囨牱钃勫姏锛堜緵 HUD 姣忓抚璋冪敤锛岄伩鍏嶄粎 tick 鏇存柊瀵艰嚧杩涘害鏉″崱椤匡級銆?*/
+    /** 基于实时时钟采样蓄力（供 HUD 每帧调用，避免仅 tick 更新导致进度条卡顿）。 */
     fun liveKickChargeDisplay(): KickChargeDisplayState? {
         val player = net.minecraft.client.Minecraft.getInstance().player
-        if (MatchStartClient.isLocked &&
-            (player == null || !FootballOperabilityClient.bypassesKickoffLockForFootballInput(player))
-        ) {
+        if (player != null && FootballOperabilityClient.isKickoffChargeFrozen(player)) {
             return null
         }
         syncDivePressRealtimeClock()
@@ -117,7 +115,7 @@ object FootballInputHandler {
         return null
     }
     private var dribbleTickCounter = 0
-    /** 浼犵悆/灏勯棬/鎸戠悆鍚庨』鏉惧紑甯︾悆閿啀鎸夛紝閬垮厤浠嶆寜浣忔椂绔嬪埢閲嶆柊鎷夌悆銆?*/
+    /** 传球/射门/挑球后须松开带球键再按，避免仍按住时立刻重新拉球。 */
     private var dribbleResumeBlocked = false
     fun registerTickEvent() {
         ClientTickEvents.END_CLIENT_TICK.register reg@{ client ->
@@ -136,6 +134,7 @@ object FootballInputHandler {
                 return@reg
             }
             tickBoostSprint(player)
+            clearKickoffFrozenChargeState(player)
             if (MatchStartClient.isLocked &&
                 !FootballOperabilityClient.bypassesKickoffLockForFootballInput(player)
             ) {
@@ -251,6 +250,7 @@ object FootballInputHandler {
     }
 
     private fun handleDivePress(player: LocalPlayer) {
+        if (FootballOperabilityClient.isKickoffChargeFrozen(player)) return
         when (getDiveLongPressState()) {
             LongPressState.STARTED -> {
                 if (isPassShootChargeBlockingDive()) {
@@ -286,6 +286,7 @@ object FootballInputHandler {
         }
     }
     private fun handleThrowLongPress(player: LocalPlayer) {
+        if (FootballOperabilityClient.isKickoffChargeFrozen(player)) return
         when (getDiveLongPressState()) {
             LongPressState.STARTED -> {
                 if (divePressStartMs == null) {
@@ -392,6 +393,7 @@ object FootballInputHandler {
         }
     }
     private fun handleKickLongPress(player: LocalPlayer) {
+        if (FootballOperabilityClient.isKickoffChargeFrozen(player)) return
         when (getKickLongPressState()) {
             LongPressState.STARTED -> {
                 if (isDiveChargeBlockingPassShoot()) {
@@ -776,7 +778,26 @@ object FootballInputHandler {
         resetFootballActionState(player, notifyDribbleEnd)
         BoostSprintClient.reset()
     }
+    private fun clearKickoffFrozenChargeState(player: LocalPlayer) {
+        if (!FootballOperabilityClient.isKickoffChargeFrozen(player)) return
+        kickPressStartMs = null
+        kickReleaseHeldMsOverride = null
+        divePressStartMs = null
+        diveReleaseHeldMsOverride = null
+        diveChargeCancelled = false
+        fullChargeHoldTicks = 0
+        resetChargeDisplay()
+    }
+
     private fun syncKickPressRealtimeClock() {
+        val player = net.minecraft.client.Minecraft.getInstance().player
+        if (player != null && FootballOperabilityClient.isKickoffChargeFrozen(player)) {
+            kickPressStartMs = null
+            kickReleaseHeldMsOverride = null
+            resetKickChargeDisplay()
+            kickRealtimePrevDown = FootballKeyBindings.KICK.isDown
+            return
+        }
         val down = FootballKeyBindings.KICK.isDown
         val now = System.currentTimeMillis()
         val canTrackCharge = !GoalkeeperStateClient.isHoldingBall && !isDiveChargeBlockingPassShoot()
@@ -792,10 +813,18 @@ object FootballInputHandler {
         kickRealtimePrevDown = down
     }
     private fun syncDivePressRealtimeClock() {
+        val player = net.minecraft.client.Minecraft.getInstance().player
+        if (player != null && FootballOperabilityClient.isKickoffChargeFrozen(player)) {
+            divePressStartMs = null
+            diveReleaseHeldMsOverride = null
+            diveChargeCancelled = false
+            resetThrowChargeDisplay()
+            diveRealtimePrevDown = FootballKeyBindings.GK_DIVE.isDown
+            return
+        }
         val down = FootballKeyBindings.GK_DIVE.isDown
         val now = System.currentTimeMillis()
         val holding = GoalkeeperStateClient.isHoldingBall
-        val player = net.minecraft.client.Minecraft.getInstance().player
         val canTrackDive = !holding && !isPassShootChargeBlockingDive() && player != null &&
             FootballOperabilityClient.canPrepareGoalkeeperDiveCharge(player)
         val canTrackThrow = holding && !GoalkeeperStateClient.isHoldReleaseLocked()

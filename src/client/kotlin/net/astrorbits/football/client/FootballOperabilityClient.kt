@@ -255,6 +255,10 @@ object FootballOperabilityClient {
         return SetPieceClient.goalKickPickerUuid == player.uuid
     }
 
+    /** 开球/点球 intro 倒计时内禁止蓄力计时（仍可 priming 按键边沿，解锁后从零开始）。 */
+    fun isKickoffChargeFrozen(player: LocalPlayer): Boolean =
+        !MatchStartClient.ballResetPending && MatchStartClient.isLocked
+
     /**
      * 倒计时期间不发送定位球动作，但保留主罚键的“首次按下”边沿。
      * 玩家提前按住按键时，解锁后的首 tick 仍能正常开始蓄力。
