@@ -130,6 +130,10 @@ object MatchStartClient {
         pendingSetPieceKind = setPieceKind
         kickoffTeam = restartTeam
         isKickoffTeam = playerTeam == restartTeam
+        // 延迟复位期间清掉旧开球计时，避免犯规重发后仍显示上一轮的倒计时
+        startTimeMs = 0L
+        kickoffStartMs = 0L
+        kickoffTouched = true
     }
 
     fun clearBallResetPending() {

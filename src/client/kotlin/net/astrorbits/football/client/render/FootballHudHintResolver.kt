@@ -194,12 +194,12 @@ object FootballHudHintResolver {
 
     private fun isAwaitingSetPieceTouch(): Boolean {
         if (MatchStartClient.isChoosing) return false
-        if (MatchStartClient.ballResetPending) return false
         if (SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
             SetPieceClient.goalKickPhase == GoalKickPhase.AWAITING_PA_EXIT
         ) {
             return true
         }
+        // 开球锁已启动时始终显示倒计时；ballResetPending 仅用于操作层禁触，不应压制 HUD
         return MatchStartClient.startTimeMs > 0L && !MatchStartClient.kickoffTouched
     }
 
