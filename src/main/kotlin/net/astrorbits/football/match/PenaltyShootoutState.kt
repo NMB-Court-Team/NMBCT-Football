@@ -25,9 +25,10 @@ enum class PenaltyKickPhase {
 
 object PenaltyShootoutState {
     private const val REGULATION_KICKS_PER_TEAM = 5
-    private const val RESOLVE_TIMEOUT_TICKS = 600
-    private const val STATIONARY_SPEED_SQR = 0.002
-    private const val STATIONARY_TICKS_NEEDED = 20
+    private const val RESOLVE_TIMEOUT_TICKS = 200
+    private const val STATIONARY_SPEED_SQR = 0.008
+    private const val STATIONARY_TICKS_NEEDED = 10
+    private const val HELD_OUTCOME_TICKS = 5
     private const val KICKER_OFFSET_BLOCKS = 2.5
     /** 等待区：点球点正上方（旁观模式俯瞰罚球）。 */
     private const val WAITING_SPECTATOR_Y_OFFSET = 5.0
@@ -72,6 +73,7 @@ object PenaltyShootoutState {
     private val kickCountByPlayer = mutableMapOf<UUID, Int>()
     private var resolveTicks = 0
     private var stationaryTicks = 0
+    private var heldTicks = 0
     private var outcomeRecorded = false
     private var activeFootballId: Int = -1
     private var kickIntroTicksRemaining = 0
@@ -85,7 +87,7 @@ object PenaltyShootoutState {
     fun isActive(): Boolean = active && MatchState.currentPhase == MatchPhase.PENALTIES
 
     fun shouldDetectBallResolution(): Boolean =
-        isActive() && kickPhase == PenaltyKickPhase.RESOLVING && !outcomeRecorded && !MatchState.postGoalResetPending
+        isActive() && kickPhase == PenaltyKickPhase.RESOLVING && !outcomeRecorded
 
     fun isPenaltyWaitingSpectator(player: ServerPlayer): Boolean =
         player.uuid in penaltyWaitingSpectators
@@ -146,6 +148,7 @@ object PenaltyShootoutState {
         }
         resolveTicks = 0
         stationaryTicks = 0
+        heldTicks = 0
         outcomeRecorded = false
         activeFootballId = -1
         kickIntroTicksRemaining = 0
@@ -244,6 +247,7 @@ object PenaltyShootoutState {
         kickPhase = PenaltyKickPhase.RESOLVING
         resolveTicks = 0
         stationaryTicks = 0
+        heldTicks = 0
         outcomeRecorded = false
         football.isImmovable = false
         football.immovableTargetPlayers = emptySet()
@@ -286,13 +290,26 @@ object PenaltyShootoutState {
             }
             return
         }
-        if (kickPhase != PenaltyKickPhase.RESOLVING || outcomeRecorded) return
+        if (kickPhase != PenaltyKickPhase.RESOLVING) return
+        if (outcomeRecorded) {
+            tickRecordedOutcome(server)
+            return
+        }
         resolveTicks++
         if (resolveTicks >= RESOLVE_TIMEOUT_TICKS) {
             applyOutcome(scored = false, server)
             return
         }
         val football = findActiveFootball(server) ?: return
+        if (football.isHeld()) {
+            heldTicks++
+            stationaryTicks = 0
+            if (heldTicks >= HELD_OUTCOME_TICKS) {
+                applyOutcome(scored = false, server)
+            }
+            return
+        }
+        heldTicks = 0
         if (football.simulationVelocity().lengthSqr() < STATIONARY_SPEED_SQR) {
             stationaryTicks++
             if (stationaryTicks >= STATIONARY_TICKS_NEEDED) {
@@ -303,13 +320,31 @@ object PenaltyShootoutState {
         }
     }
 
-    private fun findActiveFootball(server: MinecraftServer): Football? {
-        if (activeFootballId < 0) return null
-        for (level in server.getAllLevels()) {
-            val entity = level.getEntity(activeFootballId)
-            if (entity is Football) return entity
+    /** 已记录结果但延迟推进丢失时（如 resetFootball 取消了调度）自动恢复。 */
+    private fun tickRecordedOutcome(server: MinecraftServer) {
+        val level = server.overworld()
+        if (MatchState.postGoalResetPending &&
+            PostGoalBallResetScheduler.hasPendingFor(level.dimension())
+        ) {
+            return
         }
-        return null
+        MatchState.postGoalResetPending = false
+        advanceAfterOutcome(server)
+    }
+
+    private fun findActiveFootball(server: MinecraftServer): Football? {
+        if (activeFootballId >= 0) {
+            for (level in server.getAllLevels()) {
+                val entity = level.getEntity(activeFootballId)
+                if (entity is Football) return entity
+            }
+        }
+        val level = server.overworld()
+        val spot = defendingGoal().resolvedPenaltySpot()
+        val box = net.minecraft.world.phys.AABB.ofSize(Vec3(spot.x, spot.y, spot.z), 64.0, 64.0, 64.0)
+        return level.getEntitiesOfClass(Football::class.java, box).minByOrNull {
+            it.distanceToSqr(spot.x, spot.y, spot.z)
+        }?.also { activeFootballId = it.id }
     }
 
     /** 介绍期球体 [isImmovable]；进入 AWAITING_KICK 后须解除，否则主罚无法 [Football.kick]。 */
@@ -318,7 +353,7 @@ object PenaltyShootoutState {
     }
 
     private fun applyOutcome(scored: Boolean, server: MinecraftServer) {
-        if (outcomeRecorded || !active || MatchState.postGoalResetPending) return
+        if (outcomeRecorded || !active) return
         outcomeRecorded = true
         lastKickScored = scored
         currentKickerUuid?.let { uuid ->
@@ -349,7 +384,6 @@ object PenaltyShootoutState {
     }
 
     private fun scheduleDelayedAdvance(server: MinecraftServer) {
-        if (MatchState.postGoalResetPending) return
         MatchState.postGoalResetPending = true
         val level = server.overworld()
         PostGoalBallResetScheduler.schedule(

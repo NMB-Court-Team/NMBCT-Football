@@ -70,6 +70,9 @@ object PostGoalBallResetScheduler {
         pending.removeIf { it.dimension == dimension }
     }
 
+    fun hasPendingFor(dimension: ResourceKey<Level>): Boolean =
+        pending.any { it.dimension == dimension }
+
     private fun tick(server: MinecraftServer) {
         if (pending.isEmpty()) return
         val iter = pending.iterator()
