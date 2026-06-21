@@ -43,6 +43,10 @@ object PenaltyKickAwards {
         SetPieceAreaViolationMonitor.clearAll(level.server)
 
         val server = level.server
+        val foulingPlayer = server.playerList.getPlayer(foulingPlayerUuid)
+        if (foulingPlayer != null) {
+            MatchSendOffState.sendOffForSlideTackleFoul(server, foulingPlayer, foulingTeam)
+        }
         FootballNetworking.broadcastFreeKickAward(
             server,
             type = FreeKickType.PENALTY,

@@ -3,6 +3,7 @@ package net.astrorbits.football.match
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.IntegerArgumentType
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
+import com.mojang.brigadier.context.CommandContext
 import net.astrorbits.football.network.FootballNetworking
 import net.minecraft.commands.CommandBuildContext
 import net.minecraft.commands.CommandSourceStack
@@ -10,6 +11,7 @@ import net.minecraft.commands.Commands
 import net.minecraft.commands.arguments.ComponentArgument
 import net.minecraft.commands.arguments.EntityArgument
 import net.minecraft.network.chat.Component
+import net.minecraft.server.level.ServerPlayer
 
 object MatchCommand {
 	fun register(dispatcher: CommandDispatcher<CommandSourceStack>, context: CommandBuildContext) {
@@ -136,7 +138,70 @@ object MatchCommand {
 			1
 		})
 
+		registerTestSendOffCommand(root)
+
 		dispatcher.register(root)
+	}
+
+	private fun registerTestSendOffCommand(root: LiteralArgumentBuilder<CommandSourceStack>) {
+		val cmd = Commands.literal("testSendOff").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+		cmd.then(
+			Commands.literal("restore")
+				.executes { ctx ->
+					val player = ctx.source.player
+					if (player == null) {
+						ctx.source.sendFailure(Component.translatable("command.nmbct-football.config.player_only"))
+						return@executes 0
+					}
+					executeTestSendOffRestore(ctx, player)
+				}
+				.then(
+					Commands.argument("player", EntityArgument.player())
+						.executes { ctx -> executeTestSendOffRestore(ctx, EntityArgument.getPlayer(ctx, "player")) },
+				),
+		)
+		cmd.executes { ctx ->
+			val player = ctx.source.player
+			if (player == null) {
+				ctx.source.sendFailure(Component.translatable("command.nmbct-football.config.player_only"))
+				return@executes 0
+			}
+			executeTestSendOff(ctx, player)
+		}
+		cmd.then(
+			Commands.argument("player", EntityArgument.player())
+				.executes { ctx -> executeTestSendOff(ctx, EntityArgument.getPlayer(ctx, "player")) },
+		)
+		root.then(cmd)
+	}
+
+	private fun executeTestSendOff(ctx: CommandContext<CommandSourceStack>, target: ServerPlayer): Int {
+		val team = MatchState.getPlayerTeam(target.uuid)
+		if (team == null) {
+			ctx.source.sendFailure(Component.translatable("command.nmbct-football.match.test_send_off_not_on_team"))
+			return 0
+		}
+		if (MatchSendOffState.isSentOff(target.uuid)) {
+			ctx.source.sendFailure(Component.translatable("command.nmbct-football.match.test_send_off_already"))
+			return 0
+		}
+		MatchSendOffState.sendOffForSlideTackleFoul(ctx.source.server, target, team)
+		ctx.source.sendSuccess({
+			Component.translatable("command.nmbct-football.match.test_send_off", target.gameProfile.name)
+		}, true)
+		return 1
+	}
+
+	private fun executeTestSendOffRestore(ctx: CommandContext<CommandSourceStack>, target: ServerPlayer): Int {
+		if (!MatchSendOffState.isSentOff(target.uuid)) {
+			ctx.source.sendFailure(Component.translatable("command.nmbct-football.match.test_send_off_not_sent_off"))
+			return 0
+		}
+		MatchSendOffState.restore(ctx.source.server, target.uuid)
+		ctx.source.sendSuccess({
+			Component.translatable("command.nmbct-football.match.test_send_off_restore", target.gameProfile.name)
+		}, true)
+		return 1
 	}
 
 	private fun registerPhaseCommands(root: LiteralArgumentBuilder<CommandSourceStack>) {

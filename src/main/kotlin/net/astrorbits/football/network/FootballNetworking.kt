@@ -74,6 +74,8 @@ object FootballNetworking {
         registry.register(SetPieceRestartS2CPayload.TYPE, SetPieceRestartS2CPayload.CODEC)
         registry.register(SetPieceStateS2CPayload.TYPE, SetPieceStateS2CPayload.CODEC)
         registry.register(BallResetPendingS2CPayload.TYPE, BallResetPendingS2CPayload.CODEC)
+        registry.register(PlayerSendOffS2CPayload.TYPE, PlayerSendOffS2CPayload.CODEC)
+        registry.register(PlayerSendOffRestoreS2CPayload.TYPE, PlayerSendOffRestoreS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -201,6 +203,7 @@ object FootballNetworking {
             PenaltyShootoutState.tick(server)
             MatchPenaltyKickState.tick(server)
             PenaltyFoulGoalWatchState.tick(server)
+            MatchSendOffState.tick(server)
             ThrowInSetPieceFlow.tickMovementFreeze(server)
 
             MatchState.tickKickoffWhistles(server)
@@ -267,6 +270,7 @@ object FootballNetworking {
         ms.kickoffTeam = kickoffTeam
         ms.postGoalResetPending = false
         PostGoalBallResetScheduler.cancel(fieldLevel.dimension())
+        MatchSendOffState.restoreAllForHalfKickoff(server)
         ms.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.HALF)
         ms.teleportTeamsToSpawnPositions(server)
         val kickPos = MatchConfigHolder.current.kickOff.let { net.minecraft.world.phys.Vec3(it.x, it.y, it.z) }
@@ -513,6 +517,7 @@ object FootballNetworking {
         GoalkeeperHoldActionPermissions.clearAll(server)
         MatchPauseFootballState.onResume(server)
         MatchState.restoreSpectators(server)
+        MatchSendOffState.restoreAllForHalfKickoff(server)
         MatchState.reset()
         GoalKickSetPieceFlow.clear(server)
         ThrowInSetPieceFlow.clear(server)
@@ -700,6 +705,23 @@ object FootballNetworking {
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
         }
+    }
+
+    fun broadcastPlayerSendOff(
+        server: MinecraftServer,
+        sentOffPlayerUuid: UUID,
+        playerName: String,
+        team: TeamSide,
+        expireAtTimerTicks: Int,
+    ) {
+        val payload = PlayerSendOffS2CPayload(sentOffPlayerUuid, playerName, team, expireAtTimerTicks)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun sendPlayerSendOffRestore(player: ServerPlayer) {
+        ServerPlayNetworking.send(player, PlayerSendOffRestoreS2CPayload.INSTANCE)
     }
 
     fun sendSetPieceAreaViolation(player: ServerPlayer, areaNameKey: String, secondsRemaining: Int) {

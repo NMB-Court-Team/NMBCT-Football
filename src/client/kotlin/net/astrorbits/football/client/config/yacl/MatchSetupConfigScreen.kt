@@ -33,6 +33,7 @@ object MatchSetupConfigScreen {
                         stoppageTimeMaxMinutes = rules.stoppageTimeMaxMinutes.coerceAtLeast(0),
                         extraTimeHalfMinutes = rules.extraTimeHalfMinutes.coerceAtLeast(0),
                         postGoalBallResetDelaySeconds = rules.postGoalBallResetDelaySeconds.coerceAtLeast(0),
+                        sendOffDurationSeconds = rules.sendOffDurationSeconds.coerceAtLeast(0),
                         preMatchPreparationMinutes = rules.preMatchPreparationMinutes.coerceIn(0, 10),
                     ),
                 )
@@ -113,6 +114,14 @@ object MatchSetupConfigScreen {
                         getter = { getter().postGoalBallResetDelaySeconds },
                         setter = { v -> setRules(getter, setter) { it.copy(postGoalBallResetDelaySeconds = v) } },
                         range = 0..60,
+                    )
+                    addInt(
+                        nameKey = "screen.nmbct-football.match.send_off_duration_seconds",
+                        descKey = MatchYaclDesc.desc("screen.nmbct-football.match.send_off_duration_seconds"),
+                        defaultValue = def.sendOffDurationSeconds,
+                        getter = { getter().sendOffDurationSeconds },
+                        setter = { v -> setRules(getter, setter) { it.copy(sendOffDurationSeconds = v) } },
+                        range = 0..600,
                     )
                     addBoolean(
                         nameKey = "screen.nmbct-football.match.enable_pre_match_preparation",

@@ -36,6 +36,7 @@ object NMBCTFootballClient : ClientModInitializer {
 		GoalScoredClientNetworking.register()
 		InvalidGoalClientNetworking.register()
 		FreeKickAwardClientNetworking.register()
+		PlayerSendOffClientNetworking.register()
 		SetPieceClientNetworking.register()
 
 		FootballKeyBindings.init()
@@ -103,6 +104,19 @@ object NMBCTFootballClient : ClientModInitializer {
 		HudElementRegistry.addLast(
 			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "free_kick_award_hud"),
 			FreeKickAwardHudElement()
+		)
+
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "send_off_broadcast_hud"),
+			SendOffBroadcastHudElement()
+		)
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "send_off_red_card_hud"),
+			SendOffRedCardHudElement()
+		)
+		HudElementRegistry.addLast(
+			Identifier.fromNamespaceAndPath(NMBCTFootball.MOD_ID, "send_off_return_hint_hud"),
+			SendOffReturnHintHudElement()
 		)
 
 		HudElementRegistry.addLast(

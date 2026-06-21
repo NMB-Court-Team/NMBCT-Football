@@ -290,6 +290,7 @@ object MatchState {
         MatchPenaltyKickState.clear()
         SetPieceState.clear()
         SecondTouchTracker.clear()
+        MatchSendOffState.clear()
     }
 
     fun kickoffWhistleContext(): KickoffWhistleContext? = kickoffWhistleContext
@@ -846,6 +847,24 @@ object MatchState {
             }
             teleportTeam(side, uuids, gkUuid, spawnCfg, server)
         }
+    }
+
+    fun teleportPlayerToTeamSpawn(player: ServerPlayer, team: TeamSide) {
+        val config = MatchConfigHolder.current
+        val spawnCfg = when (team) {
+            TeamSide.A -> config.teamASpawn
+            TeamSide.B -> config.teamBSpawn
+        }
+        val gkUuid = when (team) {
+            TeamSide.A -> PlayerRoleState.teamAGoalkeeper
+            TeamSide.B -> PlayerRoleState.teamBGoalkeeper
+        }
+        val pos = if (player.uuid == gkUuid) {
+            spawnCfg.gk
+        } else {
+            spawnCfg.players.firstOrNull() ?: spawnCfg.gk
+        }
+        teleportTo(player, pos)
     }
 
     private fun teleportTeam(

@@ -12,6 +12,8 @@ data class MatchRulesSettings(
     val extraTimeHalfMinutes: Int = 3,
     val enablePenaltyShootout: Boolean = false,
     val postGoalBallResetDelaySeconds: Int = 3,
+    /** 禁区内滑铲犯规罚下时长（秒，比赛计时）。 */
+    val sendOffDurationSeconds: Int = 120,
     val enablePreMatchPreparation: Boolean = true,
     val preMatchPreparationMinutes: Int = 2,
 ) {
@@ -43,6 +45,8 @@ data class MatchRulesSettings(
                 Codec.BOOL.fieldOf("enable_penalty_shootout").forGetter(MatchRulesSettings::enablePenaltyShootout),
                 Codec.INT.optionalFieldOf("post_goal_ball_reset_delay_seconds", 3)
                     .forGetter(MatchRulesSettings::postGoalBallResetDelaySeconds),
+                Codec.INT.optionalFieldOf("send_off_duration_seconds", 120)
+                    .forGetter(MatchRulesSettings::sendOffDurationSeconds),
                 Codec.BOOL.optionalFieldOf("enable_pre_match_preparation", true)
                     .forGetter(MatchRulesSettings::enablePreMatchPreparation),
                 Codec.INT.optionalFieldOf("pre_match_preparation_minutes", 2)
