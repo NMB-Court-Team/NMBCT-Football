@@ -477,6 +477,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         repositionCenter: Vec3? = null,
         now: Long = (level() as? ServerLevel)?.gameTime ?: 0L,
     ): Boolean {
+        if (PenaltyFoulGoalWatchState.isActive()) {
+            return false
+        }
         if (isImmovable || isPlayerBallMovementForbidden(player) || isHoldStealProtectedFrom(player)) {
             return false
         }
@@ -899,6 +902,11 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val prevCenter = prevPos.add(0.0, radius, 0.0)
         val currCenter = currPos.add(0.0, radius, 0.0)
 
+        if (PenaltyFoulGoalWatchState.isActive()) {
+            detectPenaltyFoulGoalWatch(prevCenter, currCenter)
+            return
+        }
+
         if (MatchPenaltyKickState.isActive()) {
             detectMatchPenaltyKick(prevCenter, currCenter)
             return
@@ -963,6 +971,48 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (checkMatchPenaltyGoalLine(config.goalB, prevCenter, currCenter, TeamSide.B, TeamSide.A)) return
         if (checkMatchPenaltySidelineOut(config.sidelineA, prevCenter, currCenter)) return
         checkMatchPenaltySidelineOut(config.sidelineB, prevCenter, currCenter)
+    }
+
+    /** 滑铲犯规观察期：仅判犯规方球门线与边线，逻辑同正赛点球 RESOLVING。 */
+    private fun detectPenaltyFoulGoalWatch(prevCenter: Vec3, currCenter: Vec3) {
+        val config = MatchConfigHolder.current
+        val defending = PenaltyFoulGoalWatchState.defendingTeam
+        val attacking = PenaltyFoulGoalWatchState.kickingTeam
+        val goal = when (defending) {
+            TeamSide.A -> config.goalA
+            TeamSide.B -> config.goalB
+        }
+        val crossing = GoalCrossingUtil.segmentCrossesGoalLine(
+            goal, prevCenter, currCenter, defending, attacking,
+        )
+        if (crossing != null) {
+            val effectiveInGoal = crossing.inGoal || GoalCrossingUtil.isCenterInGoal(goal, currCenter)
+            PenaltyFoulGoalWatchState.onGoalLineCrossing(
+                crossing.copy(inGoal = effectiveInGoal, definiteGoalLineOut = crossing.definiteGoalLineOut && !effectiveInGoal),
+            )
+            return
+        }
+        if (checkPenaltyFoulWatchSidelineOut(config.sidelineA, prevCenter, currCenter)) return
+        checkPenaltyFoulWatchSidelineOut(config.sidelineB, prevCenter, currCenter)
+    }
+
+    private fun checkPenaltyFoulWatchSidelineOut(
+        sideline: SidelineConfig,
+        prevCenter: Vec3,
+        currCenter: Vec3,
+    ): Boolean {
+        val facing = sideline.facing()
+        if (facing.lengthSqr() < 1e-6) return false
+        val origin = sideline.origin()
+        val refX = origin.x
+        val refY = origin.y
+        val refZ = origin.z
+        val d1 = (prevCenter.x - refX) * facing.x + (prevCenter.y - refY) * facing.y + (prevCenter.z - refZ) * facing.z
+        val d2 = (currCenter.x - refX) * facing.x + (currCenter.y - refY) * facing.y + (currCenter.z - refZ) * facing.z
+        if (d1 * d2 >= 0) return false
+        if (d2 - d1 >= 0) return false
+        PenaltyFoulGoalWatchState.onSidelineOut()
+        return true
     }
 
     private fun checkMatchPenaltyGoalLine(
@@ -1201,7 +1251,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             }
             MatchState.clearDirectGoalRestriction()
             MatchState.clearPendingOffsideSnapshot()
-            MatchState.postGoalResetPending = true
+            if (!MatchState.postGoalResetPending) {
+                MatchState.postGoalResetPending = true
+            }
             MatchState.onGoal(attackingTeam)
             val ownGoal = scorerTeam != attackingTeam
             FootballNetworking.broadcastGoalScored(

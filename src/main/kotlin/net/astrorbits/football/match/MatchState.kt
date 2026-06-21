@@ -281,6 +281,7 @@ object MatchState {
         halfKickoffBroadcasted = false
         lastHalfKickoffTeam = null
         postGoalResetPending = false
+        PenaltyFoulGoalWatchState.clear()
         clearPendingGoalLineOut()
         clearDirectGoalRestriction()
         clearPendingOffsideSnapshot()
@@ -354,6 +355,9 @@ object MatchState {
 
     fun isKickoffInteractionLocked(player: ServerPlayer, action: net.astrorbits.football.network.FootballActionType?): Boolean {
         if (!MatchParticipation.isParticipating(player)) {
+            return true
+        }
+        if (PenaltyFoulGoalWatchState.isActive()) {
             return true
         }
         if (postGoalResetPending) {
@@ -490,7 +494,8 @@ object MatchState {
      * 点球阶段（含主罚触球后的 RESOLVING）全程禁止滑铲动球。
      */
     fun shouldSuppressKickoffPhaseSlideBallContact(player: ServerPlayer): Boolean =
-        isPenaltyKickSetPieceActive() ||
+        PenaltyFoulGoalWatchState.isActive() ||
+            isPenaltyKickSetPieceActive() ||
             shouldSuppressKickoffPhaseBodyBallContact(player.level().gameTime)
 
     /** 正赛点球或点球大战进行中。 */
@@ -628,6 +633,7 @@ object MatchState {
             PostGoalBallResetScheduler.cancel(level.dimension())
         }
         postGoalResetPending = false
+        PenaltyFoulGoalWatchState.clear()
         for (player in server.playerList.players) {
             GoalkeeperUtil.findHeldFootball(player)?.dropAt(player)
         }
@@ -649,6 +655,7 @@ object MatchState {
         DeferredBallResetScheduler.cancel(level.dimension())
         PostGoalBallResetScheduler.cancel(level.dimension())
         postGoalResetPending = false
+        PenaltyFoulGoalWatchState.clear()
         clearAllFootballs(level.server)
         val fb = Football(Football.ENTITY_TYPE, level)
         val p = pos ?: MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }

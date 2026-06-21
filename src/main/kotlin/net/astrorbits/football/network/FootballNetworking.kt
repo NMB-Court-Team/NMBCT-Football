@@ -73,6 +73,7 @@ object FootballNetworking {
         registry.register(SetPieceAreaViolationS2CPayload.TYPE, SetPieceAreaViolationS2CPayload.CODEC)
         registry.register(SetPieceRestartS2CPayload.TYPE, SetPieceRestartS2CPayload.CODEC)
         registry.register(SetPieceStateS2CPayload.TYPE, SetPieceStateS2CPayload.CODEC)
+        registry.register(BallResetPendingS2CPayload.TYPE, BallResetPendingS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -199,6 +200,7 @@ object FootballNetworking {
 
             PenaltyShootoutState.tick(server)
             MatchPenaltyKickState.tick(server)
+            PenaltyFoulGoalWatchState.tick(server)
             ThrowInSetPieceFlow.tickMovementFreeze(server)
 
             MatchState.tickKickoffWhistles(server)
@@ -688,6 +690,13 @@ object FootballNetworking {
             ballY = ballY,
             ballZ = ballZ,
         )
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun broadcastBallResetPending(server: MinecraftServer, restartTeam: TeamSide, setPieceKind: SetPieceKind) {
+        val payload = BallResetPendingS2CPayload(restartTeam, setPieceKind)
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
         }

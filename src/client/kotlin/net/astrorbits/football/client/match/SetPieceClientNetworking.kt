@@ -71,6 +71,8 @@ object SetPieceClientNetworking {
         if (payload.penaltyKickPhase != PenaltyKickPhase.SETUP) return
         if (MatchState.currentPhase == MatchPhase.PENALTIES) return
         val kickerTeam = payload.restartTeam ?: return
+        MatchStartClient.clearPenaltyFoulGoalWatch()
+        MatchStartClient.clearBallResetPending()
         MatchStartClient.startPenaltyKick(kickerTeam)
     }
 }

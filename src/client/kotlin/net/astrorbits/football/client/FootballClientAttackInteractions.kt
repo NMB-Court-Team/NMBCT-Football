@@ -20,6 +20,9 @@ object FootballClientAttackInteractions {
             if (player.cooldowns.isOnCooldown(player.mainHandItem)) {
                 return@ClientPreAttackCallback true
             }
+            if (MatchStartClient.penaltyFoulGoalWatchActive) {
+                return@ClientPreAttackCallback true
+            }
             if (MatchStartClient.isLocked &&
                 !FootballOperabilityClient.bypassesKickoffLockForFootballInput(player)
             ) {

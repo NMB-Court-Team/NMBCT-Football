@@ -139,6 +139,7 @@
     "hud.nmbct-football.restart.reason.goal_kick_ball_stationary": "Ball did not leave penalty area",
     "hud.nmbct-football.restart.reason.free_kick_ball_in_area": "Ball entered penalty area",
     "hud.nmbct-football.free_kick.foul_line": "Foul: %1$s · %2$s",
+    "hud.nmbct-football.foul.headline": "Foul",
     "hud.nmbct-football.free_kick.restart": "%s to restart",
     "hud.nmbct-football.match.paused": "Match Paused",
     "hud.nmbct-football.match.paused_overlay": "Match Paused",

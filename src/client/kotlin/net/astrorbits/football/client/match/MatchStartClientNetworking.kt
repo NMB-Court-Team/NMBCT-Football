@@ -48,6 +48,7 @@ object MatchStartClientNetworking {
             Minecraft.getInstance().execute {
                 MatchState.reset()
                 MatchStartClient.reset()
+                FreeKickAwardClient.clear()
                 GoalkeeperStateClient.onMatchReset()
                 PenaltyShootoutClient.reset()
                 SetPieceClient.reset()
@@ -121,6 +122,15 @@ object MatchStartClientNetworking {
                     payload.lastTouchPlayerName,
                     payload.lastTouchTeam,
                 )
+            }
+        }
+        ClientPlayNetworking.registerGlobalReceiver(BallResetPendingS2CPayload.TYPE) { payload, _ ->
+            Minecraft.getInstance().execute {
+                MatchStartClient.clearPenaltyFoulGoalWatch()
+                MatchStartClient.beginBallResetPending(payload.restartTeam, payload.setPieceKind)
+                if (payload.setPieceKind == SetPieceKind.PENALTY_KICK) {
+                    FreeKickAwardClient.confirmPenaltyAward(payload.restartTeam)
+                }
             }
         }
         ClientPlayNetworking.registerGlobalReceiver(MatchResultS2CPayload.TYPE) { payload, _ ->

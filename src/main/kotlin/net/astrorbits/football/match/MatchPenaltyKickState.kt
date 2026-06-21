@@ -59,6 +59,7 @@ object MatchPenaltyKickState {
         kickPhase = PenaltyKickPhase.SETUP
         outcomeRecorded = false
         MatchState.postGoalResetPending = false
+        PenaltyFoulGoalWatchState.clear()
 
         placeBallAndPlayers(level, server)
         val spot = defendingGoal().resolvedPenaltySpot()

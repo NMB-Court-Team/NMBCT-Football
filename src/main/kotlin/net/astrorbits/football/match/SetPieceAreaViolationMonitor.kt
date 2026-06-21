@@ -54,6 +54,7 @@ object SetPieceAreaViolationMonitor {
             return
         }
         if (MatchState.postGoalResetPending) return
+        if (PenaltyFoulGoalWatchState.isActive()) return
 
         val seen = mutableSetOf<UUID>()
         for (player in server.playerList.players) {

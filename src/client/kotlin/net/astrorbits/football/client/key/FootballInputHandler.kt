@@ -135,6 +135,10 @@ object FootballInputHandler {
             }
             tickBoostSprint(player)
             clearKickoffFrozenChargeState(player)
+            if (MatchStartClient.penaltyFoulGoalWatchActive) {
+                updatePrevTickPressed()
+                return@reg
+            }
             if (MatchStartClient.isLocked &&
                 !FootballOperabilityClient.bypassesKickoffLockForFootballInput(player)
             ) {

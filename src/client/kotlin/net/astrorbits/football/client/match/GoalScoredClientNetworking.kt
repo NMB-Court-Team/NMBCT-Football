@@ -9,6 +9,8 @@ object GoalScoredClientNetworking {
     fun register() {
         ClientPlayNetworking.registerGlobalReceiver(GoalScoredS2CPayload.TYPE) { payload, _ ->
             Minecraft.getInstance().execute {
+                MatchStartClient.clearPenaltyFoulGoalWatch()
+                FreeKickAwardClient.clear()
                 SetPiecePendingRestart.fromGoalScored(payload.scoringTeam)
                 // 同步 MatchState 比分，保证左上角 HUD 与服务端一致
                 MatchState.teamAScore = payload.teamAScore
