@@ -748,5 +748,7 @@
     "hud.nmbct-football.penalty.scored": "GOAL!",
     "hud.nmbct-football.result.win_penalties": "Won on penalties",
     "hud.nmbct-football.result.loss_penalties": "Penalty shootout result",
+    "hud.nmbct-football.result.win_forfeit": "Victory — opponent sent off",
+    "hud.nmbct-football.result.loss_forfeit": "Defeat — all players sent off",
     "match.phase.finished": "Full Time"
 }

@@ -148,6 +148,7 @@ object MatchStartClientNetworking {
                     payload.penaltyScoreA,
                     payload.penaltyScoreB,
                     payload.penaltyWinner,
+                    payload.forfeitWinner,
                 )
             }
         }

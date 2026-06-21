@@ -258,7 +258,7 @@ object ThrowInSetPieceFlow {
             TeamSide.B -> MatchState.teamBPlayers
         }
         return roster.mapNotNull { server.playerList.getPlayer(it) }
-            .filter { MatchParticipation.isParticipating(it) }
+            .filter { MatchParticipation.isEligibleForSetPiece(it) }
             .filter { !PlayerRoleState.isDesignatedGoalkeeper(it) }
             .minByOrNull { distanceToOutPoint(it, outPos) }
     }
@@ -291,10 +291,10 @@ object ThrowInSetPieceFlow {
     ): ServerPlayer? {
         preferredTakerUuid?.let { uuid ->
             server.playerList.getPlayer(uuid)?.let { player ->
-                if (MatchParticipation.isParticipating(player) &&
-                    MatchState.getPlayerTeam(player.uuid) == restartTeam &&
-                    !PlayerRoleState.isDesignatedGoalkeeper(player)
-                ) {
+            if (MatchParticipation.isEligibleForSetPiece(player) &&
+                MatchState.getPlayerTeam(player.uuid) == restartTeam &&
+                !PlayerRoleState.isDesignatedGoalkeeper(player)
+            ) {
                     return player
                 }
             }

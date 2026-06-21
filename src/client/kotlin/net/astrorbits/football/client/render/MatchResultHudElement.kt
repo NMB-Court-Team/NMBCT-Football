@@ -29,6 +29,13 @@ class MatchResultHudElement : HudElement {
             .ifBlank { MatchHudTeams.name(otherTeam) }
 
         val (resultKey, resultColor, accent) = when {
+            MatchResultClient.forfeitWinner != null -> {
+                if (MatchResultClient.forfeitWinner == myTeam) {
+                    Triple("hud.nmbct-football.result.win_forfeit", MatchEventBanner.ACCENT_WIN, MatchEventBanner.ACCENT_WIN)
+                } else {
+                    Triple("hud.nmbct-football.result.loss_forfeit", MatchEventBanner.ACCENT_LOSS, MatchEventBanner.ACCENT_LOSS)
+                }
+            }
             MatchResultClient.isDraw && !MatchResultClient.wonByPenalties -> Triple(
                 "hud.nmbct-football.result.draw",
                 MatchEventBanner.ACCENT_DRAW,

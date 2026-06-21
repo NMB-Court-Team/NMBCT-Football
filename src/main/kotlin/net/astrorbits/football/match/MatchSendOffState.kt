@@ -37,7 +37,6 @@ object MatchSendOffState {
             previousGameMode = previous,
         )
         player.setGameMode(GameType.SPECTATOR)
-        teleportToSideline(player)
         FootballNetworking.broadcastPlayerSendOff(
             server,
             player.uuid,
@@ -47,7 +46,40 @@ object MatchSendOffState {
         )
         if (durationTicks <= 0) {
             restore(server, player.uuid)
+            return
         }
+        tryFinishForForfeit(server, team)
+    }
+
+    /** 若该队登记队员全部处于罚下状态，则对手直接获胜。 */
+    fun tryFinishForForfeit(server: MinecraftServer, team: TeamSide): Boolean {
+        if (!rosterFullySentOff(team)) return false
+        if (!MatchState.isDuringMatch()) return false
+        finishMatchForForfeit(server, team.opponent())
+        return true
+    }
+
+    private fun rosterFullySentOff(team: TeamSide): Boolean {
+        val roster = when (team) {
+            TeamSide.A -> MatchState.teamAPlayers
+            TeamSide.B -> MatchState.teamBPlayers
+        }
+        if (roster.isEmpty()) return false
+        return roster.all { isSentOff(it) }
+    }
+
+    private fun finishMatchForForfeit(server: MinecraftServer, winner: TeamSide) {
+        PenaltyFoulGoalWatchState.clear()
+        MatchPenaltyKickState.clear(server)
+        MatchState.postGoalResetPending = false
+        SetPieceState.clear()
+        GoalKickSetPieceFlow.clear(server)
+        ThrowInSetPieceFlow.clear(server)
+        SetPieceAreaViolationMonitor.clearAll(server)
+        MatchState.clearKickoffWhistleTimers()
+        MatchState.forfeitWinner = winner
+        MatchState.setPhase(MatchPhase.FINISHED, server)
+        FootballNetworking.syncTimerToClients(server)
     }
 
     fun tick(server: MinecraftServer) {
@@ -62,34 +94,32 @@ object MatchSendOffState {
     }
 
     fun restoreAllForHalfKickoff(server: MinecraftServer) {
+        restoreAll(server, repositionToCorner = true)
+    }
+
+    /** 比赛结束或重置：恢复游戏模式，不再视为罚下（不传送）。 */
+    fun restoreAllForMatchEnd(server: MinecraftServer) {
+        restoreAll(server, repositionToCorner = false)
+    }
+
+    private fun restoreAll(server: MinecraftServer, repositionToCorner: Boolean) {
         for (uuid in sentOff.keys.toList()) {
-            restore(server, uuid)
+            restore(server, uuid, repositionToCorner)
         }
     }
 
-    fun restore(server: MinecraftServer, uuid: UUID) {
-        val entry = sentOff.remove(uuid) ?: return
+    fun restore(server: MinecraftServer, uuid: UUID, repositionToCorner: Boolean = true) {
+        val entry = sentOff[uuid] ?: return
         val player = server.playerList.getPlayer(uuid) ?: return
+        sentOff.remove(uuid)
         player.setGameMode(entry.previousGameMode)
-        MatchState.teleportPlayerToTeamSpawn(player, entry.team)
+        if (repositionToCorner) {
+            MatchState.teleportPlayerToTeamCornerFarFromBall(player, entry.team, server)
+        }
         FootballNetworking.sendPlayerSendOffRestore(player)
     }
 
     fun clear() {
         sentOff.clear()
-    }
-
-    private fun teleportToSideline(player: ServerPlayer) {
-        val center = MatchConfigHolder.current.kickOff
-        player.teleportTo(
-            player.level(),
-            center.x,
-            center.y,
-            center.z,
-            HashSet(),
-            player.yRot,
-            player.xRot,
-            false,
-        )
     }
 }

@@ -37,6 +37,8 @@ object MatchState {
     var teamBName: Component = DEFAULT_TEAM_B_NAME
     var teamAScore = 0
     var teamBScore = 0
+    /** 全队罚下判负时的获胜方；正赛结算时优先于比分判定胜负。 */
+    var forfeitWinner: TeamSide? = null
     val teamAPlayers: MutableSet<UUID> = mutableSetOf()
     val teamBPlayers: MutableSet<UUID> = mutableSetOf()
     val spectatorPlayers: MutableSet<UUID> = mutableSetOf()
@@ -272,6 +274,7 @@ object MatchState {
         isRunning = false
         teamAScore = 0
         teamBScore = 0
+        forfeitWinner = null
         kickoffTeam = null
         kickoffTouched = false
         kickoffBodyContactReleaseUntilTick = -1L
@@ -867,6 +870,27 @@ object MatchState {
         teleportTo(player, pos)
     }
 
+    fun teleportPlayerToTeamCornerFarFromBall(player: ServerPlayer, team: TeamSide, server: MinecraftServer) {
+        val ball = ballPositionForSpawnChoice(server)
+        val corner = MatchFieldAreaUtil.farthestTeamCornerKickFrom(team, ball.x, ball.z)
+        val center = MatchConfigHolder.current.kickOff
+        val yaw = Math.toDegrees(kotlin.math.atan2(-(center.x - corner.x), center.z - corner.z)).toFloat()
+        teleportToKickPosition(player, corner, yaw)
+    }
+
+    private fun ballPositionForSpawnChoice(server: MinecraftServer): Vec3 {
+        val level = server.overworld()
+        val football = level.getEntitiesOfClass(Football::class.java, ALL_FOOTBALLS_AABB).firstOrNull()
+        if (football != null) return football.position()
+        val kickOff = MatchConfigHolder.current.kickOff
+        return Vec3(kickOff.x, kickOff.y, kickOff.z)
+    }
+
+    private fun teleportToKickPosition(player: ServerPlayer, pos: KickPosition, yaw: Float, pitch: Float = 0f) {
+        val level = player.level()
+        player.teleportTo(level, pos.x, pos.y, pos.z, HashSet(), yaw, pitch, false)
+    }
+
     private fun teleportTeam(
         side: TeamSide,
         uuids: Set<UUID>,
@@ -1051,6 +1075,7 @@ object MatchState {
         }
         if (phase == MatchPhase.FINISHED && server != null) {
             restoreSpectators(server)
+            MatchSendOffState.restoreAllForMatchEnd(server)
         }
         if (phase == MatchPhase.PENALTIES && server != null && teamAScore == teamBScore) {
             syncPlayerTeamsToClients(server)

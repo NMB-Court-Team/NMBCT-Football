@@ -748,5 +748,7 @@
     "hud.nmbct-football.penalty.scored": "进球！",
     "hud.nmbct-football.result.win_penalties": "点球大战获胜",
     "hud.nmbct-football.result.loss_penalties": "点球大战结果",
+    "hud.nmbct-football.result.win_forfeit": "对手全员罚下，获胜！",
+    "hud.nmbct-football.result.loss_forfeit": "全员罚下，失利",
     "match.phase.finished": "结算"
 }

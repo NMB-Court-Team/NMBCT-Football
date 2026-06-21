@@ -267,6 +267,7 @@ object MatchPenaltyKickState {
         preferred?.let { uuid ->
             val player = server.playerList.getPlayer(uuid)
             if (player != null &&
+                MatchParticipation.isEligibleForSetPiece(player) &&
                 MatchState.getPlayerTeam(uuid) == team &&
                 !PlayerRoleState.isDesignatedGoalkeeper(player)
             ) {
@@ -275,7 +276,7 @@ object MatchPenaltyKickState {
         }
         val outfield = server.playerList.players.filter { player ->
             MatchState.getPlayerTeam(player.uuid) == team &&
-                MatchParticipation.isParticipating(player) &&
+                MatchParticipation.isEligibleForSetPiece(player) &&
                 !PlayerRoleState.isDesignatedGoalkeeper(player)
         }
         return outfield.randomOrNull()?.uuid

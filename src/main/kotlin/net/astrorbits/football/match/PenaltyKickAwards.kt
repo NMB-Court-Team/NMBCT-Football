@@ -47,6 +47,9 @@ object PenaltyKickAwards {
         if (foulingPlayer != null) {
             MatchSendOffState.sendOffForSlideTackleFoul(server, foulingPlayer, foulingTeam)
         }
+        if (!MatchState.isDuringMatch()) {
+            return true
+        }
         FootballNetworking.broadcastFreeKickAward(
             server,
             type = FreeKickType.PENALTY,

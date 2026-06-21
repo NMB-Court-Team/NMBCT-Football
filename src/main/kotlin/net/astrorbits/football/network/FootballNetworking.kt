@@ -139,8 +139,21 @@ object FootballNetworking {
                         penaltyWinner = winner,
                     )
                 } else {
-                    val isDraw = MatchState.teamAScore == MatchState.teamBScore
-                    broadcastMatchResult(server, MatchState.teamAScore, MatchState.teamBScore, nameA, nameB, isDraw)
+                    val forfeitWinner = MatchState.forfeitWinner
+                    if (forfeitWinner != null) {
+                        broadcastMatchResult(
+                            server,
+                            MatchState.teamAScore,
+                            MatchState.teamBScore,
+                            nameA,
+                            nameB,
+                            isDraw = false,
+                            forfeitWinner = forfeitWinner,
+                        )
+                    } else {
+                        val isDraw = MatchState.teamAScore == MatchState.teamBScore
+                        broadcastMatchResult(server, MatchState.teamAScore, MatchState.teamBScore, nameA, nameB, isDraw)
+                    }
                 }
             }
         }
@@ -311,13 +324,14 @@ object FootballNetworking {
         penaltyScoreA: Int = 0,
         penaltyScoreB: Int = 0,
         penaltyWinner: TeamSide? = null,
+        forfeitWinner: TeamSide? = null,
     ) {
         if (!wonByPenalties) {
             FootballSounds.playMatchWhistle(server, 2)
         }
         val payload = MatchResultS2CPayload(
             teamAScore, teamBScore, teamAName, teamBName, isDraw,
-            wonByPenalties, penaltyScoreA, penaltyScoreB, penaltyWinner,
+            wonByPenalties, penaltyScoreA, penaltyScoreB, penaltyWinner, forfeitWinner,
         )
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
@@ -517,7 +531,7 @@ object FootballNetworking {
         GoalkeeperHoldActionPermissions.clearAll(server)
         MatchPauseFootballState.onResume(server)
         MatchState.restoreSpectators(server)
-        MatchSendOffState.restoreAllForHalfKickoff(server)
+        MatchSendOffState.restoreAllForMatchEnd(server)
         MatchState.reset()
         GoalKickSetPieceFlow.clear(server)
         ThrowInSetPieceFlow.clear(server)

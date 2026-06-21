@@ -220,7 +220,7 @@ object GoalKickSetPieceFlow {
             ballX = ballX,
             ballZ = ballZ,
             teamOf = { player -> MatchState.getPlayerTeam(player.uuid) },
-            isParticipating = MatchParticipation::isParticipating,
+            isParticipating = MatchParticipation::isEligibleForSetPiece,
         )
 
     fun isPlacedKicker(player: ServerPlayer): Boolean {

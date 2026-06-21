@@ -165,6 +165,25 @@ object MatchFieldAreaUtil {
         config: MatchConfig = MatchConfigHolder.current,
     ): Boolean = isInCornerKickPenaltyArea(cornerPos, player.x, player.z, config.cornerKickPenaltyAreaRadius)
 
+    /** 己方球门一侧的两个角球点开球位置（[GoalConfig.cornerKickLeft] / [cornerKickRight]）。 */
+    fun teamCornerKickPositions(team: TeamSide, config: MatchConfig = MatchConfigHolder.current): List<KickPosition> {
+        val goal = goalForSide(config, team)
+        return listOf(goal.cornerKickLeft, goal.cornerKickRight)
+    }
+
+    /** 距球水平距离更远的己方角球点。 */
+    fun farthestTeamCornerKickFrom(
+        team: TeamSide,
+        ballX: Double,
+        ballZ: Double,
+        config: MatchConfig = MatchConfigHolder.current,
+    ): KickPosition {
+        val corners = teamCornerKickPositions(team, config)
+        return corners.maxByOrNull { corner ->
+            horizontalDistanceSquared(ballX, ballZ, corner.x, corner.z)
+        } ?: corners.first()
+    }
+
     fun isInThrowInPenaltyArea(
         spot: Vec3,
         x: Double,
