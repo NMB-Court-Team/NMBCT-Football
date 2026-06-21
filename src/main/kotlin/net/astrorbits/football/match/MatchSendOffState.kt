@@ -45,11 +45,10 @@ object MatchSendOffState {
             team,
             expireAt,
         )
-        if (durationTicks <= 0) {
-            restore(server, player.uuid)
-            return
-        }
         tryFinishForForfeit(server, team)
+        if (durationTicks <= 0 && MatchState.currentPhase != MatchPhase.FINISHED) {
+            restore(server, player.uuid)
+        }
     }
 
     fun skipNextCenterKickoffRestore(uuid: UUID) {
@@ -57,25 +56,33 @@ object MatchSendOffState {
         sentOff[uuid] = entry.copy(skipNextCenterKickoffRestore = true)
     }
 
-    /** 若该队登记队员全部处于罚下状态，则对手直接获胜。 */
+    /** 若该队已无人在场可踢且至少一人处于罚下，则对手直接获胜。 */
     fun tryFinishForForfeit(server: MinecraftServer, team: TeamSide): Boolean {
-        if (!rosterFullySentOff(team)) return false
+        if (!teamForfeitsDueToSendOff(server, team)) return false
         if (!MatchState.isDuringMatch()) return false
         finishMatchForForfeit(server, team.opponent())
         return true
     }
 
-    private fun rosterFullySentOff(team: TeamSide): Boolean {
-        val roster = when (team) {
-            TeamSide.A -> MatchState.teamAPlayers
-            TeamSide.B -> MatchState.teamBPlayers
-        }
+    /** 该队所有在线队员均被罚下（或不在线），且至少一名队员处于罚下状态。 */
+    private fun teamForfeitsDueToSendOff(server: MinecraftServer, team: TeamSide): Boolean {
+        val roster = rosterFor(team)
         if (roster.isEmpty()) return false
-        return roster.all { isSentOff(it) }
+        if (!roster.any { isSentOff(it) }) return false
+        return roster.none { uuid ->
+            val player = server.playerList.getPlayer(uuid) ?: return@none false
+            MatchParticipation.isParticipating(player) && !isSentOff(uuid)
+        }
+    }
+
+    private fun rosterFor(team: TeamSide): Set<UUID> = when (team) {
+        TeamSide.A -> MatchState.teamAPlayers
+        TeamSide.B -> MatchState.teamBPlayers
     }
 
     private fun finishMatchForForfeit(server: MinecraftServer, winner: TeamSide) {
         PenaltyFoulGoalWatchState.clear()
+        PenaltyShootoutState.clear(server)
         MatchPenaltyKickState.clear(server)
         MatchState.postGoalResetPending = false
         SetPieceState.clear()
@@ -86,6 +93,15 @@ object MatchSendOffState {
         MatchState.forfeitWinner = winner
         MatchState.setPhase(MatchPhase.FINISHED, server)
         FootballNetworking.syncTimerToClients(server)
+        FootballNetworking.broadcastMatchResult(
+            server,
+            MatchState.teamAScore,
+            MatchState.teamBScore,
+            MatchState.getTeamName(TeamSide.A).string,
+            MatchState.getTeamName(TeamSide.B).string,
+            isDraw = false,
+            forfeitWinner = winner,
+        )
     }
 
     fun tick(server: MinecraftServer) {
