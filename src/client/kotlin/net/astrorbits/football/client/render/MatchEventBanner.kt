@@ -68,7 +68,7 @@ object MatchEventBanner {
         val contentH = lineBlockHeight(font, headlineLine) +
             lineBlockHeight(font, teamLineObj) +
             (scorerLineObj?.let { lineBlockHeight(font, it) } ?: 0) +
-            SCORE_TOP_GAP_GOAL + SCORE_ROW_GOAL
+            SCORE_TOP_GAP_GOAL + scaledScoreRowH(SCORE_ROW_GOAL)
         val panelW = contentW + PAD_GOAL * 2
         val panelH = PAD_GOAL * 2 + contentH + GOAL_BAR_H * 2
         val panelX = (screenW - panelW) / 2
@@ -117,7 +117,7 @@ object MatchEventBanner {
         )
         val contentH = lineBlockHeight(font, headlineLine) +
             lineBlockHeight(font, Line(scorerLine, scorerColor, bold = true)) +
-            SCORE_TOP_GAP_GOAL + SCORE_ROW_GOAL
+            SCORE_TOP_GAP_GOAL + scaledScoreRowH(SCORE_ROW_GOAL)
         val panelW = contentW + PAD_GOAL * 2
         val panelH = PAD_GOAL * 2 + contentH + GOAL_BAR_H * 2
         val panelX = (screenW - panelW) / 2
@@ -256,7 +256,7 @@ object MatchEventBanner {
     fun preMatchPrepPanelTop(screenH: Int): Int = (screenH * PREP_TOP_FRAC).toInt()
 
     fun preMatchPrepPanelHeight(font: Font, timerPaused: Boolean, pauseOverlayText: String? = null): Int {
-        val row1 = font.lineHeight
+        val row1 = bannerPlainLineHeight(font)
         if (!timerPaused || pauseOverlayText.isNullOrBlank()) {
             return HALF_TOP_BAR + HALF_PAD * 2 + row1
         }
@@ -282,8 +282,8 @@ object MatchEventBanner {
         val timerColor = if (timerPaused) ACCENT_PAUSE else PREP_TIMER
         val sep = " · "
         val sepW = font.width(sep)
-        val row1W = font.width(toSequence(font, headlineText, bold = true)) + sepW +
-            font.width(toSequence(font, timerText, bold = true))
+        val row1W = bannerPlainTextWidth(font, headlineText, bold = true) + sepW +
+            bannerPlainTextWidth(font, timerText, bold = true)
         val pauseLine = if (timerPaused && !pauseOverlayText.isNullOrBlank()) {
             Line(pauseOverlayText, ACCENT_PAUSE, bold = true, scale = PREP_PAUSE_OVERLAY_SCALE)
         } else {
@@ -303,14 +303,14 @@ object MatchEventBanner {
         var y = panelY + HALF_TOP_BAR + HALF_PAD
         var x = panelX + (panelW - row1W) / 2
         val headlineSeq = toSequence(font, headlineText, bold = true)
-        extra.text(font, headlineSeq, x, y, accent, true)
-        x += font.width(headlineSeq)
+        drawBannerPlainText(extra, font, x, y, headlineSeq, accent)
+        x += bannerPlainTextWidth(font, headlineText, bold = true)
         extra.text(font, sep, x, y, PREP_SEP, true)
         x += sepW
         val timerSeq = toSequence(font, timerText, bold = true)
-        extra.text(font, timerSeq, x, y, timerColor, true)
+        drawBannerPlainText(extra, font, x, y, timerSeq, timerColor)
         pauseLine?.let {
-            y += font.lineHeight + PREP_PAUSE_ROW_GAP
+            y += bannerPlainLineHeight(font) + PREP_PAUSE_ROW_GAP
             drawCenteredLine(extra, font, it, cx, y, ACCENT_PAUSE)
         }
     }
@@ -335,10 +335,10 @@ object MatchEventBanner {
         val parts = combinedText.split(" · ", limit = 2)
         val phasePart = parts.getOrElse(0) { combinedText }
         val kickoffPart = parts.getOrElse(1) { "" }
-        val contentW = font.width(toSequence(font, phasePart, bold = true)) + sepW +
-            if (kickoffPart.isEmpty()) 0 else font.width(toSequence(font, kickoffPart, bold = true))
+        val contentW = bannerPlainTextWidth(font, phasePart, bold = true) + sepW +
+            if (kickoffPart.isEmpty()) 0 else bannerPlainTextWidth(font, kickoffPart, bold = true)
         val panelW = max(HALF_MIN_W, ACCENT_W + HALF_PAD * 2 + contentW)
-        val panelH = HALF_TOP_BAR + HALF_PAD * 2 + font.lineHeight
+        val panelH = HALF_TOP_BAR + HALF_PAD * 2 + bannerPlainLineHeight(font)
         val panelX = (screenW - panelW) / 2
         val panelY = (screenH * 0.09f).toInt() + anim.slidePx
 
@@ -349,13 +349,13 @@ object MatchEventBanner {
         val textY = panelY + HALF_TOP_BAR + HALF_PAD
         var x = panelX + (panelW - contentW) / 2
         val phaseSeq = toSequence(font, phasePart, bold = true)
-        extra.text(font, phaseSeq, x, textY, withAlpha(phaseColor), true)
-        x += font.width(phaseSeq)
+        drawBannerPlainText(extra, font, x, textY, phaseSeq, withAlpha(phaseColor))
+        x += bannerPlainTextWidth(font, phasePart, bold = true)
         if (kickoffPart.isNotEmpty()) {
             extra.text(font, sep, x, textY, withAlpha(HALF_SEP), true)
             x += sepW
             val kickSeq = toSequence(font, kickoffPart, bold = true)
-            extra.text(font, kickSeq, x, textY, withAlpha(kickoffColor), true)
+            drawBannerPlainText(extra, font, x, textY, kickSeq, withAlpha(kickoffColor))
         }
     }
 
@@ -377,7 +377,7 @@ object MatchEventBanner {
         val headlineLine = Line(resultText, resultColor, bold = true, scale = 2.5f)
         val scoreW = scoreRowWidth(font, scoreRow, SCORE_BOX_RESULT, SCORE_GAP_RESULT, namesBold = true)
         val contentW = max(RESULT_MIN_W, maxOf(scaledWidth(font, headlineLine), scoreW))
-        val contentH = lineBlockHeight(font, headlineLine) + SCORE_TOP_GAP_RESULT + SCORE_ROW_RESULT
+        val contentH = lineBlockHeight(font, headlineLine) + SCORE_TOP_GAP_RESULT + scaledScoreRowH(SCORE_ROW_RESULT)
         val panelW = contentW + PAD_RESULT * 2
         val panelH = PAD_RESULT * 2 + contentH + RESULT_BAR_H * 2
         val panelX = (screenW - panelW) / 2
@@ -498,21 +498,47 @@ object MatchEventBanner {
         for (line in lines) {
             h += lineBlockHeight(font, line)
         }
-        scoreRow?.let { h += scoreTopGap + scoreRowH }
+        scoreRow?.let { h += scoreTopGap + scaledScoreRowH(scoreRowH) }
         return h
     }
 
     private fun lineBlockHeight(font: Font, line: Line): Int =
-        (font.lineHeight * line.scale).toInt() + LINE_GAP
+        (font.lineHeight * line.scale * TEXT_SCALE).toInt() + LINE_GAP
 
     private fun scaledWidth(font: Font, line: Line): Int =
-        (font.width(toSequence(font, line.text, line.bold)) * line.scale).toInt()
+        (font.width(toSequence(font, line.text, line.bold)) * line.scale * TEXT_SCALE).toInt()
+
+    private fun bannerPlainTextWidth(font: Font, text: String, bold: Boolean = false): Int =
+        (font.width(toSequence(font, text, bold)) * TEXT_SCALE).toInt()
+
+    private fun bannerPlainLineHeight(font: Font): Int =
+        (font.lineHeight * TEXT_SCALE).toInt()
+
+    private fun drawBannerPlainText(
+        extra: GuiGraphicsExtractor,
+        font: Font,
+        x: Int,
+        y: Int,
+        seq: FormattedCharSequence,
+        color: Int,
+    ) {
+        val pose = extra.pose()
+        pose.pushMatrix()
+        pose.translate(x.toFloat(), y.toFloat())
+        pose.scale(TEXT_SCALE, TEXT_SCALE)
+        extra.text(font, seq, 0, 0, color, true)
+        pose.popMatrix()
+    }
 
     private fun scoreRowWidth(font: Font, row: ScoreRow, scoreBoxW: Int, gapExtra: Int, namesBold: Boolean = false): Int {
         val gap = font.width(" ") + gapExtra
-        return font.width(toSequence(font, row.nameA, namesBold)) + gap + scoreBoxW + gap + font.width(SEP) + gap +
-            scoreBoxW + gap + font.width(toSequence(font, row.nameB, namesBold))
+        val boxW = scaledScoreBoxW(scoreBoxW)
+        return bannerPlainTextWidth(font, row.nameA, namesBold) + gap + boxW + gap + font.width(SEP) + gap +
+            boxW + gap + bannerPlainTextWidth(font, row.nameB, namesBold)
     }
+
+    private fun scaledScoreBoxW(boxW: Int): Int = (boxW * TEXT_SCALE).toInt()
+    private fun scaledScoreRowH(rowH: Int): Int = (rowH * TEXT_SCALE).toInt()
 
     private fun drawCenteredLine(
         extra: GuiGraphicsExtractor,
@@ -524,11 +550,12 @@ object MatchEventBanner {
     ): Int {
         val seq = toSequence(font, line.text, line.bold)
         val w = font.width(seq)
-        val h = (font.lineHeight * line.scale).toInt()
+        val effectiveScale = line.scale * TEXT_SCALE
+        val h = (font.lineHeight * effectiveScale).toInt()
         val pose = extra.pose()
         pose.pushMatrix()
-        pose.translate(cx - w * line.scale / 2f, y.toFloat())
-        pose.scale(line.scale, line.scale)
+        pose.translate(cx - w * effectiveScale / 2f, y.toFloat())
+        pose.scale(effectiveScale, effectiveScale)
         extra.text(font, seq, 0, 0, color, true)
         pose.popMatrix()
         return h + LINE_GAP
@@ -550,27 +577,29 @@ object MatchEventBanner {
         val scoreA = row.scoreA.toString()
         val scoreB = row.scoreB.toString()
         val gap = font.width(" ") + gapExtra
+        val boxW = scaledScoreBoxW(scoreBoxW)
+        val rowHScaled = scaledScoreRowH(scoreRowH)
         val totalW = scoreRowWidth(font, row, scoreBoxW, gapExtra, namesBold)
         var x = cx - totalW / 2
 
-        val rowTextH = max(font.lineHeight.toFloat(), font.lineHeight * scoreScale)
-        val nameY = y + ((scoreRowH - rowTextH) / 2f).toInt()
+        val rowTextH = max(bannerPlainLineHeight(font).toFloat(), font.lineHeight * scoreScale * TEXT_SCALE)
+        val nameY = y + ((rowHScaled - rowTextH) / 2f).toInt()
 
         val nameASeq = toSequence(font, row.nameA, namesBold)
-        extra.text(font, nameASeq, x, nameY, withAlpha(row.colorA), true)
-        x += font.width(nameASeq) + gap
+        drawBannerPlainText(extra, font, x, nameY, nameASeq, withAlpha(row.colorA))
+        x += bannerPlainTextWidth(font, row.nameA, namesBold) + gap
 
         drawScoreBox(extra, font, scoreA, x, y, withAlpha, scoreBoxW, scoreRowH, scoreScale)
-        x += scoreBoxW + gap
+        x += boxW + gap
 
         extra.text(font, SEP, x, nameY, withAlpha(DIM), true)
         x += font.width(SEP) + gap
 
         drawScoreBox(extra, font, scoreB, x, y, withAlpha, scoreBoxW, scoreRowH, scoreScale)
-        x += scoreBoxW + gap
+        x += boxW + gap
 
         val nameBSeq = toSequence(font, row.nameB, namesBold)
-        extra.text(font, nameBSeq, x, nameY, withAlpha(row.colorB), true)
+        drawBannerPlainText(extra, font, x, nameY, nameBSeq, withAlpha(row.colorB))
     }
 
     private fun drawScoreBox(
@@ -584,14 +613,17 @@ object MatchEventBanner {
         boxH: Int,
         scoreScale: Float,
     ) {
-        extra.fill(x, y, x + boxW, y + boxH, withAlpha(SCORE_BOX_BG))
+        val effectiveScale = scoreScale * TEXT_SCALE
+        val boxWScaled = scaledScoreBoxW(boxW)
+        val boxHScaled = scaledScoreRowH(boxH)
+        extra.fill(x, y, x + boxWScaled, y + boxHScaled, withAlpha(SCORE_BOX_BG))
         val seq = Component.literal(text).withStyle(Style.EMPTY.withBold(true)).visualOrderText
         val pose = extra.pose()
         pose.pushMatrix()
-        val tx = x + boxW / 2f - font.width(seq) * scoreScale / 2f
-        val ty = y + (boxH - font.lineHeight * scoreScale) / 2f
+        val tx = x + boxWScaled / 2f - font.width(seq) * effectiveScale / 2f
+        val ty = y + (boxHScaled - font.lineHeight * effectiveScale) / 2f
         pose.translate(tx, ty)
-        pose.scale(scoreScale, scoreScale)
+        pose.scale(effectiveScale, effectiveScale)
         extra.text(font, seq, 0, 0, withAlpha(WHITE), true)
         pose.popMatrix()
     }
@@ -677,4 +709,6 @@ object MatchEventBanner {
     private const val PREP_PAUSE_ROW_GAP = 4
     private const val PREP_PAUSE_OVERLAY_SCALE = 2f
     private const val PAUSE_BELOW_PREP_GAP = 6
+
+    private val TEXT_SCALE = FootballHudTextScale.EVENT_BANNER
 }

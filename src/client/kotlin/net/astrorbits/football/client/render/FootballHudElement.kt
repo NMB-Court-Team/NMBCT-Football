@@ -36,6 +36,10 @@ class FootballHudElement : HudElement {
         val phaseColor = if (inPrep) PHASE_PREP else PHASE
         val barColor = if (inPrep) BAR_PREP else BAR
 
+        extra.pose().pushMatrix()
+        extra.pose().translate(ANCHOR_X.toFloat(), ANCHOR_Y.toFloat())
+        extra.pose().scale(MATCH_INFO_SCALE, MATCH_INFO_SCALE)
+
         // ── 主栏 ──
         extra.fill(X, Y, X + panelW, Y + H, barColor)
 
@@ -155,6 +159,7 @@ class FootballHudElement : HudElement {
             extra.text(font, endTime, (timerX / scale).toInt(), ((cy + font.lineHeight) / scale).toInt(), END_TIME, true)
             extra.pose().popMatrix()
         }
+        extra.pose().popMatrix()
     }
 
     private fun drawName(extra: GuiGraphicsExtractor, font: Font, text: FormattedCharSequence, x: Int, y: Int, color: Int, rightAlign: Boolean): Int {
@@ -213,14 +218,19 @@ class FootballHudElement : HudElement {
     companion object {
         private const val SEP = "-"
 
-        private const val X = 8; private const val Y = 8; private const val H = 22
+        private const val ANCHOR_X = 8
+        private const val ANCHOR_Y = 8
+        private val MATCH_INFO_SCALE = FootballHudTextScale.MATCH_INFO
+        private const val X = 0
+        private const val Y = 0
+        private const val H = 22
         private const val PAD = 10
         private const val P_W = 48; private const val T_W = 42; private const val NAME_W = 48
         private const val S_W = 26; private const val D_W = 14
         private const val GAP = 6
 
-        // 补时面板
-        private const val ST_Y = 32; private const val ST_H = 18
+        // 补时面板（相对主栏锚点）
+        private const val ST_Y = 24; private const val ST_H = 18
         private const val ST_PAD = 10; private const val ST_P_W = 24; private const val ST_T_W = 90; private const val ST_GAP = 6
 
         private const val PEN_INFO_H = 18
