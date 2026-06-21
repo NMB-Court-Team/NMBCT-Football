@@ -191,6 +191,13 @@ object MatchSetupConfigScreen {
                         getter = { getter().enableOffside },
                         setter = { v -> setRules(getter, setter) { it.copy(enableOffside = v) } },
                     )
+                    addBoolean(
+                        nameKey = "screen.nmbct-football.match.enable_second_touch",
+                        descKey = MatchYaclDesc.desc("screen.nmbct-football.match.enable_second_touch"),
+                        defaultValue = def.enableSecondTouch,
+                        getter = { getter().enableSecondTouch },
+                        setter = { v -> setRules(getter, setter) { it.copy(enableSecondTouch = v) } },
+                    )
                 },
             ),
         )

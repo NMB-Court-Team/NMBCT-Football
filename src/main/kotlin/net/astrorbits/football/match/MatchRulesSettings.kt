@@ -6,6 +6,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder
 data class MatchRulesSettings(
     val halfTimeMinutes: Int = 5,
     val enableOffside: Boolean = true,
+    val enableSecondTouch: Boolean = true,
     val enableStoppageTime: Boolean = false,
     val stoppageTimeMaxMinutes: Int = 3,
     val enableExtraTime: Boolean = false,
@@ -40,6 +41,7 @@ data class MatchRulesSettings(
             i.group(
                 Codec.INT.fieldOf("half_time_minutes").forGetter(MatchRulesSettings::halfTimeMinutes),
                 Codec.BOOL.optionalFieldOf("enable_offside", true).forGetter(MatchRulesSettings::enableOffside),
+                Codec.BOOL.optionalFieldOf("enable_second_touch", true).forGetter(MatchRulesSettings::enableSecondTouch),
                 Codec.BOOL.fieldOf("enable_stoppage_time").forGetter(MatchRulesSettings::enableStoppageTime),
                 Codec.INT.fieldOf("stoppage_time_max_minutes").forGetter(MatchRulesSettings::stoppageTimeMaxMinutes),
                 Codec.BOOL.fieldOf("enable_extra_time").forGetter(MatchRulesSettings::enableExtraTime),

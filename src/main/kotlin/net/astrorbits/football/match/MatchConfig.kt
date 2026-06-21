@@ -207,6 +207,7 @@ data class MatchConfig(
 ) {
     val halfTimeMinutes: Int get() = rules.halfTimeMinutes
     val enableOffside: Boolean get() = rules.enableOffside
+    val enableSecondTouch: Boolean get() = rules.enableSecondTouch
     val enableStoppageTime: Boolean get() = rules.enableStoppageTime
     val stoppageTimeMaxMinutes: Int get() = rules.stoppageTimeMaxMinutes
     val enableExtraTime: Boolean get() = rules.enableExtraTime
