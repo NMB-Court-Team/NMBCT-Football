@@ -540,14 +540,15 @@ object MatchState {
     }
 
     /**
-     * 开球锁定时长 + 10s 宽限过后仍未触球，则累积动态补时。
+     * 开球锁定时长 + [setPieceStoppageAccumGraceSeconds] 过后仍未触球，则累积动态补时。
      */
     fun tickDynamicStoppageAccumulation() {
         if (postGoalResetPending) return
         if (currentPhase == MatchPhase.PENALTIES) return
         if (kickoffTeam == null || kickoffTouched || kickoffTimerStartMs == 0L) return
         val now = System.currentTimeMillis()
-        val graceEnd = kickoffTimerStartMs + kickoffLockMs + MatchKickoffTiming.LATE_KICKOFF_WARN_MS
+        val graceMs = MatchConfigHolder.current.setPieceStoppageAccumGraceSeconds.coerceAtLeast(0) * 1000L
+        val graceEnd = kickoffTimerStartMs + kickoffLockMs + graceMs
         if (now <= graceEnd) return
         val maxTicks = MatchConfigHolder.current.stoppageTimeMaxMinutes * 60 * 20
         if (dynamicStoppageTicks >= maxTicks) return

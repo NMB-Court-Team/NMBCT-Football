@@ -487,6 +487,7 @@
     "screen.nmbct-football.match.half_time_minutes": "半场时间（分钟）",
     "screen.nmbct-football.match.enable_stoppage_time": "启用补时",
     "screen.nmbct-football.match.stoppage_time_max": "补时上限（分钟）",
+    "screen.nmbct-football.match.set_piece_stoppage_accum_grace_seconds": "发球拖延计补时宽限（秒）",
     "screen.nmbct-football.match.post_goal_ball_reset_delay_seconds": "进球/出界后复位延迟（秒）",
     "screen.nmbct-football.match.send_off_duration_seconds": "滑铲犯规罚下时长（秒）",
     "screen.nmbct-football.match.enable_pre_match_preparation": "开启赛前准备时间",
@@ -616,6 +617,7 @@
     "screen.nmbct-football.match.half_time_minutes.desc": "每个常规半场的比赛时间（分钟），不含补时与加时。",
     "screen.nmbct-football.match.enable_stoppage_time.desc": "开启后，半场末可根据场上事件进入补时阶段，并受补时上限约束。",
     "screen.nmbct-football.match.stoppage_time_max.desc": "单半场补时的最大分钟数；实际补时由比赛逻辑在上限内决定。",
+    "screen.nmbct-football.match.set_piece_stoppage_accum_grace_seconds.desc": "定位球/开球倒计时结束后，超过该秒数仍未触球才开始累积动态补时；拖延哨仍按 10 秒间隔吹罚。",
     "screen.nmbct-football.match.post_goal_ball_reset_delay_seconds.desc": "进球或边线出界后，等待多少秒再把球放到开球点或判定点；0 表示立即复位。",
     "screen.nmbct-football.match.send_off_duration_seconds.desc": "禁区内滑铲犯规后，球员被罚下的比赛计时时长（秒）；0 表示立即回归。也可在中场开球时提前回归。",
     "screen.nmbct-football.match.enable_pre_match_preparation.desc": "开启后，/match start 会先进入赛前准备阶段（时长见下一项）；关闭或时长为 0 则直接开赛。",
@@ -748,7 +750,5 @@
     "hud.nmbct-football.penalty.scored": "进球！",
     "hud.nmbct-football.result.win_penalties": "点球大战获胜",
     "hud.nmbct-football.result.loss_penalties": "点球大战结果",
-    "hud.nmbct-football.result.win_forfeit": "对手全员罚下，获胜！",
-    "hud.nmbct-football.result.loss_forfeit": "全员罚下，失利",
     "match.phase.finished": "结算"
 }
