@@ -2,13 +2,13 @@ package net.astrorbits.football.match
 
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.IntegerArgumentType
+import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.builder.LiteralArgumentBuilder
 import com.mojang.brigadier.context.CommandContext
 import net.astrorbits.football.network.FootballNetworking
 import net.minecraft.commands.CommandBuildContext
 import net.minecraft.commands.CommandSourceStack
 import net.minecraft.commands.Commands
-import net.minecraft.commands.arguments.ComponentArgument
 import net.minecraft.commands.arguments.EntityArgument
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
@@ -69,9 +69,10 @@ object MatchCommand {
 		))
 
 		root.then(Commands.literal("nameA").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).then(
-			Commands.argument("name", ComponentArgument.textComponent(context))
+			Commands.argument("name", StringArgumentType.greedyString())
 				.executes {
-					MatchState.teamAName = ComponentArgument.getResolvedComponent(it, "name")
+					val name = StringArgumentType.getString(it, "name")
+					MatchState.setTeamName(TeamSide.A, Component.literal(name), it.source.server)
 					it.source.sendSuccess({
 						Component.translatable("command.nmbct-football.match.name_a", MatchState.getTeamName(TeamSide.A))
 					}, true)
@@ -80,9 +81,10 @@ object MatchCommand {
 		))
 
 		root.then(Commands.literal("nameB").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).then(
-			Commands.argument("name", ComponentArgument.textComponent(context))
+			Commands.argument("name", StringArgumentType.greedyString())
 				.executes {
-					MatchState.teamBName = ComponentArgument.getResolvedComponent(it, "name")
+					val name = StringArgumentType.getString(it, "name")
+					MatchState.setTeamName(TeamSide.B, Component.literal(name), it.source.server)
 					it.source.sendSuccess({
 						Component.translatable("command.nmbct-football.match.name_b", MatchState.getTeamName(TeamSide.B))
 					}, true)

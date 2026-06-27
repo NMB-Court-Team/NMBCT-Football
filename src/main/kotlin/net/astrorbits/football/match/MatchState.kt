@@ -104,6 +104,28 @@ object MatchState {
         TeamSide.B -> teamBName.copy().withStyle(ChatFormatting.AQUA)
     }
 
+    /** 更新队名：写入运行时状态、持久化比赛配置、刷新记分板并向客户端同步。 */
+    fun setTeamName(team: TeamSide, name: Component, server: MinecraftServer) {
+        val plain = name.string
+        val updatedConfig = when (team) {
+            TeamSide.A -> MatchConfigHolder.current.copy(teamAName = plain)
+            TeamSide.B -> MatchConfigHolder.current.copy(teamBName = plain)
+        }
+        MatchConfigHolder.apply(updatedConfig)
+        when (team) {
+            TeamSide.A -> teamAName = name
+            TeamSide.B -> teamBName = name
+        }
+        syncScoreboardTeamDisplayNames(server)
+        FootballNetworking.syncTimerToClients(server)
+    }
+
+    fun syncScoreboardTeamDisplayNames(server: MinecraftServer) {
+        val scoreboard = server.scoreboard
+        scoreboard.getPlayerTeam(SCOREBOARD_TEAM_A)?.displayName = getTeamName(TeamSide.A)
+        scoreboard.getPlayerTeam(SCOREBOARD_TEAM_B)?.displayName = getTeamName(TeamSide.B)
+    }
+
     fun getPlayerTeam(uuid: UUID): TeamSide? = when {
         teamAPlayers.contains(uuid) -> TeamSide.A
         teamBPlayers.contains(uuid) -> TeamSide.B
