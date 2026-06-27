@@ -4,6 +4,7 @@ import dev.isxander.yacl3.api.ConfigCategory
 import dev.isxander.yacl3.api.OptionGroup
 import dev.isxander.yacl3.api.YetAnotherConfigLib
 import net.astrorbits.football.NMBCTFootball
+import net.astrorbits.football.client.util.YaclOptionUtil.addBoolean
 import net.astrorbits.football.client.util.YaclOptionUtil.addDouble
 import net.astrorbits.football.client.util.YaclOptionUtil.addEnum
 import net.astrorbits.football.client.util.YaclOptionUtil.addInt
@@ -44,6 +45,20 @@ object FootballClientConfigScreen {
                         OptionGroup.createBuilder()
                             .name(Component.translatable("yacl3.config.$MOD_ID.client.group.hud"))
                             .apply {
+                                addBoolean(
+                                    "yacl3.config.$MOD_ID.client.show_match_score_hud",
+                                    "yacl3.config.$MOD_ID.client.show_match_score_hud.desc",
+                                    def.showMatchScoreHud,
+                                    { draft.showMatchScoreHud },
+                                    { v -> draft = draft.copy(showMatchScoreHud = v) },
+                                )
+                                addBoolean(
+                                    "yacl3.config.$MOD_ID.client.show_keybind_hint_hud",
+                                    "yacl3.config.$MOD_ID.client.show_keybind_hint_hud.desc",
+                                    def.showKeybindHintHud,
+                                    { draft.showKeybindHintHud },
+                                    { v -> draft = draft.copy(showKeybindHintHud = v) },
+                                )
                                 addDouble(
                                     "yacl3.config.$MOD_ID.client.hint_hide_extra_range",
                                     "yacl3.config.$MOD_ID.client.hint_hide_extra_range.desc",

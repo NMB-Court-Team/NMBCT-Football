@@ -24,6 +24,10 @@ enum class GoalNetRenderMode(
  * 仅本机生效的客户端配置：HUD、输入手感、渲染与预测。
  */
 data class FootballClientConfig(
+    /** 是否显示左上角比赛得分 HUD（阶段、计时、比分）。 */
+    val showMatchScoreHud: Boolean = true,
+    /** 是否显示右上角按键提示 HUD。 */
+    val showKeybindHintHud: Boolean = true,
     val hintHideExtraRange: Double = 0.4,
     val renderStationarySpeedSqr: Double = 1.0e-4,
     val clientCorrectionThreshold: Double = 0.25,
@@ -43,6 +47,10 @@ data class FootballClientConfig(
     companion object {
         val CODEC: Codec<FootballClientConfig> = RecordCodecBuilder.create { instance ->
             instance.group(
+                Codec.BOOL.optionalFieldOf("show_match_score_hud", true)
+                    .forGetter(FootballClientConfig::showMatchScoreHud),
+                Codec.BOOL.optionalFieldOf("show_keybind_hint_hud", true)
+                    .forGetter(FootballClientConfig::showKeybindHintHud),
                 Codec.DOUBLE.fieldOf("hint_hide_extra_range").forGetter(FootballClientConfig::hintHideExtraRange),
                 Codec.DOUBLE.fieldOf("render_stationary_speed_sqr").forGetter(FootballClientConfig::renderStationarySpeedSqr),
                 Codec.DOUBLE.fieldOf("client_correction_threshold").forGetter(FootballClientConfig::clientCorrectionThreshold),
