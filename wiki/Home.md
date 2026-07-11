@@ -1,28 +1,37 @@
-# NMBCT Football Wiki
+﻿# NMBCT Football Wiki
 
-这里是 NMBCT Football 的用户配置文档。推荐先从自定义球场开始，再根据需要调整比赛规则、服务端手感和客户端显示。
+Language: **English** | [中文](Home-zh-CN)
 
-## 页面索引
+This wiki explains how to configure NMBCT Football for custom Minecraft football fields, match rules, server-side gameplay tuning, and client-side display options.
 
-| 页面 | 内容 |
+## Pages
+
+| Page | What it covers |
 | --- | --- |
-| [自定义球场配置](Custom-Field-Configuration) | 配置自己的球场、球门、边线、开球点、角球点、门球点、禁区、出生点 |
-| [配置总览](Configuration-Guide) | `nmbct-football-match.json`、`nmbct-football-server.json`、`nmbct-football-client.json` 的用途和常用字段 |
+| [Custom Field Configuration](Custom-Field-Configuration) | Build and configure your own field, goals, sidelines, kickoff point, set-piece spots, penalty areas, and spawn points |
+| [Configuration Guide](Configuration-Guide) | Overview of `nmbct-football-match.json`, `nmbct-football-server.json`, and `nmbct-football-client.json` |
 
-## 快速入口
+## Quick Commands
 
-- 比赛配置界面：OP 在游戏内执行 `/match setup`
-- 球场几何界面：OP 在游戏内执行 `/match config`
-- 服务端手感配置：OP 在游戏内执行 `/football config`
-- 赛场配置文件：`config/nmbct-football-match.json`
-- 服务端配置文件：`config/nmbct-football-server.json`
-- 客户端配置文件：`config/nmbct-football-client.json`
+- Match setup UI: `/match setup`
+- Field geometry UI: `/match config`
+- Server gameplay config UI: `/football config`
+- Summon a football: `/football summon`
+- Join a team: `/match join A` or `/match join B`
+- Start a match: `/match start`
 
-## 推荐配置顺序
+## Configuration Files
 
-1. 先建好 Minecraft 世界里的球场和球门。
-2. 用 `/match config` 录入球场几何。
-3. 用 `/match setup` 设置队名、时间、补时、加时、点球、辅助功能。
-4. 用 `/football config` 调整射门、带球、守门员、体力、粒子和物理手感。
-5. 开一局测试：`/match join A`、`/match join B`、`/match start`。
+| File | Purpose |
+| --- | --- |
+| `config/nmbct-football-match.json` | Match rules, team names, field geometry, spawn points, accessibility |
+| `config/nmbct-football-server.json` | Server-authoritative physics, kicking, dribbling, goalkeeper, stamina, particles |
+| `config/nmbct-football-client.json` | Local client HUD, rendering, input preferences |
 
+## Recommended Setup Flow
+
+1. Build the field and goals in your Minecraft world.
+2. Run `/match config` and enter the field geometry.
+3. Run `/match setup` and set teams, duration, extra time, penalties, offside, and accessibility options.
+4. Run `/football config` if you want to tune kicking, dribbling, goalkeeper behavior, stamina, particles, or physics.
+5. Test with `/match join A`, `/match join B`, and `/match start`.

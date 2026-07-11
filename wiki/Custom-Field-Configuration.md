@@ -1,56 +1,56 @@
-# 自定义球场配置
+﻿# Custom Field Configuration
 
-本页说明如何把自己建好的 Minecraft 球场接入 NMBCT Football 的正式比赛系统。球场配置由 `nmbct-football-match.json` 保存，也可以通过游戏内 GUI 编辑。
+Language: **English** | [中文](Custom-Field-Configuration-zh-CN)
 
-## 配置方式
+This page explains how to connect your own Minecraft football field to the NMBCT Football match system. Field data is saved in `nmbct-football-match.json` and can also be edited through the in-game UI.
 
-推荐使用游戏内 GUI：
+## Recommended Method
 
-1. 以 OP 或 GM 权限进入服务器。
-2. 站到你要采样的位置。
-3. 执行 `/match config` 打开球场几何配置界面。
-4. 按界面分组填写球门、边线、开球点、角球点、门球点、点球点、禁区和双方出生点。
-5. 保存后配置会写入当前生效的 `nmbct-football-match.json`。
+Use the in-game field editor whenever possible:
 
-也可以手动编辑 JSON：
+1. Join the server with OP or GM permission.
+2. Stand at the positions you want to sample.
+3. Run `/match config`.
+4. Fill in goals, sidelines, kickoff point, corner kicks, goal kicks, penalty spots, penalty areas, and team spawn points.
+5. Save the screen. The active `nmbct-football-match.json` will be updated.
 
-- 全局默认路径：`<Fabric 配置目录>/nmbct-football-match.json`
-- 如果世界存档根目录存在 `nmbct-football-match.json`，服务器启动后会优先读取世界内的这个文件。
-- 仓库根目录的 `nmbct-football-match.json` 可作为示例模板。
+Manual JSON editing also works:
 
-## 配置文件优先级
+- Global config path: `<Fabric config directory>/nmbct-football-match.json`
+- World-specific path: `<world>/nmbct-football-match.json`
+- If the world-specific file exists, it takes priority when the server starts.
 
-服务器启动时会按下面顺序决定使用哪个赛场配置：
+## File Priority
 
-1. 世界存档根目录：`<world>/nmbct-football-match.json`
-2. Fabric 全局配置目录：`config/nmbct-football-match.json`
+The match config is loaded in this order:
 
-如果世界目录里有专用配置，它会覆盖全局配置。这样同一台服务器可以为不同世界保存不同球场。
+1. `<world>/nmbct-football-match.json`
+2. `<Fabric config directory>/nmbct-football-match.json`
 
-## 坐标约定
+Use the world file when a field belongs to a specific map and should travel with that save.
 
-所有坐标都是 Minecraft 世界坐标：
+## Coordinate Rules
 
-- `x`、`y`、`z` 是方块世界坐标，可以使用小数。
-- `yaw`、`pitch` 只用于出生点朝向，可省略。
-- `y` 一般填球场地面高度。
-- `field_config_version` 推荐保持为 `2`。
+- `x`, `y`, and `z` are Minecraft world coordinates and may be decimals.
+- `yaw` and `pitch` are only used by spawn positions and may be omitted.
+- `y` is usually the field ground height.
+- Keep `field_config_version` as `2` for new configs.
 
-球场一般由四条边围成：
+The playable rectangle is defined by:
 
-- 两座球门的门线决定底线方向。
-- `sideline_a` 和 `sideline_b` 决定两条边线。
-- `kick_off` 是中圈开球点，也用于推导中线。
+- `goal_a` and `goal_b` as the two goal lines.
+- `sideline_a` and `sideline_b` as the two sidelines.
+- `kick_off` as the center spot and midfield reference.
 
-## 最小字段结构
+## Minimal Structure
 
-下面是一个精简结构，实际可以从仓库示例复制后修改：
+Start from the repository sample when possible. The shape below shows the main sections:
 
 ```json
 {
   "field_config_version": 2,
-  "team_a_name": "红队",
-  "team_b_name": "蓝队",
+  "team_a_name": "Red",
+  "team_b_name": "Blue",
   "rules": {
     "half_time_minutes": 5,
     "enable_offside": true,
@@ -76,26 +76,24 @@
 }
 ```
 
-手动写 JSON 时，`goal_a`、`goal_b`、`sideline_a`、`sideline_b` 需要补齐下面章节里的字段。空对象只适合说明结构，不适合作为正式球场。
+`goal_a`, `goal_b`, `sideline_a`, and `sideline_b` must be filled before the field is usable.
 
-## 球门配置
+## Goals
 
-每座球门使用 `GoalConfig`：
+Each goal uses this structure:
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `x1`, `y1`, `z1` | 球门矩形第一个角 |
-| `x2`, `y2`, `z2` | 球门矩形对角 |
-| `facing_x`, `facing_y`, `facing_z` | 球门朝向，也就是进球方向 |
-| `goal_kick` | 门球摆球点 |
-| `corner_kick_left` | 左侧角球点 |
-| `corner_kick_right` | 右侧角球点 |
-| `penalty_spot` | 点球点，可省略；省略时按门线反方向约 11 格推导 |
-| `half_area` | 本半场小禁区、大禁区和点球弧 |
+| `x1`, `y1`, `z1` | First corner of the goal rectangle |
+| `x2`, `y2`, `z2` | Opposite corner of the goal rectangle |
+| `facing_x`, `facing_y`, `facing_z` | Goal facing direction, used for goal-line logic |
+| `goal_kick` | Goal kick placement point |
+| `corner_kick_left` | Left corner kick point |
+| `corner_kick_right` | Right corner kick point |
+| `penalty_spot` | Penalty spot; optional but recommended for custom fields |
+| `half_area` | Goal area, penalty area, and penalty arc for this half |
 
-`goal_a` 和 `goal_b` 的 `facing_*` 应该指向各自球门内侧或进球穿过门线的方向。两座球门通常朝向相反。
-
-示例：
+Example:
 
 ```json
 "goal_a": {
@@ -115,19 +113,17 @@
 }
 ```
 
-## 禁区配置
+For custom-scale fields, explicitly set `penalty_spot` for both goals.
 
-`half_area` 定义球门所在半场的区域：
+## Penalty Areas
 
-| 字段 | 含义 |
+`half_area` defines the boxes around one goal:
+
+| Field | Meaning |
 | --- | --- |
-| `goal_area_corner1` | 小禁区矩形角 1 |
-| `goal_area_corner2` | 小禁区矩形角 2 |
-| `penalty_area_corner1` | 大禁区矩形角 1 |
-| `penalty_area_corner2` | 大禁区矩形角 2 |
-| `penalty_arc_radius` | 点球弧半径，默认 `10.0` |
-
-矩形角只需要填两个对角。系统会按水平 `x/z` 范围判断是否在区内。
+| `goal_area_corner1`, `goal_area_corner2` | Two opposite corners of the goal area |
+| `penalty_area_corner1`, `penalty_area_corner2` | Two opposite corners of the penalty area |
+| `penalty_arc_radius` | Penalty arc radius, default `10.0` |
 
 ```json
 "half_area": {
@@ -139,17 +135,17 @@
 }
 ```
 
-## 边线配置
+## Sidelines
 
-`sideline_a` 和 `sideline_b` 使用同一种结构：
+`sideline_a` and `sideline_b` use the same structure:
 
-| 字段 | 含义 |
+| Field | Meaning |
 | --- | --- |
-| `axis` | 边线延伸方向，`"x"` 表示边线沿 X 轴延伸，`"z"` 表示边线沿 Z 轴延伸 |
-| `coord` | 边线固定坐标；`axis = "x"` 时填固定 Z，`axis = "z"` 时填固定 X |
-| `positive_inside` | `true` 表示固定坐标轴正方向一侧是场内，`false` 表示负方向一侧是场内 |
+| `axis` | Line extension axis: `"x"` means the line runs along X; `"z"` means it runs along Z |
+| `coord` | Fixed coordinate: fixed Z for `axis = "x"`, fixed X for `axis = "z"` |
+| `positive_inside` | Whether the positive side of the fixed coordinate axis is inside the field |
 
-例子：边线沿 Z 轴延伸，固定在 `x = 43.2`，场内在 X 负方向：
+Example: a sideline running along Z, fixed at `x = 43.2`, with the inside on negative X:
 
 ```json
 "sideline_a": {
@@ -159,31 +155,21 @@
 }
 ```
 
-另一条边线固定在 `x = -26.2`，场内在 X 正方向：
+## Kickoff and Set-Piece Radii
 
-```json
-"sideline_b": {
-  "coord": -26.2,
-  "axis": "z",
-  "positive_inside": true
-}
-```
-
-## 开球点和距离半径
-
-| 字段 | 默认值 | 含义 |
+| Field | Default | Meaning |
 | --- | --- | --- |
-| `kick_off` | `{ "x": 8.5, "y": -60.0, "z": 8.5 }` | 中圈开球点 |
-| `center_circle_radius` | `10.0` | 中圈限制半径 |
-| `corner_kick_penalty_area_radius` | `10.0` | 角球时防守方需要退出的半径 |
-| `throw_in_penalty_area_radius` | `2.5` | 界外球时其他球员需要退出的半径 |
-| `free_kick_distance_radius` | `10.0` | 任意球防守距离 |
+| `kick_off` | `{ "x": 8.5, "y": -60.0, "z": 8.5 }` | Center kickoff spot |
+| `center_circle_radius` | `10.0` | Center circle restriction radius |
+| `corner_kick_penalty_area_radius` | `10.0` | Required distance around corner kicks |
+| `throw_in_penalty_area_radius` | `2.5` | Required distance around throw-ins |
+| `free_kick_distance_radius` | `10.0` | Required distance around free kicks |
 
-这些半径影响定位球时的自动限制和重定位。
+These values affect automatic set-piece restrictions and player repositioning.
 
-## 出生点配置
+## Spawn Points
 
-每队有一个守门员点和若干普通球员点：
+Each team has one goalkeeper spawn and a list of player spawns:
 
 ```json
 "team_a_spawn": {
@@ -200,28 +186,15 @@
 }
 ```
 
-建议：
+Tips:
 
-- `gk` 放在本方球门前。
-- `players` 按你希望的阵型排列。
-- `yaw` 面向进攻方向；如果不填，默认 `0`。
-- 玩家数多于出生点时，多出来的玩家可能无法得到理想站位，建议按最大参赛人数配置足够点位。
+- Put `gk` in front of that team's goal.
+- Add enough `players` entries for the maximum number of outfield players.
+- Use `yaw` to face players toward the attacking direction.
 
-## 游戏内采样建议
+## Testing
 
-配置球场时可以按下面顺序采样：
-
-1. 站到 A 球门左下角和右上角，记录 `goal_a` 的两角。
-2. 站到 B 球门两角，记录 `goal_b` 的两角。
-3. 站到中点，记录 `kick_off`。
-4. 站到两条边线，确认 `axis`、`coord`、`positive_inside`。
-5. 站到四个角球点、两个门球点、两个点球点。
-6. 站到小禁区和大禁区的对角。
-7. 站到双方出生点，保存守门员和球员位置。
-
-## 保存后测试
-
-推荐用下面命令快速测试：
+Quick test commands:
 
 ```mcfunction
 /match join A
@@ -229,38 +202,25 @@
 /match start
 ```
 
-常用管理命令：
+Useful admin commands:
 
-| 命令 | 用途 |
+| Command | Purpose |
 | --- | --- |
-| `/match setup` | 打开比赛规则和辅助功能配置 |
-| `/match config` | 打开球场几何配置 |
-| `/match reset` | 重置到赛前 |
-| `/match pause` | 暂停或恢复计时 |
-| `/match scoreA <value>` | 设置 A 队比分 |
-| `/match scoreB <value>` | 设置 B 队比分 |
-| `/match setGk A <player>` | 指定 A 队守门员 |
-| `/match setGk B <player>` | 指定 B 队守门员 |
+| `/match setup` | Open match rules and accessibility config |
+| `/match config` | Open field geometry config |
+| `/match reset` | Reset to pre-match |
+| `/match pause` | Pause or resume the timer |
+| `/match scoreA <value>` | Set Team A score |
+| `/match scoreB <value>` | Set Team B score |
+| `/match setGk A <player>` | Set Team A goalkeeper |
+| `/match setGk B <player>` | Set Team B goalkeeper |
 
-## 常见问题
+## Troubleshooting
 
-### 进球不判定
-
-检查两座球门的 `x1/y1/z1`、`x2/y2/z2` 是否确实覆盖球门洞口，并确认 `facing_x/y/z` 方向正确。
-
-### 出界方向反了
-
-检查 `sideline_a`、`sideline_b` 的 `positive_inside`。如果球明明在场内却被判出界，通常是场内方向填反了。
-
-### 球员被重定位到奇怪位置
-
-检查 `kick_off`、`center_circle_radius`、`half_area` 和定位球半径。中线、禁区和限制圈都依赖这些字段。
-
-### 点球位置不对
-
-显式填写 `goal_a.penalty_spot` 和 `goal_b.penalty_spot`。不填时系统会根据球门门线和朝向自动推导，适合标准球场，但自定义比例球场可能需要手动写。
-
-### 世界换了以后配置不对
-
-确认当前世界根目录是否存在 `nmbct-football-match.json`。如果存在，服务器会优先使用世界内配置，而不是全局 `config` 目录里的文件。
-
+| Problem | Check |
+| --- | --- |
+| Goals are not detected | Goal rectangle corners and `facing_x/y/z` |
+| Out-of-bounds is reversed | `sideline_a/b.positive_inside` |
+| Players are repositioned oddly | `kick_off`, `center_circle_radius`, `half_area`, and set-piece radii |
+| Penalty kicks use the wrong spot | Explicitly set `goal_a.penalty_spot` and `goal_b.penalty_spot` |
+| Global config changes do not apply | Check whether the world folder has its own `nmbct-football-match.json` |
