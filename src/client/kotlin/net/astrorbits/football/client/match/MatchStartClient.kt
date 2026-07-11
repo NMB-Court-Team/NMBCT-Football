@@ -30,6 +30,8 @@ object MatchStartClient {
 
     /** 球延迟复位期间（服务端 [MatchState.postGoalResetPending] 镜像）。 */
     var ballResetPending: Boolean = false; private set
+    /** 禁区内滑铲犯规：吹哨后全员禁操作，等待球是否进门。 */
+    var penaltyFoulGoalWatchActive: Boolean = false; private set
     var pendingRestartTeam: TeamSide? = null; private set
     var pendingSetPieceKind: SetPieceKind? = null; private set
 
@@ -114,12 +116,23 @@ object MatchStartClient {
         lastStoppageTickMs = 0L
     }
 
+    fun beginPenaltyFoulGoalWatch() {
+        penaltyFoulGoalWatchActive = true
+    }
+
+    fun clearPenaltyFoulGoalWatch() {
+        penaltyFoulGoalWatchActive = false
+    }
+
     fun beginBallResetPending(restartTeam: TeamSide, setPieceKind: SetPieceKind) {
         ballResetPending = true
         pendingRestartTeam = restartTeam
         pendingSetPieceKind = setPieceKind
         kickoffTeam = restartTeam
         isKickoffTeam = playerTeam == restartTeam
+        startTimeMs = 0L
+        kickoffStartMs = 0L
+        kickoffTouched = true
     }
 
     fun clearBallResetPending() {
@@ -209,6 +222,7 @@ object MatchStartClient {
     val elapsedMs: Long get() = if (startTimeMs > 0) System.currentTimeMillis() - startTimeMs else 0L
     fun reset() {
         clearBallResetPending()
+        clearPenaltyFoulGoalWatch()
         startTimeMs = 0L
         kickoffTouched = false
         isPostGoal = false

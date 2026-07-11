@@ -24,6 +24,9 @@ object MatchStateClient {
             // 比赛结算：取消所有锁定
             if (phase == MatchPhase.FINISHED) {
                 MatchStartClient.reset()
+                SendOffBroadcastClient.clear()
+                SendOffRedCardClient.clear()
+                SendOffLocalClient.clear()
                 ClientPlayNetworking.send(MatchResultRequestC2SPayload.INSTANCE)
             }
             prevPhase = phase

@@ -19,9 +19,24 @@ object SetPieceTakerPlacement {
             TeamSide.B -> PlayerRoleState.teamBGoalkeeper
         } ?: return null
         val player = server.playerList.getPlayer(uuid) ?: return null
-        if (!MatchParticipation.isParticipating(player)) return null
+        if (!MatchParticipation.isEligibleForSetPiece(player)) return null
         if (MatchState.getPlayerTeam(player.uuid) != team) return null
         return player
+    }
+
+    /** 门球主罚：优先官方门将；门将被罚下或不在场时由距球最近的可用外场队员代替。 */
+    fun resolveGoalKickPicker(server: MinecraftServer, team: TeamSide, ballPos: Vec3): ServerPlayer? {
+        resolveGoalkeeper(server, team)?.let { return it }
+        val roster = when (team) {
+            TeamSide.A -> MatchState.teamAPlayers
+            TeamSide.B -> MatchState.teamBPlayers
+        }
+        return roster.mapNotNull { server.playerList.getPlayer(it) }
+            .filter { MatchParticipation.isEligibleForSetPiece(it) }
+            .filter { !PlayerRoleState.isDesignatedGoalkeeper(it) }
+            .minByOrNull {
+                GoalKickPlacedKickerUtil.horizontalDistanceSq(it.x, it.z, ballPos.x, ballPos.z)
+            }
     }
 
     /** 门将站在球靠球门一侧、面向场内（球在门将前方靠场内）。 */

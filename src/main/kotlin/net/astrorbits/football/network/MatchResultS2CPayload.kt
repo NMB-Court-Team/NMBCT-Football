@@ -18,6 +18,7 @@ data class MatchResultS2CPayload(
     val penaltyScoreA: Int = 0,
     val penaltyScoreB: Int = 0,
     val penaltyWinner: TeamSide? = null,
+    val forfeitWinner: TeamSide? = null,
 ) : CustomPacketPayload {
     override fun type() = TYPE
 
@@ -34,6 +35,7 @@ data class MatchResultS2CPayload(
                 buf.writeInt(p.penaltyScoreA)
                 buf.writeInt(p.penaltyScoreB)
                 buf.writeInt(p.penaltyWinner?.ordinal ?: -1)
+                buf.writeInt(p.forfeitWinner?.ordinal ?: -1)
             },
             { buf ->
                 MatchResultS2CPayload(
@@ -46,6 +48,9 @@ data class MatchResultS2CPayload(
                     penaltyScoreA = buf.readInt(),
                     penaltyScoreB = buf.readInt(),
                     penaltyWinner = buf.readInt().let { ord ->
+                        if (ord < 0) null else TeamSide.entries[ord]
+                    },
+                    forfeitWinner = buf.readInt().let { ord ->
                         if (ord < 0) null else TeamSide.entries[ord]
                     },
                 )

@@ -133,11 +133,13 @@ object FootballNetInteraction {
         )
         state.angularVelocity = state.angularVelocity.scale(spinRetention)
 
-        // 接近极限拉伸时给额外反推，优先避免持续嵌入/穿透。
-        val pushoutRatio = normalizedAbove(stretchRatio, GoalNetConfig.STRETCH_PUSHOUT_START)
-        val pushoutSpeed = pushoutRatio * pushoutRatio * GoalNetConfig.STRETCH_PUSHOUT_VELOCITY_GAIN
-        if (pushoutSpeed > 1.0e-4) {
-            newVelocity = newVelocity.add(n.scale(side * pushoutSpeed))
+        // 接近极限拉伸时给额外反推；穿面时 restCenter 已做位移分离，再叠法向加速会在进球判例瞬间「往前窜」。
+        if (!local.crossed) {
+            val pushoutRatio = normalizedAbove(stretchRatio, GoalNetConfig.STRETCH_PUSHOUT_START)
+            val pushoutSpeed = pushoutRatio * pushoutRatio * GoalNetConfig.STRETCH_PUSHOUT_VELOCITY_GAIN
+            if (pushoutSpeed > 1.0e-4) {
+                newVelocity = newVelocity.add(n.scale(side * pushoutSpeed))
+            }
         }
 
         // 仅在“确实穿透/穿面”时做最小法向推出，避免常规触网被强制吸附到网面。

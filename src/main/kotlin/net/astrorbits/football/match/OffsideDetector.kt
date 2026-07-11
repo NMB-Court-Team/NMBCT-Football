@@ -12,6 +12,7 @@ object OffsideDetector {
         if (!MatchState.isDuringMatch()) return
         if (MatchState.currentPhase == MatchPhase.PENALTIES) return
         if (MatchState.postGoalResetPending) return
+        if (PenaltyFoulGoalWatchState.isActive()) return
 
         val attackingTeam = MatchParticipation.participatingTeam(passer) ?: return
         val server = passer.level().server ?: return
@@ -73,6 +74,7 @@ object OffsideDetector {
         if (player.uuid !in snapshot.offsidePlayers) return false
         if (player.uuid == snapshot.passerUuid) return false
         if (MatchState.postGoalResetPending) return false
+        if (PenaltyFoulGoalWatchState.isActive()) return false
 
         val awarded = FreeKickAwards.awardIndirectFreeKick(
             level,

@@ -194,7 +194,6 @@ object FootballHudHintResolver {
 
     private fun isAwaitingSetPieceTouch(): Boolean {
         if (MatchStartClient.isChoosing) return false
-        if (MatchStartClient.ballResetPending) return false
         if (SetPieceClient.kind == SetPieceKind.GOAL_KICK &&
             SetPieceClient.goalKickPhase == GoalKickPhase.AWAITING_PA_EXIT
         ) {

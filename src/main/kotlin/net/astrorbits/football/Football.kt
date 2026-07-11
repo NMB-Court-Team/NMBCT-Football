@@ -123,6 +123,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (isMatchPaused()) return true
         if (immovableTargetPlayers.contains(player.uuid)) return true
         if (player is ServerPlayer) {
+            // 蓄力射门弧线窗口 / 侧向加速 ramp：点球 RESOLVING 等开球锁仍须允许跟进
+            if (KickCurveSessions.isFollowUpActive(player.uuid, id, player.level().gameTime) ||
+                isCurveRampActiveFor(player.uuid)
+            ) {
+                return false
+            }
             // 界外球主罚员：踢球层放开（掷出与否由 GoalkeeperActions / allowsThrowAction 把关）
             if (ThrowInSetPieceFlow.isMovementFrozen(player)) return false
             if (SetPieceRestrictionCoordinator.isPlayerBallMovementForbidden(player)) return true
@@ -421,22 +427,30 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         FootballSounds.playCollisionBounces(level(), blockPosition(), bounce, level().random)
         FootballParticles.playCollisionBounces(level(), blockPosition(), bounce)
 
+        val resetPendingBefore = MatchState.postGoalResetPending
+        val goalLineOutBefore = MatchState.pendingGoalLineOut
         if (detectGoals) {
             detectGoal(beforeMove, position())
         }
-        applyWorldContactGuards(beforeMove, position())
+        val boundaryEventThisTick = (!resetPendingBefore && MatchState.postGoalResetPending) ||
+            (goalLineOutBefore == null && MatchState.pendingGoalLineOut != null)
+        applyWorldContactGuards(beforeMove, position(), skipPositionNudge = boundaryEventThisTick)
 
         return WorldMotionResult(beforeMove, actualMotion)
     }
 
-    private fun applyWorldContactGuards(beforeMove: Vec3, afterMove: Vec3) {
+    private fun applyWorldContactGuards(
+        beforeMove: Vec3,
+        afterMove: Vec3,
+        skipPositionNudge: Boolean = false,
+    ) {
         val radius = FootballPhysicsConfig.RADIUS
         val prevCenter = beforeMove.add(0.0, radius, 0.0)
         val currCenter = afterMove.add(0.0, radius, 0.0)
         val netContact = FootballNetInteraction.apply(level(), physicsState, prevCenter, currCenter)
         if (netContact != null) {
             val restCenter = netContact.restCenter
-            if (restCenter != null) {
+            if (restCenter != null && !skipPositionNudge) {
                 val target = restCenter.subtract(0.0, radius, 0.0)
                 setPos(target.x, target.y, target.z)
             }
@@ -450,8 +464,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             radius
         )
         if (blockDepenetration.correction.lengthSqr() > 1.0e-9) {
-            val target = blockDepenetration.center.subtract(0.0, radius, 0.0)
-            setPos(target.x, target.y, target.z)
+            val depenCenter = blockDepenetration.center
+            val allowDepenPosition = !skipPositionNudge && isCenterInPitchForDepenetration(depenCenter)
+            if (allowDepenPosition) {
+                val target = depenCenter.subtract(0.0, radius, 0.0)
+                setPos(target.x, target.y, target.z)
+            }
             val correctionLength = sqrt(blockDepenetration.correction.lengthSqr())
             if (correctionLength > 1.0e-9) {
                 val outward = blockDepenetration.correction.scale(1.0 / correctionLength)
@@ -462,6 +480,12 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             }
             deltaMovement = physicsState.linearVelocity
         }
+    }
+
+    /** 球心已出边线/门线外时，防穿透只做速度修正，不再 setPos 把球顶进场外方块（判例瞬间「往前窜」）。 */
+    private fun isCenterInPitchForDepenetration(center: Vec3): Boolean {
+        val rect = MatchFieldBounds.pitchRect(MatchConfigHolder.current) ?: return true
+        return rect.containsHorizontal(center.x, center.z)
     }
 
     private fun setCenterWithWorldContactGuards(center: Vec3) {
@@ -477,6 +501,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         repositionCenter: Vec3? = null,
         now: Long = (level() as? ServerLevel)?.gameTime ?: 0L,
     ): Boolean {
+        if (PenaltyFoulGoalWatchState.isActive()) {
+            return false
+        }
         if (isImmovable || isPlayerBallMovementForbidden(player) || isHoldStealProtectedFrom(player)) {
             return false
         }
@@ -899,6 +926,11 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         val prevCenter = prevPos.add(0.0, radius, 0.0)
         val currCenter = currPos.add(0.0, radius, 0.0)
 
+        if (PenaltyFoulGoalWatchState.isActive()) {
+            detectPenaltyFoulGoalWatch(prevCenter, currCenter)
+            return
+        }
+
         if (MatchPenaltyKickState.isActive()) {
             detectMatchPenaltyKick(prevCenter, currCenter)
             return
@@ -963,6 +995,48 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
         if (checkMatchPenaltyGoalLine(config.goalB, prevCenter, currCenter, TeamSide.B, TeamSide.A)) return
         if (checkMatchPenaltySidelineOut(config.sidelineA, prevCenter, currCenter)) return
         checkMatchPenaltySidelineOut(config.sidelineB, prevCenter, currCenter)
+    }
+
+    /** 滑铲犯规观察期：仅判犯规方球门线与边线，逻辑同正赛点球 RESOLVING。 */
+    private fun detectPenaltyFoulGoalWatch(prevCenter: Vec3, currCenter: Vec3) {
+        val config = MatchConfigHolder.current
+        val defending = PenaltyFoulGoalWatchState.defendingTeam
+        val attacking = PenaltyFoulGoalWatchState.kickingTeam
+        val goal = when (defending) {
+            TeamSide.A -> config.goalA
+            TeamSide.B -> config.goalB
+        }
+        val crossing = GoalCrossingUtil.segmentCrossesGoalLine(
+            goal, prevCenter, currCenter, defending, attacking,
+        )
+        if (crossing != null) {
+            val effectiveInGoal = crossing.inGoal || GoalCrossingUtil.isCenterInGoal(goal, currCenter)
+            PenaltyFoulGoalWatchState.onGoalLineCrossing(
+                crossing.copy(inGoal = effectiveInGoal, definiteGoalLineOut = crossing.definiteGoalLineOut && !effectiveInGoal),
+            )
+            return
+        }
+        if (checkPenaltyFoulWatchSidelineOut(config.sidelineA, prevCenter, currCenter)) return
+        checkPenaltyFoulWatchSidelineOut(config.sidelineB, prevCenter, currCenter)
+    }
+
+    private fun checkPenaltyFoulWatchSidelineOut(
+        sideline: SidelineConfig,
+        prevCenter: Vec3,
+        currCenter: Vec3,
+    ): Boolean {
+        val facing = sideline.facing()
+        if (facing.lengthSqr() < 1e-6) return false
+        val origin = sideline.origin()
+        val refX = origin.x
+        val refY = origin.y
+        val refZ = origin.z
+        val d1 = (prevCenter.x - refX) * facing.x + (prevCenter.y - refY) * facing.y + (prevCenter.z - refZ) * facing.z
+        val d2 = (currCenter.x - refX) * facing.x + (currCenter.y - refY) * facing.y + (currCenter.z - refZ) * facing.z
+        if (d1 * d2 >= 0) return false
+        if (d2 - d1 >= 0) return false
+        PenaltyFoulGoalWatchState.onSidelineOut()
+        return true
     }
 
     private fun checkMatchPenaltyGoalLine(
@@ -1201,7 +1275,9 @@ class Football(type: EntityType<*>, level: Level) : Entity(type, level) {
             }
             MatchState.clearDirectGoalRestriction()
             MatchState.clearPendingOffsideSnapshot()
-            MatchState.postGoalResetPending = true
+            if (!MatchState.postGoalResetPending) {
+                MatchState.postGoalResetPending = true
+            }
             MatchState.onGoal(attackingTeam)
             val ownGoal = scorerTeam != attackingTeam
             FootballNetworking.broadcastGoalScored(

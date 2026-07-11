@@ -73,6 +73,9 @@ object FootballNetworking {
         registry.register(SetPieceAreaViolationS2CPayload.TYPE, SetPieceAreaViolationS2CPayload.CODEC)
         registry.register(SetPieceRestartS2CPayload.TYPE, SetPieceRestartS2CPayload.CODEC)
         registry.register(SetPieceStateS2CPayload.TYPE, SetPieceStateS2CPayload.CODEC)
+        registry.register(BallResetPendingS2CPayload.TYPE, BallResetPendingS2CPayload.CODEC)
+        registry.register(PlayerSendOffS2CPayload.TYPE, PlayerSendOffS2CPayload.CODEC)
+        registry.register(PlayerSendOffRestoreS2CPayload.TYPE, PlayerSendOffRestoreS2CPayload.CODEC)
     }
 
     fun registerServerReceiver() {
@@ -136,8 +139,21 @@ object FootballNetworking {
                         penaltyWinner = winner,
                     )
                 } else {
-                    val isDraw = MatchState.teamAScore == MatchState.teamBScore
-                    broadcastMatchResult(server, MatchState.teamAScore, MatchState.teamBScore, nameA, nameB, isDraw)
+                    val forfeitWinner = MatchState.forfeitWinner
+                    if (forfeitWinner != null) {
+                        broadcastMatchResult(
+                            server,
+                            MatchState.teamAScore,
+                            MatchState.teamBScore,
+                            nameA,
+                            nameB,
+                            isDraw = false,
+                            forfeitWinner = forfeitWinner,
+                        )
+                    } else {
+                        val isDraw = MatchState.teamAScore == MatchState.teamBScore
+                        broadcastMatchResult(server, MatchState.teamAScore, MatchState.teamBScore, nameA, nameB, isDraw)
+                    }
                 }
             }
         }
@@ -199,6 +215,8 @@ object FootballNetworking {
 
             PenaltyShootoutState.tick(server)
             MatchPenaltyKickState.tick(server)
+            PenaltyFoulGoalWatchState.tick(server)
+            MatchSendOffState.tick(server)
             ThrowInSetPieceFlow.tickMovementFreeze(server)
 
             MatchState.tickKickoffWhistles(server)
@@ -226,8 +244,8 @@ object FootballNetworking {
             currentPhase = MatchState.currentPhase,
             teamAScore = MatchState.teamAScore,
             teamBScore = MatchState.teamBScore,
-            teamAName = cfg.teamAName,
-            teamBName = cfg.teamBName,
+            teamAName = MatchState.getTeamName(TeamSide.A).string,
+            teamBName = MatchState.getTeamName(TeamSide.B).string,
             isRunning = MatchState.isRunning,
             halfTimeMinutes = cfg.halfTimeMinutes,
             stoppageTimeMaxMinutes = cfg.stoppageTimeMaxMinutes,
@@ -265,7 +283,7 @@ object FootballNetworking {
         ms.kickoffTeam = kickoffTeam
         ms.postGoalResetPending = false
         PostGoalBallResetScheduler.cancel(fieldLevel.dimension())
-        ms.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.HALF)
+        ms.beginKickoffPhase(MatchKickoffTiming.POST_GOAL_LOCK_MS, KickoffWhistleContext.HALF, server)
         ms.teleportTeamsToSpawnPositions(server)
         val kickPos = MatchConfigHolder.current.kickOff.let { net.minecraft.world.phys.Vec3(it.x, it.y, it.z) }
         val nameA = ms.getTeamName(TeamSide.A).string
@@ -305,13 +323,14 @@ object FootballNetworking {
         penaltyScoreA: Int = 0,
         penaltyScoreB: Int = 0,
         penaltyWinner: TeamSide? = null,
+        forfeitWinner: TeamSide? = null,
     ) {
         if (!wonByPenalties) {
             FootballSounds.playMatchWhistle(server, 2)
         }
         val payload = MatchResultS2CPayload(
             teamAScore, teamBScore, teamAName, teamBName, isDraw,
-            wonByPenalties, penaltyScoreA, penaltyScoreB, penaltyWinner,
+            wonByPenalties, penaltyScoreA, penaltyScoreB, penaltyWinner, forfeitWinner,
         )
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
@@ -368,8 +387,8 @@ object FootballNetworking {
             penaltyScoreB = PenaltyShootoutState.penaltyScoreB,
             kickNumber = kickNumber,
             suddenDeath = PenaltyShootoutState.suddenDeath,
-            teamAName = cfg.teamAName,
-            teamBName = cfg.teamBName,
+            teamAName = MatchState.getTeamName(TeamSide.A).string,
+            teamBName = MatchState.getTeamName(TeamSide.B).string,
             scored = scored,
         )
         for (player in server.playerList.players) {
@@ -386,8 +405,8 @@ object FootballNetworking {
             currentPhase = MatchState.currentPhase,
             teamAScore = MatchState.teamAScore,
             teamBScore = MatchState.teamBScore,
-            teamAName = cfg.teamAName,
-            teamBName = cfg.teamBName,
+            teamAName = MatchState.getTeamName(TeamSide.A).string,
+            teamBName = MatchState.getTeamName(TeamSide.B).string,
             isRunning = MatchState.isRunning,
             halfTimeMinutes = cfg.halfTimeMinutes,
             stoppageTimeMaxMinutes = cfg.stoppageTimeMaxMinutes,
@@ -511,6 +530,7 @@ object FootballNetworking {
         GoalkeeperHoldActionPermissions.clearAll(server)
         MatchPauseFootballState.onResume(server)
         MatchState.restoreSpectators(server)
+        MatchSendOffState.restoreAllForMatchEnd(server)
         MatchState.reset()
         GoalKickSetPieceFlow.clear(server)
         ThrowInSetPieceFlow.clear(server)
@@ -691,6 +711,30 @@ object FootballNetworking {
         for (player in server.playerList.players) {
             ServerPlayNetworking.send(player, payload)
         }
+    }
+
+    fun broadcastBallResetPending(server: MinecraftServer, restartTeam: TeamSide, setPieceKind: SetPieceKind) {
+        val payload = BallResetPendingS2CPayload(restartTeam, setPieceKind)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun broadcastPlayerSendOff(
+        server: MinecraftServer,
+        sentOffPlayerUuid: UUID,
+        playerName: String,
+        team: TeamSide,
+        expireAtTimerTicks: Int,
+    ) {
+        val payload = PlayerSendOffS2CPayload(sentOffPlayerUuid, playerName, team, expireAtTimerTicks)
+        for (player in server.playerList.players) {
+            ServerPlayNetworking.send(player, payload)
+        }
+    }
+
+    fun sendPlayerSendOffRestore(player: ServerPlayer) {
+        ServerPlayNetworking.send(player, PlayerSendOffRestoreS2CPayload.INSTANCE)
     }
 
     fun sendSetPieceAreaViolation(player: ServerPlayer, areaNameKey: String, secondsRemaining: Int) {

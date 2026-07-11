@@ -37,6 +37,8 @@ object MatchState {
     var teamBName: Component = DEFAULT_TEAM_B_NAME
     var teamAScore = 0
     var teamBScore = 0
+    /** 全队罚下判负时的获胜方；正赛结算时优先于比分判定胜负。 */
+    var forfeitWinner: TeamSide? = null
     val teamAPlayers: MutableSet<UUID> = mutableSetOf()
     val teamBPlayers: MutableSet<UUID> = mutableSetOf()
     val spectatorPlayers: MutableSet<UUID> = mutableSetOf()
@@ -100,6 +102,28 @@ object MatchState {
     fun getTeamName(team: TeamSide): Component = when (team) {
         TeamSide.A -> teamAName.copy().withStyle(ChatFormatting.RED)
         TeamSide.B -> teamBName.copy().withStyle(ChatFormatting.AQUA)
+    }
+
+    /** 更新队名：写入运行时状态、持久化比赛配置、刷新记分板并向客户端同步。 */
+    fun setTeamName(team: TeamSide, name: Component, server: MinecraftServer) {
+        val plain = name.string
+        val updatedConfig = when (team) {
+            TeamSide.A -> MatchConfigHolder.current.copy(teamAName = plain)
+            TeamSide.B -> MatchConfigHolder.current.copy(teamBName = plain)
+        }
+        MatchConfigHolder.apply(updatedConfig)
+        when (team) {
+            TeamSide.A -> teamAName = name
+            TeamSide.B -> teamBName = name
+        }
+        syncScoreboardTeamDisplayNames(server)
+        FootballNetworking.syncTimerToClients(server)
+    }
+
+    fun syncScoreboardTeamDisplayNames(server: MinecraftServer) {
+        val scoreboard = server.scoreboard
+        scoreboard.getPlayerTeam(SCOREBOARD_TEAM_A)?.displayName = getTeamName(TeamSide.A)
+        scoreboard.getPlayerTeam(SCOREBOARD_TEAM_B)?.displayName = getTeamName(TeamSide.B)
     }
 
     fun getPlayerTeam(uuid: UUID): TeamSide? = when {
@@ -272,6 +296,7 @@ object MatchState {
         isRunning = false
         teamAScore = 0
         teamBScore = 0
+        forfeitWinner = null
         kickoffTeam = null
         kickoffTouched = false
         kickoffBodyContactReleaseUntilTick = -1L
@@ -281,6 +306,7 @@ object MatchState {
         halfKickoffBroadcasted = false
         lastHalfKickoffTeam = null
         postGoalResetPending = false
+        PenaltyFoulGoalWatchState.clear()
         clearPendingGoalLineOut()
         clearDirectGoalRestriction()
         clearPendingOffsideSnapshot()
@@ -289,6 +315,7 @@ object MatchState {
         MatchPenaltyKickState.clear()
         SetPieceState.clear()
         SecondTouchTracker.clear()
+        MatchSendOffState.clear()
     }
 
     fun kickoffWhistleContext(): KickoffWhistleContext? = kickoffWhistleContext
@@ -354,6 +381,9 @@ object MatchState {
 
     fun isKickoffInteractionLocked(player: ServerPlayer, action: net.astrorbits.football.network.FootballActionType?): Boolean {
         if (!MatchParticipation.isParticipating(player)) {
+            return true
+        }
+        if (PenaltyFoulGoalWatchState.isActive()) {
             return true
         }
         if (postGoalResetPending) {
@@ -490,7 +520,8 @@ object MatchState {
      * 点球阶段（含主罚触球后的 RESOLVING）全程禁止滑铲动球。
      */
     fun shouldSuppressKickoffPhaseSlideBallContact(player: ServerPlayer): Boolean =
-        isPenaltyKickSetPieceActive() ||
+        PenaltyFoulGoalWatchState.isActive() ||
+            isPenaltyKickSetPieceActive() ||
             shouldSuppressKickoffPhaseBodyBallContact(player.level().gameTime)
 
     /** 正赛点球或点球大战进行中。 */
@@ -498,7 +529,7 @@ object MatchState {
         PenaltyShootoutState.isActive() || MatchPenaltyKickState.isActive()
 
     /** 进入开球锁定阶段（重置触球标记与开球哨计时）。 */
-    fun beginKickoffPhase(lockMs: Long, context: KickoffWhistleContext) {
+    fun beginKickoffPhase(lockMs: Long, context: KickoffWhistleContext, server: MinecraftServer? = null) {
         kickoffTouched = false
         kickoffBodyContactReleaseUntilTick = -1L
         kickoffTimerStartMs = System.currentTimeMillis()
@@ -508,6 +539,19 @@ object MatchState {
         kickoffWhistle3Played = false
         kickoffWhistle5Played = false
         lastDynamicStoppageAccumMs = 0L
+        if (server != null && context.isCenterKickoffRestore()) {
+            MatchSendOffState.restoreAllForCenterKickoff(server)
+        }
+    }
+
+    private fun KickoffWhistleContext.isCenterKickoffRestore(): Boolean = when (this) {
+        KickoffWhistleContext.MATCH_START,
+        KickoffWhistleContext.POST_GOAL,
+        KickoffWhistleContext.HALF,
+        -> true
+        KickoffWhistleContext.GOAL_LINE_OUT,
+        KickoffWhistleContext.PENALTY_KICK,
+        -> false
     }
 
     private fun scheduleKickoffBodyContactRelease(touchGameTick: Long) {
@@ -531,14 +575,15 @@ object MatchState {
     }
 
     /**
-     * 开球锁定时长 + 10s 宽限过后仍未触球，则累积动态补时。
+     * 开球锁定时长 + [setPieceStoppageAccumGraceSeconds] 过后仍未触球，则累积动态补时。
      */
     fun tickDynamicStoppageAccumulation() {
         if (postGoalResetPending) return
         if (currentPhase == MatchPhase.PENALTIES) return
         if (kickoffTeam == null || kickoffTouched || kickoffTimerStartMs == 0L) return
         val now = System.currentTimeMillis()
-        val graceEnd = kickoffTimerStartMs + kickoffLockMs + MatchKickoffTiming.LATE_KICKOFF_WARN_MS
+        val graceMs = MatchConfigHolder.current.setPieceStoppageAccumGraceSeconds.coerceAtLeast(0) * 1000L
+        val graceEnd = kickoffTimerStartMs + kickoffLockMs + graceMs
         if (now <= graceEnd) return
         val maxTicks = MatchConfigHolder.current.stoppageTimeMaxMinutes * 60 * 20
         if (dynamicStoppageTicks >= maxTicks) return
@@ -628,6 +673,7 @@ object MatchState {
             PostGoalBallResetScheduler.cancel(level.dimension())
         }
         postGoalResetPending = false
+        PenaltyFoulGoalWatchState.clear()
         for (player in server.playerList.players) {
             GoalkeeperUtil.findHeldFootball(player)?.dropAt(player)
         }
@@ -649,6 +695,7 @@ object MatchState {
         DeferredBallResetScheduler.cancel(level.dimension())
         PostGoalBallResetScheduler.cancel(level.dimension())
         postGoalResetPending = false
+        PenaltyFoulGoalWatchState.clear()
         clearAllFootballs(level.server)
         val fb = Football(Football.ENTITY_TYPE, level)
         val p = pos ?: MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
@@ -798,7 +845,7 @@ object MatchState {
         kickoffTeam = kickoff
         lastHalfKickoffTeam = kickoff
         postGoalResetPending = false
-        beginKickoffPhase(MatchKickoffTiming.MATCH_START_LOCK_MS, KickoffWhistleContext.MATCH_START)
+        beginKickoffPhase(MatchKickoffTiming.MATCH_START_LOCK_MS, KickoffWhistleContext.MATCH_START, server)
         val level = matchFieldLevel(server)
         val kickPos = MatchConfigHolder.current.kickOff.let { Vec3(it.x, it.y, it.z) }
         DeferredBallResetScheduler.schedule(level, kickPos) { loadedLevel ->
@@ -839,6 +886,45 @@ object MatchState {
             }
             teleportTeam(side, uuids, gkUuid, spawnCfg, server)
         }
+    }
+
+    fun teleportPlayerToTeamSpawn(player: ServerPlayer, team: TeamSide) {
+        val config = MatchConfigHolder.current
+        val spawnCfg = when (team) {
+            TeamSide.A -> config.teamASpawn
+            TeamSide.B -> config.teamBSpawn
+        }
+        val gkUuid = when (team) {
+            TeamSide.A -> PlayerRoleState.teamAGoalkeeper
+            TeamSide.B -> PlayerRoleState.teamBGoalkeeper
+        }
+        val pos = if (player.uuid == gkUuid) {
+            spawnCfg.gk
+        } else {
+            spawnCfg.players.firstOrNull() ?: spawnCfg.gk
+        }
+        teleportTo(player, pos)
+    }
+
+    fun teleportPlayerToTeamCornerFarFromBall(player: ServerPlayer, team: TeamSide, server: MinecraftServer) {
+        val ball = ballPositionForSpawnChoice(server)
+        val corner = MatchFieldAreaUtil.farthestTeamCornerKickFrom(team, ball.x, ball.z)
+        val center = MatchConfigHolder.current.kickOff
+        val yaw = Math.toDegrees(kotlin.math.atan2(-(center.x - corner.x), center.z - corner.z)).toFloat()
+        teleportToKickPosition(player, corner, yaw)
+    }
+
+    private fun ballPositionForSpawnChoice(server: MinecraftServer): Vec3 {
+        val level = server.overworld()
+        val football = level.getEntitiesOfClass(Football::class.java, ALL_FOOTBALLS_AABB).firstOrNull()
+        if (football != null) return football.position()
+        val kickOff = MatchConfigHolder.current.kickOff
+        return Vec3(kickOff.x, kickOff.y, kickOff.z)
+    }
+
+    private fun teleportToKickPosition(player: ServerPlayer, pos: KickPosition, yaw: Float, pitch: Float = 0f) {
+        val level = player.level()
+        player.teleportTo(level, pos.x, pos.y, pos.z, HashSet(), yaw, pitch, false)
     }
 
     private fun teleportTeam(
@@ -1025,6 +1111,7 @@ object MatchState {
         }
         if (phase == MatchPhase.FINISHED && server != null) {
             restoreSpectators(server)
+            MatchSendOffState.restoreAllForMatchEnd(server)
         }
         if (phase == MatchPhase.PENALTIES && server != null && teamAScore == teamBScore) {
             syncPlayerTeamsToClients(server)

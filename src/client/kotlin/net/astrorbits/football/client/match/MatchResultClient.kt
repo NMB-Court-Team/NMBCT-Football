@@ -13,6 +13,7 @@ object MatchResultClient {
     var penaltyScoreA: Int = 0; private set
     var penaltyScoreB: Int = 0; private set
     var penaltyWinner: net.astrorbits.football.match.TeamSide? = null; private set
+    var forfeitWinner: net.astrorbits.football.match.TeamSide? = null; private set
 
     val isActive: Boolean
         get() = startTimeMs > 0 && (System.currentTimeMillis() - startTimeMs) < DURATION_MS
@@ -29,6 +30,7 @@ object MatchResultClient {
         penaltyScoreA: Int = 0,
         penaltyScoreB: Int = 0,
         penaltyWinner: net.astrorbits.football.match.TeamSide? = null,
+        forfeitWinner: net.astrorbits.football.match.TeamSide? = null,
     ) {
         teamAScore = scoreA
         teamBScore = scoreB
@@ -39,6 +41,7 @@ object MatchResultClient {
         this.penaltyScoreA = penaltyScoreA
         this.penaltyScoreB = penaltyScoreB
         this.penaltyWinner = penaltyWinner
+        this.forfeitWinner = forfeitWinner
         startTimeMs = System.currentTimeMillis()
     }
 }

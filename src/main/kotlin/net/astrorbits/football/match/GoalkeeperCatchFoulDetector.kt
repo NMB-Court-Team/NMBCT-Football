@@ -13,6 +13,7 @@ object GoalkeeperCatchFoulDetector {
         if (!MatchState.isDuringMatch()) return false
         if (MatchState.postGoalResetPending) return false
         if (PenaltyShootoutState.isActive() || MatchPenaltyKickState.isActive()) return false
+        if (ThrowInSetPieceFlow.isMovementFrozen(player)) return false
         if (!PlayerRoleState.isGoalkeeper(player)) return false
         val team = MatchState.getPlayerTeam(player.uuid) ?: return false
         val center = GoalkeeperUtil.ballCenter(football)

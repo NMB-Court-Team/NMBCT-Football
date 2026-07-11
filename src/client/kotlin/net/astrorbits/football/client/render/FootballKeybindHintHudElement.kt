@@ -1,6 +1,7 @@
 package net.astrorbits.football.client.render
 
 import net.astrorbits.football.client.util.FootballHudVisibility
+import net.astrorbits.football.config.FootballConfigs
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.DeltaTracker
 import net.minecraft.client.Minecraft
@@ -48,6 +49,7 @@ class FootballKeybindHintHudElement : HudElement {
     }
 
     private fun canRenderHud(client: Minecraft): Boolean {
+        if (!FootballConfigs.client.showKeybindHintHud) return false
         if (client.isPaused || FootballHudVisibility.isDebugOverlayOpen(client)) return false
         if (client.player == null || client.level == null) return false
         val screen = client.screen

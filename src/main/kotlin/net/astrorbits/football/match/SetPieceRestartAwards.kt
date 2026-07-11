@@ -19,7 +19,7 @@ object SetPieceRestartAwards {
         MatchState.kickoffTouched = false
         MatchState.resetFootball(level, pos)
         MatchState.kickoffTeam = kickoffTeam
-        MatchState.beginKickoffPhase(lockMs, context)
+        MatchState.beginKickoffPhase(lockMs, context, server)
         SetPieceBootstrap.onCenterKickoffBegin(kickoffTeam, pos, server)
         FootballNetworking.broadcastRestartKickoff(server, kickoffTeam, goalLineOut = false)
         FootballNetworking.broadcastSetPieceState(server)

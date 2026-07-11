@@ -207,12 +207,15 @@ data class MatchConfig(
 ) {
     val halfTimeMinutes: Int get() = rules.halfTimeMinutes
     val enableOffside: Boolean get() = rules.enableOffside
+    val enableSecondTouch: Boolean get() = rules.enableSecondTouch
     val enableStoppageTime: Boolean get() = rules.enableStoppageTime
     val stoppageTimeMaxMinutes: Int get() = rules.stoppageTimeMaxMinutes
     val enableExtraTime: Boolean get() = rules.enableExtraTime
     val extraTimeHalfMinutes: Int get() = rules.extraTimeHalfMinutes
     val enablePenaltyShootout: Boolean get() = rules.enablePenaltyShootout
     val postGoalBallResetDelaySeconds: Int get() = rules.postGoalBallResetDelaySeconds
+    val setPieceStoppageAccumGraceSeconds: Int get() = rules.setPieceStoppageAccumGraceSeconds
+    val sendOffDurationSeconds: Int get() = rules.sendOffDurationSeconds
     val enablePreMatchPreparation: Boolean get() = rules.enablePreMatchPreparation
     val preMatchPreparationMinutes: Int get() = rules.preMatchPreparationMinutes
 

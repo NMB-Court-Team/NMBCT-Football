@@ -251,16 +251,13 @@ object ThrowInSetPieceFlow {
         return !MatchState.isKickoffCountdownActive()
     }
 
-    /** 出界瞬间：距出界点最近的在线非门将队员。 */
+    /** 出界瞬间：距出界点最近的在线队员；优先非门将，外场全不可用则门将主罚。 */
     fun pickThrowInTaker(server: MinecraftServer, restartTeam: TeamSide, outPos: Vec3): ServerPlayer? {
-        val roster = when (restartTeam) {
-            TeamSide.A -> MatchState.teamAPlayers
-            TeamSide.B -> MatchState.teamBPlayers
-        }
-        return roster.mapNotNull { server.playerList.getPlayer(it) }
-            .filter { MatchParticipation.isParticipating(it) }
-            .filter { !PlayerRoleState.isDesignatedGoalkeeper(it) }
+        val eligible = eligibleSetPiecePlayers(server, restartTeam)
+        return eligible.filter { !PlayerRoleState.isDesignatedGoalkeeper(it) }
             .minByOrNull { distanceToOutPoint(it, outPos) }
+            ?: eligible.filter { PlayerRoleState.isDesignatedGoalkeeper(it) }
+                .minByOrNull { distanceToOutPoint(it, outPos) }
     }
 
     fun clear(server: MinecraftServer?) {
@@ -291,16 +288,27 @@ object ThrowInSetPieceFlow {
     ): ServerPlayer? {
         preferredTakerUuid?.let { uuid ->
             server.playerList.getPlayer(uuid)?.let { player ->
-                if (MatchParticipation.isParticipating(player) &&
-                    MatchState.getPlayerTeam(player.uuid) == restartTeam &&
-                    !PlayerRoleState.isDesignatedGoalkeeper(player)
-                ) {
+                if (!MatchParticipation.isEligibleForSetPiece(player)) return@let
+                if (MatchState.getPlayerTeam(player.uuid) != restartTeam) return@let
+                if (!PlayerRoleState.isDesignatedGoalkeeper(player) || !hasEligibleOutfieldTaker(server, restartTeam)) {
                     return player
                 }
             }
         }
         return pickThrowInTaker(server, restartTeam, outPos)
     }
+
+    private fun eligibleSetPiecePlayers(server: MinecraftServer, restartTeam: TeamSide): List<ServerPlayer> {
+        val roster = when (restartTeam) {
+            TeamSide.A -> MatchState.teamAPlayers
+            TeamSide.B -> MatchState.teamBPlayers
+        }
+        return roster.mapNotNull { server.playerList.getPlayer(it) }
+            .filter { MatchParticipation.isEligibleForSetPiece(it) }
+    }
+
+    private fun hasEligibleOutfieldTaker(server: MinecraftServer, restartTeam: TeamSide): Boolean =
+        eligibleSetPiecePlayers(server, restartTeam).any { !PlayerRoleState.isDesignatedGoalkeeper(it) }
 
     private fun distanceToOutPoint(player: ServerPlayer, outPos: Vec3): Double {
         val dx = player.x - outPos.x

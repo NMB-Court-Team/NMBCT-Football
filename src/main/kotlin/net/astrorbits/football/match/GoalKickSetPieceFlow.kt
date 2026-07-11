@@ -26,9 +26,9 @@ object GoalKickSetPieceFlow {
                 goalKickPhase = GoalKickPhase.WAITING_PICKUP,
             ),
         )
-        SetPieceTakerPlacement.resolveGoalkeeper(server, restartTeam)?.let { keeper ->
+        SetPieceTakerPlacement.resolveGoalKickPicker(server, restartTeam, ballPos)?.let { picker ->
             val (stand, yaw) = SetPieceTakerPlacement.goalKickKeeperStand(restartTeam, ballPos)
-            SetPieceTakerPlacement.teleportPlayer(level, keeper, stand, yaw)
+            SetPieceTakerPlacement.teleportPlayer(level, picker, stand, yaw)
         }
         SetPieceState.active?.let { SetPiecePlayerRepositioner.repositionInitialViolators(server, it) }
         applyTeamPermissions(server, restartTeam, defendingSide, pickerUuid = null)
@@ -220,7 +220,7 @@ object GoalKickSetPieceFlow {
             ballX = ballX,
             ballZ = ballZ,
             teamOf = { player -> MatchState.getPlayerTeam(player.uuid) },
-            isParticipating = MatchParticipation::isParticipating,
+            isParticipating = MatchParticipation::isEligibleForSetPiece,
         )
 
     fun isPlacedKicker(player: ServerPlayer): Boolean {

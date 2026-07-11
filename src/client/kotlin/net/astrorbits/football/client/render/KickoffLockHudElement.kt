@@ -28,7 +28,7 @@ class KickoffLockHudElement : HudElement {
 
         for (line in content.lines) {
             drawCenter(extra, font, line.format(), cx, y, line.color, line.bold)
-            y += FootballHudHintResolver.Layout.BOTTOM_LINE_GAP
+            y += (FootballHudHintResolver.Layout.BOTTOM_LINE_GAP * FootballHudTextScale.BOTTOM_HINT).toInt()
         }
     }
 
@@ -46,6 +46,14 @@ class KickoffLockHudElement : HudElement {
         } else {
             Component.literal(text)
         }
-        extra.text(font, component.visualOrderText, cx - font.width(text) / 2, y, color, true)
+        val seq = component.visualOrderText
+        val w = font.width(seq)
+        val scale = FootballHudTextScale.BOTTOM_HINT
+        val pose = extra.pose()
+        pose.pushMatrix()
+        pose.translate(cx.toFloat(), y.toFloat())
+        pose.scale(scale, scale)
+        extra.text(font, seq, -w / 2, 0, color, true)
+        pose.popMatrix()
     }
 }

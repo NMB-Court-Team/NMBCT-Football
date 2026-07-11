@@ -66,19 +66,25 @@ object KickCurveSessions {
         if (now < session.commitAfterTick) {
             return false
         }
-        pending.remove(player.uuid)
 
-        val football = player.level().getEntity(session.footballId) as? Football ?: return false
-        if (!football.isAlive) {
+        val football = player.level().getEntity(session.footballId) as? Football ?: run {
+            pending.remove(player.uuid)
             return false
         }
+        if (!football.isAlive) {
+            pending.remove(player.uuid)
+            return false
+        }
+        // 须在 pending 仍存在时检查：isPlayerBallMovementForbidden 靠 isFollowUpActive 豁免点球 RESOLVING 开球锁。
         if (football.isPlayerBallMovementForbidden(player)) {
+            pending.remove(player.uuid)
             return false
         }
 
         val yawDelta = curveYawDeltaDeg.toDouble()
             .coerceIn(-FootballInputConfig.CURVE_MAX_YAW_DEG, FootballInputConfig.CURVE_MAX_YAW_DEG)
         if (abs(yawDelta) < FootballInputConfig.CURVE_MIN_YAW_DEG) {
+            pending.remove(player.uuid)
             return false
         }
 
@@ -86,10 +92,13 @@ object KickCurveSessions {
         val targetLateralSpeed = FootballInputConfig.CURVE_MAX_LATERAL_SPEED *
             ratio * session.chargeRatio.toDouble()
         if (targetLateralSpeed < 1.0e-6) {
+            pending.remove(player.uuid)
             return false
         }
 
-        return football.beginCurveRamp(session.kickHorizontal, yawDelta, targetLateralSpeed, player)
+        val applied = football.beginCurveRamp(session.kickHorizontal, yawDelta, targetLateralSpeed, player)
+        pending.remove(player.uuid)
+        return applied
     }
 
     fun clear(playerId: UUID) {

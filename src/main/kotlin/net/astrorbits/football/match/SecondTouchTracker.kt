@@ -32,6 +32,8 @@ object SecondTouchTracker {
 
     private var state: State? = null
 
+    private fun isEnabled(): Boolean = MatchConfigHolder.current.enableSecondTouch
+
     fun isActive(): Boolean = state != null
 
     fun clear() {
@@ -39,6 +41,7 @@ object SecondTouchTracker {
     }
 
     fun begin(restartTeam: TeamSide, takerUuid: UUID, sourceKind: SetPieceKind) {
+        if (!isEnabled()) return
         state = State(restartTeam, takerUuid, sourceKind, Phase.OPENING)
     }
 
@@ -51,6 +54,7 @@ object SecondTouchTracker {
         sourceKind: SetPieceKind,
         resumeGameTick: Long,
     ) {
+        if (!isEnabled()) return
         state = State(
             restartTeam = restartTeam,
             takerUuid = takerUuid,
@@ -79,6 +83,7 @@ object SecondTouchTracker {
 
     /** 界外球掷出后：开球已完成，掷球者下一次触球即二次触球犯规（无宽限）。 */
     fun beginAfterThrowIn(restartTeam: TeamSide, takerUuid: UUID) {
+        if (!isEnabled()) return
         state = State(
             restartTeam = restartTeam,
             takerUuid = takerUuid,
@@ -100,6 +105,10 @@ object SecondTouchTracker {
      * 球权/触球事件。返回 true 表示已判罚间接任意球。
      */
     fun onBallTouched(player: ServerPlayer, ballPos: Vec3, level: ServerLevel): Boolean {
+        if (!isEnabled()) {
+            clear()
+            return false
+        }
         val current = state ?: return false
         val team = MatchState.getPlayerTeam(player.uuid) ?: return false
 
@@ -139,6 +148,7 @@ object SecondTouchTracker {
     }
 
     fun beginFromKickoffTouch(player: ServerPlayer) {
+        if (!isEnabled()) return
         val ctx = SetPieceState.active
         val restartTeam = ctx?.restartTeam ?: MatchState.kickoffTeam ?: return
         val kind = ctx?.kind ?: SetPieceKind.CENTER_KICKOFF

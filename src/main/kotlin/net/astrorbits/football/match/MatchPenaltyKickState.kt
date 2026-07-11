@@ -59,6 +59,7 @@ object MatchPenaltyKickState {
         kickPhase = PenaltyKickPhase.SETUP
         outcomeRecorded = false
         MatchState.postGoalResetPending = false
+        PenaltyFoulGoalWatchState.clear()
 
         placeBallAndPlayers(level, server)
         val spot = defendingGoal().resolvedPenaltySpot()
@@ -103,7 +104,6 @@ object MatchPenaltyKickState {
         if (player.uuid == currentKickerUuid) {
             return kickPhase == PenaltyKickPhase.AWAITING_KICK
         }
-        if (isDefendingGoalkeeper(player)) return true
         return false
     }
 
@@ -266,6 +266,7 @@ object MatchPenaltyKickState {
         preferred?.let { uuid ->
             val player = server.playerList.getPlayer(uuid)
             if (player != null &&
+                MatchParticipation.isEligibleForSetPiece(player) &&
                 MatchState.getPlayerTeam(uuid) == team &&
                 !PlayerRoleState.isDesignatedGoalkeeper(player)
             ) {
@@ -274,7 +275,7 @@ object MatchPenaltyKickState {
         }
         val outfield = server.playerList.players.filter { player ->
             MatchState.getPlayerTeam(player.uuid) == team &&
-                MatchParticipation.isParticipating(player) &&
+                MatchParticipation.isEligibleForSetPiece(player) &&
                 !PlayerRoleState.isDesignatedGoalkeeper(player)
         }
         return outfield.randomOrNull()?.uuid
@@ -292,7 +293,7 @@ object MatchPenaltyKickState {
             football.isImmovable = true
             val immovable = mutableSetOf<UUID>()
             for (player in server.playerList.players) {
-                if (player.uuid != currentKickerUuid && !isDefendingGoalkeeper(player)) {
+                if (player.uuid != currentKickerUuid) {
                     immovable.add(player.uuid)
                 }
             }

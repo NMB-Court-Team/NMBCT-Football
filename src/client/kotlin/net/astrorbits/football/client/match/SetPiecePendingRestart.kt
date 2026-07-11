@@ -22,6 +22,7 @@ object SetPiecePendingRestart {
     }
 
     fun fromRestartAward(kind: SetPieceRestartKind, restartTeam: TeamSide) {
+        if (kind == SetPieceRestartKind.KICKOFF) return
         val setPieceKind = when (kind) {
             SetPieceRestartKind.KICKOFF -> SetPieceKind.CENTER_KICKOFF
             SetPieceRestartKind.GOAL_KICK -> SetPieceKind.GOAL_KICK

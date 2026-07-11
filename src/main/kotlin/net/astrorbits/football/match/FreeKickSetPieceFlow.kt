@@ -78,7 +78,7 @@ object FreeKickSetPieceFlow {
         preferred?.let { uuid ->
             val player = server.playerList.getPlayer(uuid)
             if (player != null &&
-                MatchParticipation.isParticipating(player) &&
+                MatchParticipation.isEligibleForSetPiece(player) &&
                 MatchState.getPlayerTeam(player.uuid) == team &&
                 !PlayerRoleState.isGoalkeeper(player)
             ) {
